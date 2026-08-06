@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/dashboard_screen.dart';
+import 'screens/app_shell.dart';
 import 'theme/app_theme.dart';
 
 class SirisOsApp extends StatelessWidget {
@@ -12,7 +12,7 @@ class SirisOsApp extends StatelessWidget {
       title: 'SirisOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const DashboardScreen(),
+      home: const AppShell(),
     );
   }
 }
