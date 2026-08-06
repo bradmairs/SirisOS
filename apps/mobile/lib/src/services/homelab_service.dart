@@ -43,6 +43,27 @@ class HomelabService {
     return decoded['logs'] as String? ?? '';
   }
 
+  Future<String> performContainerAction(String containerId, String action) async {
+    final response = await _client
+        .post(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/homelab/docker/$containerId/$action'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode == 401) {
+      throw const HomelabServiceException('Your session has expired.');
+    }
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode != 200) {
+      final detail = decoded is Map<String, dynamic> ? decoded['detail'] : null;
+      throw HomelabServiceException(detail as String? ?? 'Container action failed.');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw const HomelabServiceException('Invalid container action response.');
+    }
+    return decoded['status'] as String? ?? 'unknown';
+  }
+
   Future<Map<String, dynamic>> _getJson(String path) async {
     final response = await _client
         .get(Uri.parse('${ApiConfig.baseUrl}$path'), headers: AuthService.authorizationHeaders)
