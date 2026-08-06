@@ -1,3 +1,5 @@
+import 'health_snapshot.dart';
+
 class DashboardCardData {
   const DashboardCardData({
     required this.title,
@@ -40,10 +42,12 @@ class DashboardSummary {
     required this.system,
     required this.briefingItems,
     required this.generatedAt,
+    this.health,
   });
 
   factory DashboardSummary.fromJson(Map<String, dynamic> json) {
     final briefing = json['briefing_items'];
+    final health = json['health'];
     return DashboardSummary(
       greetingName: json['greeting_name'] as String? ?? 'Brad',
       homelab: DashboardCardData.fromJson(
@@ -58,6 +62,9 @@ class DashboardSummary {
       system: DashboardCardData.fromJson(
         json['system'] as Map<String, dynamic>,
       ),
+      health: health is Map<String, dynamic>
+          ? HealthSnapshot.fromJson(health)
+          : null,
       briefingItems: briefing is List
           ? briefing.whereType<String>().toList(growable: false)
           : const [],
@@ -71,6 +78,7 @@ class DashboardSummary {
   final DashboardCardData running;
   final DashboardCardData gym;
   final DashboardCardData system;
+  final HealthSnapshot? health;
   final List<String> briefingItems;
   final DateTime generatedAt;
 
@@ -79,6 +87,8 @@ class DashboardSummary {
     DashboardCardData? running,
     DashboardCardData? gym,
     DashboardCardData? system,
+    HealthSnapshot? health,
+    bool clearHealth = false,
     List<String>? briefingItems,
     DateTime? generatedAt,
   }) {
@@ -88,6 +98,7 @@ class DashboardSummary {
       running: running ?? this.running,
       gym: gym ?? this.gym,
       system: system ?? this.system,
+      health: clearHealth ? null : health ?? this.health,
       briefingItems: briefingItems ?? this.briefingItems,
       generatedAt: generatedAt ?? this.generatedAt,
     );
