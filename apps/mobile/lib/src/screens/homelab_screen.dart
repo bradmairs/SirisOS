@@ -62,7 +62,7 @@ class _HomelabScreenState extends State<HomelabScreen> {
                               const SizedBox(height: 6),
                               Text(
                                 summary.available
-                                    ? 'Live Docker status from your SirisOS host.'
+                                    ? 'Live Docker health and resource usage.'
                                     : 'Docker monitoring is currently unavailable.',
                                 style: TextStyle(
                                   color: Theme.of(context)
@@ -107,7 +107,7 @@ class _HomelabScreenState extends State<HomelabScreen> {
                       itemCount: summary.containers.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
-                        return _ContainerTile(
+                        return _ContainerCard(
                           container: summary.containers[index],
                         );
                       },
@@ -174,8 +174,8 @@ class _Metric extends StatelessWidget {
   }
 }
 
-class _ContainerTile extends StatelessWidget {
-  const _ContainerTile({required this.container});
+class _ContainerCard extends StatelessWidget {
+  const _ContainerCard({required this.container});
 
   final DockerContainerInfo container;
 
@@ -195,35 +195,145 @@ class _ContainerTile extends StatelessWidget {
             : container.state;
 
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        leading: CircleAvatar(
-          backgroundColor: statusColor.withValues(alpha: 0.14),
-          child: Icon(Icons.inventory_2_rounded, color: statusColor),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: statusColor.withValues(alpha: 0.14),
+                  child: Icon(Icons.inventory_2_rounded, color: statusColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        container.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        container.image,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (container.isRunning)
+              Row(
+                children: [
+                  Expanded(
+                    child: _ResourceMetric(
+                      icon: Icons.speed_rounded,
+                      label: 'CPU',
+                      value: container.cpuPercent == null
+                          ? '—'
+                          : '${container.cpuPercent!.toStringAsFixed(1)}%',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ResourceMetric(
+                      icon: Icons.memory_rounded,
+                      label: 'Memory',
+                      value: container.memoryUsageLabel,
+                      detail: container.memoryPercent == null
+                          ? null
+                          : '${container.memoryPercent!.toStringAsFixed(1)}%',
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                container.status,
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+            const SizedBox(height: 12),
+            Text(
+              'ID ${container.containerId}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
         ),
-        title: Text(
-          container.name,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: Text(
-            '${container.image}\n${container.status}',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _ResourceMetric extends StatelessWidget {
+  const _ResourceMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.detail,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: scheme.primary),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                ),
+                Text(
+                  detail == null ? value : '$value · $detail',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
           ),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            statusLabel,
-            style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -242,13 +352,19 @@ class _UnavailablePanel extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.cloud_off_rounded, color: Theme.of(context).colorScheme.error),
+            Icon(
+              Icons.cloud_off_rounded,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Docker unavailable', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Docker unavailable',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 6),
                   Text(error ?? 'The Docker socket proxy could not be reached.'),
                 ],
@@ -276,7 +392,10 @@ class _HomelabErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.dns_outlined, size: 52),
             const SizedBox(height: 16),
-            Text('Could not load Homelab', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Could not load Homelab',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: onRetry,
