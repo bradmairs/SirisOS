@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/docker_summary.dart';
 import '../services/homelab_service.dart';
+import '../widgets/host_metrics_panel.dart';
 import 'container_detail_screen.dart';
 
 class HomelabScreen extends StatefulWidget {
@@ -36,82 +37,58 @@ class _HomelabScreenState extends State<HomelabScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError || !snapshot.hasData) {
-            return _HomelabErrorState(onRetry: _refresh);
+            return _ErrorState(onRetry: _refresh);
           }
 
           final summary = snapshot.data!;
           return RefreshIndicator(
             onRefresh: _refresh,
-            child: CustomScrollView(
+            child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Homelab',
-                                style: Theme.of(context).textTheme.headlineMedium,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                summary.available
-                                    ? 'Live Docker health and resource usage.'
-                                    : 'Docker monitoring is currently unavailable.',
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                              ),
-                            ],
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Homelab', style: Theme.of(context).textTheme.headlineMedium),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Live server and Docker monitoring.',
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: _refresh,
-                          tooltip: 'Refresh Homelab',
-                          icon: const Icon(Icons.refresh_rounded),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    IconButton.filledTonal(
+                      onPressed: _refresh,
+                      tooltip: 'Refresh Homelab',
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                  ],
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(20),
-                  sliver: SliverToBoxAdapter(
-                    child: _SummaryPanel(summary: summary),
-                  ),
-                ),
+                const SizedBox(height: 20),
+                const HostMetricsPanel(),
+                const SizedBox(height: 28),
+                Text('Docker', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                _DockerSummaryPanel(summary: summary),
+                const SizedBox(height: 16),
                 if (!summary.available)
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                    sliver: SliverToBoxAdapter(
-                      child: _UnavailablePanel(error: summary.error),
-                    ),
-                  )
+                  _UnavailablePanel(error: summary.error)
                 else if (summary.containers.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
                     child: Center(child: Text('No Docker containers found.')),
                   )
                 else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                    sliver: SliverList.separated(
-                      itemCount: summary.containers.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        return _ContainerCard(
-                          container: summary.containers[index],
-                        );
-                      },
+                  ...summary.containers.map(
+                    (container) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ContainerCard(container: container),
                     ),
                   ),
               ],
@@ -123,9 +100,8 @@ class _HomelabScreenState extends State<HomelabScreen> {
   }
 }
 
-class _SummaryPanel extends StatelessWidget {
-  const _SummaryPanel({required this.summary});
-
+class _DockerSummaryPanel extends StatelessWidget {
+  const _DockerSummaryPanel({required this.summary});
   final DockerSummary summary;
 
   @override
@@ -150,7 +126,6 @@ class _SummaryPanel extends StatelessWidget {
 
 class _Metric extends StatelessWidget {
   const _Metric({required this.label, required this.value});
-
   final String label;
   final String value;
 
@@ -163,12 +138,7 @@ class _Metric extends StatelessWidget {
         children: [
           Text(value, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
+          Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -177,7 +147,6 @@ class _Metric extends StatelessWidget {
 
 class _ContainerCard extends StatelessWidget {
   const _ContainerCard({required this.container});
-
   final DockerContainerInfo container;
 
   @override
@@ -188,24 +157,20 @@ class _ContainerCard extends StatelessWidget {
         : container.isRunning
             ? scheme.primary
             : scheme.onSurfaceVariant;
-
     final statusLabel = container.isUnhealthy
         ? 'Unhealthy'
         : container.isRunning
             ? (container.health == 'healthy' ? 'Healthy' : 'Running')
             : container.state;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => ContainerDetailScreen(
-              initialContainer: container,
-            ),
+            builder: (_) => ContainerDetailScreen(initialContainer: container),
           ),
-        );
-      },
-      child: Card(
+        ),
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -222,10 +187,7 @@ class _ContainerCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          container.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        Text(container.name, style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 3),
                         Text(
                           container.image,
@@ -236,29 +198,15 @@ class _ContainerCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text(
-                      statusLabel,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
                 ],
               ),
               const SizedBox(height: 16),
@@ -269,9 +217,7 @@ class _ContainerCard extends StatelessWidget {
                       child: _ResourceMetric(
                         icon: Icons.speed_rounded,
                         label: 'CPU',
-                        value: container.cpuPercent == null
-                            ? '—'
-                            : '${container.cpuPercent!.toStringAsFixed(1)}%',
+                        value: container.cpuPercent == null ? '—' : '${container.cpuPercent!.toStringAsFixed(1)}%',
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -280,25 +226,13 @@ class _ContainerCard extends StatelessWidget {
                         icon: Icons.memory_rounded,
                         label: 'Memory',
                         value: container.memoryUsageLabel,
-                        detail: container.memoryPercent == null
-                            ? null
-                            : '${container.memoryPercent!.toStringAsFixed(1)}%',
+                        detail: container.memoryPercent == null ? null : '${container.memoryPercent!.toStringAsFixed(1)}%',
                       ),
                     ),
                   ],
                 )
               else
-                Text(
-                  container.status,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              const SizedBox(height: 12),
-              Text(
-                'ID ${container.containerId}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
+                Text(container.status, style: TextStyle(color: scheme.onSurfaceVariant)),
             ],
           ),
         ),
@@ -308,13 +242,7 @@ class _ContainerCard extends StatelessWidget {
 }
 
 class _ResourceMetric extends StatelessWidget {
-  const _ResourceMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.detail,
-  });
-
+  const _ResourceMetric({required this.icon, required this.label, required this.value, this.detail});
   final IconData icon;
   final String label;
   final String value;
@@ -337,18 +265,8 @@ class _ResourceMetric extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-                Text(
-                  detail == null ? value : '$value · $detail',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                Text(detail == null ? value : '$value · $detail', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -360,7 +278,6 @@ class _ResourceMetric extends StatelessWidget {
 
 class _UnavailablePanel extends StatelessWidget {
   const _UnavailablePanel({required this.error});
-
   final String? error;
 
   @override
@@ -368,61 +285,23 @@ class _UnavailablePanel extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Docker unavailable',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(error ?? 'The Docker socket proxy could not be reached.'),
-                ],
-              ),
-            ),
-          ],
-        ),
+        child: Text(error ?? 'Docker monitoring is unavailable.'),
       ),
     );
   }
 }
 
-class _HomelabErrorState extends StatelessWidget {
-  const _HomelabErrorState({required this.onRetry});
-
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.onRetry});
   final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.dns_outlined, size: 52),
-            const SizedBox(height: 16),
-            Text(
-              'Could not load Homelab',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ],
-        ),
+      child: FilledButton.icon(
+        onPressed: onRetry,
+        icon: const Icon(Icons.refresh_rounded),
+        label: const Text('Retry Homelab'),
       ),
     );
   }
