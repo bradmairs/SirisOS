@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/gym_workout.dart';
+import '../models/workout_template.dart';
 import '../services/gym_service.dart';
 import '../widgets/metric_line_chart.dart';
 import 'exercise_progress_screen.dart';
+import 'workout_templates_screen.dart';
 
 class GymScreen extends StatefulWidget {
   const GymScreen({this.addRequest = 0, super.key});
@@ -37,14 +39,21 @@ class _GymScreenState extends State<GymScreen> {
     await next;
   }
 
-  Future<void> _addWorkout() async {
+  Future<void> _addWorkout([WorkoutTemplate? template]) async {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => const _WorkoutForm(),
+      builder: (_) => _WorkoutForm(template: template),
     );
     if (saved == true) await _refresh();
+  }
+
+  Future<void> _openTemplates() async {
+    final template = await Navigator.of(context).push<WorkoutTemplate>(
+      MaterialPageRoute<WorkoutTemplate>(builder: (_) => const WorkoutTemplatesScreen()),
+    );
+    if (template != null && mounted) await _addWorkout(template);
   }
 
   @override
@@ -83,6 +92,12 @@ class _GymScreenState extends State<GymScreen> {
                         ],
                       ),
                     ),
+                    IconButton.filledTonal(
+                      tooltip: 'Workout templates',
+                      onPressed: _openTemplates,
+                      icon: const Icon(Icons.view_list_rounded),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton.filledTonal(
                       tooltip: 'Exercise progress',
                       onPressed: () => Navigator.of(context).push<void>(
@@ -177,7 +192,8 @@ class _Summary extends StatelessWidget {
 }
 
 class _WorkoutForm extends StatefulWidget {
-  const _WorkoutForm();
+  const _WorkoutForm({this.template});
+  final WorkoutTemplate? template;
 
   @override
   State<_WorkoutForm> createState() => _WorkoutFormState();
@@ -187,8 +203,30 @@ class _WorkoutFormState extends State<_WorkoutForm> {
   final GymService _service = GymService();
   final _name = TextEditingController();
   final _notes = TextEditingController();
-  final List<_SetDraft> _sets = [_SetDraft()];
+  final List<_SetDraft> _sets = [];
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final template = widget.template;
+    if (template == null) {
+      _sets.add(_SetDraft());
+      return;
+    }
+    _name.text = template.name;
+    for (final exercise in template.exercises) {
+      for (var index = 0; index < exercise.targetSets; index++) {
+        _sets.add(
+          _SetDraft(
+            exercise: exercise.exercise,
+            reps: '${exercise.targetReps}',
+            rir: exercise.targetRir == null ? '' : '${exercise.targetRir}',
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -235,7 +273,11 @@ class _WorkoutFormState extends State<_WorkoutForm> {
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
       child: ListView(
         children: [
-          Text('Log workout', style: Theme.of(context).textTheme.headlineSmall),
+          Text(widget.template == null ? 'Log workout' : 'Start ${widget.template!.name}', style: Theme.of(context).textTheme.headlineSmall),
+          if (widget.template != null) ...[
+            const SizedBox(height: 6),
+            Text('Target reps and RIR are pre-filled. Enter today’s weights and adjust completed reps as needed.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ],
           const SizedBox(height: 16),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Workout name', hintText: 'Upper body, Push, Legs…')),
           const SizedBox(height: 12),
@@ -281,6 +323,13 @@ class _WorkoutFormState extends State<_WorkoutForm> {
 }
 
 class _SetDraft {
+  _SetDraft({String exercise = '', String weight = '', String reps = '', String rir = ''}) {
+    this.exercise.text = exercise;
+    this.weight.text = weight;
+    this.reps.text = reps;
+    this.rir.text = rir;
+  }
+
   final exercise = TextEditingController();
   final weight = TextEditingController();
   final reps = TextEditingController();
