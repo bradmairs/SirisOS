@@ -25,7 +25,12 @@ class DockerSummary:
 
 
 class DockerMonitor:
-    """Read-only Docker status collector using the local Docker socket."""
+    """Read-only Docker status collector.
+
+    The Docker SDK reads its connection details from environment variables. In the
+    Compose deployment, `DOCKER_HOST` points to a restricted socket proxy instead
+    of mounting the host Docker socket into the API container directly.
+    """
 
     def collect(self) -> DockerSummary:
         try:
@@ -38,8 +43,8 @@ class DockerMonitor:
                 state_data = attrs.get("State", {})
                 health_data = state_data.get("Health") or {}
                 health = health_data.get("Status")
-                image_tags = container.image.tags
-                image = image_tags[0] if image_tags else container.image.short_id
+                config_data = attrs.get("Config", {})
+                image = str(config_data.get("Image") or "unknown")
 
                 items.append(
                     DockerContainer(
