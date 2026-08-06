@@ -52,13 +52,15 @@ make up
 - Consistent preview and unavailable module screens
 - Typed SirisCore broadcast event bus
 - Event-driven Notification Centre with severity and read/unread state
+- Typed deterministic briefing observations with ranking, deduplication, expiry, and fallback assembly
+- Running, Gym, Homelab, and system briefing contributors
 - Running logging and fitness trends
 - Gym workouts, templates, progress, and personal records
 - Health Auto Export MCP integration scaffold
 - Live Docker monitoring and container control
 - Host metrics, history, Homelab alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
-- Dashboard recommendations, briefing strings, and trend sparklines
+- Dashboard recommendations, deterministic briefing output, and trend sparklines
 - Global search
 
 # Authoritative development roadmap
@@ -117,11 +119,14 @@ This is the current development priority. Complete SirisCore before substantial 
 ### Briefing Engine and Siris Score
 
 - [x] Existing dashboard briefing strings and rules-based recommendations
-- [ ] Standard observation model and contributor interface
-- [ ] Running, Gym, Health, and Homelab contributors
-- [ ] Priority scoring, deduplication, and expiry
-- [ ] Deterministic briefing assembly
-- [ ] Event-driven refresh
+- [x] Standard observation model and contributor interface
+- [x] Running, Gym, and Homelab contributors
+- [x] Health contributor registration without fabricated observations
+- [x] Priority scoring, deduplication, and expiry
+- [x] Deterministic briefing assembly with backend fallback
+- [x] Briefing widget consumes deterministic output
+- [ ] Add dedicated Health data to the shared briefing input
+- [ ] Event-driven briefing refresh
 - [ ] Optional Ollama rewriting layer
 - [ ] Deterministic Siris Score across health, fitness, Homelab, knowledge, tasks, engineering momentum, and automation health
 - [ ] Human-readable score explanation showing which domains raised or lowered the result
@@ -208,13 +213,14 @@ Long-term examples include surfacing engineering project notes beside calculatio
 
 Unless deliberately revised and documented:
 
-1. Build the deterministic Briefing Engine and Siris Score foundation.
-2. Complete Scheduler, AI Context, and remaining SirisCore systems.
-3. Declare Sprint 0.4.1 complete.
-4. Build the dedicated Mission Control route using the shared Widget Registry.
-5. Finish Live Homelab capabilities.
-6. Begin the Engineering module.
-7. Build the Obsidian-backed Knowledge Platform.
+1. Add Health briefing input and event-driven briefing refresh.
+2. Build the deterministic Siris Score foundation and explanation model.
+3. Complete Scheduler, AI Context, and remaining SirisCore systems.
+4. Declare Sprint 0.4.1 complete.
+5. Build the dedicated Mission Control route using the shared Widget Registry.
+6. Finish Live Homelab capabilities.
+7. Begin the Engineering module.
+8. Build the Obsidian-backed Knowledge Platform.
 
 # Running and development
 
