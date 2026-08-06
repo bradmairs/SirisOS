@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../core/siris_event_bus.dart';
 import '../models/activity_event.dart';
 import 'auth_service.dart';
 
@@ -38,8 +39,16 @@ class ActivityService {
         .timeout(const Duration(seconds: 10));
     _ensureSuccess(response);
     final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) return 0;
-    return decoded['unread_count'] as int? ?? 0;
+    final unreadCount = decoded is Map<String, dynamic>
+        ? decoded['unread_count'] as int? ?? 0
+        : 0;
+    SirisEventBus.instance.publish(
+      NotificationStateChanged(
+        source: 'activity_service',
+        unreadCount: unreadCount,
+      ),
+    );
+    return unreadCount;
   }
 
   Future<void> markAllRead() async {
@@ -50,6 +59,12 @@ class ActivityService {
         )
         .timeout(const Duration(seconds: 10));
     _ensureSuccess(response);
+    SirisEventBus.instance.publish(
+      NotificationStateChanged(
+        source: 'activity_service',
+        unreadCount: 0,
+      ),
+    );
   }
 
   void _ensureSuccess(http.Response response) {
