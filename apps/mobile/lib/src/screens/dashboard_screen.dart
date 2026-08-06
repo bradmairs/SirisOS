@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/dashboard_summary.dart';
 import '../models/mission_control_widget.dart';
+import '../modules/app_widget_registry.dart';
 import '../services/activity_service.dart';
 import '../services/dashboard_layout_service.dart';
 import '../services/dashboard_service.dart';
-import '../widgets/activity_feed_panel.dart';
-import '../widgets/dashboard_card.dart';
-import '../widgets/dashboard_hero.dart';
 import 'notification_center_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -100,55 +98,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                     itemBuilder: (context, index) {
                       final item = draft[index];
-                      final definition =
-                          MissionControlWidgetRegistry.definitionFor(item.id);
+                      final definition = AppWidgetRegistry.definitionFor(item.id);
                       return Card(
                         key: ValueKey(item.id),
                         margin: const EdgeInsets.only(bottom: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: ListTile(
-                            leading: Icon(definition.icon),
-                            title: Text(definition.label),
-                            subtitle: DropdownButton<MissionControlWidgetSize>(
-                              value: item.size,
-                              isDense: true,
-                              underline: const SizedBox.shrink(),
-                              items: MissionControlWidgetSize.values
-                                  .map(
-                                    (size) => DropdownMenuItem(
-                                      value: size,
-                                      child: Text(_sizeLabel(size)),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (size) {
-                                if (size == null) return;
-                                setModalState(
+                        child: ListTile(
+                          leading: Icon(definition.icon),
+                          title: Text(definition.label),
+                          subtitle: Text('${definition.moduleId} · ${_sizeLabel(item.size)}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DropdownButton<MissionControlWidgetSize>(
+                                value: item.size,
+                                underline: const SizedBox.shrink(),
+                                items: MissionControlWidgetSize.values
+                                    .map(
+                                      (size) => DropdownMenuItem(
+                                        value: size,
+                                        child: Text(_sizeLabel(size)),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (size) {
+                                  if (size == null) return;
+                                  setModalState(
+                                    () => draft[index] = item.copyWith(size: size),
+                                  );
+                                },
+                              ),
+                              Switch(
+                                value: item.visible,
+                                onChanged: (visible) => setModalState(
                                   () => draft[index] =
-                                      item.copyWith(size: size),
-                                );
-                              },
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Switch(
-                                  value: item.visible,
-                                  onChanged: (visible) => setModalState(
-                                    () => draft[index] =
-                                        item.copyWith(visible: visible),
-                                  ),
+                                      item.copyWith(visible: visible),
                                 ),
-                                ReorderableDragStartListener(
-                                  index: index,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: Icon(Icons.drag_handle_rounded),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Icon(Icons.drag_handle_rounded),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -208,6 +198,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
 
           final data = snapshot.data!;
+          final widgetContext = MissionControlWidgetContext(
+            dashboard: data,
+            greeting: _greeting(),
+          );
           return RefreshIndicator(
             onRefresh: _refresh,
             child: LayoutBuilder(
@@ -242,7 +236,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 gap,
                                 contentWidth,
                               ),
-                              child: _buildWidget(item.id, data),
+                              child: AppWidgetRegistry.build(
+                                item.id,
+                                widgetContext,
+                              ),
                             ),
                           )
                           .toList(),
@@ -296,8 +293,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   right: -2,
                   top: -3,
                   child: Container(
-                    constraints:
-                        const BoxConstraints(minWidth: 20, minHeight: 20),
+                    constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                     padding: const EdgeInsets.symmetric(horizontal: 5),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.error,
@@ -306,10 +302,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     alignment: Alignment.center,
                     child: Text(
                       _unreadCount > 99 ? '99+' : '$_unreadCount',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -324,37 +317,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       );
 
-  Widget _buildWidget(String id, DashboardSummary data) => switch (id) {
-        'briefing' => DashboardHero(greeting: _greeting(), data: data),
-        'homelab' => SizedBox(
-            height: 190,
-            child: _card(data.homelab, Icons.dns_rounded),
-          ),
-        'running' => SizedBox(
-            height: 190,
-            child: _card(data.running, Icons.directions_run_rounded),
-          ),
-        'gym' => SizedBox(
-            height: 190,
-            child: _card(data.gym, Icons.fitness_center_rounded),
-          ),
-        'system' => SizedBox(
-            height: 190,
-            child: _card(data.system, Icons.memory_rounded),
-          ),
-        'activity' => const ActivityFeedPanel(),
-        _ => const SizedBox.shrink(),
-      };
-
-  DashboardCard _card(DashboardCardData data, IconData icon) => DashboardCard(
-        title: data.title,
-        value: data.value,
-        subtitle: data.subtitle,
-        status: data.status,
-        trend: data.trend,
-        icon: icon,
-      );
-
   static double _widgetWidth(
     MissionControlWidgetSize size,
     int columns,
@@ -365,10 +327,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (columns == 1) return contentWidth;
     final span = switch (size) {
       MissionControlWidgetSize.compact => 1,
-      MissionControlWidgetSize.standard => columns >= 4 ? 1 : 1,
+      MissionControlWidgetSize.standard => 1,
       MissionControlWidgetSize.wide => columns,
     };
-    return span >= columns ? contentWidth : (unitWidth * span) + (gap * (span - 1));
+    return span >= columns
+        ? contentWidth
+        : (unitWidth * span) + (gap * (span - 1));
   }
 
   static String _sizeLabel(MissionControlWidgetSize size) => switch (size) {

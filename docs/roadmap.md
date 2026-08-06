@@ -31,8 +31,12 @@
 ## Milestone 4 — SirisCore and Mission Control
 
 - [x] Mission Control widget registry
+- [x] Namespaced widget IDs
+- [x] Module-owned widget registration
+- [x] Reusable widget builders
+- [x] Legacy layout ID migration
 - [x] Persistent widget visibility, ordering and sizing
-- [x] Existing dashboard panels rendered through Mission Control layout
+- [x] Existing dashboard panels rendered through registered builders
 - [x] Module registry with declared capabilities
 - [x] Typed broadcast event bus
 - [x] Mission Control refresh events
@@ -47,6 +51,7 @@
 - [x] Registry-driven module quick actions
 - [x] Module-owned route and screen builders
 - [x] Preview and unavailable module handling
+- [ ] Shared dedicated Mission Control consumption
 - [ ] Module enable/disable settings and persisted availability
 - [ ] Drag-and-drop layout directly on the workspace
 - [ ] Notification action metadata and action buttons
