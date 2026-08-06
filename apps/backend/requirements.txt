@@ -4,3 +4,4 @@ pydantic==2.11.7
 psycopg[binary]==3.2.9
 sqlalchemy==2.0.42
 docker==7.1.0
+PyJWT==2.10.1
