@@ -5,7 +5,9 @@ import '../services/running_service.dart';
 import '../widgets/metric_line_chart.dart';
 
 class RunningScreen extends StatefulWidget {
-  const RunningScreen({super.key});
+  const RunningScreen({this.addRequest = 0, super.key});
+
+  final int addRequest;
 
   @override
   State<RunningScreen> createState() => _RunningScreenState();
@@ -19,6 +21,16 @@ class _RunningScreenState extends State<RunningScreen> {
   void initState() {
     super.initState();
     _runsFuture = _service.fetchRuns();
+  }
+
+  @override
+  void didUpdateWidget(covariant RunningScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.addRequest != oldWidget.addRequest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _addRun();
+      });
+    }
   }
 
   void _reload() => setState(() => _runsFuture = _service.fetchRuns());
@@ -69,7 +81,7 @@ class _RunningScreenState extends State<RunningScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
                 else if (snapshot.hasError)
-                  Card(child: Padding(padding: const EdgeInsets.all(20), child: Text('Could not load running data.')))
+                  const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Could not load running data.')))
                 else if (runs.isEmpty)
                   Card(
                     child: Padding(
