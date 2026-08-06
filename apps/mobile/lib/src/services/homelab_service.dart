@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/docker_summary.dart';
+import '../models/host_metrics.dart';
 import 'auth_service.dart';
 
 class HomelabService {
@@ -12,9 +13,21 @@ class HomelabService {
   final http.Client _client;
 
   Future<DockerSummary> fetchDockerSummary() async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/homelab/docker');
+    final decoded = await _getJson('/api/v1/homelab/docker');
+    return DockerSummary.fromJson(decoded);
+  }
+
+  Future<HostMetrics> fetchHostMetrics() async {
+    final decoded = await _getJson('/api/v1/homelab/host');
+    return HostMetrics.fromJson(decoded);
+  }
+
+  Future<Map<String, dynamic>> _getJson(String path) async {
     final response = await _client
-        .get(uri, headers: AuthService.authorizationHeaders)
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}$path'),
+          headers: AuthService.authorizationHeaders,
+        )
         .timeout(const Duration(seconds: 8));
 
     if (response.statusCode == 401) {
@@ -22,18 +35,17 @@ class HomelabService {
     }
     if (response.statusCode != 200) {
       throw HomelabServiceException(
-        'Docker request failed with status ${response.statusCode}.',
+        'Homelab request failed with status ${response.statusCode}.',
       );
     }
 
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
       throw const HomelabServiceException(
-        'Docker response was not a JSON object.',
+        'Homelab response was not a JSON object.',
       );
     }
-
-    return DockerSummary.fromJson(decoded);
+    return decoded;
   }
 }
 
