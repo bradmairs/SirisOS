@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../models/gym_workout.dart';
 import '../services/gym_service.dart';
 import '../widgets/metric_line_chart.dart';
+import 'exercise_progress_screen.dart';
 
 class GymScreen extends StatefulWidget {
   const GymScreen({this.addRequest = 0, super.key});
-
   final int addRequest;
 
   @override
@@ -27,9 +27,7 @@ class _GymScreenState extends State<GymScreen> {
   void didUpdateWidget(covariant GymScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.addRequest != oldWidget.addRequest) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _addWorkout();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _addWorkout());
     }
   }
 
@@ -78,11 +76,26 @@ class _GymScreenState extends State<GymScreen> {
                         children: [
                           Text('Gym', style: Theme.of(context).textTheme.headlineMedium),
                           const SizedBox(height: 6),
-                          Text('Workout logging and progressive overload tracking.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          Text(
+                            'Workout logging and progressive overload tracking.',
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
                         ],
                       ),
                     ),
-                    FilledButton.icon(onPressed: _addWorkout, icon: const Icon(Icons.add_rounded), label: const Text('Workout')),
+                    IconButton.filledTonal(
+                      tooltip: 'Exercise progress',
+                      onPressed: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(builder: (_) => const ExerciseProgressScreen()),
+                      ),
+                      icon: const Icon(Icons.trending_up_rounded),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _addWorkout,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Workout'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -106,25 +119,34 @@ class _GymScreenState extends State<GymScreen> {
                 Text('Workout history', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
                 if (workouts.isEmpty)
-                  const Card(child: Padding(padding: EdgeInsets.all(28), child: Text('No workouts logged yet. Add your first session to begin tracking progress.')))
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(28),
+                      child: Text('No workouts logged yet. Add your first session to begin tracking progress.'),
+                    ),
+                  )
                 else
-                  ...workouts.map((workout) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Card(
-                          child: ExpansionTile(
-                            title: Text(workout.name),
-                            subtitle: Text('${_dateLabel(workout.date)} · ${workout.sets.length} sets · ${workout.totalVolumeKg.toStringAsFixed(0)} kg'),
-                            children: workout.sets
-                                .map((set) => ListTile(
-                                      dense: true,
-                                      title: Text(set.exercise),
-                                      subtitle: Text('${set.weightKg.toStringAsFixed(1)} kg × ${set.reps}${set.rir == null ? '' : ' · ${set.rir} RIR'}'),
-                                      trailing: Text('${set.volumeKg.toStringAsFixed(0)} kg'),
-                                    ))
-                                .toList(),
-                          ),
+                  ...workouts.map(
+                    (workout) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Card(
+                        child: ExpansionTile(
+                          title: Text(workout.name),
+                          subtitle: Text('${_dateLabel(workout.date)} · ${workout.sets.length} sets · ${workout.totalVolumeKg.toStringAsFixed(0)} kg'),
+                          children: workout.sets
+                              .map(
+                                (set) => ListTile(
+                                  dense: true,
+                                  title: Text(set.exercise),
+                                  subtitle: Text('${set.weightKg.toStringAsFixed(1)} kg × ${set.reps}${set.rir == null ? '' : ' · ${set.rir} RIR'}'),
+                                  trailing: Text('${set.volumeKg.toStringAsFixed(0)} kg'),
+                                ),
+                              )
+                              .toList(),
                         ),
-                      )),
+                      ),
+                    ),
+                  ),
               ],
             ),
           );
@@ -140,12 +162,23 @@ class _Summary extends StatelessWidget {
   const _Summary({required this.label, required this.value});
   final String label;
   final String value;
+
   @override
-  Widget build(BuildContext context) => SizedBox(width: 120, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: Theme.of(context).textTheme.titleLarge), Text(label)]));
+  Widget build(BuildContext context) => SizedBox(
+        width: 120,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: Theme.of(context).textTheme.titleLarge),
+            Text(label),
+          ],
+        ),
+      );
 }
 
 class _WorkoutForm extends StatefulWidget {
   const _WorkoutForm();
+
   @override
   State<_WorkoutForm> createState() => _WorkoutFormState();
 }
@@ -172,7 +205,9 @@ class _WorkoutFormState extends State<_WorkoutForm> {
       final reps = int.tryParse(item.reps.text);
       final rir = item.rir.text.isEmpty ? null : int.tryParse(item.rir.text);
       if (item.exercise.text.trim().isEmpty || weight == null || reps == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete every exercise, weight and reps field.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Complete every exercise, weight and reps field.')),
+        );
         return;
       }
       sets.add(GymSet(exercise: item.exercise.text.trim(), weightKg: weight, reps: reps, rir: rir));
@@ -180,7 +215,12 @@ class _WorkoutFormState extends State<_WorkoutForm> {
     if (_name.text.trim().isEmpty) return;
     setState(() => _saving = true);
     try {
-      await _service.createWorkout(date: DateTime.now(), name: _name.text.trim(), notes: _notes.text.trim(), sets: sets);
+      await _service.createWorkout(
+        date: DateTime.now(),
+        name: _name.text.trim(),
+        notes: _notes.text.trim(),
+        sets: sets,
+      );
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
@@ -201,26 +241,37 @@ class _WorkoutFormState extends State<_WorkoutForm> {
           const SizedBox(height: 12),
           TextField(controller: _notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
           const SizedBox(height: 20),
-          ...List.generate(_sets.length, (index) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(children: [
+          ...List.generate(
+            _sets.length,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
                       TextField(controller: _sets[index].exercise, decoration: InputDecoration(labelText: 'Exercise ${index + 1}')),
                       const SizedBox(height: 10),
-                      Row(children: [
-                        Expanded(child: TextField(controller: _sets[index].weight, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight kg'))),
-                        const SizedBox(width: 8),
-                        Expanded(child: TextField(controller: _sets[index].reps, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps'))),
-                        const SizedBox(width: 8),
-                        Expanded(child: TextField(controller: _sets[index].rir, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'RIR'))),
-                      ]),
-                    ]),
+                      Row(
+                        children: [
+                          Expanded(child: TextField(controller: _sets[index].weight, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight kg'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: TextField(controller: _sets[index].reps, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: TextField(controller: _sets[index].rir, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'RIR'))),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              )),
-          OutlinedButton.icon(onPressed: () => setState(() => _sets.add(_SetDraft())), icon: const Icon(Icons.add_rounded), label: const Text('Add set')),
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _sets.add(_SetDraft())),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add set'),
+          ),
           const SizedBox(height: 12),
           FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving…' : 'Save workout')),
         ],
@@ -234,5 +285,11 @@ class _SetDraft {
   final weight = TextEditingController();
   final reps = TextEditingController();
   final rir = TextEditingController();
-  void dispose() { exercise.dispose(); weight.dispose(); reps.dispose(); rir.dispose(); }
+
+  void dispose() {
+    exercise.dispose();
+    weight.dispose();
+    reps.dispose();
+    rir.dispose();
+  }
 }
