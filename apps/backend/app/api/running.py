@@ -6,9 +6,11 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.api.gym import router as gym_router
 from app.services.running_service import RunningService
 
-router = APIRouter(prefix="/api/v1/running", tags=["running"])
+router = APIRouter(prefix="/api/v1")
+router.include_router(gym_router)
 service = RunningService()
 service.initialise()
 
@@ -71,7 +73,7 @@ def to_response(record) -> RunResponse:
     )
 
 
-@router.get("", response_model=list[RunResponse])
+@router.get("/running", response_model=list[RunResponse], tags=["running"])
 async def list_runs(
     authorization: Annotated[str | None, Header()] = None,
 ) -> list[RunResponse]:
@@ -79,7 +81,7 @@ async def list_runs(
     return [to_response(item) for item in service.list_runs()]
 
 
-@router.post("", response_model=RunResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/running", response_model=RunResponse, status_code=status.HTTP_201_CREATED, tags=["running"])
 async def create_run(
     payload: RunCreateRequest,
     authorization: Annotated[str | None, Header()] = None,
