@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../core/siris_event_bus.dart';
+import '../core/siris_scheduler.dart';
 import '../models/dashboard_summary.dart';
 import '../models/mission_control_widget.dart';
 import '../modules/app_widget_registry.dart';
@@ -16,13 +20,16 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  static const _refreshJobId = 'mission-control.refresh';
+
   final DashboardService _service = DashboardService();
   final ActivityService _activityService = ActivityService();
   final DashboardLayoutService _layoutService = DashboardLayoutService();
 
   late Future<DashboardSummary> _dashboardFuture;
-  List<DashboardWidgetPreference> _layout =
-      DashboardLayoutService.defaultLayout();
+  StreamSubscription<SirisEvent>? _eventSubscription;
+  Timer? _eventDebounce;
+  List<DashboardWidgetPreference> _layout = DashboardLayoutService.defaultLayout();
   int _unreadCount = 0;
 
   @override
@@ -31,6 +38,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _dashboardFuture = _service.fetchDashboard();
     _loadUnreadCount();
     _loadLayout();
+    _eventSubscription = SirisEventBus.instance.events.listen(_handleEvent);
+    SirisScheduler.instance.register(
+      SirisScheduledJob(
+        id: _refreshJobId,
+        interval: const Duration(minutes: 5),
+        run: _refreshSilently,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _eventDebounce?.cancel();
+    _eventSubscription?.cancel();
+    SirisScheduler.instance.unregister(_refreshJobId);
+    super.dispose();
+  }
+
+  void _handleEvent(SirisEvent event) {
+    if (event is MissionControlRefreshed && event.source == 'dashboard_service') return;
+    if (event is! ModuleDataChanged && event is! NotificationStateChanged) return;
+    _eventDebounce?.cancel();
+    _eventDebounce = Timer(const Duration(milliseconds: 350), _refreshSilently);
   }
 
   Future<void> _loadLayout() async {
@@ -45,11 +75,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {}
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refreshSilently() async {
+    if (!mounted) return;
     final next = _service.fetchDashboard();
     setState(() => _dashboardFuture = next);
-    await Future.wait([next, _loadUnreadCount()]);
+    try {
+      await Future.wait([next, _loadUnreadCount()]);
+    } catch (_) {}
   }
+
+  Future<void> _refresh() => _refreshSilently();
 
   Future<void> _openNotifications() async {
     await Navigator.of(context).push<bool>(
@@ -72,16 +107,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Customise Mission Control',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                Text('Customise Mission Control', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
                 Text(
                   'Reorder, resize or hide the panels in your workspace.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -113,25 +143,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 value: item.size,
                                 underline: const SizedBox.shrink(),
                                 items: MissionControlWidgetSize.values
-                                    .map(
-                                      (size) => DropdownMenuItem(
-                                        value: size,
-                                        child: Text(_sizeLabel(size)),
-                                      ),
-                                    )
+                                    .map((size) => DropdownMenuItem(value: size, child: Text(_sizeLabel(size))))
                                     .toList(),
                                 onChanged: (size) {
                                   if (size == null) return;
-                                  setModalState(
-                                    () => draft[index] = item.copyWith(size: size),
-                                  );
+                                  setModalState(() => draft[index] = item.copyWith(size: size));
                                 },
                               ),
                               Switch(
                                 value: item.visible,
                                 onChanged: (visible) => setModalState(
-                                  () => draft[index] =
-                                      item.copyWith(visible: visible),
+                                  () => draft[index] = item.copyWith(visible: visible),
                                 ),
                               ),
                               ReorderableDragStartListener(
@@ -151,9 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     TextButton.icon(
                       onPressed: () async {
                         await _layoutService.reset();
-                        setModalState(
-                          () => draft = DashboardLayoutService.defaultLayout(),
-                        );
+                        setModalState(() => draft = DashboardLayoutService.defaultLayout());
                       },
                       icon: const Icon(Icons.restore_rounded),
                       label: const Text('Reset'),
@@ -193,29 +213,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return _ErrorState(onRetry: _refresh);
-          }
+          if (snapshot.hasError || !snapshot.hasData) return _ErrorState(onRetry: _refresh);
 
           final data = snapshot.data!;
-          final widgetContext = MissionControlWidgetContext(
-            dashboard: data,
-            greeting: _greeting(),
-          );
+          final widgetContext = MissionControlWidgetContext(dashboard: data, greeting: _greeting());
           return RefreshIndicator(
             onRefresh: _refresh,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final contentWidth = constraints.maxWidth - 40;
-                final gap = 16.0;
-                final columns = constraints.maxWidth >= 1180
-                    ? 4
-                    : constraints.maxWidth >= 720
-                        ? 2
-                        : 1;
-                final unitWidth =
-                    (contentWidth - (gap * (columns - 1))) / columns;
-
+                const gap = 16.0;
+                final columns = constraints.maxWidth >= 1180 ? 4 : constraints.maxWidth >= 720 ? 2 : 1;
+                final unitWidth = (contentWidth - (gap * (columns - 1))) / columns;
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
@@ -225,24 +234,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Wrap(
                       spacing: gap,
                       runSpacing: gap,
-                      children: _layout
-                          .where((item) => item.visible)
-                          .map(
-                            (item) => SizedBox(
-                              width: _widgetWidth(
-                                item.size,
-                                columns,
-                                unitWidth,
-                                gap,
-                                contentWidth,
-                              ),
-                              child: AppWidgetRegistry.build(
-                                item.id,
-                                widgetContext,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                      children: _layout.where((item) => item.visible).map(
+                        (item) => SizedBox(
+                          width: _widgetWidth(item.size, columns, unitWidth, gap, contentWidth),
+                          child: AppWidgetRegistry.build(item.id, widgetContext),
+                        ),
+                      ).toList(),
                     ),
                   ],
                 );
@@ -260,16 +257,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Mission Control',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
+                Text('Mission Control', style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 5),
                 Text(
                   'Your live, configurable SirisOS workspace.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -330,9 +322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MissionControlWidgetSize.standard => 1,
       MissionControlWidgetSize.wide => columns,
     };
-    return span >= columns
-        ? contentWidth
-        : (unitWidth * span) + (gap * (span - 1));
+    return span >= columns ? contentWidth : (unitWidth * span) + (gap * (span - 1));
   }
 
   static String _sizeLabel(MissionControlWidgetSize size) => switch (size) {
@@ -354,16 +344,9 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.cloud_off_rounded,
-                size: 52,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              Icon(Icons.cloud_off_rounded, size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
               const SizedBox(height: 18),
-              Text(
-                'SirisOS backend unavailable',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('SirisOS backend unavailable', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: onRetry,
