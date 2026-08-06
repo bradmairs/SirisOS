@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/dashboard_summary.dart';
+import '../services/dashboard_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/siris_logo.dart';
 import 'dashboard_screen.dart';
@@ -19,9 +21,17 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  final DashboardService _dashboardService = DashboardService();
   int _selectedIndex = 0;
   int _runAddRequest = 0;
   int _workoutAddRequest = 0;
+  late Future<DashboardSummary> _sidebarFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sidebarFuture = _dashboardService.fetchDashboard();
+  }
 
   void _selectTab(int index) => setState(() => _selectedIndex = index);
 
@@ -98,7 +108,7 @@ class _AppShellState extends State<AppShell> {
               ? Row(
                   children: [
                     Container(
-                      width: 238,
+                      width: 248,
                       decoration: const BoxDecoration(
                         color: AppTheme.sidebar,
                         border: Border(right: BorderSide(color: AppTheme.border)),
@@ -107,13 +117,13 @@ class _AppShellState extends State<AppShell> {
                         child: Column(
                           children: [
                             const Padding(
-                              padding: EdgeInsets.fromLTRB(22, 24, 22, 28),
+                              padding: EdgeInsets.fromLTRB(22, 24, 22, 24),
                               child: SirisLogo(size: 58),
                             ),
                             Expanded(
                               child: NavigationRail(
                                 extended: true,
-                                minExtendedWidth: 238,
+                                minExtendedWidth: 248,
                                 selectedIndex: _selectedIndex,
                                 onDestinationSelected: _selectTab,
                                 labelType: NavigationRailLabelType.none,
@@ -127,7 +137,14 @@ class _AppShellState extends State<AppShell> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              child: FutureBuilder<DashboardSummary>(
+                                future: _sidebarFuture,
+                                builder: (context, snapshot) => _SidebarStatus(data: snapshot.data),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                               child: Column(
                                 children: [
                                   ListTile(leading: const Icon(Icons.search_rounded), title: const Text('Search'), onTap: _openSearch),
@@ -165,6 +182,66 @@ class _AppShellState extends State<AppShell> {
       },
     );
   }
+}
+
+class _SidebarStatus extends StatelessWidget {
+  const _SidebarStatus({this.data});
+
+  final DashboardSummary? data;
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboard = data;
+    final healthy = dashboard != null &&
+        dashboard.homelab.status != 'warning' &&
+        dashboard.system.status != 'warning';
+    final statusColor = healthy ? AppTheme.success : Theme.of(context).colorScheme.error;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceRaised.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('SYSTEM', style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle, boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.5), blurRadius: 8)])),
+              const SizedBox(width: 8),
+              Text(dashboard == null ? 'Loading status' : healthy ? 'Healthy' : 'Needs attention', style: const TextStyle(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _StatusLine(label: 'Homelab', value: dashboard?.homelab.value ?? '—'),
+          const SizedBox(height: 7),
+          _StatusLine(label: 'CPU', value: dashboard?.system.value ?? '—'),
+          const SizedBox(height: 7),
+          _StatusLine(label: 'Memory', value: dashboard?.system.subtitle ?? '—'),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(child: Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12))),
+          Flexible(child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+        ],
+      );
 }
 
 class _QuickActionTile extends StatelessWidget {
