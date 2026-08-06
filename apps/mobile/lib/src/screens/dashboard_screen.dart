@@ -6,6 +6,7 @@ import '../services/dashboard_layout_service.dart';
 import '../services/dashboard_service.dart';
 import '../widgets/activity_feed_panel.dart';
 import '../widgets/dashboard_card.dart';
+import '../widgets/dashboard_hero.dart';
 import 'notification_center_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -68,12 +69,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              0,
-              20,
-              20 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,12 +77,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text('Customise Dashboard', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
                 Text(
-                  'Drag widgets into your preferred order and hide anything you do not need.',
+                  'Choose which command-centre panels are visible.',
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
-                  height: 410,
+                  height: 390,
                   child: ReorderableListView.builder(
                     buildDefaultDragHandles: false,
                     itemCount: draft.length,
@@ -105,7 +101,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: ListTile(
                           leading: Icon(_widgetIcon(item.id)),
                           title: Text(_widgetLabel(item.id)),
-                          subtitle: Text(_widgetDescription(item.id)),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -170,6 +165,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 'Good evening';
   }
 
+  bool _visible(String id) => _layout.any((item) => item.id == id && item.visible);
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -184,51 +181,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
 
           final data = snapshot.data!;
-          final visibleWidgets = _layout.where((item) => item.visible).toList();
           return RefreshIndicator(
             onRefresh: _refresh,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  sliver: SliverToBoxAdapter(child: _header(data)),
-                ),
-                if (visibleWidgets.isEmpty)
-                  SliverPadding(
-                    padding: const EdgeInsets.all(20),
-                    sliver: SliverToBoxAdapter(
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(28),
-                          child: Column(
-                            children: [
-                              const Icon(Icons.dashboard_customize_rounded, size: 44),
-                              const SizedBox(height: 12),
-                              const Text('All dashboard widgets are hidden.'),
-                              const SizedBox(height: 14),
-                              FilledButton.icon(
-                                onPressed: _editLayout,
-                                icon: const Icon(Icons.tune_rounded),
-                                label: const Text('Customise Dashboard'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final desktop = constraints.maxWidth >= 980;
+                final cardWidth = desktop
+                    ? (constraints.maxWidth - 40 - 48) / 4
+                    : constraints.maxWidth >= 640
+                        ? (constraints.maxWidth - 40 - 16) / 2
+                        : constraints.maxWidth - 40;
+
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  children: [
+                    _header(),
+                    const SizedBox(height: 18),
+                    if (_visible('briefing')) DashboardHero(greeting: _greeting(), data: data),
+                    if (_visible('briefing')) const SizedBox(height: 18),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        if (_visible('homelab')) SizedBox(width: cardWidth, height: 176, child: _card(data.homelab, Icons.dns_rounded)),
+                        if (_visible('running')) SizedBox(width: cardWidth, height: 176, child: _card(data.running, Icons.directions_run_rounded)),
+                        if (_visible('gym')) SizedBox(width: cardWidth, height: 176, child: _card(data.gym, Icons.fitness_center_rounded)),
+                        if (_visible('system')) SizedBox(width: cardWidth, height: 176, child: _card(data.system, Icons.memory_rounded)),
+                      ],
                     ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                    sliver: SliverList.separated(
-                      itemCount: visibleWidgets.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) =>
-                          _buildWidget(visibleWidgets[index].id, data),
-                    ),
-                  ),
-              ],
+                    if (_visible('activity')) ...[
+                      const SizedBox(height: 18),
+                      const ActivityFeedPanel(),
+                    ],
+                  ],
+                );
+              },
             ),
           );
         },
@@ -236,19 +224,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _header(DashboardSummary data) {
+  Widget _header() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${_greeting()}, ${data.greetingName}',
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 6),
-              Text('Your live SirisOS command centre.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              Text('Dashboard', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 5),
+              Text('Your live SirisOS command centre.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
         ),
@@ -296,78 +281,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildWidget(String id, DashboardSummary data) {
-    return switch (id) {
-      'homelab' => SizedBox(height: 180, child: _card(data.homelab, Icons.dns_rounded)),
-      'running' => SizedBox(
-          height: 180,
-          child: _card(data.running, Icons.directions_run_rounded),
-        ),
-      'gym' => SizedBox(
-          height: 180,
-          child: _card(data.gym, Icons.fitness_center_rounded),
-        ),
-      'system' => SizedBox(height: 180, child: _card(data.system, Icons.memory_rounded)),
-      'activity' => const ActivityFeedPanel(),
-      'briefing' => _briefingCard(data),
-      _ => const SizedBox.shrink(),
-    };
-  }
-
-  Widget _briefingCard(DashboardSummary data) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.auto_awesome_rounded,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 10),
-                Text('SirisOS briefing', style: Theme.of(context).textTheme.titleLarge),
-              ],
-            ),
-            const SizedBox(height: 18),
-            if (data.briefingItems.isEmpty)
-              const Text('No briefing items are available yet.')
-            else
-              ...data.briefingItems.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 7),
-                        child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(item)),
-                    ],
-                  ),
-                ),
-              ),
-            Text(
-              'Updated ${TimeOfDay.fromDateTime(data.generatedAt.toLocal()).format(context)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   DashboardCard _card(DashboardCardData data, IconData icon) => DashboardCard(
         title: data.title,
         value: data.value,
@@ -384,16 +297,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'activity' => 'Recent activity',
         'briefing' => 'SirisOS briefing',
         _ => id,
-      };
-
-  static String _widgetDescription(String id) => switch (id) {
-        'homelab' => 'Docker health and container status',
-        'running' => 'Fitness score and weekly distance',
-        'gym' => 'Sessions and weekly lifting volume',
-        'system' => 'Live CPU and memory usage',
-        'activity' => 'Cross-module event feed',
-        'briefing' => 'Rule-based daily summary',
-        _ => '',
       };
 
   static IconData _widgetIcon(String id) => switch (id) {
@@ -420,11 +323,9 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(Icons.cloud_off_rounded, size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 18),
-            Text('SirisOS backend unavailable',
-                style: Theme.of(context).textTheme.titleLarge),
+            Text('SirisOS backend unavailable', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: onRetry,
