@@ -37,17 +37,34 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   Future<void> _search(String value) async {
     final query = value.trim();
     if (query.length < 2) {
-      if (mounted) setState(() { _results = const []; _loading = false; _error = null; });
+      if (mounted) {
+        setState(() {
+          _results = const [];
+          _loading = false;
+          _error = null;
+        });
+      }
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final results = await _service.search(query);
       if (mounted && _controller.text.trim() == query) {
-        setState(() { _results = results; _loading = false; });
+        setState(() {
+          _results = results;
+          _loading = false;
+        });
       }
     } catch (error) {
-      if (mounted) setState(() { _loading = false; _error = error.toString(); });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = error.toString();
+        });
+      }
     }
   }
 
@@ -75,7 +92,6 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: SearchBar(
                 controller: _controller,
-                autofocus: true,
                 hintText: 'Containers, runs, exercises, activity…',
                 leading: const Icon(Icons.search_rounded),
                 trailing: [
@@ -101,13 +117,20 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               child: Builder(
                 builder: (context) {
                   if (_error != null) {
-                    return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)));
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(_error!, textAlign: TextAlign.center),
+                      ),
+                    );
                   }
                   if (_controller.text.trim().length < 2) {
                     return const _SearchHint();
                   }
                   if (!_loading && _results.isEmpty) {
-                    return const Center(child: Text('No matching SirisOS items found.'));
+                    return const Center(
+                      child: Text('No matching SirisOS items found.'),
+                    );
                   }
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -117,9 +140,15 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                       final result = _results[index];
                       return Card(
                         child: ListTile(
-                          leading: CircleAvatar(child: Icon(_icon(result.module))),
+                          leading: CircleAvatar(
+                            child: Icon(_icon(result.module)),
+                          ),
                           title: Text(result.title),
-                          subtitle: Text(result.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            result.subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           trailing: const Icon(Icons.chevron_right_rounded),
                           onTap: () => _open(result),
                         ),
@@ -147,14 +176,23 @@ class _SearchHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.manage_search_rounded, size: 58, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.manage_search_rounded,
+              size: 58,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(height: 16),
-            Text('Search everything', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Search everything',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             Text(
               'Search Docker containers, running history, gym workouts and recent SirisOS activity.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
