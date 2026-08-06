@@ -53,18 +53,20 @@
 - [x] Preview and unavailable module handling
 - [x] Typed briefing observation model and contributor interface
 - [x] Running, Gym, Homelab, and system briefing contributors
-- [x] Health contributor registration without fabricated data
+- [x] Dedicated Health snapshot in the shared briefing input
+- [x] Deterministic Health briefing observations for availability, sleep, steps, and resting heart rate
 - [x] Deterministic briefing ranking, deduplication, expiry, and assembly
 - [x] Briefing widget consumes deterministic output with backend fallback
-- [ ] Dedicated Health data in the briefing input
-- [ ] Event-driven briefing refresh
+- [x] Siris Score deterministic weighted domain model
+- [x] Human-readable Siris Score contribution explanations
+- [ ] Event-driven briefing refresh subscriptions
+- [ ] Siris Score widget and Mission Control presentation
 - [ ] Shared dedicated Mission Control consumption
 - [ ] Module enable/disable settings and persisted availability
 - [ ] Drag-and-drop layout directly on the workspace
 - [ ] Notification action metadata and action buttons
 - [ ] Consistent module notification policies
 - [ ] Dashboard and Mission Control event subscriptions
-- [ ] Siris Score deterministic domain model and explanation
 - [ ] Scheduler
 - [ ] AI context service
 - [ ] Ambient display modes
