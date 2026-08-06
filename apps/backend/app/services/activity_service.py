@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import os
 
-from sqlalchemy import DateTime, Integer, String, Text, create_engine, delete, select
+from sqlalchemy import DateTime, Integer, String, Text, create_engine, delete, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -25,6 +25,14 @@ class ActivityEventModel(Base):
     user: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 
+class NotificationReadStateModel(Base):
+    __tablename__ = "notification_read_state"
+
+    username: Mapped[str] = mapped_column(String(120), primary_key=True)
+    last_read_event_id: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 @dataclass(frozen=True)
 class ActivityEvent:
     id: int
@@ -38,7 +46,7 @@ class ActivityEvent:
 
 
 class ActivityService:
-    """Persistent cross-module activity feed for SirisOS."""
+    """Persistent cross-module activity and notification state for SirisOS."""
 
     def __init__(self) -> None:
         database_url = os.getenv(
@@ -51,16 +59,7 @@ class ActivityService:
     def initialise(self) -> None:
         Base.metadata.create_all(self._engine)
 
-    def record(
-        self,
-        *,
-        module: str,
-        event_type: str,
-        title: str,
-        message: str,
-        severity: str = "info",
-        user: str | None = None,
-    ) -> ActivityEvent:
+    def record(self, *, module: str, event_type: str, title: str, message: str, severity: str = "info", user: str | None = None) -> ActivityEvent:
         now = datetime.now(timezone.utc)
         with self._sessions() as session:
             row = ActivityEventModel(
@@ -73,23 +72,43 @@ class ActivityService:
                 user=user,
             )
             session.add(row)
-            cutoff = now - timedelta(days=90)
-            session.execute(delete(ActivityEventModel).where(ActivityEventModel.occurred_at < cutoff))
+            session.execute(delete(ActivityEventModel).where(ActivityEventModel.occurred_at < now - timedelta(days=90)))
             session.commit()
             session.refresh(row)
             return self._to_record(row)
 
-    def list_events(self, *, limit: int = 50) -> list[ActivityEvent]:
+    def list_events(self, *, limit: int = 50, severity: str | None = None) -> list[ActivityEvent]:
         safe_limit = max(1, min(limit, 200))
         with self._sessions() as session:
-            rows = list(
-                session.scalars(
-                    select(ActivityEventModel)
-                    .order_by(ActivityEventModel.occurred_at.desc(), ActivityEventModel.id.desc())
-                    .limit(safe_limit)
-                )
-            )
+            query = select(ActivityEventModel)
+            if severity and severity != "all":
+                query = query.where(ActivityEventModel.severity == severity)
+            rows = list(session.scalars(query.order_by(ActivityEventModel.occurred_at.desc(), ActivityEventModel.id.desc()).limit(safe_limit)))
         return [self._to_record(row) for row in rows]
+
+    def last_read_event_id(self, username: str) -> int:
+        with self._sessions() as session:
+            state = session.get(NotificationReadStateModel, username)
+            return state.last_read_event_id if state else 0
+
+    def unread_count(self, username: str) -> int:
+        last_read = self.last_read_event_id(username)
+        with self._sessions() as session:
+            return int(session.scalar(select(func.count()).select_from(ActivityEventModel).where(ActivityEventModel.id > last_read)) or 0)
+
+    def mark_all_read(self, username: str) -> int:
+        now = datetime.now(timezone.utc)
+        with self._sessions() as session:
+            latest_id = int(session.scalar(select(func.max(ActivityEventModel.id))) or 0)
+            state = session.get(NotificationReadStateModel, username)
+            if state is None:
+                state = NotificationReadStateModel(username=username, last_read_event_id=latest_id, updated_at=now)
+                session.add(state)
+            else:
+                state.last_read_event_id = latest_id
+                state.updated_at = now
+            session.commit()
+            return latest_id
 
     @staticmethod
     def _to_record(row: ActivityEventModel) -> ActivityEvent:
