@@ -75,9 +75,10 @@ class DeterministicSirisScore {
       0,
       (total, contribution) => total + contribution.weight,
     );
+    final score = totalWeight == 0 ? 0 : (weighted / totalWeight).round();
 
     return SirisScoreResult(
-      score: totalWeight == 0 ? 0 : (weighted / totalWeight).round().clamp(0, 100),
+      score: score.clamp(0, 100).toInt(),
       contributions: contributions,
     );
   }
