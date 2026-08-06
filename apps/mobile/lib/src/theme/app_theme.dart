@@ -17,7 +17,7 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: scheme,
       scaffoldBackgroundColor: _background,
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: _surface,
         elevation: 0,
         margin: EdgeInsets.zero,
