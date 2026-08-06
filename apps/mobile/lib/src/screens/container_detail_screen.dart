@@ -24,7 +24,10 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
   Timer? _timer;
   late DockerContainerInfo _container;
   bool _refreshing = false;
+  bool _acting = false;
   String? _error;
+
+  bool get _isProtected => _container.name.startsWith('sirisos-');
 
   @override
   void initState() {
@@ -98,6 +101,45 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
     );
   }
 
+  Future<void> _confirmAction(String action) async {
+    final verb = action[0].toUpperCase() + action.substring(1);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$verb ${_container.name}?'),
+        content: Text(
+          action == 'stop'
+              ? 'This will stop the container and its service will become unavailable.'
+              : 'SirisOS will send a $action command to this container.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(verb)),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _acting = true;
+      _error = null;
+    });
+    try {
+      await _service.performContainerAction(_container.containerId, action);
+      await Future<void>.delayed(const Duration(seconds: 1));
+      await _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_container.name}: $action command completed.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -111,19 +153,12 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
       appBar: AppBar(
         title: Text(_container.name),
         actions: [
-          IconButton(
-            onPressed: _openLogs,
-            tooltip: 'View logs',
-            icon: const Icon(Icons.terminal_rounded),
-          ),
+          IconButton(onPressed: _openLogs, tooltip: 'View logs', icon: const Icon(Icons.terminal_rounded)),
           IconButton(
             onPressed: _refreshing ? null : _refresh,
             tooltip: 'Refresh container',
             icon: _refreshing
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -193,10 +228,53 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
             const SizedBox(height: 16),
             MetricLineChart(title: 'Memory history', samples: List.unmodifiable(_memorySamples), valueSuffix: '%', maxY: 100),
             const SizedBox(height: 16),
-            FilledButton.tonalIcon(
-              onPressed: _openLogs,
-              icon: const Icon(Icons.terminal_rounded),
-              label: const Text('View container logs'),
+            FilledButton.tonalIcon(onPressed: _openLogs, icon: const Icon(Icons.terminal_rounded), label: const Text('View container logs')),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Container controls', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isProtected
+                          ? 'Core SirisOS services are protected from in-app lifecycle controls.'
+                          : 'Every action requires confirmation and is applied only to this container.',
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_acting)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          if (!_container.isRunning)
+                            FilledButton.icon(
+                              onPressed: _isProtected ? null : () => _confirmAction('start'),
+                              icon: const Icon(Icons.play_arrow_rounded),
+                              label: const Text('Start'),
+                            ),
+                          if (_container.isRunning) ...[
+                            FilledButton.tonalIcon(
+                              onPressed: _isProtected ? null : () => _confirmAction('restart'),
+                              icon: const Icon(Icons.restart_alt_rounded),
+                              label: const Text('Restart'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _isProtected ? null : () => _confirmAction('stop'),
+                              icon: const Icon(Icons.stop_rounded),
+                              label: const Text('Stop'),
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Card(
