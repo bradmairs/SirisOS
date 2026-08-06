@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../core/siris_event_bus.dart';
 import '../models/activity_event.dart';
 import '../services/activity_service.dart';
 
@@ -12,6 +15,9 @@ class NotificationCenterScreen extends StatefulWidget {
 
 class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   final ActivityService _service = ActivityService();
+  StreamSubscription<NotificationStateChanged>? _notificationSubscription;
+  StreamSubscription<ModuleDataChanged>? _moduleSubscription;
+  Timer? _refreshDebounce;
   String _severity = 'all';
   bool _loading = true;
   bool _markingRead = false;
@@ -21,21 +27,49 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   @override
   void initState() {
     super.initState();
+    _notificationSubscription = SirisEventBus.instance
+        .on<NotificationStateChanged>()
+        .listen((_) => _scheduleEventRefresh());
+    _moduleSubscription = SirisEventBus.instance
+        .on<ModuleDataChanged>()
+        .listen((_) => _scheduleEventRefresh());
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    _notificationSubscription?.cancel();
+    _moduleSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleEventRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) _load(showLoading: false);
     });
+  }
+
+  Future<void> _load({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final events = await _service.fetchEvents(limit: 100, severity: _severity);
-      if (mounted) setState(() => _events = events);
+      if (mounted) {
+        setState(() {
+          _events = events;
+          _error = null;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && showLoading) setState(() => _loading = false);
     }
   }
 
@@ -44,7 +78,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     setState(() => _markingRead = true);
     try {
       await _service.markAllRead();
-      await _load();
+      await _load(showLoading: false);
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
@@ -66,7 +100,10 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           TextButton.icon(
             onPressed: _markingRead ? null : _markAllRead,
             icon: _markingRead
-                ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.done_all_rounded),
             label: const Text('Read all'),
           ),
@@ -82,9 +119,19 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final option in const ['all', 'warning', 'critical', 'success'])
+                for (final option in const [
+                  'all',
+                  'info',
+                  'success',
+                  'warning',
+                  'critical',
+                ])
                   ChoiceChip(
-                    label: Text(option == 'all' ? 'All' : '${option[0].toUpperCase()}${option.substring(1)}'),
+                    label: Text(
+                      option == 'all'
+                          ? 'All'
+                          : '${option[0].toUpperCase()}${option.substring(1)}',
+                    ),
                     selected: _severity == option,
                     onSelected: (_) {
                       setState(() => _severity = option);
@@ -102,12 +149,17 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             else if (_error != null)
               _MessageCard(icon: Icons.cloud_off_rounded, message: _error!)
             else if (_events.isEmpty)
-              const _MessageCard(icon: Icons.notifications_none_rounded, message: 'No notifications match this filter.')
+              const _MessageCard(
+                icon: Icons.notifications_none_rounded,
+                message: 'No notifications match this filter.',
+              )
             else
-              ..._events.map((event) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _NotificationCard(event: event),
-                  )),
+              ..._events.map(
+                (event) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _NotificationCard(event: event),
+                ),
+              ),
           ],
         ),
       ),
@@ -132,10 +184,12 @@ class _NotificationCard extends StatelessWidget {
       'homelab' => Icons.dns_rounded,
       'running' => Icons.directions_run_rounded,
       'gym' => Icons.fitness_center_rounded,
+      'health' => Icons.favorite_rounded,
       _ => Icons.notifications_rounded,
     };
     final local = event.occurredAt.toLocal();
-    final time = '${local.day}/${local.month}/${local.year} · ${TimeOfDay.fromDateTime(local).format(context)}';
+    final time =
+        '${local.day}/${local.month}/${local.year} · ${TimeOfDay.fromDateTime(local).format(context)}';
 
     return Card(
       color: event.isUnread ? color.withValues(alpha: 0.10) : null,
@@ -155,15 +209,32 @@ class _NotificationCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(event.title, style: Theme.of(context).textTheme.titleMedium)),
+                      Expanded(
+                        child: Text(
+                          event.title,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
                       if (event.isUnread)
-                        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Text(event.message),
                   const SizedBox(height: 8),
-                  Text(time, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  Text(
+                    time,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
                 ],
               ),
             ),
@@ -186,7 +257,11 @@ class _MessageCard extends StatelessWidget {
         padding: const EdgeInsets.all(28),
         child: Column(
           children: [
-            Icon(icon, size: 42, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(
+              icon,
+              size: 42,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
           ],

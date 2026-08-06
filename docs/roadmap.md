@@ -37,10 +37,15 @@
 - [x] Typed broadcast event bus
 - [x] Mission Control refresh events
 - [x] Running and Gym data-change event publishers
+- [x] Health snapshot refresh event publisher
+- [x] Homelab container action event publisher
 - [x] Notification unread/read state events
+- [x] Notification Centre live event subscriptions
+- [x] Automatic debounced Notification Centre refresh
 - [ ] Drag-and-drop layout directly on the workspace
-- [ ] Notification centre subscriptions and actions
-- [ ] Homelab and Health data-change event publishers
+- [ ] Notification action metadata and action buttons
+- [ ] Consistent module notification policies
+- [ ] Dashboard and Mission Control event subscriptions
 - [ ] Deterministic briefing engine
 - [ ] Scheduler
 - [ ] AI context service
