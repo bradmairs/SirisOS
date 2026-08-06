@@ -1,17 +1,43 @@
-from datetime import datetime
-from typing import Literal
+from datetime import datetime, timedelta, timezone
+import os
+import secrets
+from typing import Annotated, Literal
 
-from fastapi import FastAPI
+import jwt
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.services.docker_service import DockerMonitor
+
+API_VERSION = "0.5.0"
+AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
+AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
+JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
+JWT_EXPIRY_HOURS = int(os.getenv("SIRISOS_JWT_EXPIRY_HOURS", "24"))
+JWT_ALGORITHM = "HS256"
 
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     service: str
     version: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
+    username: str
+
+
+class CurrentUserResponse(BaseModel):
+    username: str
 
 
 class DashboardCardResponse(BaseModel):
@@ -57,7 +83,7 @@ class DockerStatusResponse(BaseModel):
 app = FastAPI(
     title="SirisOS API",
     description="Backend API for the SirisOS personal operating system.",
-    version="0.4.0",
+    version=API_VERSION,
 )
 
 docker_monitor = DockerMonitor()
@@ -66,23 +92,93 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+def _create_access_token(username: str) -> tuple[str, int]:
+    expires_in = JWT_EXPIRY_HOURS * 60 * 60
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": username,
+        "iat": now,
+        "exp": now + timedelta(seconds=expires_in),
+        "iss": "sirisos-api",
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return token, expires_in
+
+
+def _current_username(
+    authorization: Annotated[str | None, Header()] = None,
+) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            issuer="sirisos-api",
+        )
+    except jwt.PyJWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session.",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    username = payload.get("sub")
+    if not isinstance(username, str) or username != AUTH_USERNAME:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session user.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return username
+
+
+CurrentUsername = Annotated[str, Depends(_current_username)]
 
 
 @app.get("/", tags=["system"])
 async def root() -> dict[str, str]:
-    return {
-        "name": "SirisOS API",
-        "version": "0.4.0",
-        "docs": "/docs",
-    }
+    return {"name": "SirisOS API", "version": API_VERSION, "docs": "/docs"}
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok", service="sirisos-api", version="0.4.0")
+    return HealthResponse(status="ok", service="sirisos-api", version=API_VERSION)
+
+
+@app.post("/api/v1/auth/login", response_model=TokenResponse, tags=["authentication"])
+async def login(credentials: LoginRequest) -> TokenResponse:
+    username_ok = secrets.compare_digest(credentials.username, AUTH_USERNAME)
+    password_ok = secrets.compare_digest(credentials.password, AUTH_PASSWORD)
+    if not username_ok or not password_ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password.",
+        )
+
+    token, expires_in = _create_access_token(AUTH_USERNAME)
+    return TokenResponse(
+        access_token=token,
+        expires_in=expires_in,
+        username=AUTH_USERNAME,
+    )
+
+
+@app.get("/api/v1/auth/me", response_model=CurrentUserResponse, tags=["authentication"])
+async def current_user(username: CurrentUsername) -> CurrentUserResponse:
+    return CurrentUserResponse(username=username)
 
 
 @app.get(
@@ -90,7 +186,7 @@ async def health() -> HealthResponse:
     response_model=DockerStatusResponse,
     tags=["homelab"],
 )
-async def docker_status() -> DockerStatusResponse:
+async def docker_status(_: CurrentUsername) -> DockerStatusResponse:
     summary = docker_monitor.collect()
     return DockerStatusResponse(
         available=summary.available,
@@ -119,7 +215,6 @@ async def docker_status() -> DockerStatusResponse:
 
 def _homelab_card() -> tuple[DashboardCardResponse, str]:
     summary = docker_monitor.collect()
-
     if not summary.available:
         return (
             DashboardCardResponse(
@@ -128,9 +223,8 @@ def _homelab_card() -> tuple[DashboardCardResponse, str]:
                 subtitle="Docker socket is unavailable",
                 status="warning",
             ),
-            "Docker monitoring is unavailable. Check the Docker socket proxy and permissions.",
+            "Docker monitoring is unavailable. Check the Docker socket proxy.",
         )
-
     if summary.total == 0:
         return (
             DashboardCardResponse(
@@ -141,7 +235,6 @@ def _homelab_card() -> tuple[DashboardCardResponse, str]:
             ),
             "Docker is connected, but no containers were found on this host.",
         )
-
     if summary.unhealthy > 0 or summary.stopped > 0:
         issues = summary.unhealthy + summary.stopped
         return (
@@ -156,7 +249,6 @@ def _homelab_card() -> tuple[DashboardCardResponse, str]:
                 f"are running, with {summary.unhealthy} unhealthy and {summary.stopped} stopped."
             ),
         )
-
     return (
         DashboardCardResponse(
             title="Homelab",
@@ -169,9 +261,8 @@ def _homelab_card() -> tuple[DashboardCardResponse, str]:
 
 
 @app.get("/api/v1/dashboard", response_model=DashboardResponse, tags=["dashboard"])
-async def dashboard() -> DashboardResponse:
+async def dashboard(_: CurrentUsername) -> DashboardResponse:
     homelab, homelab_briefing = _homelab_card()
-
     return DashboardResponse(
         greeting_name="Brad",
         homelab=homelab,
