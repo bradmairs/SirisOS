@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../core/siris_event_bus.dart';
 import '../models/run_record.dart';
 import 'auth_service.dart';
 
@@ -42,5 +43,12 @@ class RunningService {
       }),
     ).timeout(const Duration(seconds: 8));
     if (response.statusCode != 201) throw Exception('Could not save run.');
+
+    SirisEventBus.instance.publish(
+      ModuleDataChanged(moduleId: 'running', reason: 'run_logged'),
+    );
+    SirisEventBus.instance.publish(
+      NotificationStateChanged(source: 'running'),
+    );
   }
 }
