@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../core/siris_event_bus.dart';
 import '../models/health_snapshot.dart';
 import 'auth_service.dart';
 
@@ -32,7 +33,15 @@ class HealthService {
     if (decoded is! Map<String, dynamic>) {
       throw const HealthServiceException('Health response was not a JSON object.');
     }
-    return HealthSnapshot.fromJson(decoded);
+
+    final snapshot = HealthSnapshot.fromJson(decoded);
+    SirisEventBus.instance.publish(
+      ModuleDataChanged(
+        moduleId: 'health',
+        reason: 'snapshot_refreshed',
+      ),
+    );
+    return snapshot;
   }
 }
 
