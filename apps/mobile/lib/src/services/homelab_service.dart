@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../core/siris_event_bus.dart';
 import '../models/docker_summary.dart';
 import '../models/homelab_alerts.dart';
 import '../models/homelab_audit_event.dart';
@@ -85,7 +86,18 @@ class HomelabService {
         'Invalid container action response.',
       );
     }
-    return decoded['status'] as String? ?? 'unknown';
+
+    final status = decoded['status'] as String? ?? 'unknown';
+    SirisEventBus.instance.publish(
+      ModuleDataChanged(
+        moduleId: 'homelab',
+        reason: 'container_${action}_completed',
+      ),
+    );
+    SirisEventBus.instance.publish(
+      NotificationStateChanged(reason: 'homelab_activity_recorded'),
+    );
+    return status;
   }
 
   Future<Map<String, dynamic>> _getJson(String path) async {
