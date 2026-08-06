@@ -5,8 +5,10 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../core/siris_event_bus.dart';
 import '../models/dashboard_summary.dart';
+import '../models/health_snapshot.dart';
 import 'auth_service.dart';
 import 'gym_service.dart';
+import 'health_service.dart';
 import 'homelab_service.dart';
 import 'running_service.dart';
 
@@ -17,21 +19,25 @@ class DashboardService {
   final HomelabService _homelabService = HomelabService();
   final RunningService _runningService = RunningService();
   final GymService _gymService = GymService();
+  final HealthService _healthService = HealthService();
 
   Future<DashboardSummary> fetchDashboard() async {
     final dashboardFuture = _fetchDashboardSummary();
     final recommendationsFuture = _fetchRecommendations();
     final trendsFuture = _fetchTrends();
+    final healthFuture = _fetchHealthSnapshot();
 
     final dashboard = await dashboardFuture;
     final recommendations = await recommendationsFuture;
     final trends = await trendsFuture;
+    final health = await healthFuture;
 
     final result = dashboard.copyWith(
       homelab: dashboard.homelab.copyWith(trend: trends.memory),
       running: dashboard.running.copyWith(trend: trends.running),
       gym: dashboard.gym.copyWith(trend: trends.gym),
       system: dashboard.system.copyWith(trend: trends.cpu),
+      health: health,
       briefingItems: recommendations.isEmpty
           ? dashboard.briefingItems
           : <String>[...recommendations, ...dashboard.briefingItems],
@@ -66,6 +72,14 @@ class DashboardService {
     }
 
     return DashboardSummary.fromJson(decoded);
+  }
+
+  Future<HealthSnapshot?> _fetchHealthSnapshot() async {
+    try {
+      return await _healthService.fetchSnapshot();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<_DashboardTrends> _fetchTrends() async {
