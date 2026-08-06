@@ -8,6 +8,7 @@ class ActivityEvent {
     required this.message,
     required this.severity,
     required this.user,
+    required this.isUnread,
   });
 
   factory ActivityEvent.fromJson(Map<String, dynamic> json) => ActivityEvent(
@@ -19,6 +20,7 @@ class ActivityEvent {
         message: json['message'] as String,
         severity: json['severity'] as String? ?? 'info',
         user: json['user'] as String?,
+        isUnread: json['is_unread'] as bool? ?? false,
       );
 
   final int id;
@@ -29,4 +31,5 @@ class ActivityEvent {
   final String message;
   final String severity;
   final String? user;
+  final bool isUnread;
 }
