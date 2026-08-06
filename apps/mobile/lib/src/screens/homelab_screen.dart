@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/docker_summary.dart';
 import '../services/homelab_service.dart';
+import 'container_detail_screen.dart';
 
 class HomelabScreen extends StatefulWidget {
   const HomelabScreen({super.key});
@@ -194,94 +195,112 @@ class _ContainerCard extends StatelessWidget {
             ? (container.health == 'healthy' ? 'Healthy' : 'Running')
             : container.state;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: statusColor.withValues(alpha: 0.14),
-                  child: Icon(Icons.inventory_2_rounded, color: statusColor),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        container.name,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        container.image,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ContainerDetailScreen(
+              initialContainer: container,
             ),
-            const SizedBox(height: 16),
-            if (container.isRunning)
+          ),
+        );
+      },
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
+                  CircleAvatar(
+                    backgroundColor: statusColor.withValues(alpha: 0.14),
+                    child: Icon(Icons.inventory_2_rounded, color: statusColor),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: _ResourceMetric(
-                      icon: Icons.speed_rounded,
-                      label: 'CPU',
-                      value: container.cpuPercent == null
-                          ? '—'
-                          : '${container.cpuPercent!.toStringAsFixed(1)}%',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          container.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          container.image,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ResourceMetric(
-                      icon: Icons.memory_rounded,
-                      label: 'Memory',
-                      value: container.memoryUsageLabel,
-                      detail: container.memoryPercent == null
-                          ? null
-                          : '${container.memoryPercent!.toStringAsFixed(1)}%',
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ],
-              )
-            else
-              Text(
-                container.status,
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
-            const SizedBox(height: 12),
-            Text(
-              'ID ${container.containerId}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right_rounded,
                     color: scheme.onSurfaceVariant,
                   ),
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (container.isRunning)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ResourceMetric(
+                        icon: Icons.speed_rounded,
+                        label: 'CPU',
+                        value: container.cpuPercent == null
+                            ? '—'
+                            : '${container.cpuPercent!.toStringAsFixed(1)}%',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ResourceMetric(
+                        icon: Icons.memory_rounded,
+                        label: 'Memory',
+                        value: container.memoryUsageLabel,
+                        detail: container.memoryPercent == null
+                            ? null
+                            : '${container.memoryPercent!.toStringAsFixed(1)}%',
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  container.status,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                'ID ${container.containerId}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );
