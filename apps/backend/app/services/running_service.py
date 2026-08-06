@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-import math
 import os
 from typing import Literal
 
@@ -51,11 +50,11 @@ def calculate_effort_score(
     pace_seconds_per_km: int,
     average_heart_rate: int,
 ) -> float:
-    """Return a transparent 0–100 comparative running score.
+    """Return a 0–100 personal comparative running score.
 
-    The score rewards faster pace at a lower average heart rate, then adds a
-    modest distance contribution. It is intended for personal trend tracking,
-    not as a medical or physiological assessment.
+    Faster pace at a lower average heart rate scores more highly, with a modest
+    distance contribution and a small outdoor adjustment. This is not a medical
+    or physiological assessment.
     """
     speed_kmh = 3600 / pace_seconds_per_km
     efficiency_component = (speed_kmh / average_heart_rate) * 650
@@ -103,7 +102,9 @@ class RunningService:
             )
             session.add(model)
             session.commit()
-        return self.list_runs()[0]
+            saved_id = model.id
+
+        return next(record for record in self.list_runs() if record.id == saved_id)
 
     def list_runs(self) -> list[RunRecord]:
         with self._session_factory() as session:
@@ -118,7 +119,11 @@ class RunningService:
         fitness = 0.0
         records: list[RunRecord] = []
         for index, model in enumerate(models):
-            fitness = model.effort_score if index == 0 else (0.25 * model.effort_score) + (0.75 * fitness)
+            fitness = (
+                model.effort_score
+                if index == 0
+                else (0.25 * model.effort_score) + (0.75 * fitness)
+            )
             records.append(
                 RunRecord(
                     id=model.id,
