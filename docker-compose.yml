@@ -1,4 +1,18 @@
 services:
+  web:
+    build:
+      context: ./apps/mobile
+      dockerfile: Dockerfile.web
+      args:
+        SIRISOS_API_URL: ${SIRISOS_API_URL:-http://192.168.0.100:8000}
+    container_name: sirisos-web
+    ports:
+      - "6464:80"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
   api:
     build:
       context: ./apps/backend
