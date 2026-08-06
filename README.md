@@ -53,7 +53,9 @@ make up
 - Typed SirisCore broadcast event bus
 - Event-driven Notification Centre with severity and read/unread state
 - Typed deterministic briefing observations with ranking, deduplication, expiry, and fallback assembly
-- Running, Gym, Homelab, and system briefing contributors
+- Running, Gym, Homelab, system, and Health briefing contributors
+- Health snapshots included in the combined dashboard/briefing input
+- Deterministic Siris Score core model with weighted domains and human-readable explanations
 - Running logging and fitness trends
 - Gym workouts, templates, progress, and personal records
 - Health Auto Export MCP integration scaffold
@@ -120,16 +122,18 @@ This is the current development priority. Complete SirisCore before substantial 
 
 - [x] Existing dashboard briefing strings and rules-based recommendations
 - [x] Standard observation model and contributor interface
-- [x] Running, Gym, and Homelab contributors
-- [x] Health contributor registration without fabricated observations
+- [x] Running, Gym, Homelab, system, and Health contributors
+- [x] Dedicated Health data in the shared briefing input
+- [x] Deterministic Health observations for availability, sleep, steps, and resting heart rate
 - [x] Priority scoring, deduplication, and expiry
 - [x] Deterministic briefing assembly with backend fallback
 - [x] Briefing widget consumes deterministic output
-- [ ] Add dedicated Health data to the shared briefing input
-- [ ] Event-driven briefing refresh
+- [x] Deterministic Siris Score foundation across Health, Running, Gym, Homelab, and system health
+- [x] Human-readable score explanations showing which domains raised or lowered the result
+- [ ] Event-driven briefing refresh subscriptions
+- [ ] Siris Score widget and Mission Control presentation
+- [ ] Extend Siris Score to knowledge, tasks, engineering momentum, and automation health as those modules become available
 - [ ] Optional Ollama rewriting layer
-- [ ] Deterministic Siris Score across health, fitness, Homelab, knowledge, tasks, engineering momentum, and automation health
-- [ ] Human-readable score explanation showing which domains raised or lowered the result
 
 ### Remaining SirisCore systems
 
@@ -213,8 +217,8 @@ Long-term examples include surfacing engineering project notes beside calculatio
 
 Unless deliberately revised and documented:
 
-1. Add Health briefing input and event-driven briefing refresh.
-2. Build the deterministic Siris Score foundation and explanation model.
+1. Add event-driven Dashboard and briefing refresh subscriptions.
+2. Present the deterministic Siris Score through a registered widget.
 3. Complete Scheduler, AI Context, and remaining SirisCore systems.
 4. Declare Sprint 0.4.1 complete.
 5. Build the dedicated Mission Control route using the shared Widget Registry.
