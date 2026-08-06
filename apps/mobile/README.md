@@ -10,17 +10,44 @@ Generate the local Flutter platform wrappers, then install dependencies:
 cd apps/mobile
 flutter create --platforms=ios,android,web,macos,windows .
 flutter pub get
-flutter run
 ```
 
-The committed SirisOS code lives under `lib/`; generated platform files can then be committed in a later milestone once the target platforms are confirmed.
+## Run with the backend
+
+Start the backend from the repository root:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Then run Flutter with the address that the target device can use to reach the backend.
+
+Desktop or web on the same computer:
+
+```bash
+flutter run --dart-define=SIRISOS_API_URL=http://localhost:8000
+```
+
+Android emulator:
+
+```bash
+flutter run --dart-define=SIRISOS_API_URL=http://10.0.2.2:8000
+```
+
+iOS simulator generally supports `http://localhost:8000`. For a physical phone, replace the URL with the LAN address of the computer or server running FastAPI, for example:
+
+```bash
+flutter run --dart-define=SIRISOS_API_URL=http://192.168.1.50:8000
+```
 
 ## Current milestone
 
 - Material 3 dark theme
 - Responsive dashboard layout
-- Reusable dashboard cards
-- Bottom navigation shell
-- Initial daily briefing panel
+- Live `GET /api/v1/dashboard` data
+- Loading, retry, and offline states
+- Pull-to-refresh
+- Configurable API base URL
 
-The dashboard currently uses placeholder data. The next frontend milestone will connect it to the FastAPI backend.
+The backend currently supplies safe placeholder values through a stable API contract. Future integrations can replace those values without restructuring the Flutter dashboard.
