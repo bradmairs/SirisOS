@@ -49,6 +49,10 @@ class WorkoutSet:
     def volume_kg(self) -> float:
         return round(self.weight_kg * self.reps, 1)
 
+    @property
+    def estimated_one_rep_max_kg(self) -> float:
+        return round(self.weight_kg * (1 + self.reps / 30), 1)
+
 
 @dataclass(frozen=True)
 class Workout:
@@ -62,6 +66,31 @@ class Workout:
     @property
     def total_volume_kg(self) -> float:
         return round(sum(item.volume_kg for item in self.sets), 1)
+
+
+@dataclass(frozen=True)
+class ExerciseHistoryPoint:
+    workout_date: date
+    workout_name: str
+    weight_kg: float
+    reps: int
+    rir: int | None
+    volume_kg: float
+    estimated_one_rep_max_kg: float
+
+
+@dataclass(frozen=True)
+class ExerciseSummary:
+    exercise: str
+    set_count: int
+    workout_count: int
+    latest_date: date
+    latest_weight_kg: float
+    latest_reps: int
+    best_weight_kg: float
+    best_estimated_one_rep_max_kg: float
+    best_set_volume_kg: float
+    history: list[ExerciseHistoryPoint]
 
 
 class GymService:
@@ -99,6 +128,52 @@ class GymService:
             session.commit()
             session.refresh(row)
             return self._to_record(row)
+
+    def list_exercises(self) -> list[ExerciseSummary]:
+        workouts = list(reversed(self.list_workouts()))
+        grouped: dict[str, list[ExerciseHistoryPoint]] = {}
+        display_names: dict[str, str] = {}
+        workout_ids: dict[str, set[int]] = {}
+
+        for workout in workouts:
+            for item in workout.sets:
+                key = item.exercise.strip().casefold()
+                display_names.setdefault(key, item.exercise.strip())
+                workout_ids.setdefault(key, set()).add(workout.id)
+                grouped.setdefault(key, []).append(
+                    ExerciseHistoryPoint(
+                        workout_date=workout.workout_date,
+                        workout_name=workout.name,
+                        weight_kg=item.weight_kg,
+                        reps=item.reps,
+                        rir=item.rir,
+                        volume_kg=item.volume_kg,
+                        estimated_one_rep_max_kg=item.estimated_one_rep_max_kg,
+                    )
+                )
+
+        summaries: list[ExerciseSummary] = []
+        for key, history in grouped.items():
+            latest = history[-1]
+            summaries.append(
+                ExerciseSummary(
+                    exercise=display_names[key],
+                    set_count=len(history),
+                    workout_count=len(workout_ids[key]),
+                    latest_date=latest.workout_date,
+                    latest_weight_kg=latest.weight_kg,
+                    latest_reps=latest.reps,
+                    best_weight_kg=max(point.weight_kg for point in history),
+                    best_estimated_one_rep_max_kg=max(point.estimated_one_rep_max_kg for point in history),
+                    best_set_volume_kg=max(point.volume_kg for point in history),
+                    history=history,
+                )
+            )
+        return sorted(summaries, key=lambda item: item.latest_date, reverse=True)
+
+    def get_exercise(self, exercise: str) -> ExerciseSummary | None:
+        target = exercise.strip().casefold()
+        return next((item for item in self.list_exercises() if item.exercise.casefold() == target), None)
 
     @staticmethod
     def _to_record(row: WorkoutModel) -> Workout:
