@@ -27,6 +27,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await next;
   }
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -36,7 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError || !snapshot.hasData) {
             return _ErrorState(onRetry: _refresh);
           }
@@ -58,12 +64,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Good morning, ${data.greetingName}',
+                                '${_greeting()}, ${data.greetingName}',
                                 style: Theme.of(context).textTheme.headlineMedium,
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Live data from your SirisOS backend.',
+                                'Your live SirisOS command centre.',
                                 style: TextStyle(
                                   color: Theme.of(context)
                                       .colorScheme
@@ -96,9 +102,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return SliverGrid(
                         delegate: SliverChildListDelegate.fixed([
                           _card(data.homelab, Icons.dns_rounded),
-                          _card(data.recovery, Icons.favorite_rounded),
+                          _card(data.running, Icons.directions_run_rounded),
                           _card(data.gym, Icons.fitness_center_rounded),
-                          _card(data.today, Icons.calendar_today_rounded),
+                          _card(data.system, Icons.memory_rounded),
                         ]),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: columns,
@@ -121,22 +127,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: Theme.of(context).colorScheme.primary,
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(
+                                    Icons.auto_awesome_rounded,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
                                 ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Daily briefing',
-                                  style: Theme.of(context).textTheme.titleLarge,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'SirisOS briefing',
+                                        style: Theme.of(context).textTheme.titleLarge,
+                                      ),
+                                      Text(
+                                        'Generated from your live modules',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-                            Text(data.briefing),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 18),
+                            if (data.briefingItems.isEmpty)
+                              const Text('No briefing items are available yet.')
+                            else
+                              ...data.briefingItems.map(
+                                (item) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 7),
+                                        child: Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: Text(item)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 4),
                             Text(
-                              'Updated ${TimeOfDay.fromDateTime(data.generatedAt).format(context)}',
+                              'Updated ${TimeOfDay.fromDateTime(data.generatedAt.toLocal()).format(context)}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
                                         .colorScheme
@@ -162,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       title: data.title,
       value: data.value,
       subtitle: data.subtitle,
+      status: data.status,
       icon: icon,
     );
   }
