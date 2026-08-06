@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../core/siris_event_bus.dart';
 import '../models/exercise_progress.dart';
 import '../models/gym_workout.dart';
 import '../models/workout_template.dart';
@@ -58,6 +59,9 @@ class GymService {
     if (response.statusCode != 201) {
       throw Exception(decoded is Map<String, dynamic> ? decoded['detail'] ?? 'Could not save template.' : 'Could not save template.');
     }
+    SirisEventBus.instance.publish(
+      ModuleDataChanged(moduleId: 'gym', reason: 'template_created'),
+    );
     return WorkoutTemplate.fromJson(decoded as Map<String, dynamic>);
   }
 
@@ -67,6 +71,9 @@ class GymService {
       headers: AuthService.authorizationHeaders,
     );
     if (response.statusCode != 204) throw Exception('Could not delete template.');
+    SirisEventBus.instance.publish(
+      ModuleDataChanged(moduleId: 'gym', reason: 'template_deleted'),
+    );
   }
 
   Future<void> createWorkout({required DateTime date, required String name, String? notes, required List<GymSet> sets}) async {
@@ -89,5 +96,11 @@ class GymService {
       final decoded = jsonDecode(response.body);
       throw Exception(decoded is Map<String, dynamic> ? decoded['detail'] ?? 'Could not save workout.' : 'Could not save workout.');
     }
+    SirisEventBus.instance.publish(
+      ModuleDataChanged(moduleId: 'gym', reason: 'workout_logged'),
+    );
+    SirisEventBus.instance.publish(
+      NotificationStateChanged(source: 'gym'),
+    );
   }
 }

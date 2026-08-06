@@ -36,8 +36,11 @@
 - [x] Module registry with declared capabilities
 - [x] Typed broadcast event bus
 - [x] Mission Control refresh events
+- [x] Running and Gym data-change event publishers
+- [x] Notification unread/read state events
 - [ ] Drag-and-drop layout directly on the workspace
-- [ ] Notification centre event integration
+- [ ] Notification centre subscriptions and actions
+- [ ] Homelab and Health data-change event publishers
 - [ ] Deterministic briefing engine
 - [ ] Scheduler
 - [ ] AI context service
