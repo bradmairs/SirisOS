@@ -1,6 +1,8 @@
+from datetime import datetime
 import os
 from typing import Annotated, Literal
 
+import httpx
 import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
@@ -54,6 +56,25 @@ class AuditEventResponse(BaseModel):
     detail: str | None
 
 
+class IntegrationStatusResponse(BaseModel):
+    key: str
+    name: str
+    configured: bool
+    available: bool
+    status: Literal["healthy", "warning", "unconfigured"]
+    detail: str
+    version: str | None = None
+    latency_ms: int | None = None
+
+
+class IntegrationDiagnosticsResponse(BaseModel):
+    integrations: list[IntegrationStatusResponse]
+    healthy: int
+    configured: int
+    total: int
+    generated_at: str
+
+
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -90,6 +111,52 @@ def _metric_alert(name: str, value: float | None, warning: float, critical: floa
         value=value,
         threshold=threshold,
     )
+
+
+async def _probe_integration(
+    *,
+    key: str,
+    name: str,
+    base_url: str | None,
+    path: str,
+    headers: dict[str, str] | None = None,
+    version_header: str | None = None,
+) -> IntegrationStatusResponse:
+    if not base_url:
+        return IntegrationStatusResponse(
+            key=key,
+            name=name,
+            configured=False,
+            available=False,
+            status="unconfigured",
+            detail="Not configured",
+        )
+
+    started = datetime.now()
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+            response = await client.get(f"{base_url.rstrip('/')}{path}", headers=headers)
+        latency_ms = int((datetime.now() - started).total_seconds() * 1000)
+        response.raise_for_status()
+        return IntegrationStatusResponse(
+            key=key,
+            name=name,
+            configured=True,
+            available=True,
+            status="healthy",
+            detail="Connected",
+            version=response.headers.get(version_header) if version_header else None,
+            latency_ms=latency_ms,
+        )
+    except (httpx.HTTPError, ValueError) as exc:
+        return IntegrationStatusResponse(
+            key=key,
+            name=name,
+            configured=True,
+            available=False,
+            status="warning",
+            detail=f"Connection failed: {type(exc).__name__}",
+        )
 
 
 @router.get("/alerts", response_model=AlertSummaryResponse)
@@ -142,3 +209,46 @@ async def audit_history(
         )
         for item in audit_service.recent(limit=limit)
     ]
+
+
+@router.get("/integrations", response_model=IntegrationDiagnosticsResponse)
+async def integration_diagnostics(
+    authorization: Annotated[str | None, Header()] = None,
+) -> IntegrationDiagnosticsResponse:
+    _authenticate(authorization)
+    home_assistant_url = os.getenv("HOME_ASSISTANT_URL")
+    home_assistant_token = os.getenv("HOME_ASSISTANT_TOKEN")
+    plex_url = os.getenv("PLEX_URL")
+    plex_token = os.getenv("PLEX_TOKEN")
+
+    results = [
+        await _probe_integration(
+            key="home_assistant",
+            name="Home Assistant",
+            base_url=home_assistant_url if home_assistant_token else None,
+            path="/api/",
+            headers={"Authorization": f"Bearer {home_assistant_token}"} if home_assistant_token else None,
+        ),
+        await _probe_integration(
+            key="plex",
+            name="Plex",
+            base_url=plex_url if plex_token else None,
+            path="/identity",
+            headers={"X-Plex-Token": plex_token} if plex_token else None,
+            version_header="X-Plex-Version",
+        ),
+        await _probe_integration(
+            key="ollama",
+            name="Ollama",
+            base_url=os.getenv("OLLAMA_URL"),
+            path="/api/version",
+        ),
+    ]
+
+    return IntegrationDiagnosticsResponse(
+        integrations=results,
+        healthy=sum(item.available for item in results),
+        configured=sum(item.configured for item in results),
+        total=len(results),
+        generated_at=datetime.now().astimezone().isoformat(),
+    )
