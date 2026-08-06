@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.services.activity_service import ActivityService
 
-router = APIRouter(prefix="/activity", tags=["activity"])
+router = APIRouter(prefix="/api/v1/activity", tags=["activity"])
 service = ActivityService()
 service.initialise()
 
@@ -24,6 +24,16 @@ class ActivityEventResponse(BaseModel):
     message: str
     severity: Literal["info", "success", "warning", "critical"]
     user: str | None
+    is_unread: bool
+
+
+class NotificationSummaryResponse(BaseModel):
+    unread_count: int
+
+
+class MarkReadResponse(BaseModel):
+    last_read_event_id: int
+    unread_count: int = 0
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> str:
@@ -48,8 +58,10 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> str:
 async def activity_feed(
     authorization: Annotated[str | None, Header()] = None,
     limit: int = Query(default=30, ge=1, le=200),
+    severity: Literal["all", "info", "success", "warning", "critical"] = "all",
 ) -> list[ActivityEventResponse]:
-    _authenticate(authorization)
+    username = _authenticate(authorization)
+    last_read = service.last_read_event_id(username)
     return [
         ActivityEventResponse(
             id=item.id,
@@ -60,6 +72,24 @@ async def activity_feed(
             message=item.message,
             severity=item.severity,
             user=item.user,
+            is_unread=item.id > last_read,
         )
-        for item in service.list_events(limit=limit)
+        for item in service.list_events(limit=limit, severity=severity)
     ]
+
+
+@router.get("/notifications", response_model=NotificationSummaryResponse)
+async def notification_summary(
+    authorization: Annotated[str | None, Header()] = None,
+) -> NotificationSummaryResponse:
+    username = _authenticate(authorization)
+    return NotificationSummaryResponse(unread_count=service.unread_count(username))
+
+
+@router.post("/notifications/read-all", response_model=MarkReadResponse)
+async def mark_all_notifications_read(
+    authorization: Annotated[str | None, Header()] = None,
+) -> MarkReadResponse:
+    username = _authenticate(authorization)
+    latest_id = service.mark_all_read(username)
+    return MarkReadResponse(last_read_event_id=latest_id)
