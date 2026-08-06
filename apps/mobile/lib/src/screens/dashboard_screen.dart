@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/dashboard_summary.dart';
 import '../services/dashboard_service.dart';
+import '../widgets/activity_feed_panel.dart';
 import '../widgets/dashboard_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -71,9 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Text(
                                 'Your live SirisOS command centre.',
                                 style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -93,12 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   sliver: SliverLayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.crossAxisExtent;
-                      final columns = width >= 1000
-                          ? 4
-                          : width >= 650
-                              ? 2
-                              : 1;
-
+                      final columns = width >= 1000 ? 4 : width >= 650 ? 2 : 1;
                       return SliverGrid(
                         delegate: SliverChildListDelegate.fixed([
                           _card(data.homelab, Icons.dns_rounded),
@@ -116,6 +110,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  sliver: SliverToBoxAdapter(child: ActivityFeedPanel()),
+                ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                   sliver: SliverToBoxAdapter(
@@ -127,44 +125,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Icon(
-                                    Icons.auto_awesome_rounded,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'SirisOS briefing',
-                                        style: Theme.of(context).textTheme.titleLarge,
-                                      ),
-                                      Text(
-                                        'Generated from your live modules',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                Icon(Icons.auto_awesome_rounded,
+                                    color: Theme.of(context).colorScheme.primary),
+                                const SizedBox(width: 10),
+                                Text('SirisOS briefing',
+                                    style: Theme.of(context).textTheme.titleLarge),
                               ],
                             ),
                             const SizedBox(height: 18),
@@ -183,9 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           width: 6,
                                           height: 6,
                                           decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
+                                            color: Theme.of(context).colorScheme.primary,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -196,13 +159,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                               ),
-                            const SizedBox(height: 4),
                             Text(
                               'Updated ${TimeOfDay.fromDateTime(data.generatedAt.toLocal()).format(context)}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                             ),
                           ],
@@ -219,15 +179,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  DashboardCard _card(DashboardCardData data, IconData icon) {
-    return DashboardCard(
-      title: data.title,
-      value: data.value,
-      subtitle: data.subtitle,
-      status: data.status,
-      icon: icon,
-    );
-  }
+  DashboardCard _card(DashboardCardData data, IconData icon) => DashboardCard(
+        title: data.title,
+        value: data.value,
+        subtitle: data.subtitle,
+        status: data.status,
+        icon: icon,
+      );
 }
 
 class _ErrorState extends StatelessWidget {
@@ -243,25 +201,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              size: 52,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            Icon(Icons.cloud_off_rounded,
+                size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 18),
-            Text(
-              'SirisOS backend unavailable',
-              style: Theme.of(context).textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Check that the backend is running and SIRISOS_API_URL is correct.',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text('SirisOS backend unavailable',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: onRetry,
