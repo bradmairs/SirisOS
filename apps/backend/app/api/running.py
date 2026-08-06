@@ -7,12 +7,15 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.api.gym import router as gym_router
+from app.services.activity_service import ActivityService
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(gym_router)
 service = RunningService()
 service.initialise()
+activity_service = ActivityService()
+activity_service.initialise()
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -73,6 +76,10 @@ def to_response(record) -> RunResponse:
     )
 
 
+def _pace_label(seconds_per_km: int) -> str:
+    return f"{seconds_per_km // 60}:{seconds_per_km % 60:02d}/km"
+
+
 @router.get("/running", response_model=list[RunResponse], tags=["running"])
 async def list_runs(
     authorization: Annotated[str | None, Header()] = None,
@@ -86,12 +93,24 @@ async def create_run(
     payload: RunCreateRequest,
     authorization: Annotated[str | None, Header()] = None,
 ) -> RunResponse:
-    current_username(authorization)
+    username = current_username(authorization)
     record = service.create_run(
         run_date=payload.run_date,
         run_type=payload.run_type,
         distance_km=payload.distance_km,
         average_pace_seconds_per_km=payload.average_pace_seconds_per_km,
         average_heart_rate=payload.average_heart_rate,
+    )
+    activity_service.record(
+        module="running",
+        event_type="run_logged",
+        title="Run logged",
+        message=(
+            f"{record.distance_km:.1f} km {record.run_type} run at "
+            f"{_pace_label(record.average_pace_seconds_per_km)}. "
+            f"Fitness score {record.fitness_score:.1f}."
+        ),
+        severity="success",
+        user=username,
     )
     return to_response(record)
