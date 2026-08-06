@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/exercise_progress.dart';
 import '../models/gym_workout.dart';
+import '../models/workout_template.dart';
 import 'auth_service.dart';
 
 class GymService {
@@ -27,10 +28,45 @@ class GymService {
     if (response.statusCode != 200) throw Exception('Could not load exercise progress.');
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(ExerciseProgress.fromJson)
-        .toList(growable: false);
+    return decoded.whereType<Map<String, dynamic>>().map(ExerciseProgress.fromJson).toList(growable: false);
+  }
+
+  Future<List<WorkoutTemplate>> fetchTemplates() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200) throw Exception('Could not load workout templates.');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded.whereType<Map<String, dynamic>>().map(WorkoutTemplate.fromJson).toList(growable: false);
+  }
+
+  Future<WorkoutTemplate> createTemplate({
+    required String name,
+    required List<WorkoutTemplateExercise> exercises,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates'),
+      headers: {...AuthService.authorizationHeaders, 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'exercises': exercises.map((item) => item.toJson()).toList(),
+      }),
+    );
+    final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
+    if (response.statusCode != 201) {
+      throw Exception(decoded is Map<String, dynamic> ? decoded['detail'] ?? 'Could not save template.' : 'Could not save template.');
+    }
+    return WorkoutTemplate.fromJson(decoded as Map<String, dynamic>);
+  }
+
+  Future<void> deleteTemplate(int templateId) async {
+    final response = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates/$templateId'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 204) throw Exception('Could not delete template.');
   }
 
   Future<void> createWorkout({required DateTime date, required String name, String? notes, required List<GymSet> sets}) async {
