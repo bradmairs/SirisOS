@@ -42,6 +42,11 @@
 - [x] Notification unread/read state events
 - [x] Notification Centre live event subscriptions
 - [x] Automatic debounced Notification Centre refresh
+- [x] Registry-driven desktop navigation
+- [x] Registry-driven mobile navigation
+- [x] Registry-driven module quick actions
+- [ ] Registry-provided route and screen builders
+- [ ] Optional and unavailable module handling
 - [ ] Drag-and-drop layout directly on the workspace
 - [ ] Notification action metadata and action buttons
 - [ ] Consistent module notification policies
@@ -66,3 +71,19 @@
 - SirisHydro integration
 - SirisPM integration
 - Project notes and tools
+
+## Sprint 0.5.0 — Knowledge Platform
+
+Integrate the existing server-hosted Obsidian instance running in Docker through Selkies and make the vault a first-class SirisOS knowledge source.
+
+- [ ] Obsidian/Selkies launch integration
+- [ ] Vault browser
+- [ ] Recent notes widget
+- [ ] Daily Notes integration
+- [ ] Global SirisOS search across vault content
+- [ ] Wikilink navigation and graph exploration
+- [ ] Metadata and tag support
+- [ ] AI semantic search across the vault
+- [ ] Mission Control Knowledge widget
+- [ ] Context-aware related note suggestions
+- [ ] Cross-linking with Engineering, Homelab, Tasks, and Briefings
