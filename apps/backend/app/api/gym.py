@@ -8,10 +8,13 @@ from pydantic import BaseModel, Field
 
 from app.services.activity_service import ActivityService
 from app.services.gym_service import GymService
+from app.services.workout_template_service import WorkoutTemplateService
 
 router = APIRouter(prefix="/gym", tags=["gym"])
 service = GymService()
 service.initialise()
+template_service = WorkoutTemplateService()
+template_service.initialise()
 activity_service = ActivityService()
 activity_service.initialise()
 
@@ -93,6 +96,32 @@ class ExerciseSummaryResponse(BaseModel):
     history: list[ExerciseHistoryPointResponse]
 
 
+class WorkoutTemplateExerciseCreate(BaseModel):
+    exercise: str = Field(min_length=1, max_length=120)
+    target_sets: int = Field(default=1, ge=1, le=20)
+    target_reps: int = Field(default=8, ge=1, le=100)
+    target_rir: int | None = Field(default=None, ge=0, le=10)
+
+
+class WorkoutTemplateCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    exercises: list[WorkoutTemplateExerciseCreate] = Field(min_length=1, max_length=40)
+
+
+class WorkoutTemplateExerciseResponse(BaseModel):
+    exercise: str
+    target_sets: int
+    target_reps: int
+    target_rir: int | None
+
+
+class WorkoutTemplateResponse(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    exercises: list[WorkoutTemplateExerciseResponse]
+
+
 def _response(workout) -> WorkoutResponse:
     return WorkoutResponse(
         id=workout.id,
@@ -131,6 +160,15 @@ def _exercise_response(item) -> ExerciseSummaryResponse:
     )
 
 
+def _template_response(item) -> WorkoutTemplateResponse:
+    return WorkoutTemplateResponse(
+        id=item.id,
+        name=item.name,
+        created_at=item.created_at,
+        exercises=[WorkoutTemplateExerciseResponse(**exercise.__dict__) for exercise in item.exercises],
+    )
+
+
 @router.get("/workouts", response_model=list[WorkoutResponse])
 async def list_workouts(authorization: Annotated[str | None, Header()] = None) -> list[WorkoutResponse]:
     _authenticate(authorization)
@@ -150,10 +188,7 @@ async def create_workout(payload: WorkoutCreate, authorization: Annotated[str | 
         module="gym",
         event_type="workout_logged",
         title="Workout logged",
-        message=(
-            f"{workout.name}: {len(workout.sets)} sets and "
-            f"{workout.total_volume_kg:,.0f} kg total volume."
-        ),
+        message=f"{workout.name}: {len(workout.sets)} sets and {workout.total_volume_kg:,.0f} kg total volume.",
         severity="success",
         user=username,
     )
@@ -173,3 +208,37 @@ async def exercise_detail(exercise_name: str, authorization: Annotated[str | Non
     if item is None:
         raise HTTPException(status_code=404, detail="Exercise not found.")
     return _exercise_response(item)
+
+
+@router.get("/templates", response_model=list[WorkoutTemplateResponse])
+async def list_templates(authorization: Annotated[str | None, Header()] = None) -> list[WorkoutTemplateResponse]:
+    _authenticate(authorization)
+    return [_template_response(item) for item in template_service.list_templates()]
+
+
+@router.post("/templates", response_model=WorkoutTemplateResponse, status_code=status.HTTP_201_CREATED)
+async def create_template(payload: WorkoutTemplateCreate, authorization: Annotated[str | None, Header()] = None) -> WorkoutTemplateResponse:
+    username = _authenticate(authorization)
+    try:
+        template = template_service.create_template(
+            name=payload.name,
+            exercises=[item.model_dump() for item in payload.exercises],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    activity_service.record(
+        module="gym",
+        event_type="template_created",
+        title="Workout template created",
+        message=f"{template.name} with {len(template.exercises)} exercises.",
+        severity="success",
+        user=username,
+    )
+    return _template_response(template)
+
+
+@router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template(template_id: int, authorization: Annotated[str | None, Header()] = None) -> None:
+    _authenticate(authorization)
+    if not template_service.delete_template(template_id):
+        raise HTTPException(status_code=404, detail="Workout template not found.")
