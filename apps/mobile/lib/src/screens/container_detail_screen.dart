@@ -5,12 +5,10 @@ import 'package:flutter/material.dart';
 import '../models/docker_summary.dart';
 import '../services/homelab_service.dart';
 import '../widgets/metric_line_chart.dart';
+import 'container_logs_screen.dart';
 
 class ContainerDetailScreen extends StatefulWidget {
-  const ContainerDetailScreen({
-    required this.initialContainer,
-    super.key,
-  });
+  const ContainerDetailScreen({required this.initialContainer, super.key});
 
   final DockerContainerInfo initialContainer;
 
@@ -20,7 +18,6 @@ class ContainerDetailScreen extends StatefulWidget {
 
 class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
   static const _maxSamples = 30;
-
   final HomelabService _service = HomelabService();
   final List<MetricSample> _cpuSamples = [];
   final List<MetricSample> _memorySamples = [];
@@ -34,10 +31,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
     super.initState();
     _container = widget.initialContainer;
     _recordSample(_container);
-    _timer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _refresh(silent: true),
-    );
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _refresh(silent: true));
   }
 
   @override
@@ -52,11 +46,8 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
       _cpuSamples.add(MetricSample(time: now, value: container.cpuPercent!));
     }
     if (container.memoryPercent != null) {
-      _memorySamples.add(
-        MetricSample(time: now, value: container.memoryPercent!),
-      );
+      _memorySamples.add(MetricSample(time: now, value: container.memoryPercent!));
     }
-
     if (_cpuSamples.length > _maxSamples) {
       _cpuSamples.removeRange(0, _cpuSamples.length - _maxSamples);
     }
@@ -67,7 +58,6 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
 
   Future<void> _refresh({bool silent = false}) async {
     if (_refreshing) return;
-
     if (!silent) {
       setState(() {
         _refreshing = true;
@@ -76,15 +66,10 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
     } else {
       _refreshing = true;
     }
-
     try {
       final summary = await _service.fetchDockerSummary();
-      final updated = summary.containers.where(
-        (item) => item.containerId == _container.containerId,
-      );
-
+      final updated = summary.containers.where((item) => item.containerId == _container.containerId);
       if (!mounted) return;
-
       if (updated.isEmpty) {
         setState(() => _error = 'This container is no longer available.');
       } else {
@@ -95,13 +80,22 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Could not refresh container data.');
-      }
+      if (mounted) setState(() => _error = 'Could not refresh container data.');
     } finally {
       _refreshing = false;
       if (mounted && !silent) setState(() {});
     }
+  }
+
+  void _openLogs() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ContainerLogsScreen(
+          containerId: _container.containerId,
+          containerName: _container.name,
+        ),
+      ),
+    );
   }
 
   @override
@@ -117,6 +111,11 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
       appBar: AppBar(
         title: Text(_container.name),
         actions: [
+          IconButton(
+            onPressed: _openLogs,
+            tooltip: 'View logs',
+            icon: const Icon(Icons.terminal_rounded),
+          ),
           IconButton(
             onPressed: _refreshing ? null : _refresh,
             tooltip: 'Refresh container',
@@ -144,27 +143,17 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor:
-                              statusColor.withValues(alpha: 0.14),
-                          child: Icon(
-                            Icons.inventory_2_rounded,
-                            color: statusColor,
-                          ),
+                          backgroundColor: statusColor.withValues(alpha: 0.14),
+                          child: Icon(Icons.inventory_2_rounded, color: statusColor),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _container.name,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
+                              Text(_container.name, style: Theme.of(context).textTheme.titleLarge),
                               const SizedBox(height: 4),
-                              Text(
-                                _container.status,
-                                style: TextStyle(color: statusColor),
-                              ),
+                              Text(_container.status, style: TextStyle(color: statusColor)),
                             ],
                           ),
                         ),
@@ -185,9 +174,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
                   child: _MetricCard(
                     icon: Icons.speed_rounded,
                     label: 'CPU',
-                    value: _container.cpuPercent == null
-                        ? '—'
-                        : '${_container.cpuPercent!.toStringAsFixed(1)}%',
+                    value: _container.cpuPercent == null ? '—' : '${_container.cpuPercent!.toStringAsFixed(1)}%',
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -196,26 +183,20 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
                     icon: Icons.memory_rounded,
                     label: 'Memory',
                     value: _container.memoryUsageLabel,
-                    detail: _container.memoryPercent == null
-                        ? null
-                        : '${_container.memoryPercent!.toStringAsFixed(1)}%',
+                    detail: _container.memoryPercent == null ? null : '${_container.memoryPercent!.toStringAsFixed(1)}%',
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            MetricLineChart(
-              title: 'CPU history',
-              samples: List.unmodifiable(_cpuSamples),
-              valueSuffix: '%',
-              maxY: 100,
-            ),
+            MetricLineChart(title: 'CPU history', samples: List.unmodifiable(_cpuSamples), valueSuffix: '%', maxY: 100),
             const SizedBox(height: 16),
-            MetricLineChart(
-              title: 'Memory history',
-              samples: List.unmodifiable(_memorySamples),
-              valueSuffix: '%',
-              maxY: 100,
+            MetricLineChart(title: 'Memory history', samples: List.unmodifiable(_memorySamples), valueSuffix: '%', maxY: 100),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: _openLogs,
+              icon: const Icon(Icons.terminal_rounded),
+              label: const Text('View container logs'),
             ),
             const SizedBox(height: 16),
             Card(
@@ -224,22 +205,13 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Container details',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    Text('Container details', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 16),
                     _DetailRow(label: 'Image', value: _container.image),
-                    _DetailRow(
-                      label: 'Container ID',
-                      value: _container.containerId,
-                    ),
+                    _DetailRow(label: 'Container ID', value: _container.containerId),
                     _DetailRow(label: 'State', value: _container.state),
                     _DetailRow(label: 'Status', value: _container.status),
-                    _DetailRow(
-                      label: 'Health',
-                      value: _container.health ?? 'No health check',
-                    ),
+                    _DetailRow(label: 'Health', value: _container.health ?? 'No health check'),
                   ],
                 ),
               ),
@@ -248,9 +220,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
             Text(
               'Live data refreshes every 5 seconds. Charts retain the latest 30 samples while this screen is open.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -260,13 +230,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.detail,
-  });
-
+  const _MetricCard({required this.icon, required this.label, required this.value, this.detail});
   final IconData icon;
   final String label;
   final String value;
@@ -299,7 +263,6 @@ class _MetricCard extends StatelessWidget {
 
 class _DetailRow extends StatelessWidget {
   const _DetailRow({required this.label, required this.value});
-
   final String label;
   final String value;
 
@@ -312,9 +275,7 @@ class _DetailRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 3),
           SelectableText(value),
