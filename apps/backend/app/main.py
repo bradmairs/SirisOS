@@ -10,8 +10,9 @@ from pydantic import BaseModel
 
 from app.api.running import router as running_router
 from app.services.docker_service import DockerMonitor
+from app.services.host_metrics_service import HostMetricsCollector
 
-API_VERSION = "0.6.0"
+API_VERSION = "0.7.0"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -81,6 +82,22 @@ class DockerStatusResponse(BaseModel):
     error: str | None = None
 
 
+class HostMetricsResponse(BaseModel):
+    available: bool
+    hostname: str | None = None
+    cpu_percent: float | None = None
+    memory_percent: float | None = None
+    memory_used_bytes: int | None = None
+    memory_total_bytes: int | None = None
+    disk_percent: float | None = None
+    disk_used_bytes: int | None = None
+    disk_total_bytes: int | None = None
+    load_1m: float | None = None
+    uptime_seconds: float | None = None
+    generated_at: str
+    error: str | None = None
+
+
 app = FastAPI(
     title="SirisOS API",
     description="Backend API for the SirisOS personal operating system.",
@@ -89,6 +106,7 @@ app = FastAPI(
 app.include_router(running_router)
 
 docker_monitor = DockerMonitor()
+host_metrics_collector = HostMetricsCollector()
 
 app.add_middleware(
     CORSMiddleware,
@@ -145,6 +163,26 @@ async def login(credentials: LoginRequest) -> TokenResponse:
 @app.get("/api/v1/auth/me", response_model=CurrentUserResponse, tags=["authentication"])
 async def current_user(username: CurrentUsername) -> CurrentUserResponse:
     return CurrentUserResponse(username=username)
+
+
+@app.get("/api/v1/homelab/host", response_model=HostMetricsResponse, tags=["homelab"])
+async def host_metrics(_: CurrentUsername) -> HostMetricsResponse:
+    metrics = host_metrics_collector.collect()
+    return HostMetricsResponse(
+        available=metrics.available,
+        hostname=metrics.hostname,
+        cpu_percent=metrics.cpu_percent,
+        memory_percent=metrics.memory_percent,
+        memory_used_bytes=metrics.memory_used_bytes,
+        memory_total_bytes=metrics.memory_total_bytes,
+        disk_percent=metrics.disk_percent,
+        disk_used_bytes=metrics.disk_used_bytes,
+        disk_total_bytes=metrics.disk_total_bytes,
+        load_1m=metrics.load_1m,
+        uptime_seconds=metrics.uptime_seconds,
+        generated_at=datetime.now().astimezone().isoformat(),
+        error=metrics.error,
+    )
 
 
 @app.get("/api/v1/homelab/docker", response_model=DockerStatusResponse, tags=["homelab"])
