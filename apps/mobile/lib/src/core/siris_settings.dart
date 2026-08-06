@@ -21,7 +21,7 @@ class SirisSettingsService {
     final preferences = await SharedPreferences.getInstance();
     return SirisCoreSettings(
       autoRefreshEnabled: preferences.getBool(_autoRefreshKey) ?? true,
-      refreshMinutes: (preferences.getInt(_refreshMinutesKey) ?? 5).clamp(1, 60),
+      refreshMinutes: (preferences.getInt(_refreshMinutesKey) ?? 5).clamp(1, 60).toInt(),
       enabledModules: (preferences.getStringList(_enabledModulesKey) ??
               defaultModules.toList(growable: false))
           .toSet(),
@@ -35,7 +35,7 @@ class SirisSettingsService {
 
   Future<void> setRefreshMinutes(int minutes) async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setInt(_refreshMinutesKey, minutes.clamp(1, 60));
+    await preferences.setInt(_refreshMinutesKey, minutes.clamp(1, 60).toInt());
   }
 
   Future<void> setModuleEnabled(String moduleId, bool enabled) async {
