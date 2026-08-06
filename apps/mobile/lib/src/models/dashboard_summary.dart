@@ -8,9 +8,9 @@ class DashboardCardData {
 
   factory DashboardCardData.fromJson(Map<String, dynamic> json) {
     return DashboardCardData(
-      title: json['title'] as String,
-      value: json['value'] as String,
-      subtitle: json['subtitle'] as String,
+      title: json['title'] as String? ?? 'Unknown',
+      value: json['value'] as String? ?? '—',
+      subtitle: json['subtitle'] as String? ?? '',
       status: json['status'] as String? ?? 'unknown',
     );
   }
@@ -25,38 +25,42 @@ class DashboardSummary {
   const DashboardSummary({
     required this.greetingName,
     required this.homelab,
-    required this.recovery,
+    required this.running,
     required this.gym,
-    required this.today,
-    required this.briefing,
+    required this.system,
+    required this.briefingItems,
     required this.generatedAt,
   });
 
   factory DashboardSummary.fromJson(Map<String, dynamic> json) {
+    final briefing = json['briefing_items'];
     return DashboardSummary(
-      greetingName: json['greeting_name'] as String,
+      greetingName: json['greeting_name'] as String? ?? 'Brad',
       homelab: DashboardCardData.fromJson(
         json['homelab'] as Map<String, dynamic>,
       ),
-      recovery: DashboardCardData.fromJson(
-        json['recovery'] as Map<String, dynamic>,
+      running: DashboardCardData.fromJson(
+        json['running'] as Map<String, dynamic>,
       ),
       gym: DashboardCardData.fromJson(
         json['gym'] as Map<String, dynamic>,
       ),
-      today: DashboardCardData.fromJson(
-        json['today'] as Map<String, dynamic>,
+      system: DashboardCardData.fromJson(
+        json['system'] as Map<String, dynamic>,
       ),
-      briefing: json['briefing'] as String,
-      generatedAt: DateTime.parse(json['generated_at'] as String),
+      briefingItems: briefing is List
+          ? briefing.whereType<String>().toList(growable: false)
+          : const [],
+      generatedAt: DateTime.tryParse(json['generated_at'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
   final String greetingName;
   final DashboardCardData homelab;
-  final DashboardCardData recovery;
+  final DashboardCardData running;
   final DashboardCardData gym;
-  final DashboardCardData today;
-  final String briefing;
+  final DashboardCardData system;
+  final List<String> briefingItems;
   final DateTime generatedAt;
 }
