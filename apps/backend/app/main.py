@@ -4,7 +4,7 @@ import secrets
 from typing import Annotated, Literal
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -13,7 +13,7 @@ from app.api.running import router as running_router
 from app.services.docker_service import DockerMonitor
 from app.services.host_metrics_service import HostMetricsCollector
 
-API_VERSION = "0.8.0"
+API_VERSION = "0.9.0"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -83,6 +83,13 @@ class DockerStatusResponse(BaseModel):
     error: str | None = None
 
 
+class DockerLogsResponse(BaseModel):
+    container_id: str
+    tail: int
+    logs: str
+    generated_at: str
+
+
 class HostMetricsResponse(BaseModel):
     available: bool
     hostname: str | None = None
@@ -99,11 +106,7 @@ class HostMetricsResponse(BaseModel):
     error: str | None = None
 
 
-app = FastAPI(
-    title="SirisOS API",
-    description="Backend API for the SirisOS personal operating system.",
-    version=API_VERSION,
-)
+app = FastAPI(title="SirisOS API", description="Backend API for the SirisOS personal operating system.", version=API_VERSION)
 app.include_router(running_router)
 app.include_router(host_history_router)
 
@@ -122,52 +125,27 @@ app.add_middleware(
 def _create_access_token(username: str) -> tuple[str, int]:
     expires_in = JWT_EXPIRY_HOURS * 60 * 60
     now = datetime.now(timezone.utc)
-    payload = {
-        "sub": username,
-        "iat": now,
-        "exp": now + timedelta(seconds=expires_in),
-        "iss": "sirisos-api",
-    }
-    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return token, expires_in
+    payload = {"sub": username, "iat": now, "exp": now + timedelta(seconds=expires_in), "iss": "sirisos-api"}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM), expires_in
 
 
-def _current_username(
-    authorization: Annotated[str | None, Header()] = None,
-) -> str:
+def _current_username(authorization: Annotated[str | None, Header()] = None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    token = authorization.removeprefix("Bearer ").strip()
+        raise HTTPException(status_code=401, detail="Authentication required.", headers={"WWW-Authenticate": "Bearer"})
     try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=[JWT_ALGORITHM],
-            issuer="sirisos-api",
-        )
+        payload = jwt.decode(authorization.removeprefix("Bearer ").strip(), JWT_SECRET, algorithms=[JWT_ALGORITHM], issuer="sirisos-api")
     except jwt.PyJWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired session.",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
+        raise HTTPException(status_code=401, detail="Invalid or expired session.", headers={"WWW-Authenticate": "Bearer"}) from exc
     username = payload.get("sub")
     if not isinstance(username, str) or username != AUTH_USERNAME:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid session user.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=401, detail="Invalid session user.")
     return username
 
 
 CurrentUsername = Annotated[str, Depends(_current_username)]
 
 
+@app.get("", include_in_schema=False)
 @app.get("/", tags=["system"])
 async def root() -> dict[str, str]:
     return {"name": "SirisOS API", "version": API_VERSION, "docs": "/docs"}
@@ -180,19 +158,10 @@ async def health() -> HealthResponse:
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse, tags=["authentication"])
 async def login(credentials: LoginRequest) -> TokenResponse:
-    if not secrets.compare_digest(
-        credentials.username, AUTH_USERNAME
-    ) or not secrets.compare_digest(credentials.password, AUTH_PASSWORD):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password.",
-        )
+    if not secrets.compare_digest(credentials.username, AUTH_USERNAME) or not secrets.compare_digest(credentials.password, AUTH_PASSWORD):
+        raise HTTPException(status_code=401, detail="Incorrect username or password.")
     token, expires_in = _create_access_token(AUTH_USERNAME)
-    return TokenResponse(
-        access_token=token,
-        expires_in=expires_in,
-        username=AUTH_USERNAME,
-    )
+    return TokenResponse(access_token=token, expires_in=expires_in, username=AUTH_USERNAME)
 
 
 @app.get("/api/v1/auth/me", response_model=CurrentUserResponse, tags=["authentication"])
@@ -204,127 +173,65 @@ async def current_user(username: CurrentUsername) -> CurrentUserResponse:
 async def host_metrics(_: CurrentUsername) -> HostMetricsResponse:
     metrics = host_metrics_collector.collect()
     return HostMetricsResponse(
-        available=metrics.available,
-        hostname=metrics.hostname,
-        cpu_percent=metrics.cpu_percent,
-        memory_percent=metrics.memory_percent,
-        memory_used_bytes=metrics.memory_used_bytes,
-        memory_total_bytes=metrics.memory_total_bytes,
-        disk_percent=metrics.disk_percent,
-        disk_used_bytes=metrics.disk_used_bytes,
-        disk_total_bytes=metrics.disk_total_bytes,
-        load_1m=metrics.load_1m,
-        uptime_seconds=metrics.uptime_seconds,
-        generated_at=datetime.now().astimezone().isoformat(),
-        error=metrics.error,
+        available=metrics.available, hostname=metrics.hostname, cpu_percent=metrics.cpu_percent,
+        memory_percent=metrics.memory_percent, memory_used_bytes=metrics.memory_used_bytes,
+        memory_total_bytes=metrics.memory_total_bytes, disk_percent=metrics.disk_percent,
+        disk_used_bytes=metrics.disk_used_bytes, disk_total_bytes=metrics.disk_total_bytes,
+        load_1m=metrics.load_1m, uptime_seconds=metrics.uptime_seconds,
+        generated_at=datetime.now().astimezone().isoformat(), error=metrics.error,
     )
 
 
-@app.get(
-    "/api/v1/homelab/docker",
-    response_model=DockerStatusResponse,
-    tags=["homelab"],
-)
+@app.get("/api/v1/homelab/docker", response_model=DockerStatusResponse, tags=["homelab"])
 async def docker_status(_: CurrentUsername) -> DockerStatusResponse:
     summary = docker_monitor.collect()
     return DockerStatusResponse(
-        available=summary.available,
-        total=summary.total,
-        running=summary.running,
-        stopped=summary.stopped,
-        unhealthy=summary.unhealthy,
-        containers=[
-            DockerContainerResponse(
-                container_id=item.container_id,
-                name=item.name,
-                image=item.image,
-                state=item.state,
-                status=item.status,
-                health=item.health,
-                cpu_percent=item.cpu_percent,
-                memory_usage_bytes=item.memory_usage_bytes,
-                memory_limit_bytes=item.memory_limit_bytes,
-                memory_percent=item.memory_percent,
-            )
-            for item in summary.containers
-        ],
-        error=summary.error,
+        available=summary.available, total=summary.total, running=summary.running,
+        stopped=summary.stopped, unhealthy=summary.unhealthy,
+        containers=[DockerContainerResponse(
+            container_id=item.container_id, name=item.name, image=item.image,
+            state=item.state, status=item.status, health=item.health,
+            cpu_percent=item.cpu_percent, memory_usage_bytes=item.memory_usage_bytes,
+            memory_limit_bytes=item.memory_limit_bytes, memory_percent=item.memory_percent,
+        ) for item in summary.containers], error=summary.error,
     )
+
+
+@app.get("/api/v1/homelab/docker/{container_id}/logs", response_model=DockerLogsResponse, tags=["homelab"])
+async def docker_logs(
+    container_id: str,
+    _: CurrentUsername,
+    tail: Annotated[int, Query(ge=20, le=1000)] = 300,
+) -> DockerLogsResponse:
+    try:
+        logs = docker_monitor.logs(container_id, tail=tail)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=f"Docker logs unavailable: {exc}") from exc
+    return DockerLogsResponse(container_id=container_id, tail=tail, logs=logs, generated_at=datetime.now().astimezone().isoformat())
 
 
 def _homelab_card() -> tuple[DashboardCardResponse, str]:
     summary = docker_monitor.collect()
     if not summary.available:
-        return (
-            DashboardCardResponse(
-                title="Homelab",
-                value="Offline",
-                subtitle="Docker socket is unavailable",
-                status="warning",
-            ),
-            "Docker monitoring is unavailable. Check the Docker socket proxy.",
-        )
+        return DashboardCardResponse(title="Homelab", value="Offline", subtitle="Docker socket is unavailable", status="warning"), "Docker monitoring is unavailable. Check the Docker socket proxy."
     if summary.total == 0:
-        return (
-            DashboardCardResponse(
-                title="Homelab",
-                value="No containers",
-                subtitle="Docker is connected",
-                status="unknown",
-            ),
-            "Docker is connected, but no containers were found on this host.",
-        )
+        return DashboardCardResponse(title="Homelab", value="No containers", subtitle="Docker is connected", status="unknown"), "Docker is connected, but no containers were found on this host."
     if summary.unhealthy > 0 or summary.stopped > 0:
         issues = summary.unhealthy + summary.stopped
-        return (
-            DashboardCardResponse(
-                title="Homelab",
-                value=f"{summary.running}/{summary.total} running",
-                subtitle=f"{issues} container issue{'s' if issues != 1 else ''}",
-                status="warning",
-            ),
-            (
-                f"Docker needs attention: {summary.running} of {summary.total} containers "
-                f"are running, with {summary.unhealthy} unhealthy and {summary.stopped} stopped."
-            ),
-        )
-    return (
-        DashboardCardResponse(
-            title="Homelab",
-            value=f"{summary.running}/{summary.total} running",
-            subtitle="All Docker containers are healthy",
-            status="healthy",
-        ),
-        f"All {summary.total} Docker containers are running normally.",
-    )
+        return DashboardCardResponse(title="Homelab", value=f"{summary.running}/{summary.total} running", subtitle=f"{issues} container issue{'s' if issues != 1 else ''}", status="warning"), f"Docker needs attention: {summary.running} of {summary.total} containers are running, with {summary.unhealthy} unhealthy and {summary.stopped} stopped."
+    return DashboardCardResponse(title="Homelab", value=f"{summary.running}/{summary.total} running", subtitle="All Docker containers are healthy", status="healthy"), f"All {summary.total} Docker containers are running normally."
 
 
 @app.get("/api/v1/dashboard", response_model=DashboardResponse, tags=["dashboard"])
 async def dashboard(_: CurrentUsername) -> DashboardResponse:
     homelab, homelab_briefing = _homelab_card()
     return DashboardResponse(
-        greeting_name="Brad",
-        homelab=homelab,
-        recovery=DashboardCardResponse(
-            title="Recovery",
-            value="Not connected",
-            subtitle="Apple Health integration pending",
-            status="unknown",
-        ),
-        gym=DashboardCardResponse(
-            title="Gym",
-            value="No workout",
-            subtitle="Gym programming module pending",
-            status="unknown",
-        ),
-        today=DashboardCardResponse(
-            title="Today",
-            value="No tasks",
-            subtitle="Calendar and tasks are not connected yet",
-            status="unknown",
-        ),
-        briefing=(
-            f"{homelab_briefing} Health, gym, calendar, and AI integrations are still pending."
-        ),
+        greeting_name="Brad", homelab=homelab,
+        recovery=DashboardCardResponse(title="Recovery", value="Not connected", subtitle="Apple Health integration pending", status="unknown"),
+        gym=DashboardCardResponse(title="Gym", value="No workout", subtitle="Gym programming module pending", status="unknown"),
+        today=DashboardCardResponse(title="Today", value="No tasks", subtitle="Calendar and tasks are not connected yet", status="unknown"),
+        briefing=f"{homelab_briefing} Health, gym, calendar, and AI integrations are still pending.",
         generated_at=datetime.now().astimezone().isoformat(),
     )
