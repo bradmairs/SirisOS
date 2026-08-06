@@ -6,17 +6,20 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.services.activity_service import ActivityService
 from app.services.gym_service import GymService
 
 router = APIRouter(prefix="/gym", tags=["gym"])
 service = GymService()
 service.initialise()
+activity_service = ActivityService()
+activity_service.initialise()
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 
 
-def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
+def _authenticate(authorization: Annotated[str | None, Header()] = None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required.")
     try:
@@ -30,6 +33,7 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
         raise HTTPException(status_code=401, detail="Invalid or expired session.") from exc
     if payload.get("sub") != AUTH_USERNAME:
         raise HTTPException(status_code=401, detail="Invalid session user.")
+    return AUTH_USERNAME
 
 
 class WorkoutSetCreate(BaseModel):
@@ -97,11 +101,22 @@ async def list_workouts(authorization: Annotated[str | None, Header()] = None) -
 
 @router.post("/workouts", response_model=WorkoutResponse, status_code=status.HTTP_201_CREATED)
 async def create_workout(payload: WorkoutCreate, authorization: Annotated[str | None, Header()] = None) -> WorkoutResponse:
-    _authenticate(authorization)
+    username = _authenticate(authorization)
     workout = service.create_workout(
         workout_date=payload.workout_date,
         name=payload.name,
         notes=payload.notes,
         sets=[item.model_dump() for item in payload.sets],
+    )
+    activity_service.record(
+        module="gym",
+        event_type="workout_logged",
+        title="Workout logged",
+        message=(
+            f"{workout.name}: {len(workout.sets)} sets and "
+            f"{workout.total_volume_kg:,.0f} kg total volume."
+        ),
+        severity="success",
+        user=username,
     )
     return _response(workout)
