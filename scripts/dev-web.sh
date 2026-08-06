@@ -3,6 +3,10 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOBILE_DIR="$ROOT_DIR/apps/mobile"
+SERVER_IP="${SIRISOS_SERVER_IP:-192.168.0.100}"
+WEB_PORT="${SIRISOS_WEB_PORT:-6464}"
+API_PORT="${SIRISOS_API_PORT:-8000}"
+API_URL="http://${SERVER_IP}:${API_PORT}"
 
 if ! command -v flutter >/dev/null 2>&1; then
   echo "Flutter is required but was not found in PATH." >&2
@@ -28,9 +32,12 @@ echo "Installing Flutter packages..."
 flutter pub get
 
 echo "Launching SirisOS Web..."
-echo "Backend: http://localhost:8000"
+echo "Web UI: http://${SERVER_IP}:${WEB_PORT}"
+echo "Backend: ${API_URL}"
 echo "Press q in this terminal to stop Flutter Web."
 
 flutter run \
-  -d chrome \
-  --dart-define=SIRISOS_API_URL=http://localhost:8000
+  -d web-server \
+  --web-hostname=0.0.0.0 \
+  --web-port="${WEB_PORT}" \
+  --dart-define="SIRISOS_API_URL=${API_URL}"
