@@ -204,10 +204,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       spacing: 16,
                       runSpacing: 16,
                       children: [
-                        if (_visible('homelab')) SizedBox(width: cardWidth, height: 176, child: _card(data.homelab, Icons.dns_rounded)),
-                        if (_visible('running')) SizedBox(width: cardWidth, height: 176, child: _card(data.running, Icons.directions_run_rounded)),
-                        if (_visible('gym')) SizedBox(width: cardWidth, height: 176, child: _card(data.gym, Icons.fitness_center_rounded)),
-                        if (_visible('system')) SizedBox(width: cardWidth, height: 176, child: _card(data.system, Icons.memory_rounded)),
+                        if (_visible('homelab')) SizedBox(width: cardWidth, height: 190, child: _card(data.homelab, Icons.dns_rounded)),
+                        if (_visible('running')) SizedBox(width: cardWidth, height: 190, child: _card(data.running, Icons.directions_run_rounded)),
+                        if (_visible('gym')) SizedBox(width: cardWidth, height: 190, child: _card(data.gym, Icons.fitness_center_rounded)),
+                        if (_visible('system')) SizedBox(width: cardWidth, height: 190, child: _card(data.system, Icons.memory_rounded)),
                       ],
                     ),
                     if (_visible('activity')) ...[
@@ -286,6 +286,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         value: data.value,
         subtitle: data.subtitle,
         status: data.status,
+        trend: data.trend,
         icon: icon,
       );
 
