@@ -45,13 +45,15 @@
 - [x] Registry-driven desktop navigation
 - [x] Registry-driven mobile navigation
 - [x] Registry-driven module quick actions
-- [ ] Registry-provided route and screen builders
-- [ ] Optional and unavailable module handling
+- [x] Module-owned route and screen builders
+- [x] Preview and unavailable module handling
+- [ ] Module enable/disable settings and persisted availability
 - [ ] Drag-and-drop layout directly on the workspace
 - [ ] Notification action metadata and action buttons
 - [ ] Consistent module notification policies
 - [ ] Dashboard and Mission Control event subscriptions
 - [ ] Deterministic briefing engine
+- [ ] Siris Score deterministic domain model and explanation
 - [ ] Scheduler
 - [ ] AI context service
 - [ ] Ambient display modes
