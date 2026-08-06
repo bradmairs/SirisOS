@@ -35,14 +35,17 @@ Build the dedicated `/mission` Situation Room using SirisCore services.
 - [x] Scheduled refresh fallback
 - [x] Responsive second-monitor foundation
 - [x] Smooth layout transitions
-- [ ] In-app Mission Control launcher and display controls
+- [x] In-app Mission Control launcher
+- [x] Persisted display controls
 
 ### 0.4.2b — Adaptive runtime
 
-- [ ] Adaptive widget priority based on severity and relevance
-- [ ] Automatic enlargement of widgets needing attention
+- [x] Adaptive widget priority based on deterministic module severity
+- [x] Automatic temporary enlargement of widgets needing attention
+- [x] Preserve the saved layout while applying transient priorities
+- [x] User control to disable adaptive mode
 - [ ] Critical-event wake behaviour
-- [ ] Mission Control-specific layout persistence
+- [ ] Mission Control-specific display profile persistence
 - [ ] Event diagnostics and refresh latency visibility
 
 ### 0.4.2c — Focus and ambient modes
