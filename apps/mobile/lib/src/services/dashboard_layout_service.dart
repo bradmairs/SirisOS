@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/mission_control_widget.dart';
+import '../modules/app_widget_registry.dart';
 
 class DashboardWidgetPreference {
   const DashboardWidgetPreference({
@@ -29,24 +30,33 @@ class DashboardLayoutService {
   static const _hiddenKey = 'dashboard_hidden_widgets_v1';
   static const _sizeKeyPrefix = 'mission_control_widget_size_';
 
-  static List<String> get defaultOrder => MissionControlWidgetRegistry.definitions
+  static List<String> get defaultOrder => AppWidgetRegistry.definitions
       .map((definition) => definition.id)
       .toList(growable: false);
 
   Future<List<DashboardWidgetPreference>> load() async {
     final preferences = await SharedPreferences.getInstance();
     final savedOrder = preferences.getStringList(_orderKey) ?? const <String>[];
-    final hidden =
-        (preferences.getStringList(_hiddenKey) ?? const <String>[]).toSet();
+    final savedHidden =
+        preferences.getStringList(_hiddenKey) ?? const <String>[];
+
+    final canonicalSavedOrder = savedOrder
+        .map(AppWidgetRegistry.canonicalIdFor)
+        .where(defaultOrder.contains)
+        .toList(growable: false);
+    final hidden = savedHidden
+        .map(AppWidgetRegistry.canonicalIdFor)
+        .toSet();
 
     final order = <String>[
-      ...savedOrder.where(defaultOrder.contains),
-      ...defaultOrder.where((id) => !savedOrder.contains(id)),
+      ...canonicalSavedOrder,
+      ...defaultOrder.where((id) => !canonicalSavedOrder.contains(id)),
     ];
 
     return order.map((id) {
-      final definition = MissionControlWidgetRegistry.definitionFor(id);
-      final savedSize = preferences.getString('$_sizeKeyPrefix$id');
+      final definition = AppWidgetRegistry.definitionFor(id);
+      final savedSize = preferences.getString('$_sizeKeyPrefix$id') ??
+          _legacySavedSize(preferences, id);
       return DashboardWidgetPreference(
         id: id,
         visible: !hidden.contains(id),
@@ -56,6 +66,22 @@ class DashboardLayoutService {
         ),
       );
     }).toList(growable: false);
+  }
+
+  String? _legacySavedSize(SharedPreferences preferences, String id) {
+    for (final entry in const {
+      'briefing': 'siris.briefing',
+      'homelab': 'homelab.summary',
+      'running': 'running.summary',
+      'gym': 'gym.summary',
+      'system': 'system.summary',
+      'activity': 'activity.timeline',
+    }.entries) {
+      if (entry.value == id) {
+        return preferences.getString('$_sizeKeyPrefix${entry.key}');
+      }
+    }
+    return null;
   }
 
   Future<void> save(List<DashboardWidgetPreference> widgets) async {
@@ -83,7 +109,7 @@ class DashboardLayoutService {
   }
 
   static List<DashboardWidgetPreference> defaultLayout() =>
-      MissionControlWidgetRegistry.definitions
+      AppWidgetRegistry.definitions
           .map(
             (definition) => DashboardWidgetPreference(
               id: definition.id,
