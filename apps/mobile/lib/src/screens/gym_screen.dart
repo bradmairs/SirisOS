@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/exercise_progress.dart';
 import '../models/gym_workout.dart';
 import '../models/workout_template.dart';
 import '../services/gym_service.dart';
@@ -205,6 +206,8 @@ class _WorkoutFormState extends State<_WorkoutForm> {
   final _notes = TextEditingController();
   final List<_SetDraft> _sets = [];
   bool _saving = false;
+  bool _loadingSuggestions = false;
+  String? _suggestionMessage;
 
   @override
   void initState() {
@@ -226,7 +229,59 @@ class _WorkoutFormState extends State<_WorkoutForm> {
         );
       }
     }
+    _loadSuggestedWeights();
   }
+
+  Future<void> _loadSuggestedWeights() async {
+    final template = widget.template;
+    if (template == null) return;
+    setState(() => _loadingSuggestions = true);
+    try {
+      final progress = await _service.fetchExercises();
+      final byName = <String, ExerciseProgress>{
+        for (final item in progress) item.exercise.trim().toLowerCase(): item,
+      };
+      var populated = 0;
+      for (final templateExercise in template.exercises) {
+        final history = byName[templateExercise.exercise.trim().toLowerCase()];
+        if (history == null || history.history.isEmpty) continue;
+        final latest = history.history.last;
+        var suggestedWeight = latest.weightKg;
+        if (latest.reps >= templateExercise.targetReps &&
+            latest.rir != null &&
+            latest.rir! >= 2) {
+          suggestedWeight += 2.5;
+        }
+        final label = _weightLabel(suggestedWeight);
+        for (final set in _sets.where(
+          (item) => item.exercise.text.trim().toLowerCase() ==
+              templateExercise.exercise.trim().toLowerCase(),
+        )) {
+          set.weight.text = label;
+          set.suggestion = suggestedWeight > latest.weightKg
+              ? 'Suggested +2.5 kg from ${_weightLabel(latest.weightKg)} kg'
+              : 'Suggested from last ${_weightLabel(latest.weightKg)} kg set';
+          populated++;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _loadingSuggestions = false;
+        _suggestionMessage = populated == 0
+            ? 'No matching exercise history was found. Enter today’s weights manually.'
+            : 'Suggested weights use your latest matching sets and remain fully editable.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingSuggestions = false;
+        _suggestionMessage = 'Could not load previous exercise history. Enter today’s weights manually.';
+      });
+    }
+  }
+
+  static String _weightLabel(double value) =>
+      value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
 
   @override
   void dispose() {
@@ -276,7 +331,21 @@ class _WorkoutFormState extends State<_WorkoutForm> {
           Text(widget.template == null ? 'Log workout' : 'Start ${widget.template!.name}', style: Theme.of(context).textTheme.headlineSmall),
           if (widget.template != null) ...[
             const SizedBox(height: 6),
-            Text('Target reps and RIR are pre-filled. Enter today’s weights and adjust completed reps as needed.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Text(
+              'Targets are pre-filled. SirisOS uses your latest matching exercise history to suggest a starting weight.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            if (_loadingSuggestions) const LinearProgressIndicator(),
+            if (_suggestionMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _suggestionMessage!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
           ],
           const SizedBox(height: 16),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Workout name', hintText: 'Upper body, Push, Legs…')),
@@ -291,18 +360,28 @@ class _WorkoutFormState extends State<_WorkoutForm> {
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TextField(controller: _sets[index].exercise, decoration: InputDecoration(labelText: 'Exercise ${index + 1}')),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Expanded(child: TextField(controller: _sets[index].weight, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight kg'))),
+                          Expanded(child: TextField(controller: _sets[index].weight, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Weight kg'))),
                           const SizedBox(width: 8),
                           Expanded(child: TextField(controller: _sets[index].reps, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps'))),
                           const SizedBox(width: 8),
                           Expanded(child: TextField(controller: _sets[index].rir, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'RIR'))),
                         ],
                       ),
+                      if (_sets[index].suggestion != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _sets[index].suggestion!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -334,6 +413,7 @@ class _SetDraft {
   final weight = TextEditingController();
   final reps = TextEditingController();
   final rir = TextEditingController();
+  String? suggestion;
 
   void dispose() {
     exercise.dispose();
