@@ -5,6 +5,7 @@ import '../services/homelab_service.dart';
 import '../widgets/homelab_alerts_panel.dart';
 import '../widgets/host_metrics_panel.dart';
 import 'container_detail_screen.dart';
+import 'homelab_activity_screen.dart';
 
 class HomelabScreen extends StatefulWidget {
   const HomelabScreen({super.key});
@@ -27,6 +28,12 @@ class _HomelabScreenState extends State<HomelabScreen> {
     final next = _service.fetchDockerSummary();
     setState(() => _summaryFuture = next);
     await next;
+  }
+
+  void _openActivity() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const HomelabActivityScreen()),
+    );
   }
 
   @override
@@ -64,6 +71,12 @@ class _HomelabScreenState extends State<HomelabScreen> {
                         ],
                       ),
                     ),
+                    IconButton.filledTonal(
+                      onPressed: _openActivity,
+                      tooltip: 'Container activity',
+                      icon: const Icon(Icons.history_rounded),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton.filledTonal(
                       onPressed: _refresh,
                       tooltip: 'Refresh Homelab',
@@ -207,7 +220,10 @@ class _ContainerCard extends StatelessWidget {
                       color: statusColor.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      statusLabel,
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
+                    ),
                   ),
                   Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
                 ],
@@ -220,7 +236,9 @@ class _ContainerCard extends StatelessWidget {
                       child: _ResourceMetric(
                         icon: Icons.speed_rounded,
                         label: 'CPU',
-                        value: container.cpuPercent == null ? '—' : '${container.cpuPercent!.toStringAsFixed(1)}%',
+                        value: container.cpuPercent == null
+                            ? '—'
+                            : '${container.cpuPercent!.toStringAsFixed(1)}%',
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -229,7 +247,9 @@ class _ContainerCard extends StatelessWidget {
                         icon: Icons.memory_rounded,
                         label: 'Memory',
                         value: container.memoryUsageLabel,
-                        detail: container.memoryPercent == null ? null : '${container.memoryPercent!.toStringAsFixed(1)}%',
+                        detail: container.memoryPercent == null
+                            ? null
+                            : '${container.memoryPercent!.toStringAsFixed(1)}%',
                       ),
                     ),
                   ],
@@ -269,7 +289,12 @@ class _ResourceMetric extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                Text(detail == null ? value : '$value · $detail', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  detail == null ? value : '$value · $detail',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ),
