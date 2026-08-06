@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../core/siris_event_bus.dart';
 import '../models/dashboard_summary.dart';
 import 'auth_service.dart';
 import 'gym_service.dart';
@@ -26,7 +27,7 @@ class DashboardService {
     final recommendations = await recommendationsFuture;
     final trends = await trendsFuture;
 
-    return dashboard.copyWith(
+    final result = dashboard.copyWith(
       homelab: dashboard.homelab.copyWith(trend: trends.memory),
       running: dashboard.running.copyWith(trend: trends.running),
       gym: dashboard.gym.copyWith(trend: trends.gym),
@@ -35,6 +36,11 @@ class DashboardService {
           ? dashboard.briefingItems
           : <String>[...recommendations, ...dashboard.briefingItems],
     );
+
+    SirisEventBus.instance.publish(
+      MissionControlRefreshed(source: 'dashboard_service'),
+    );
+    return result;
   }
 
   Future<DashboardSummary> _fetchDashboardSummary() async {
