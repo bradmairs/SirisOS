@@ -37,7 +37,7 @@ scripts/        Development helper scripts
 Install the following before starting development:
 
 - Docker with Docker Compose v2
-- Flutter with Chrome/web support
+- Flutter with web support
 - GNU Make
 - curl
 
@@ -64,7 +64,20 @@ This command:
 4. Waits for the API health endpoint.
 5. Generates Flutter Web platform files when missing.
 6. Runs `flutter pub get`.
-7. Launches SirisOS in Chrome using `http://localhost:8000` as its API.
+7. Serves SirisOS Web on `0.0.0.0:6464` using `http://192.168.0.100:8000` as its API.
+
+Open SirisOS from another device at:
+
+```text
+http://192.168.0.100:6464
+```
+
+The API and interactive documentation are available at:
+
+```text
+http://192.168.0.100:8000
+http://192.168.0.100:8000/docs
+```
 
 The first run may download Docker images and Flutter dependencies.
 
@@ -72,6 +85,12 @@ If Make is unavailable, use:
 
 ```bash
 bash scripts/dev-web.sh
+```
+
+The defaults can be overridden for another host or port:
+
+```bash
+SIRISOS_SERVER_IP=192.168.0.100 SIRISOS_WEB_PORT=6464 make dev
 ```
 
 ### Useful commands
@@ -87,22 +106,22 @@ make clean     # Stop services and clean Flutter build output
 
 Quitting Flutter with `q` stops the web development process but leaves the Docker backend running. Use `make stop` when finished.
 
-## Manual development
-
-Copy the example environment file, then start the stack:
+## Manual web development
 
 ```bash
-cp .env.example .env
-docker compose up --build
+cd apps/mobile
+flutter run \
+  -d web-server \
+  --web-hostname=0.0.0.0 \
+  --web-port=6464 \
+  --dart-define=SIRISOS_API_URL=http://192.168.0.100:8000
 ```
-
-The API will be available at `http://localhost:8000`, with interactive documentation at `http://localhost:8000/docs`.
 
 Persistent PostgreSQL files and application logs are stored under `./data/`. Back up the `data` directory and `.env` file to preserve the installation.
 
 ## Migrating from the previous named volume
 
-The current Compose file uses `./data/postgres` rather than the former `sirisos_postgres_data` named volume. Existing deployments should export or copy their PostgreSQL data before removing the old volume. For a new development installation with no important data, simply rebuild the stack.
+The current Compose file uses `./data/postgres/pgdata` rather than the former `sirisos_postgres_data` named volume. Existing deployments should export or copy their PostgreSQL data before removing the old volume. For a new development installation with no important data, simply rebuild the stack.
 
 ## Docker access
 
