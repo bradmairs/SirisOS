@@ -20,6 +20,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       DOCKER_HOST: tcp://docker-proxy:2375
+      NODE_EXPORTER_URL: http://node-exporter:9100/metrics
       SIRISOS_ENV: ${SIRISOS_ENV:-development}
       SIRISOS_ADMIN_USERNAME: ${SIRISOS_ADMIN_USERNAME:-brad}
       SIRISOS_ADMIN_PASSWORD: ${SIRISOS_ADMIN_PASSWORD:-change-this-password}
@@ -34,6 +35,25 @@ services:
         condition: service_healthy
       docker-proxy:
         condition: service_started
+      node-exporter:
+        condition: service_started
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: sirisos-node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro,rslave
+    expose:
+      - "9100"
     restart: unless-stopped
 
   docker-proxy:
