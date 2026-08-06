@@ -20,11 +20,13 @@ class _HostMetricsPanelState extends State<HostMetricsPanel> {
   Timer? _timer;
   HostMetrics? _metrics;
   String? _error;
+  int _refreshCount = 0;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    _initialise();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) => _refresh());
   }
 
@@ -34,24 +36,84 @@ class _HostMetricsPanelState extends State<HostMetricsPanel> {
     super.dispose();
   }
 
+  Future<void> _initialise() async {
+    await _loadHistory();
+    await _refresh();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final history = await _service.fetchHostHistory();
+      if (!mounted) return;
+      setState(() {
+        _cpu
+          ..clear()
+          ..addAll(
+            history
+                .where((item) => item.cpuPercent != null)
+                .map(
+                  (item) => MetricSample(
+                    time: item.sampledAt,
+                    value: item.cpuPercent!,
+                  ),
+                ),
+          );
+        _memory
+          ..clear()
+          ..addAll(
+            history
+                .where((item) => item.memoryPercent != null)
+                .map(
+                  (item) => MetricSample(
+                    time: item.sampledAt,
+                    value: item.memoryPercent!,
+                  ),
+                ),
+          );
+      });
+    } catch (_) {
+      // Live metrics can still work even when history is temporarily unavailable.
+    }
+  }
+
   Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
     try {
       final metrics = await _service.fetchHostMetrics();
       if (!mounted) return;
       setState(() {
         _metrics = metrics;
         _error = metrics.available ? null : metrics.error;
-        if (metrics.cpuPercent != null) {
-          _cpu.add(MetricSample(time: metrics.generatedAt, value: metrics.cpuPercent!));
-        }
-        if (metrics.memoryPercent != null) {
-          _memory.add(MetricSample(time: metrics.generatedAt, value: metrics.memoryPercent!));
-        }
-        if (_cpu.length > 30) _cpu.removeAt(0);
-        if (_memory.length > 30) _memory.removeAt(0);
+        _appendLiveSample(_cpu, metrics.generatedAt, metrics.cpuPercent);
+        _appendLiveSample(_memory, metrics.generatedAt, metrics.memoryPercent);
       });
+
+      _refreshCount++;
+      if (_refreshCount % 6 == 0) {
+        await _loadHistory();
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  void _appendLiveSample(
+    List<MetricSample> samples,
+    DateTime time,
+    double? value,
+  ) {
+    if (value == null) return;
+    if (samples.isNotEmpty &&
+        time.difference(samples.last.time).abs() < const Duration(seconds: 5)) {
+      samples[samples.length - 1] = MetricSample(time: time, value: value);
+    } else {
+      samples.add(MetricSample(time: time, value: value));
+    }
+    if (samples.length > 720) {
+      samples.removeRange(0, samples.length - 720);
     }
   }
 
@@ -78,7 +140,19 @@ class _HostMetricsPanelState extends State<HostMetricsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Server', style: Theme.of(context).textTheme.titleLarge),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Server', style: Theme.of(context).textTheme.titleLarge),
+            ),
+            Text(
+              '24-hour history',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -86,16 +160,41 @@ class _HostMetricsPanelState extends State<HostMetricsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(metrics.hostname ?? 'SirisOS host', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  metrics.hostname ?? 'SirisOS host',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    _HostMetric(label: 'CPU', value: metrics.cpuPercent == null ? 'Warming up' : '${metrics.cpuPercent!.toStringAsFixed(1)}%'),
-                    _HostMetric(label: 'Memory', value: metrics.memoryPercent == null ? '—' : '${metrics.memoryPercent!.toStringAsFixed(1)}%', detail: '${HostMetrics.formatBytes(metrics.memoryUsedBytes)} / ${HostMetrics.formatBytes(metrics.memoryTotalBytes)}'),
-                    _HostMetric(label: 'Disk', value: metrics.diskPercent == null ? '—' : '${metrics.diskPercent!.toStringAsFixed(1)}%', detail: '${HostMetrics.formatBytes(metrics.diskUsedBytes)} / ${HostMetrics.formatBytes(metrics.diskTotalBytes)}'),
-                    _HostMetric(label: 'Load', value: metrics.load1m?.toStringAsFixed(2) ?? '—'),
+                    _HostMetric(
+                      label: 'CPU',
+                      value: metrics.cpuPercent == null
+                          ? 'Warming up'
+                          : '${metrics.cpuPercent!.toStringAsFixed(1)}%',
+                    ),
+                    _HostMetric(
+                      label: 'Memory',
+                      value: metrics.memoryPercent == null
+                          ? '—'
+                          : '${metrics.memoryPercent!.toStringAsFixed(1)}%',
+                      detail:
+                          '${HostMetrics.formatBytes(metrics.memoryUsedBytes)} / ${HostMetrics.formatBytes(metrics.memoryTotalBytes)}',
+                    ),
+                    _HostMetric(
+                      label: 'Disk',
+                      value: metrics.diskPercent == null
+                          ? '—'
+                          : '${metrics.diskPercent!.toStringAsFixed(1)}%',
+                      detail:
+                          '${HostMetrics.formatBytes(metrics.diskUsedBytes)} / ${HostMetrics.formatBytes(metrics.diskTotalBytes)}',
+                    ),
+                    _HostMetric(
+                      label: 'Load',
+                      value: metrics.load1m?.toStringAsFixed(2) ?? '—',
+                    ),
                     _HostMetric(label: 'Uptime', value: metrics.uptimeLabel),
                   ],
                 ),
@@ -104,9 +203,19 @@ class _HostMetricsPanelState extends State<HostMetricsPanel> {
           ),
         ),
         const SizedBox(height: 12),
-        MetricLineChart(title: 'Host CPU', samples: List.unmodifiable(_cpu), valueSuffix: '%', maxY: 100),
+        MetricLineChart(
+          title: 'Host CPU',
+          samples: List.unmodifiable(_cpu),
+          valueSuffix: '%',
+          maxY: 100,
+        ),
         const SizedBox(height: 12),
-        MetricLineChart(title: 'Host memory', samples: List.unmodifiable(_memory), valueSuffix: '%', maxY: 100),
+        MetricLineChart(
+          title: 'Host memory',
+          samples: List.unmodifiable(_memory),
+          valueSuffix: '%',
+          maxY: 100,
+        ),
       ],
     );
   }
@@ -132,12 +241,22 @@ class _HostMetric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
           const SizedBox(height: 4),
           Text(value, style: Theme.of(context).textTheme.titleMedium),
           if (detail != null) ...[
             const SizedBox(height: 2),
-            Text(detail!, style: Theme.of(context).textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(
+              detail!,
+              style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ],
       ),
