@@ -6,26 +6,19 @@ import '../models/mission_control_widget.dart';
 import '../widgets/activity_feed_panel.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_hero.dart';
+import '../widgets/siris_score_panel.dart';
 
 class MissionControlWidgetContext {
-  const MissionControlWidgetContext({
-    required this.dashboard,
-    required this.greeting,
-  });
+  const MissionControlWidgetContext({required this.dashboard, required this.greeting});
 
   final DashboardSummary dashboard;
   final String greeting;
 }
 
-typedef MissionControlWidgetBuilder = Widget Function(
-  MissionControlWidgetContext context,
-);
+typedef MissionControlWidgetBuilder = Widget Function(MissionControlWidgetContext context);
 
 class RegisteredMissionControlWidget {
-  const RegisteredMissionControlWidget({
-    required this.definition,
-    required this.builder,
-  });
+  const RegisteredMissionControlWidget({required this.definition, required this.builder});
 
   final MissionControlWidgetDefinition definition;
   final MissionControlWidgetBuilder builder;
@@ -34,8 +27,7 @@ class RegisteredMissionControlWidget {
 class AppWidgetRegistry {
   AppWidgetRegistry._();
 
-  static final DeterministicBriefingEngine _briefingEngine =
-      DeterministicBriefingEngine();
+  static final DeterministicBriefingEngine _briefingEngine = DeterministicBriefingEngine();
 
   static final List<RegisteredMissionControlWidget> registrations = [
     ..._sirisWidgets,
@@ -59,8 +51,7 @@ class AppWidgetRegistry {
   }
 
   static MissionControlWidgetDefinition definitionFor(String id) =>
-      find(id)?.definition ??
-      MissionControlWidgetDefinition(
+      find(id)?.definition ?? MissionControlWidgetDefinition(
         id: canonicalIdFor(id),
         moduleId: 'unknown',
         label: id,
@@ -69,10 +60,8 @@ class AppWidgetRegistry {
         defaultSize: MissionControlWidgetSize.standard,
       );
 
-  static Widget build(
-    String id,
-    MissionControlWidgetContext context,
-  ) => find(id)?.builder(context) ?? const SizedBox.shrink();
+  static Widget build(String id, MissionControlWidgetContext context) =>
+      find(id)?.builder(context) ?? const SizedBox.shrink();
 
   static String canonicalIdFor(String id) => _legacyIds[id] ?? id;
 
@@ -102,17 +91,25 @@ class AppWidgetRegistry {
         ),
       ),
     ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'siris.score',
+        moduleId: 'siris',
+        label: 'Siris Score',
+        description: 'An explainable daily score across your active domains.',
+        icon: Icons.insights_rounded,
+        defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (context) => SirisScorePanel(dashboard: context.dashboard),
+    ),
   ];
 
   static final _homelabWidgets = <RegisteredMissionControlWidget>[
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'homelab.summary',
-        moduleId: 'homelab',
-        label: 'Homelab',
+        id: 'homelab.summary', moduleId: 'homelab', label: 'Homelab',
         description: 'Docker and infrastructure health at a glance.',
-        icon: Icons.dns_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.dns_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (context) => SizedBox(
         height: 190,
@@ -124,19 +121,13 @@ class AppWidgetRegistry {
   static final _runningWidgets = <RegisteredMissionControlWidget>[
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'running.summary',
-        moduleId: 'running',
-        label: 'Running',
+        id: 'running.summary', moduleId: 'running', label: 'Running',
         description: 'Recent running activity and current progress.',
-        icon: Icons.directions_run_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.directions_run_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (context) => SizedBox(
         height: 190,
-        child: _summaryCard(
-          context.dashboard.running,
-          Icons.directions_run_rounded,
-        ),
+        child: _summaryCard(context.dashboard.running, Icons.directions_run_rounded),
       ),
     ),
   ];
@@ -144,19 +135,13 @@ class AppWidgetRegistry {
   static final _gymWidgets = <RegisteredMissionControlWidget>[
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'gym.summary',
-        moduleId: 'gym',
-        label: 'Gym',
+        id: 'gym.summary', moduleId: 'gym', label: 'Gym',
         description: 'Workout status and training progress.',
-        icon: Icons.fitness_center_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.fitness_center_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (context) => SizedBox(
         height: 190,
-        child: _summaryCard(
-          context.dashboard.gym,
-          Icons.fitness_center_rounded,
-        ),
+        child: _summaryCard(context.dashboard.gym, Icons.fitness_center_rounded),
       ),
     ),
   ];
@@ -164,12 +149,9 @@ class AppWidgetRegistry {
   static final _systemWidgets = <RegisteredMissionControlWidget>[
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'system.summary',
-        moduleId: 'homelab',
-        label: 'Server',
+        id: 'system.summary', moduleId: 'homelab', label: 'Server',
         description: 'Host CPU, memory and system status.',
-        icon: Icons.memory_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.memory_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (context) => SizedBox(
         height: 190,
@@ -181,21 +163,15 @@ class AppWidgetRegistry {
   static final _activityWidgets = <RegisteredMissionControlWidget>[
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'activity.timeline',
-        moduleId: 'activity',
-        label: 'Recent activity',
+        id: 'activity.timeline', moduleId: 'activity', label: 'Recent activity',
         description: 'A timeline of important SirisOS events.',
-        icon: Icons.history_rounded,
-        defaultSize: MissionControlWidgetSize.wide,
+        icon: Icons.history_rounded, defaultSize: MissionControlWidgetSize.wide,
       ),
       builder: (_) => const ActivityFeedPanel(),
     ),
   ];
 
-  static DashboardCard _summaryCard(
-    DashboardCardData data,
-    IconData icon,
-  ) => DashboardCard(
+  static DashboardCard _summaryCard(DashboardCardData data, IconData icon) => DashboardCard(
         title: data.title,
         value: data.value,
         subtitle: data.subtitle,
