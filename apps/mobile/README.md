@@ -44,10 +44,12 @@ flutter run --dart-define=SIRISOS_API_URL=http://192.168.1.50:8000
 ## Current milestone
 
 - Material 3 dark theme
-- Responsive dashboard layout
-- Live `GET /api/v1/dashboard` data
-- Loading, retry, and offline states
+- Responsive live dashboard
+- Functional bottom navigation with retained tab state
+- Live Homelab Docker summary and container list
+- Container running, stopped, and health badges
+- Loading, retry, offline, and empty states
 - Pull-to-refresh
 - Configurable API base URL
 
-The backend currently supplies safe placeholder values through a stable API contract. Future integrations can replace those values without restructuring the Flutter dashboard.
+The Homelab tab reads from `GET /api/v1/homelab/docker`. Docker access remains read-only through the socket proxy configured in the repository-level Compose stack.
