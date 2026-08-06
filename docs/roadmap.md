@@ -23,16 +23,40 @@ Deferred enhancements are not Sprint 0.4.1 blockers and remain on the later back
 
 Build the dedicated `/mission` Situation Room using SirisCore services.
 
-- [ ] Navigation-free full-screen shell
-- [ ] Large live clock
-- [ ] Shared Widget Registry grid
-- [ ] Siris Score presentation and detailed explanation
-- [ ] Deterministic briefing panel
-- [ ] Activity timeline
-- [ ] Event-driven auto-refresh
+### 0.4.2a — Situation Room foundation
+
+- [x] Navigation-free full-screen shell
+- [x] Large live clock and date
+- [x] Shared Widget Registry grid
+- [x] Siris Score presentation and explanation through the registered widget
+- [x] Deterministic briefing panel
+- [x] Activity timeline
+- [x] Event-driven debounced auto-refresh
+- [x] Scheduled refresh fallback
+- [x] Responsive second-monitor foundation
+- [x] Smooth layout transitions
+- [ ] In-app Mission Control launcher and display controls
+
+### 0.4.2b — Adaptive runtime
+
+- [ ] Adaptive widget priority based on severity and relevance
+- [ ] Automatic enlargement of widgets needing attention
+- [ ] Critical-event wake behaviour
+- [ ] Mission Control-specific layout persistence
+- [ ] Event diagnostics and refresh latency visibility
+
+### 0.4.2c — Focus and ambient modes
+
 - [ ] Focus modes: Work, Home, Fitness, and Travel
-- [ ] Smooth transitions and ambient display modes
+- [ ] Ambient display mode after inactivity
+- [ ] Reduced-motion and burn-in-conscious display behaviour
 - [ ] Second-monitor and wall-display optimisation
+
+### 0.4.2d — Design system and polish
+
+- [ ] Shared SirisCard, SirisMetric, SirisPanel, SirisTimeline, SirisGauge, and SirisStatusChip components
+- [ ] Premium red/black visual refinement
+- [ ] Consistent typography, spacing, animations, and warning states
 
 ## Sprint 0.4.3 — Live Homelab
 
