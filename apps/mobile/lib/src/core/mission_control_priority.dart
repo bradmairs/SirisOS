@@ -1,5 +1,6 @@
 import '../models/dashboard_summary.dart';
 import '../models/mission_control_widget.dart';
+import '../services/dashboard_layout_service.dart';
 
 /// Applies transient display priority without mutating the user's saved layout.
 class MissionControlPriorityEngine {
