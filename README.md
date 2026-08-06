@@ -58,26 +58,43 @@ SirisCore includes:
 
 ## Active milestone — Sprint 0.4.2 Mission Control
 
-### 0.4.2a Situation Room foundation
+### Situation Room foundation
 
-The first dedicated Mission Control experience is available at `/mission` and includes:
+The dedicated Mission Control experience is available at `/mission` and includes:
 
 - Navigation-free full-screen shell
 - Large live clock and date
 - Shared registered widget grid
-- Existing Siris Score, deterministic briefing, module summaries, and activity timeline
+- Siris Score, deterministic briefing, module summaries, and activity timeline
 - Event-driven debounced refreshes
 - Five-minute scheduled refresh fallback
 - Responsive layouts for desktop, tablet, and narrow screens
 - Smooth layout transitions
 - Explicit refresh and exit controls
+- In-app launchers in the desktop shell and quick-actions menu
 
-The Situation Room deliberately consumes the same Widget Registry and saved layout as the normal workspace. It does not fork widget implementations or business logic.
+### Adaptive runtime foundation
+
+Mission Control now supports persisted display controls for:
+
+- Adaptive prioritisation on or off
+- Optional clock seconds
+
+Adaptive mode applies a transient deterministic priority layer over the saved layout:
+
+- Siris Score and briefing remain prominent
+- Warning and critical module widgets move forward
+- Attention-worthy widgets may temporarily expand
+- The user's stored widget order and sizes are never overwritten
+- Disabling adaptive mode immediately restores the saved presentation
+
+This rule is documented in `docs/adr/008-adaptive-mission-control-layout.md`.
 
 Next within Sprint 0.4.2:
 
-- Add an in-app Mission Control launcher and direct display controls
-- Add adaptive widget prioritisation
+- Add critical-event wake behaviour
+- Add Mission Control-specific display profile persistence
+- Add event diagnostics and refresh latency visibility
 - Add Focus Modes for Work, Home, Fitness, and Travel
 - Add ambient mode and second-monitor refinements
 - Complete the SirisOS design system and visual polish
@@ -96,7 +113,7 @@ Next within Sprint 0.4.2:
 - Home Assistant, Plex, and Ollama diagnostics
 - Global search
 - Configurable Mission Control workspace
-- Dedicated `/mission` Situation Room
+- Dedicated `/mission` Situation Room with adaptive prioritisation
 
 ## Long-term pillars
 
