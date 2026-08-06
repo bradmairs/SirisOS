@@ -199,7 +199,7 @@ class _ContainerTile extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         leading: CircleAvatar(
           backgroundColor: statusColor.withValues(alpha: 0.14),
-          child: Icon(Icons.deployed_code_rounded, color: statusColor),
+          child: Icon(Icons.inventory_2_rounded, color: statusColor),
         ),
         title: Text(
           container.name,
