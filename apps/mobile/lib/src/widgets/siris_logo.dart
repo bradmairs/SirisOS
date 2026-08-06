@@ -56,9 +56,9 @@ class _SirisLogoState extends State<SirisLogo>
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => const LinearGradient(
             colors: [
-              Color(0xFFF8FBFF),
-              Color(0xFFB9D7FF),
-              Color(0xFF38D9FF),
+              Color(0xFFFFFFFF),
+              Color(0xFFD6D6D8),
+              Color(0xFFFF2638),
             ],
           ).createShader(bounds),
           child: Text(
@@ -75,7 +75,7 @@ class _SirisLogoState extends State<SirisLogo>
         Text(
           'YOUR PERSONAL OS',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF71869F),
+                color: const Color(0xFF8C8D93),
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1.45,
               ),
@@ -99,21 +99,21 @@ class _SirisMarkPainter extends CustomPainter {
     final haloPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF1ED8FF).withValues(alpha: 0.24),
-          const Color(0xFF315BFF).withValues(alpha: 0.09),
+          const Color(0xFFFF2034).withValues(alpha: 0.30),
+          const Color(0xFF7A0710).withValues(alpha: 0.14),
           Colors.transparent,
         ],
-        stops: const [0, 0.55, 1],
+        stops: const [0, 0.58, 1],
       ).createShader(rect)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shortest * 0.08);
-    canvas.drawCircle(centre, shortest * 0.48, haloPaint);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shortest * 0.09);
+    canvas.drawCircle(centre, shortest * 0.49, haloPaint);
 
     final shellRect = Rect.fromCircle(center: centre, radius: shortest * 0.43);
     final shellPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFF102A4A), Color(0xFF071321), Color(0xFF040A12)],
+        colors: [Color(0xFF2A0B10), Color(0xFF0B0B0E), Color(0xFF020203)],
       ).createShader(shellRect);
     canvas.drawCircle(centre, shortest * 0.43, shellPaint);
 
@@ -123,12 +123,12 @@ class _SirisMarkPainter extends CustomPainter {
       ..shader = SweepGradient(
         transform: GradientRotation(progress * math.pi * 2),
         colors: const [
-          Color(0x001FD9FF),
-          Color(0xFF1FD9FF),
-          Color(0xFF376BFF),
-          Color(0x001FD9FF),
+          Color(0x00FF2436),
+          Color(0xFFFF2638),
+          Color(0xFF8B0B16),
+          Color(0x00FF2436),
         ],
-        stops: const [0, 0.28, 0.58, 1],
+        stops: const [0, 0.28, 0.62, 1],
       ).createShader(shellRect);
     canvas.drawArc(
       shellRect.deflate(shortest * 0.018),
@@ -169,37 +169,49 @@ class _SirisMarkPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = shortest * 0.16
-      ..color = const Color(0xFF168CFF).withValues(alpha: 0.26)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shortest * 0.09);
+      ..strokeWidth = shortest * 0.17
+      ..color = const Color(0xFFFF182D).withValues(alpha: 0.30)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shortest * 0.10);
     canvas.drawPath(ribbon, glowPaint);
 
     final ribbonPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = shortest * 0.105
+      ..strokeWidth = shortest * 0.108
       ..shader = const LinearGradient(
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [
-          Color(0xFF72F6FF),
-          Color(0xFF12C8FF),
-          Color(0xFF2764FF),
-          Color(0xFF5532E9),
+          Color(0xFFFFA3AA),
+          Color(0xFFFF2438),
+          Color(0xFF8D0B15),
+          Color(0xFF240408),
         ],
-        stops: [0, 0.34, 0.68, 1],
+        stops: [0, 0.30, 0.66, 1],
       ).createShader(rect);
     canvas.drawPath(ribbon, ribbonPaint);
+
+    final innerRibbonPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = shortest * 0.040
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFFFFFF), Color(0xFF8D9097), Color(0xFF16171B)],
+      ).createShader(rect);
+    canvas.drawPath(ribbon, innerRibbonPaint);
 
     final highlightPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
-      ..strokeWidth = shortest * 0.022
+      ..strokeWidth = shortest * 0.017
       ..shader = LinearGradient(
         colors: [
-          Colors.white.withValues(alpha: 0.88),
-          const Color(0xFFB8F7FF).withValues(alpha: 0.42),
+          Colors.white.withValues(alpha: 0.95),
+          const Color(0xFFFFC3C8).withValues(alpha: 0.48),
           Colors.transparent,
         ],
       ).createShader(rect);
@@ -214,13 +226,13 @@ class _SirisMarkPainter extends CustomPainter {
         centre.dx + math.cos(angle) * orbitRadius,
         centre.dy + math.sin(angle) * orbitRadius,
       );
-      dotPaint.color = const Color(0xFF65ECFF).withValues(alpha: pulse);
+      dotPaint.color = const Color(0xFFFF4554).withValues(alpha: pulse);
       dotPaint.maskFilter = MaskFilter.blur(BlurStyle.normal, shortest * 0.014);
       canvas.drawCircle(dot, shortest * (0.011 + 0.005 * pulse), dotPaint);
     }
 
     final corePaint = Paint()
-      ..color = const Color(0xFFE9FCFF).withValues(alpha: 0.78)
+      ..color = const Color(0xFFFFF2F3).withValues(alpha: 0.90)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, shortest * 0.025);
     canvas.drawCircle(
       Offset(shortest * 0.72, shortest * 0.25),
