@@ -5,25 +5,35 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/dashboard_summary.dart';
 import 'auth_service.dart';
+import 'gym_service.dart';
+import 'homelab_service.dart';
+import 'running_service.dart';
 
 class DashboardService {
   DashboardService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+  final HomelabService _homelabService = HomelabService();
+  final RunningService _runningService = RunningService();
+  final GymService _gymService = GymService();
 
   Future<DashboardSummary> fetchDashboard() async {
     final dashboardFuture = _fetchDashboardSummary();
     final recommendationsFuture = _fetchRecommendations();
+    final trendsFuture = _fetchTrends();
 
     final dashboard = await dashboardFuture;
     final recommendations = await recommendationsFuture;
-    if (recommendations.isEmpty) return dashboard;
+    final trends = await trendsFuture;
 
     return dashboard.copyWith(
-      briefingItems: <String>[
-        ...recommendations,
-        ...dashboard.briefingItems,
-      ],
+      homelab: dashboard.homelab.copyWith(trend: trends.memory),
+      running: dashboard.running.copyWith(trend: trends.running),
+      gym: dashboard.gym.copyWith(trend: trends.gym),
+      system: dashboard.system.copyWith(trend: trends.cpu),
+      briefingItems: recommendations.isEmpty
+          ? dashboard.briefingItems
+          : <String>[...recommendations, ...dashboard.briefingItems],
     );
   }
 
@@ -52,6 +62,51 @@ class DashboardService {
     return DashboardSummary.fromJson(decoded);
   }
 
+  Future<_DashboardTrends> _fetchTrends() async {
+    var cpu = const <double>[];
+    var memory = const <double>[];
+    var running = const <double>[];
+    var gym = const <double>[];
+
+    try {
+      final history = await _homelabService.fetchHostHistory();
+      final recent = history.length > 24
+          ? history.sublist(history.length - 24)
+          : history;
+      cpu = recent
+          .map((item) => item.cpuPercent)
+          .whereType<double>()
+          .toList(growable: false);
+      memory = recent
+          .map((item) => item.memoryPercent)
+          .whereType<double>()
+          .toList(growable: false);
+    } catch (_) {}
+
+    try {
+      final runs = await _runningService.fetchRuns();
+      running = runs.reversed
+          .take(12)
+          .map((item) => item.fitnessScore)
+          .toList(growable: false);
+    } catch (_) {}
+
+    try {
+      final workouts = await _gymService.fetchWorkouts();
+      gym = workouts.reversed
+          .take(12)
+          .map((item) => item.totalVolumeKg)
+          .toList(growable: false);
+    } catch (_) {}
+
+    return _DashboardTrends(
+      cpu: cpu,
+      memory: memory,
+      running: running,
+      gym: gym,
+    );
+  }
+
   Future<List<String>> _fetchRecommendations() async {
     try {
       final uri = Uri.parse(
@@ -78,6 +133,20 @@ class DashboardService {
       return const [];
     }
   }
+}
+
+class _DashboardTrends {
+  const _DashboardTrends({
+    required this.cpu,
+    required this.memory,
+    required this.running,
+    required this.gym,
+  });
+
+  final List<double> cpu;
+  final List<double> memory;
+  final List<double> running;
+  final List<double> gym;
 }
 
 class DashboardServiceException implements Exception {
