@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/exercise_progress.dart';
 import '../models/gym_workout.dart';
 import 'auth_service.dart';
 
@@ -16,6 +17,20 @@ class GymService {
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
     return decoded.whereType<Map<String, dynamic>>().map(GymWorkout.fromJson).toList();
+  }
+
+  Future<List<ExerciseProgress>> fetchExercises() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/exercises'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200) throw Exception('Could not load exercise progress.');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ExerciseProgress.fromJson)
+        .toList(growable: false);
   }
 
   Future<void> createWorkout({required DateTime date, required String name, String? notes, required List<GymSet> sets}) async {
