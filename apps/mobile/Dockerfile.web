@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY pubspec.yaml analysis_options.yaml ./
 COPY lib ./lib
+COPY assets ./assets
 
 RUN flutter config --enable-web \
     && flutter create --platforms=web . \
