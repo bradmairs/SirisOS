@@ -4,6 +4,7 @@ import os
 import docker
 from docker.errors import DockerException, NotFound
 
+from app.services.activity_service import ActivityService
 from app.services.homelab_audit_service import HomelabAuditService
 
 
@@ -73,6 +74,8 @@ class DockerMonitor:
     def __init__(self) -> None:
         self._audit = HomelabAuditService()
         self._audit.initialise()
+        self._activity = ActivityService()
+        self._activity.initialise()
         self._username = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 
     def collect(self) -> DockerSummary:
@@ -141,26 +144,19 @@ class DockerMonitor:
                 container.restart(timeout=10)
             container.reload()
             status = str(container.status)
-            self._record_audit(container_id, container_name, action, "success", status)
+            self._record(container_id, container_name, action, "success", status)
             return status
         except PermissionError as exc:
-            self._record_audit(container_id, container_name, action, "blocked", str(exc))
+            self._record(container_id, container_name, action, "blocked", str(exc))
             raise
         except NotFound as exc:
-            self._record_audit(container_id, container_name, action, "failed", "Container not found.")
+            self._record(container_id, container_name, action, "failed", "Container not found.")
             raise LookupError("Container not found.") from exc
         except DockerException as exc:
-            self._record_audit(container_id, container_name, action, "failed", str(exc))
+            self._record(container_id, container_name, action, "failed", str(exc))
             raise RuntimeError(str(exc)) from exc
 
-    def _record_audit(
-        self,
-        container_id: str,
-        container_name: str | None,
-        action: str,
-        result: str,
-        detail: str | None,
-    ) -> None:
+    def _record(self, container_id: str, container_name: str | None, action: str, result: str, detail: str | None) -> None:
         try:
             self._audit.record(
                 username=self._username,
@@ -171,5 +167,19 @@ class DockerMonitor:
                 detail=detail,
             )
         except Exception:
-            # Audit persistence must not obscure the underlying Docker result.
+            pass
+        try:
+            name = container_name or container_id
+            severity = "success" if result == "success" else "warning" if result == "blocked" else "critical"
+            title = f"Container {action} {result}"
+            message = f"{name}: {detail or result}."
+            self._activity.record(
+                module="homelab",
+                event_type=f"container_{action}_{result}",
+                title=title,
+                message=message,
+                severity=severity,
+                user=self._username,
+            )
+        except Exception:
             pass
