@@ -1,10 +1,41 @@
 import 'package:flutter/material.dart';
 
 import 'screens/app_shell.dart';
+import 'screens/login_screen.dart';
+import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
-class SirisOsApp extends StatelessWidget {
+class SirisOsApp extends StatefulWidget {
   const SirisOsApp({super.key});
+
+  @override
+  State<SirisOsApp> createState() => _SirisOsAppState();
+}
+
+class _SirisOsAppState extends State<SirisOsApp> {
+  final AuthService _authService = AuthService();
+  bool _checkingSession = true;
+  bool _authenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final authenticated = await _authService.restoreSession();
+    if (!mounted) return;
+    setState(() {
+      _authenticated = authenticated;
+      _checkingSession = false;
+    });
+  }
+
+  Future<void> _logout() async {
+    await _authService.logout();
+    if (mounted) setState(() => _authenticated = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +43,13 @@ class SirisOsApp extends StatelessWidget {
       title: 'SirisOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const AppShell(),
+      home: _checkingSession
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _authenticated
+              ? AppShell(onLogout: _logout)
+              : LoginScreen(
+                  onAuthenticated: () => setState(() => _authenticated = true),
+                ),
     );
   }
 }
