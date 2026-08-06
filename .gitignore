@@ -19,6 +19,18 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 
+# SirisOS runtime data
+/data/*
+!/data/README.md
+!/data/postgres/
+!/data/postgres/.gitkeep
+!/data/logs/
+!/data/logs/.gitkeep
+!/data/backups/
+!/data/backups/.gitkeep
+!/data/uploads/
+!/data/uploads/.gitkeep
+
 # IDE
 .vscode/
 .idea/
