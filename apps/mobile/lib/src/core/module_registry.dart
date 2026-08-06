@@ -8,22 +8,37 @@ enum SirisModuleCapability {
   backgroundRefresh,
 }
 
+enum SirisModuleAction {
+  open,
+  logRun,
+  logWorkout,
+}
+
 class SirisModuleDefinition {
   const SirisModuleDefinition({
     required this.id,
     required this.label,
     required this.description,
     required this.icon,
+    required this.selectedIcon,
     required this.capabilities,
+    this.primaryAction = SirisModuleAction.open,
+    this.primaryActionLabel,
+    this.showInNavigation = true,
   });
 
   final String id;
   final String label;
   final String description;
   final IconData icon;
+  final IconData selectedIcon;
   final Set<SirisModuleCapability> capabilities;
+  final SirisModuleAction primaryAction;
+  final String? primaryActionLabel;
+  final bool showInNavigation;
 
-  bool supports(SirisModuleCapability capability) => capabilities.contains(capability);
+  bool supports(SirisModuleCapability capability) =>
+      capabilities.contains(capability);
 }
 
 class SirisModuleRegistry {
@@ -31,10 +46,23 @@ class SirisModuleRegistry {
 
   static const modules = <SirisModuleDefinition>[
     SirisModuleDefinition(
+      id: 'dashboard',
+      label: 'Dashboard',
+      description: 'Mission Control overview and daily priorities.',
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard_rounded,
+      capabilities: {
+        SirisModuleCapability.dashboardWidget,
+        SirisModuleCapability.search,
+        SirisModuleCapability.backgroundRefresh,
+      },
+    ),
+    SirisModuleDefinition(
       id: 'homelab',
       label: 'Homelab',
       description: 'Docker, host metrics, alerts and infrastructure integrations.',
-      icon: Icons.dns_rounded,
+      icon: Icons.dns_outlined,
+      selectedIcon: Icons.dns_rounded,
       capabilities: {
         SirisModuleCapability.dashboardWidget,
         SirisModuleCapability.search,
@@ -42,47 +70,57 @@ class SirisModuleRegistry {
         SirisModuleCapability.quickAction,
         SirisModuleCapability.backgroundRefresh,
       },
+      primaryActionLabel: 'Open Homelab',
     ),
     SirisModuleDefinition(
       id: 'running',
       label: 'Running',
       description: 'Runs, fitness trends and training progress.',
-      icon: Icons.directions_run_rounded,
+      icon: Icons.directions_run_outlined,
+      selectedIcon: Icons.directions_run_rounded,
       capabilities: {
         SirisModuleCapability.dashboardWidget,
         SirisModuleCapability.search,
         SirisModuleCapability.quickAction,
         SirisModuleCapability.backgroundRefresh,
       },
+      primaryAction: SirisModuleAction.logRun,
+      primaryActionLabel: 'Log a run',
     ),
     SirisModuleDefinition(
       id: 'gym',
       label: 'Gym',
       description: 'Workouts, templates, exercise progress and personal records.',
-      icon: Icons.fitness_center_rounded,
+      icon: Icons.fitness_center_outlined,
+      selectedIcon: Icons.fitness_center_rounded,
       capabilities: {
         SirisModuleCapability.dashboardWidget,
         SirisModuleCapability.search,
         SirisModuleCapability.quickAction,
         SirisModuleCapability.backgroundRefresh,
       },
+      primaryAction: SirisModuleAction.logWorkout,
+      primaryActionLabel: 'Log a workout',
     ),
     SirisModuleDefinition(
       id: 'health',
       label: 'Health',
       description: 'Health snapshots, recovery and imported Apple Health data.',
-      icon: Icons.favorite_rounded,
+      icon: Icons.favorite_outline_rounded,
+      selectedIcon: Icons.favorite_rounded,
       capabilities: {
         SirisModuleCapability.search,
         SirisModuleCapability.quickAction,
         SirisModuleCapability.backgroundRefresh,
       },
+      primaryActionLabel: 'Open Health',
     ),
     SirisModuleDefinition(
       id: 'siris',
       label: 'Siris',
       description: 'AI context, recommendations and personal knowledge tools.',
-      icon: Icons.auto_awesome_rounded,
+      icon: Icons.auto_awesome_outlined,
+      selectedIcon: Icons.auto_awesome_rounded,
       capabilities: {
         SirisModuleCapability.search,
         SirisModuleCapability.notifications,
@@ -90,12 +128,19 @@ class SirisModuleRegistry {
     ),
   ];
 
+  static List<SirisModuleDefinition> get navigationModules => modules
+      .where((module) => module.showInNavigation)
+      .toList(growable: false);
+
   static SirisModuleDefinition? find(String id) {
     for (final module in modules) {
       if (module.id == id) return module;
     }
     return null;
   }
+
+  static int navigationIndexOf(String id) =>
+      navigationModules.indexWhere((module) => module.id == id);
 
   static Iterable<SirisModuleDefinition> supporting(
     SirisModuleCapability capability,
