@@ -1,4 +1,5 @@
 import '../models/dashboard_summary.dart';
+import '../models/health_snapshot.dart';
 
 enum BriefingPriority { low, normal, high, critical }
 
@@ -199,9 +200,6 @@ class GymBriefingContributor implements BriefingContributor {
   }
 }
 
-/// Health is registered as a first-class contributor now, while the dashboard
-/// summary does not yet expose a dedicated health card. It deliberately emits
-/// no fabricated observation until health data is added to the shared input.
 class HealthBriefingContributor implements BriefingContributor {
   const HealthBriefingContributor();
 
@@ -212,7 +210,92 @@ class HealthBriefingContributor implements BriefingContributor {
   Iterable<BriefingObservation> contribute(
     DashboardSummary dashboard,
     DateTime now,
-  ) => const [];
+  ) sync* {
+    final health = dashboard.health;
+    if (health == null) return;
+
+    if (!health.endpointConfigured) {
+      yield BriefingObservation(
+        id: 'health.not-configured',
+        moduleId: moduleId,
+        message: 'Health data is not configured yet.',
+        priority: BriefingPriority.low,
+        tone: BriefingTone.information,
+      );
+      return;
+    }
+
+    if (!health.available) {
+      yield BriefingObservation(
+        id: 'health.unavailable',
+        moduleId: moduleId,
+        message: health.error?.isNotEmpty == true
+            ? 'Health data is unavailable: ${health.error}'
+            : 'Health data is currently unavailable.',
+        priority: BriefingPriority.high,
+        tone: BriefingTone.warning,
+      );
+      return;
+    }
+
+    final sleep = _metric(health, const ['sleep', 'sleep_duration', 'sleep_analysis']);
+    final steps = _metric(health, const ['steps', 'step_count']);
+    final restingHeartRate = _metric(health, const ['resting_heart_rate']);
+
+    final sleepHours = _number(sleep);
+    if (sleepHours != null) {
+      if (sleepHours < 6) {
+        yield BriefingObservation(
+          id: 'health.sleep-low',
+          moduleId: moduleId,
+          message: 'Sleep was ${sleep!.displayValue}; recovery may need extra attention.',
+          priority: BriefingPriority.high,
+          tone: BriefingTone.warning,
+        );
+      } else if (sleepHours >= 7) {
+        yield BriefingObservation(
+          id: 'health.sleep-good',
+          moduleId: moduleId,
+          message: 'Sleep was ${sleep!.displayValue}, supporting a solid recovery day.',
+          priority: BriefingPriority.normal,
+          tone: BriefingTone.success,
+        );
+      }
+    }
+
+    if (steps != null) {
+      yield BriefingObservation(
+        id: 'health.steps',
+        moduleId: moduleId,
+        message: 'Latest activity: ${steps.displayValue} steps.',
+        priority: BriefingPriority.low,
+        tone: BriefingTone.information,
+      );
+    }
+
+    if (restingHeartRate != null) {
+      yield BriefingObservation(
+        id: 'health.resting-heart-rate',
+        moduleId: moduleId,
+        message: 'Resting heart rate is ${restingHeartRate.displayValue}.',
+        priority: BriefingPriority.low,
+        tone: BriefingTone.information,
+      );
+    }
+  }
+}
+
+HealthMetric? _metric(HealthSnapshot snapshot, List<String> names) {
+  for (final metric in snapshot.metrics) {
+    if (names.contains(metric.name.toLowerCase())) return metric;
+  }
+  return null;
+}
+
+double? _number(HealthMetric? metric) {
+  final value = metric?.value;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '');
 }
 
 bool _isProblem(String status) {
