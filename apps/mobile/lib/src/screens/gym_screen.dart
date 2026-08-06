@@ -5,7 +5,9 @@ import '../services/gym_service.dart';
 import '../widgets/metric_line_chart.dart';
 
 class GymScreen extends StatefulWidget {
-  const GymScreen({super.key});
+  const GymScreen({this.addRequest = 0, super.key});
+
+  final int addRequest;
 
   @override
   State<GymScreen> createState() => _GymScreenState();
@@ -19,6 +21,16 @@ class _GymScreenState extends State<GymScreen> {
   void initState() {
     super.initState();
     _future = _service.fetchWorkouts();
+  }
+
+  @override
+  void didUpdateWidget(covariant GymScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.addRequest != oldWidget.addRequest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _addWorkout();
+      });
+    }
   }
 
   Future<void> _refresh() async {
