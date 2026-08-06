@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../core/module_registry.dart';
 import '../models/dashboard_summary.dart';
+import '../modules/app_module_registry.dart';
 import '../services/dashboard_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/siris_logo.dart';
-import 'dashboard_screen.dart';
 import 'global_search_screen.dart';
-import 'gym_screen.dart';
-import 'health_screen.dart';
-import 'homelab_screen.dart';
 import 'notification_center_screen.dart';
-import 'running_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.onLogout, super.key});
@@ -24,8 +20,8 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final DashboardService _dashboardService = DashboardService();
-  final List<SirisModuleDefinition> _navigationModules =
-      SirisModuleRegistry.navigationModules;
+  final List<SirisModuleRegistration> _navigationModules =
+      AppModuleRegistry.registrations;
 
   int _selectedIndex = 0;
   int _runAddRequest = 0;
@@ -41,17 +37,17 @@ class _AppShellState extends State<AppShell> {
   void _selectTab(int index) => setState(() => _selectedIndex = index);
 
   void _selectModule(String moduleId) {
-    final index = SirisModuleRegistry.navigationIndexOf(moduleId);
+    final index = AppModuleRegistry.navigationIndexOf(moduleId);
     if (index >= 0) _selectTab(index);
   }
 
   void _openRunForm() => setState(() {
-        _selectedIndex = SirisModuleRegistry.navigationIndexOf('running');
+        _selectedIndex = AppModuleRegistry.navigationIndexOf('running');
         _runAddRequest++;
       });
 
   void _openWorkoutForm() => setState(() {
-        _selectedIndex = SirisModuleRegistry.navigationIndexOf('gym');
+        _selectedIndex = AppModuleRegistry.navigationIndexOf('gym');
         _workoutAddRequest++;
       });
 
@@ -73,16 +69,6 @@ class _AppShellState extends State<AppShell> {
         ),
       );
 
-  Widget _screenFor(SirisModuleDefinition module) => switch (module.id) {
-        'dashboard' => const DashboardScreen(),
-        'homelab' => const HomelabScreen(),
-        'running' => RunningScreen(addRequest: _runAddRequest),
-        'gym' => GymScreen(addRequest: _workoutAddRequest),
-        'health' => const HealthScreen(),
-        'siris' => const _ComingSoonScreen(),
-        _ => _UnknownModuleScreen(module: module),
-      };
-
   void _performModuleAction(SirisModuleDefinition module) {
     switch (module.primaryAction) {
       case SirisModuleAction.logRun:
@@ -95,9 +81,16 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _showQuickActions() async {
-    final quickActionModules = SirisModuleRegistry.supporting(
-      SirisModuleCapability.quickAction,
-    ).toList(growable: false);
+    final quickActionModules = _navigationModules
+        .where(
+          (registration) =>
+              registration.isAvailable &&
+              registration.definition.supports(
+                SirisModuleCapability.quickAction,
+              ),
+        )
+        .map((registration) => registration.definition)
+        .toList(growable: false);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -153,9 +146,15 @@ class _AppShellState extends State<AppShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 900;
+        final screenContext = SirisModuleScreenContext(
+          runAddRequest: _runAddRequest,
+          workoutAddRequest: _workoutAddRequest,
+        );
         final content = IndexedStack(
           index: _selectedIndex,
-          children: _navigationModules.map(_screenFor).toList(growable: false),
+          children: _navigationModules
+              .map((registration) => registration.buildScreen(screenContext))
+              .toList(growable: false),
         );
 
         return Scaffold(
@@ -186,10 +185,17 @@ class _AppShellState extends State<AppShell> {
                                 labelType: NavigationRailLabelType.none,
                                 destinations: _navigationModules
                                     .map(
-                                      (module) => NavigationRailDestination(
-                                        icon: Icon(module.icon),
-                                        selectedIcon: Icon(module.selectedIcon),
-                                        label: Text(module.label),
+                                      (registration) =>
+                                          NavigationRailDestination(
+                                        icon: Icon(
+                                          registration.definition.icon,
+                                        ),
+                                        selectedIcon: Icon(
+                                          registration.definition.selectedIcon,
+                                        ),
+                                        label: Text(
+                                          registration.definition.label,
+                                        ),
                                       ),
                                     )
                                     .toList(growable: false),
@@ -240,10 +246,11 @@ class _AppShellState extends State<AppShell> {
                   onDestinationSelected: _selectTab,
                   destinations: _navigationModules
                       .map(
-                        (module) => NavigationDestination(
-                          icon: Icon(module.icon),
-                          selectedIcon: Icon(module.selectedIcon),
-                          label: module.label,
+                        (registration) => NavigationDestination(
+                          icon: Icon(registration.definition.icon),
+                          selectedIcon:
+                              Icon(registration.definition.selectedIcon),
+                          label: registration.definition.label,
                         ),
                       )
                       .toList(growable: false),
@@ -400,56 +407,4 @@ class _QuickActionTile extends StatelessWidget {
       onTap: onTap,
     );
   }
-}
-
-class _ComingSoonScreen extends StatelessWidget {
-  const _ComingSoonScreen();
-
-  @override
-  Widget build(BuildContext context) => const SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SirisLogo(size: 82),
-                SizedBox(height: 22),
-                Text('Siris AI command centre is coming next.'),
-              ],
-            ),
-          ),
-        ),
-      );
-}
-
-class _UnknownModuleScreen extends StatelessWidget {
-  const _UnknownModuleScreen({required this.module});
-
-  final SirisModuleDefinition module;
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(module.selectedIcon, size: 64),
-                const SizedBox(height: 18),
-                Text(
-                  module.label,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  module.description,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
 }

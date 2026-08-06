@@ -47,6 +47,8 @@ make up
 - SirisOS module registry with IDs, labels, icons, capabilities, navigation metadata, and quick actions
 - Registry-driven desktop and mobile navigation
 - Registry-driven module quick actions
+- Module-owned screen builders and availability metadata
+- Consistent preview and unavailable module screens
 - Typed SirisCore broadcast event bus
 - Event-driven Notification Centre with severity and read/unread state
 - Running logging and fitness trends
@@ -85,8 +87,9 @@ This is the current development priority. Complete SirisCore before substantial 
 - [x] Registry-driven desktop navigation rail
 - [x] Registry-driven mobile navigation
 - [x] Registry-driven quick actions
-- [ ] Registry-provided route and screen builders
-- [ ] Optional and unavailable module handling
+- [x] Module-owned route and screen builders
+- [x] Preview and unavailable module handling
+- [ ] Persisted module enable/disable settings
 
 ### Widget Registry
 
@@ -109,15 +112,17 @@ This is the current development priority. Complete SirisCore before substantial 
 - [ ] Action metadata and action buttons
 - [ ] Consistent notification policies for every module
 
-### Briefing Engine
+### Briefing Engine and Siris Score
 
 - [x] Existing dashboard briefing strings and rules-based recommendations
 - [ ] Standard observation model and contributor interface
 - [ ] Running, Gym, Health, and Homelab contributors
 - [ ] Priority scoring, deduplication, and expiry
-- [ ] Deterministic assembly
+- [ ] Deterministic briefing assembly
 - [ ] Event-driven refresh
 - [ ] Optional Ollama rewriting layer
+- [ ] Deterministic Siris Score across health, fitness, Homelab, knowledge, tasks, engineering momentum, and automation health
+- [ ] Human-readable score explanation showing which domains raised or lowered the result
 
 ### Remaining SirisCore systems
 
@@ -201,15 +206,14 @@ Long-term examples include surfacing engineering project notes beside calculatio
 
 Unless deliberately revised and documented:
 
-1. Finish Module Registry route ownership and unavailable-module handling.
-2. Complete the reusable Widget Registry.
-3. Build the deterministic Briefing Engine.
-4. Complete Scheduler, AI Context, and remaining SirisCore systems.
-5. Declare Sprint 0.4.1 complete.
-6. Build the dedicated Mission Control route.
-7. Finish Live Homelab capabilities.
-8. Begin the Engineering module.
-9. Build the Obsidian-backed Knowledge Platform.
+1. Complete the reusable Widget Registry.
+2. Build the deterministic Briefing Engine and Siris Score foundation.
+3. Complete Scheduler, AI Context, and remaining SirisCore systems.
+4. Declare Sprint 0.4.1 complete.
+5. Build the dedicated Mission Control route.
+6. Finish Live Homelab capabilities.
+7. Begin the Engineering module.
+8. Build the Obsidian-backed Knowledge Platform.
 
 # Running and development
 
