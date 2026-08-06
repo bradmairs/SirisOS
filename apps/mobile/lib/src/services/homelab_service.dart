@@ -41,25 +41,32 @@ class HomelabService {
         .toList(growable: false);
   }
 
-  Future<List<HostMetricHistoryPoint>> fetchHostHistory() async {
+  Future<List<HostMetricHistorySample>> fetchHostHistory() async {
     final decoded = await _getJson('/api/v1/homelab/host/history');
     final samples = decoded['samples'];
     if (samples is! List) return const [];
     return samples
         .whereType<Map<String, dynamic>>()
-        .map(HostMetricHistoryPoint.fromJson)
+        .map(HostMetricHistorySample.fromJson)
         .toList(growable: false);
   }
 
   Future<String> fetchContainerLogs(String containerId, {int tail = 300}) async {
-    final decoded = await _getJson('/api/v1/homelab/docker/$containerId/logs?tail=$tail');
+    final decoded = await _getJson(
+      '/api/v1/homelab/docker/$containerId/logs?tail=$tail',
+    );
     return decoded['logs'] as String? ?? '';
   }
 
-  Future<String> performContainerAction(String containerId, String action) async {
+  Future<String> performContainerAction(
+    String containerId,
+    String action,
+  ) async {
     final response = await _client
         .post(
-          Uri.parse('${ApiConfig.baseUrl}/api/v1/homelab/docker/$containerId/$action'),
+          Uri.parse(
+            '${ApiConfig.baseUrl}/api/v1/homelab/docker/$containerId/$action',
+          ),
           headers: AuthService.authorizationHeaders,
         )
         .timeout(const Duration(seconds: 20));
@@ -69,10 +76,14 @@ class HomelabService {
     final decoded = jsonDecode(response.body);
     if (response.statusCode != 200) {
       final detail = decoded is Map<String, dynamic> ? decoded['detail'] : null;
-      throw HomelabServiceException(detail as String? ?? 'Container action failed.');
+      throw HomelabServiceException(
+        detail as String? ?? 'Container action failed.',
+      );
     }
     if (decoded is! Map<String, dynamic>) {
-      throw const HomelabServiceException('Invalid container action response.');
+      throw const HomelabServiceException(
+        'Invalid container action response.',
+      );
     }
     return decoded['status'] as String? ?? 'unknown';
   }
@@ -81,20 +92,27 @@ class HomelabService {
     final response = await _get(path);
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
-      throw const HomelabServiceException('Homelab response was not a JSON object.');
+      throw const HomelabServiceException(
+        'Homelab response was not a JSON object.',
+      );
     }
     return decoded;
   }
 
   Future<http.Response> _get(String path) async {
     final response = await _client
-        .get(Uri.parse('${ApiConfig.baseUrl}$path'), headers: AuthService.authorizationHeaders)
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}$path'),
+          headers: AuthService.authorizationHeaders,
+        )
         .timeout(const Duration(seconds: 10));
     if (response.statusCode == 401) {
       throw const HomelabServiceException('Your session has expired.');
     }
     if (response.statusCode != 200) {
-      throw HomelabServiceException('Homelab request failed with status ${response.statusCode}.');
+      throw HomelabServiceException(
+        'Homelab request failed with status ${response.statusCode}.',
+      );
     }
     return response;
   }
@@ -103,6 +121,7 @@ class HomelabService {
 class HomelabServiceException implements Exception {
   const HomelabServiceException(this.message);
   final String message;
+
   @override
   String toString() => message;
 }
