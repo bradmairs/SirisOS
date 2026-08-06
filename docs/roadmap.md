@@ -33,10 +33,11 @@
 - [x] Mission Control widget registry
 - [x] Persistent widget visibility, ordering and sizing
 - [x] Existing dashboard panels rendered through Mission Control layout
+- [x] Module registry with declared capabilities
+- [x] Typed broadcast event bus
+- [x] Mission Control refresh events
 - [ ] Drag-and-drop layout directly on the workspace
-- [ ] Module registry
-- [ ] Event bus
-- [ ] Notification centre integration
+- [ ] Notification centre event integration
 - [ ] Deterministic briefing engine
 - [ ] Scheduler
 - [ ] AI context service
