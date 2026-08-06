@@ -1,30 +1,65 @@
 class DockerContainerInfo {
   const DockerContainerInfo({
+    required this.containerId,
     required this.name,
     required this.image,
     required this.state,
     required this.status,
     required this.health,
+    required this.cpuPercent,
+    required this.memoryUsageBytes,
+    required this.memoryLimitBytes,
+    required this.memoryPercent,
   });
 
   factory DockerContainerInfo.fromJson(Map<String, dynamic> json) {
     return DockerContainerInfo(
+      containerId: json['container_id'] as String? ?? '',
       name: json['name'] as String? ?? 'Unknown',
       image: json['image'] as String? ?? 'Unknown image',
       state: json['state'] as String? ?? 'unknown',
       status: json['status'] as String? ?? 'unknown',
       health: json['health'] as String?,
+      cpuPercent: (json['cpu_percent'] as num?)?.toDouble(),
+      memoryUsageBytes: json['memory_usage_bytes'] as int?,
+      memoryLimitBytes: json['memory_limit_bytes'] as int?,
+      memoryPercent: (json['memory_percent'] as num?)?.toDouble(),
     );
   }
 
+  final String containerId;
   final String name;
   final String image;
   final String state;
   final String status;
   final String? health;
+  final double? cpuPercent;
+  final int? memoryUsageBytes;
+  final int? memoryLimitBytes;
+  final double? memoryPercent;
 
   bool get isRunning => state.toLowerCase() == 'running';
   bool get isUnhealthy => health?.toLowerCase() == 'unhealthy';
+
+  String get memoryUsageLabel {
+    final usage = memoryUsageBytes;
+    if (usage == null) return '—';
+    return _formatBytes(usage);
+  }
+
+  static String _formatBytes(int bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+
+    final decimals = value >= 100 || unitIndex == 0 ? 0 : 1;
+    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
+  }
 }
 
 class DockerSummary {
