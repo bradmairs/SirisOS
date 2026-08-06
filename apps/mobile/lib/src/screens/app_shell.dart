@@ -7,6 +7,7 @@ import '../widgets/siris_logo.dart';
 import 'dashboard_screen.dart';
 import 'global_search_screen.dart';
 import 'gym_screen.dart';
+import 'health_screen.dart';
 import 'homelab_screen.dart';
 import 'notification_center_screen.dart';
 import 'running_screen.dart';
@@ -49,6 +50,7 @@ class _AppShellState extends State<AppShell> {
     if (target == 'homelab') _selectTab(1);
     if (target == 'running') _selectTab(2);
     if (target == 'gym') _selectTab(3);
+    if (target == 'health') _selectTab(4);
     if (target == 'notifications') {
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(builder: (_) => const NotificationCenterScreen()),
@@ -67,6 +69,7 @@ class _AppShellState extends State<AppShell> {
         const HomelabScreen(),
         RunningScreen(addRequest: _runAddRequest),
         GymScreen(addRequest: _workoutAddRequest),
+        const HealthScreen(),
         const _ComingSoonScreen(),
       ];
 
@@ -86,6 +89,7 @@ class _AppShellState extends State<AppShell> {
               _QuickActionTile(icon: Icons.search_rounded, title: 'Search SirisOS', onTap: () { Navigator.pop(sheetContext); _openSearch(); }),
               _QuickActionTile(icon: Icons.directions_run_rounded, title: 'Log a run', onTap: () { Navigator.pop(sheetContext); _openRunForm(); }),
               _QuickActionTile(icon: Icons.fitness_center_rounded, title: 'Log a workout', onTap: () { Navigator.pop(sheetContext); _openWorkoutForm(); }),
+              _QuickActionTile(icon: Icons.favorite_rounded, title: 'Open Health', onTap: () { Navigator.pop(sheetContext); _selectTab(4); }),
               _QuickActionTile(icon: Icons.dns_rounded, title: 'Open Homelab', onTap: () { Navigator.pop(sheetContext); _selectTab(1); }),
               const Divider(height: 28),
               _QuickActionTile(icon: Icons.logout_rounded, title: 'Sign out', destructive: true, onTap: () async { Navigator.pop(sheetContext); await widget.onLogout(); }),
@@ -132,6 +136,7 @@ class _AppShellState extends State<AppShell> {
                                   NavigationRailDestination(icon: Icon(Icons.dns_outlined), selectedIcon: Icon(Icons.dns_rounded), label: Text('Homelab')),
                                   NavigationRailDestination(icon: Icon(Icons.directions_run_outlined), selectedIcon: Icon(Icons.directions_run_rounded), label: Text('Running')),
                                   NavigationRailDestination(icon: Icon(Icons.fitness_center_outlined), selectedIcon: Icon(Icons.fitness_center_rounded), label: Text('Gym')),
+                                  NavigationRailDestination(icon: Icon(Icons.favorite_outline_rounded), selectedIcon: Icon(Icons.favorite_rounded), label: Text('Health')),
                                   NavigationRailDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome_rounded), label: Text('Siris')),
                                 ],
                               ),
@@ -175,6 +180,7 @@ class _AppShellState extends State<AppShell> {
                     NavigationDestination(icon: Icon(Icons.dns_outlined), selectedIcon: Icon(Icons.dns_rounded), label: 'Homelab'),
                     NavigationDestination(icon: Icon(Icons.directions_run_outlined), selectedIcon: Icon(Icons.directions_run_rounded), label: 'Running'),
                     NavigationDestination(icon: Icon(Icons.fitness_center_outlined), selectedIcon: Icon(Icons.fitness_center_rounded), label: 'Gym'),
+                    NavigationDestination(icon: Icon(Icons.favorite_outline_rounded), selectedIcon: Icon(Icons.favorite_rounded), label: 'Health'),
                     NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome_rounded), label: 'Siris'),
                   ],
                 ),
