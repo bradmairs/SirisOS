@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.services.health_mcp_service import HealthMcpService
 
-router = APIRouter(prefix="/api/v1/health", tags=["health"])
+router = APIRouter(prefix="/health", tags=["health"])
 service = HealthMcpService()
 
 
