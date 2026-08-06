@@ -95,7 +95,7 @@ class HomelabService {
       ),
     );
     SirisEventBus.instance.publish(
-      NotificationStateChanged(reason: 'homelab_activity_recorded'),
+      NotificationStateChanged(source: 'homelab_service'),
     );
     return status;
   }
