@@ -6,6 +6,7 @@ class DashboardCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.subtitle,
+    required this.status,
     super.key,
   });
 
@@ -13,10 +14,16 @@ class DashboardCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final String subtitle;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final statusColor = switch (status) {
+      'healthy' => colors.primary,
+      'warning' => colors.error,
+      _ => colors.onSurfaceVariant,
+    };
 
     return Card(
       child: Padding(
@@ -26,7 +33,15 @@ class DashboardCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: colors.primary),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: colors.primary, size: 21),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -34,16 +49,28 @@ class DashboardCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ],
             ),
             const Spacer(),
             Text(
               value,
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 6),
             Text(
               subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
           ],
