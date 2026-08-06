@@ -4,6 +4,7 @@ class DashboardCardData {
     required this.value,
     required this.subtitle,
     required this.status,
+    this.trend = const [],
   });
 
   factory DashboardCardData.fromJson(Map<String, dynamic> json) {
@@ -19,6 +20,15 @@ class DashboardCardData {
   final String value;
   final String subtitle;
   final String status;
+  final List<double> trend;
+
+  DashboardCardData copyWith({List<double>? trend}) => DashboardCardData(
+        title: title,
+        value: value,
+        subtitle: subtitle,
+        status: status,
+        trend: trend ?? this.trend,
+      );
 }
 
 class DashboardSummary {
@@ -65,15 +75,19 @@ class DashboardSummary {
   final DateTime generatedAt;
 
   DashboardSummary copyWith({
+    DashboardCardData? homelab,
+    DashboardCardData? running,
+    DashboardCardData? gym,
+    DashboardCardData? system,
     List<String>? briefingItems,
     DateTime? generatedAt,
   }) {
     return DashboardSummary(
       greetingName: greetingName,
-      homelab: homelab,
-      running: running,
-      gym: gym,
-      system: system,
+      homelab: homelab ?? this.homelab,
+      running: running ?? this.running,
+      gym: gym ?? this.gym,
+      system: system ?? this.system,
       briefingItems: briefingItems ?? this.briefingItems,
       generatedAt: generatedAt ?? this.generatedAt,
     );
