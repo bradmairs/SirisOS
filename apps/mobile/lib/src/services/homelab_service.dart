@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/docker_summary.dart';
 import '../models/homelab_alerts.dart';
+import '../models/homelab_audit_event.dart';
 import '../models/host_metrics.dart';
 import 'auth_service.dart';
 
@@ -26,6 +27,18 @@ class HomelabService {
   Future<HomelabAlertSummary> fetchAlerts() async {
     final decoded = await _getJson('/api/v1/homelab/alerts');
     return HomelabAlertSummary.fromJson(decoded);
+  }
+
+  Future<List<HomelabAuditEvent>> fetchAuditHistory({int limit = 100}) async {
+    final response = await _get('/api/v1/homelab/audit?limit=$limit');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) {
+      throw const HomelabServiceException('Audit response was not a JSON list.');
+    }
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(HomelabAuditEvent.fromJson)
+        .toList(growable: false);
   }
 
   Future<List<HostMetricHistoryPoint>> fetchHostHistory() async {
@@ -65,6 +78,15 @@ class HomelabService {
   }
 
   Future<Map<String, dynamic>> _getJson(String path) async {
+    final response = await _get(path);
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const HomelabServiceException('Homelab response was not a JSON object.');
+    }
+    return decoded;
+  }
+
+  Future<http.Response> _get(String path) async {
     final response = await _client
         .get(Uri.parse('${ApiConfig.baseUrl}$path'), headers: AuthService.authorizationHeaders)
         .timeout(const Duration(seconds: 10));
@@ -74,11 +96,7 @@ class HomelabService {
     if (response.statusCode != 200) {
       throw HomelabServiceException('Homelab request failed with status ${response.statusCode}.');
     }
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw const HomelabServiceException('Homelab response was not a JSON object.');
-    }
-    return decoded;
+    return response;
   }
 }
 
