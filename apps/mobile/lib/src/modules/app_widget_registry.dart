@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/briefing_engine.dart';
 import '../models/dashboard_summary.dart';
 import '../models/mission_control_widget.dart';
 import '../widgets/activity_feed_panel.dart';
@@ -32,6 +33,9 @@ class RegisteredMissionControlWidget {
 
 class AppWidgetRegistry {
   AppWidgetRegistry._();
+
+  static final DeterministicBriefingEngine _briefingEngine =
+      DeterministicBriefingEngine();
 
   static final List<RegisteredMissionControlWidget> registrations = [
     ..._sirisWidgets,
@@ -93,7 +97,9 @@ class AppWidgetRegistry {
       ),
       builder: (context) => DashboardHero(
         greeting: context.greeting,
-        data: context.dashboard,
+        data: context.dashboard.copyWith(
+          briefingItems: _briefingEngine.assemble(context.dashboard),
+        ),
       ),
     ),
   ];
