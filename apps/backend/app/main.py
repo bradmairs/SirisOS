@@ -32,11 +32,16 @@ class DashboardResponse(BaseModel):
 
 
 class DockerContainerResponse(BaseModel):
+    container_id: str
     name: str
     image: str
     state: str
     status: str
     health: str | None
+    cpu_percent: float | None
+    memory_usage_bytes: int | None
+    memory_limit_bytes: int | None
+    memory_percent: float | None
 
 
 class DockerStatusResponse(BaseModel):
@@ -52,7 +57,7 @@ class DockerStatusResponse(BaseModel):
 app = FastAPI(
     title="SirisOS API",
     description="Backend API for the SirisOS personal operating system.",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 docker_monitor = DockerMonitor()
@@ -70,14 +75,14 @@ app.add_middleware(
 async def root() -> dict[str, str]:
     return {
         "name": "SirisOS API",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "docs": "/docs",
     }
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok", service="sirisos-api", version="0.3.0")
+    return HealthResponse(status="ok", service="sirisos-api", version="0.4.0")
 
 
 @app.get(
@@ -95,11 +100,16 @@ async def docker_status() -> DockerStatusResponse:
         unhealthy=summary.unhealthy,
         containers=[
             DockerContainerResponse(
+                container_id=item.container_id,
                 name=item.name,
                 image=item.image,
                 state=item.state,
                 status=item.status,
                 health=item.health,
+                cpu_percent=item.cpu_percent,
+                memory_usage_bytes=item.memory_usage_bytes,
+                memory_limit_bytes=item.memory_limit_bytes,
+                memory_percent=item.memory_percent,
             )
             for item in summary.containers
         ],
@@ -118,7 +128,7 @@ def _homelab_card() -> tuple[DashboardCardResponse, str]:
                 subtitle="Docker socket is unavailable",
                 status="warning",
             ),
-            "Docker monitoring is unavailable. Check the Docker socket mount and permissions.",
+            "Docker monitoring is unavailable. Check the Docker socket proxy and permissions.",
         )
 
     if summary.total == 0:
