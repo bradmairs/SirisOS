@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'dashboard_screen.dart';
 import 'homelab_screen.dart';
+import 'running_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.onLogout, super.key});
@@ -18,6 +19,7 @@ class _AppShellState extends State<AppShell> {
   static const _screens = <Widget>[
     DashboardScreen(),
     HomelabScreen(),
+    RunningScreen(),
     _ComingSoonScreen(
       title: 'Gym',
       message: 'Workout planning and progress tracking are coming next.',
@@ -56,6 +58,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.dns_outlined),
             selectedIcon: Icon(Icons.dns_rounded),
             label: 'Homelab',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.directions_run_outlined),
+            selectedIcon: Icon(Icons.directions_run_rounded),
+            label: 'Running',
           ),
           NavigationDestination(
             icon: Icon(Icons.fitness_center_outlined),
