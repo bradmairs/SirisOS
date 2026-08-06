@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/app_shell.dart';
 import 'screens/login_screen.dart';
+import 'screens/mission_control_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
@@ -43,6 +44,13 @@ class _SirisOsAppState extends State<SirisOsApp> {
       title: 'SirisOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      routes: {
+        MissionControlScreen.routeName: (_) => _authenticated
+            ? const MissionControlScreen()
+            : LoginScreen(
+                onAuthenticated: () => setState(() => _authenticated = true),
+              ),
+      },
       home: _checkingSession
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : _authenticated
