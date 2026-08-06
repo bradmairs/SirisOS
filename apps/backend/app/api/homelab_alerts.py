@@ -2,13 +2,14 @@ import os
 from typing import Annotated, Literal
 
 import jwt
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.docker_service import DockerMonitor
+from app.services.homelab_audit_service import HomelabAuditService
 from app.services.host_metrics_service import HostMetricsCollector
 
-router = APIRouter(prefix="/api/v1/homelab/alerts", tags=["homelab"])
+router = APIRouter(prefix="/api/v1/homelab", tags=["homelab"])
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -21,6 +22,8 @@ DISK_CRITICAL = float(os.getenv("SIRISOS_DISK_CRITICAL_PERCENT", "90"))
 
 collector = HostMetricsCollector()
 docker_monitor = DockerMonitor()
+audit_service = HomelabAuditService()
+audit_service.initialise()
 
 
 class AlertResponse(BaseModel):
@@ -38,6 +41,17 @@ class AlertSummaryResponse(BaseModel):
     warning_count: int
     critical_count: int
     alerts: list[AlertResponse]
+
+
+class AuditEventResponse(BaseModel):
+    id: int
+    occurred_at: str
+    username: str
+    container_id: str
+    container_name: str | None
+    action: str
+    result: str
+    detail: str | None
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -78,7 +92,7 @@ def _metric_alert(name: str, value: float | None, warning: float, critical: floa
     )
 
 
-@router.get("", response_model=AlertSummaryResponse)
+@router.get("/alerts", response_model=AlertSummaryResponse)
 async def alerts(authorization: Annotated[str | None, Header()] = None) -> AlertSummaryResponse:
     _authenticate(authorization)
     items: list[AlertResponse] = []
@@ -107,3 +121,24 @@ async def alerts(authorization: Annotated[str | None, Header()] = None) -> Alert
     critical_count = sum(item.severity == "critical" for item in items)
     status_value: Literal["healthy", "warning", "critical"] = "critical" if critical_count else "warning" if warning_count else "healthy"
     return AlertSummaryResponse(status=status_value, warning_count=warning_count, critical_count=critical_count, alerts=items)
+
+
+@router.get("/audit", response_model=list[AuditEventResponse])
+async def audit_history(
+    authorization: Annotated[str | None, Header()] = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[AuditEventResponse]:
+    _authenticate(authorization)
+    return [
+        AuditEventResponse(
+            id=item.id,
+            occurred_at=item.occurred_at.isoformat(),
+            username=item.username,
+            container_id=item.container_id,
+            container_name=item.container_name,
+            action=item.action,
+            result=item.result,
+            detail=item.detail,
+        )
+        for item in audit_service.recent(limit=limit)
+    ]
