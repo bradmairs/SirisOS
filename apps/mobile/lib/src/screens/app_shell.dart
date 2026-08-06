@@ -4,7 +4,9 @@ import 'dashboard_screen.dart';
 import 'homelab_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({required this.onLogout, super.key});
+
+  final Future<void> Function() onLogout;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -32,6 +34,13 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _screens),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton.small(
+              onPressed: widget.onLogout,
+              tooltip: 'Sign out',
+              child: const Icon(Icons.logout_rounded),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
