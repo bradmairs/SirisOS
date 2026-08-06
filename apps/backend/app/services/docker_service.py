@@ -4,6 +4,15 @@ import docker
 from docker.errors import DockerException, NotFound
 
 
+PROTECTED_CONTAINERS = {
+    "sirisos-web",
+    "sirisos-api",
+    "sirisos-postgres",
+    "sirisos-docker-proxy",
+    "sirisos-node-exporter",
+}
+
+
 @dataclass(frozen=True)
 class DockerContainer:
     container_id: str
@@ -56,7 +65,7 @@ def _memory_metrics(stats: dict) -> tuple[int | None, int | None, float | None]:
 
 
 class DockerMonitor:
-    """Read-only Docker status, resource, and log collector."""
+    """Docker status, logs, and tightly constrained lifecycle controls."""
 
     def collect(self) -> DockerSummary:
         try:
@@ -101,6 +110,26 @@ class DockerMonitor:
             container = docker.from_env().containers.get(container_id)
             output = container.logs(stdout=True, stderr=True, timestamps=True, tail=safe_tail)
             return output.decode("utf-8", errors="replace")
+        except NotFound as exc:
+            raise LookupError("Container not found.") from exc
+        except DockerException as exc:
+            raise RuntimeError(str(exc)) from exc
+
+    def action(self, container_id: str, action: str) -> str:
+        if action not in {"start", "stop", "restart"}:
+            raise ValueError("Unsupported container action.")
+        try:
+            container = docker.from_env().containers.get(container_id)
+            if container.name in PROTECTED_CONTAINERS:
+                raise PermissionError("Core SirisOS containers cannot be controlled from the app.")
+            if action == "start":
+                container.start()
+            elif action == "stop":
+                container.stop(timeout=10)
+            else:
+                container.restart(timeout=10)
+            container.reload()
+            return str(container.status)
         except NotFound as exc:
             raise LookupError("Container not found.") from exc
         except DockerException as exc:
