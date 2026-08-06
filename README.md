@@ -36,7 +36,7 @@ make up
 
 ## Sprint 0.4.1 — SirisCore complete
 
-SirisCore now includes:
+SirisCore includes:
 
 - Typed broadcast Event Bus
 - Module data-change and notification events
@@ -51,12 +51,36 @@ SirisCore now includes:
 - Deterministic Siris Score with weighted domains and plain-language explanations
 - Registered `siris.score` widget
 - Shared Scheduler for guarded recurring jobs
-- Canonical AI Context Service built from the same dashboard state used by briefings and scoring
-- Consolidated persisted SirisCore settings for refresh behaviour and module availability
+- Canonical AI Context Service built from shared dashboard state
+- Consolidated persisted SirisCore settings
 - Event-driven Notification Centre
 - Architecture Decision Records under `docs/adr/`
 
-Deferred enhancements such as notification action buttons, direct workspace drag-and-drop, event diagnostics, and Ollama wording remain on the later roadmap and do not block Sprint 0.4.1 completion.
+## Active milestone — Sprint 0.4.2 Mission Control
+
+### 0.4.2a Situation Room foundation
+
+The first dedicated Mission Control experience is available at `/mission` and includes:
+
+- Navigation-free full-screen shell
+- Large live clock and date
+- Shared registered widget grid
+- Existing Siris Score, deterministic briefing, module summaries, and activity timeline
+- Event-driven debounced refreshes
+- Five-minute scheduled refresh fallback
+- Responsive layouts for desktop, tablet, and narrow screens
+- Smooth layout transitions
+- Explicit refresh and exit controls
+
+The Situation Room deliberately consumes the same Widget Registry and saved layout as the normal workspace. It does not fork widget implementations or business logic.
+
+Next within Sprint 0.4.2:
+
+- Add an in-app Mission Control launcher and direct display controls
+- Add adaptive widget prioritisation
+- Add Focus Modes for Work, Home, Fitness, and Travel
+- Add ambient mode and second-monitor refinements
+- Complete the SirisOS design system and visual polish
 
 ## Current application capabilities
 
@@ -71,23 +95,8 @@ Deferred enhancements such as notification action buttons, direct workspace drag
 - Host metrics, history, alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
 - Global search
-- Configurable Mission Control-style workspace
-
-## Next milestone — Sprint 0.4.2 Mission Control
-
-Build a dedicated `/mission` Situation Room for a second monitor or wall display:
-
-- Navigation-free full-screen shell
-- Large clock
-- Shared registered widget grid
-- Siris Score and explanation
-- Deterministic briefing
-- Activity timeline
-- Event-driven refresh
-- Focus modes for Work, Home, Fitness, and Travel
-- Ambient display modes and restrained animations
-
-After Mission Control, continue with Live Homelab, Engineering, the Obsidian/Selkies Knowledge Platform, Projects and Context Graph, Intelligence and Automation, and the Plugin SDK. See `docs/roadmap.md` for the authoritative sequence.
+- Configurable Mission Control workspace
+- Dedicated `/mission` Situation Room
 
 ## Long-term pillars
 
@@ -111,6 +120,7 @@ After Mission Control, continue with Live Homelab, Engineering, the Obsidian/Sel
 ## Local endpoints
 
 - Web UI: `http://192.168.0.100:6464`
+- Mission Control: `http://192.168.0.100:6464/#/mission`
 - API: `http://192.168.0.100:8000`
 - API docs: `http://192.168.0.100:8000/docs`
 
