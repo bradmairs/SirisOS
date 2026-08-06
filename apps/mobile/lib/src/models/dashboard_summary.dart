@@ -63,4 +63,19 @@ class DashboardSummary {
   final DashboardCardData system;
   final List<String> briefingItems;
   final DateTime generatedAt;
+
+  DashboardSummary copyWith({
+    List<String>? briefingItems,
+    DateTime? generatedAt,
+  }) {
+    return DashboardSummary(
+      greetingName: greetingName,
+      homelab: homelab,
+      running: running,
+      gym: gym,
+      system: system,
+      briefingItems: briefingItems ?? this.briefingItems,
+      generatedAt: generatedAt ?? this.generatedAt,
+    );
+  }
 }
