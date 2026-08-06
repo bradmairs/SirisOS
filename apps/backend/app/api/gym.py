@@ -70,6 +70,29 @@ class WorkoutResponse(BaseModel):
     sets: list[WorkoutSetResponse]
 
 
+class ExerciseHistoryPointResponse(BaseModel):
+    workout_date: date
+    workout_name: str
+    weight_kg: float
+    reps: int
+    rir: int | None
+    volume_kg: float
+    estimated_one_rep_max_kg: float
+
+
+class ExerciseSummaryResponse(BaseModel):
+    exercise: str
+    set_count: int
+    workout_count: int
+    latest_date: date
+    latest_weight_kg: float
+    latest_reps: int
+    best_weight_kg: float
+    best_estimated_one_rep_max_kg: float
+    best_set_volume_kg: float
+    history: list[ExerciseHistoryPointResponse]
+
+
 def _response(workout) -> WorkoutResponse:
     return WorkoutResponse(
         id=workout.id,
@@ -90,6 +113,21 @@ def _response(workout) -> WorkoutResponse:
             )
             for item in workout.sets
         ],
+    )
+
+
+def _exercise_response(item) -> ExerciseSummaryResponse:
+    return ExerciseSummaryResponse(
+        exercise=item.exercise,
+        set_count=item.set_count,
+        workout_count=item.workout_count,
+        latest_date=item.latest_date,
+        latest_weight_kg=item.latest_weight_kg,
+        latest_reps=item.latest_reps,
+        best_weight_kg=item.best_weight_kg,
+        best_estimated_one_rep_max_kg=item.best_estimated_one_rep_max_kg,
+        best_set_volume_kg=item.best_set_volume_kg,
+        history=[ExerciseHistoryPointResponse(**point.__dict__) for point in item.history],
     )
 
 
@@ -120,3 +158,18 @@ async def create_workout(payload: WorkoutCreate, authorization: Annotated[str | 
         user=username,
     )
     return _response(workout)
+
+
+@router.get("/exercises", response_model=list[ExerciseSummaryResponse])
+async def list_exercises(authorization: Annotated[str | None, Header()] = None) -> list[ExerciseSummaryResponse]:
+    _authenticate(authorization)
+    return [_exercise_response(item) for item in service.list_exercises()]
+
+
+@router.get("/exercises/{exercise_name}", response_model=ExerciseSummaryResponse)
+async def exercise_detail(exercise_name: str, authorization: Annotated[str | None, Header()] = None) -> ExerciseSummaryResponse:
+    _authenticate(authorization)
+    item = service.get_exercise(exercise_name)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Exercise not found.")
+    return _exercise_response(item)
