@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.services.gym_service import GymService
 
-router = APIRouter(prefix="/api/v1/gym", tags=["gym"])
+router = APIRouter(prefix="/gym", tags=["gym"])
 service = GymService()
 service.initialise()
 
