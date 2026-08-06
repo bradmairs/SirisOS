@@ -8,12 +8,14 @@ from pydantic import BaseModel, Field
 
 from app.api.activity import router as activity_router
 from app.api.gym import router as gym_router
+from app.api.search import router as search_router
 from app.services.activity_service import ActivityService
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(gym_router)
 router.include_router(activity_router)
+router.include_router(search_router)
 service = RunningService()
 service.initialise()
 activity_service = ActivityService()
