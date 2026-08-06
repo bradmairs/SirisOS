@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/docker_summary.dart';
 import '../services/homelab_service.dart';
+import '../widgets/metric_line_chart.dart';
 
 class ContainerDetailScreen extends StatefulWidget {
   const ContainerDetailScreen({
@@ -18,7 +19,11 @@ class ContainerDetailScreen extends StatefulWidget {
 }
 
 class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
+  static const _maxSamples = 30;
+
   final HomelabService _service = HomelabService();
+  final List<MetricSample> _cpuSamples = [];
+  final List<MetricSample> _memorySamples = [];
   Timer? _timer;
   late DockerContainerInfo _container;
   bool _refreshing = false;
@@ -28,6 +33,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
   void initState() {
     super.initState();
     _container = widget.initialContainer;
+    _recordSample(_container);
     _timer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => _refresh(silent: true),
@@ -38,6 +44,25 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  void _recordSample(DockerContainerInfo container) {
+    final now = DateTime.now();
+    if (container.cpuPercent != null) {
+      _cpuSamples.add(MetricSample(time: now, value: container.cpuPercent!));
+    }
+    if (container.memoryPercent != null) {
+      _memorySamples.add(
+        MetricSample(time: now, value: container.memoryPercent!),
+      );
+    }
+
+    if (_cpuSamples.length > _maxSamples) {
+      _cpuSamples.removeRange(0, _cpuSamples.length - _maxSamples);
+    }
+    if (_memorySamples.length > _maxSamples) {
+      _memorySamples.removeRange(0, _memorySamples.length - _maxSamples);
+    }
   }
 
   Future<void> _refresh({bool silent = false}) async {
@@ -65,6 +90,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
       } else {
         setState(() {
           _container = updated.first;
+          _recordSample(_container);
           _error = null;
         });
       }
@@ -146,10 +172,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 18),
-                      Text(
-                        _error!,
-                        style: TextStyle(color: scheme.error),
-                      ),
+                      Text(_error!, style: TextStyle(color: scheme.error)),
                     ],
                   ],
                 ),
@@ -181,6 +204,20 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            MetricLineChart(
+              title: 'CPU history',
+              samples: List.unmodifiable(_cpuSamples),
+              valueSuffix: '%',
+              maxY: 100,
+            ),
+            const SizedBox(height: 16),
+            MetricLineChart(
+              title: 'Memory history',
+              samples: List.unmodifiable(_memorySamples),
+              valueSuffix: '%',
+              maxY: 100,
+            ),
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -193,7 +230,10 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     _DetailRow(label: 'Image', value: _container.image),
-                    _DetailRow(label: 'Container ID', value: _container.containerId),
+                    _DetailRow(
+                      label: 'Container ID',
+                      value: _container.containerId,
+                    ),
                     _DetailRow(label: 'State', value: _container.state),
                     _DetailRow(label: 'Status', value: _container.status),
                     _DetailRow(
@@ -206,7 +246,7 @@ class _ContainerDetailScreenState extends State<ContainerDetailScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Live data refreshes every 5 seconds.',
+              'Live data refreshes every 5 seconds. Charts retain the latest 30 samples while this screen is open.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
