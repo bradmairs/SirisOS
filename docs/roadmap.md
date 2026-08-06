@@ -18,6 +18,7 @@
 - Plex server status
 - Integration settings
 - Read-only alerts and summaries
+- Read-only Home Assistant, Plex, and Ollama diagnostics API
 
 ## Milestone 3 — Personal Modules
 
@@ -33,7 +34,7 @@
 - Command palette
 - Personal knowledge search
 - AI-generated daily briefing
-- Integration diagnostics
+- Integration diagnostics UI
 
 ## Milestone 5 — Engineering
 
