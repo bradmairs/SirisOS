@@ -17,22 +17,38 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
-
-  static const _screens = <Widget>[
-    DashboardScreen(),
-    HomelabScreen(),
-    RunningScreen(),
-    GymScreen(),
-    _ComingSoonScreen(
-      title: 'Siris',
-      message: 'Your personal AI command centre will live here.',
-      icon: Icons.auto_awesome_rounded,
-    ),
-  ];
+  int _runAddRequest = 0;
+  int _workoutAddRequest = 0;
 
   void _selectTab(int index) {
     setState(() => _selectedIndex = index);
   }
+
+  void _openRunForm() {
+    setState(() {
+      _selectedIndex = 2;
+      _runAddRequest++;
+    });
+  }
+
+  void _openWorkoutForm() {
+    setState(() {
+      _selectedIndex = 3;
+      _workoutAddRequest++;
+    });
+  }
+
+  List<Widget> get _screens => <Widget>[
+        const DashboardScreen(),
+        const HomelabScreen(),
+        RunningScreen(addRequest: _runAddRequest),
+        GymScreen(addRequest: _workoutAddRequest),
+        const _ComingSoonScreen(
+          title: 'Siris',
+          message: 'Your personal AI command centre will live here.',
+          icon: Icons.auto_awesome_rounded,
+        ),
+      ];
 
   Future<void> _showQuickActions() async {
     await showModalBottomSheet<void>(
@@ -57,19 +73,19 @@ class _AppShellState extends State<AppShell> {
                 _QuickActionTile(
                   icon: Icons.directions_run_rounded,
                   title: 'Log a run',
-                  subtitle: 'Open Running and add a new activity',
+                  subtitle: 'Open the run entry form',
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    _selectTab(2);
+                    _openRunForm();
                   },
                 ),
                 _QuickActionTile(
                   icon: Icons.fitness_center_rounded,
                   title: 'Log a workout',
-                  subtitle: 'Open Gym and record your session',
+                  subtitle: 'Open the workout entry form',
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    _selectTab(3);
+                    _openWorkoutForm();
                   },
                 ),
                 _QuickActionTile(
