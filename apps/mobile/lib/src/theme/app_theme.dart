@@ -39,8 +39,8 @@ abstract final class AppTheme {
       textTheme: const TextTheme(
         headlineMedium: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.8),
         headlineSmall: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
-        titleLarge: TextStyle(fontWeight: FontWeight.w750),
-        titleMedium: TextStyle(fontWeight: FontWeight.w650),
+        titleLarge: TextStyle(fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(fontWeight: FontWeight.w600),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: sidebar,
