@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/docker_summary.dart';
+import 'auth_service.dart';
 
 class HomelabService {
   HomelabService({http.Client? client}) : _client = client ?? http.Client();
@@ -12,8 +13,13 @@ class HomelabService {
 
   Future<DockerSummary> fetchDockerSummary() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/homelab/docker');
-    final response = await _client.get(uri).timeout(const Duration(seconds: 8));
+    final response = await _client
+        .get(uri, headers: AuthService.authorizationHeaders)
+        .timeout(const Duration(seconds: 8));
 
+    if (response.statusCode == 401) {
+      throw const HomelabServiceException('Your session has expired.');
+    }
     if (response.statusCode != 200) {
       throw HomelabServiceException(
         'Docker request failed with status ${response.statusCode}.',
