@@ -72,13 +72,18 @@ def to_response(record) -> RunResponse:
 
 
 @router.get("", response_model=list[RunResponse])
-async def list_runs(_: Annotated[str, Header(alias="X-Ignored")] = "") -> list[RunResponse]:
-    # Authentication is read directly so Swagger and Flutter can use Bearer tokens.
+async def list_runs(
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[RunResponse]:
+    current_username(authorization)
     return [to_response(item) for item in service.list_runs()]
 
 
 @router.post("", response_model=RunResponse, status_code=status.HTTP_201_CREATED)
-async def create_run(payload: RunCreateRequest, authorization: Annotated[str | None, Header()] = None) -> RunResponse:
+async def create_run(
+    payload: RunCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+) -> RunResponse:
     current_username(authorization)
     record = service.create_run(
         run_date=payload.run_date,
