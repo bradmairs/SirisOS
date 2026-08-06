@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 import re
+import time
 from urllib.request import urlopen
 
 
@@ -17,6 +18,8 @@ class HostMetrics:
     disk_total_bytes: int | None = None
     load_1m: float | None = None
     uptime_seconds: float | None = None
+    network_receive_bytes_per_second: float | None = None
+    network_transmit_bytes_per_second: float | None = None
     error: str | None = None
 
 
@@ -24,6 +27,7 @@ class HostMetricsCollector:
     def __init__(self) -> None:
         self._url = os.getenv("NODE_EXPORTER_URL", "http://node-exporter:9100/metrics")
         self._previous_cpu: tuple[float, float] | None = None
+        self._previous_network: tuple[float, float, float] | None = None
 
     def collect(self) -> HostMetrics:
         try:
@@ -41,10 +45,7 @@ class HostMetricsCollector:
                 memory_used = int(memory_total - memory_available)
                 memory_percent = round((memory_used / memory_total) * 100, 1)
 
-            disk_total = metrics.get('node_filesystem_size_bytes{device="/dev/root",fstype="ext4",mountpoint="/"}')
-            disk_available = metrics.get('node_filesystem_avail_bytes{device="/dev/root",fstype="ext4",mountpoint="/"}')
-            if disk_total is None or disk_available is None:
-                disk_total, disk_available = self._root_filesystem(text)
+            disk_total, disk_available = self._root_filesystem(text)
             disk_used = None
             disk_percent = None
             if disk_total and disk_available is not None:
@@ -62,6 +63,17 @@ class HostMetricsCollector:
                     cpu_percent = round((1 - idle_delta / total_delta) * 100, 1)
             self._previous_cpu = (cpu_idle, cpu_total)
 
+            received_total, transmitted_total = self._network_totals(text)
+            now = time.monotonic()
+            receive_rate = transmit_rate = None
+            if self._previous_network is not None:
+                previous_time, previous_received, previous_transmitted = self._previous_network
+                elapsed = now - previous_time
+                if elapsed > 0:
+                    receive_rate = max(0.0, (received_total - previous_received) / elapsed)
+                    transmit_rate = max(0.0, (transmitted_total - previous_transmitted) / elapsed)
+            self._previous_network = (now, received_total, transmitted_total)
+
             return HostMetrics(
                 available=True,
                 hostname=hostname,
@@ -74,6 +86,8 @@ class HostMetricsCollector:
                 disk_total_bytes=int(disk_total) if disk_total else None,
                 load_1m=metrics.get("node_load1"),
                 uptime_seconds=metrics.get("node_time_seconds", 0) - metrics.get("node_boot_time_seconds", 0),
+                network_receive_bytes_per_second=round(receive_rate, 1) if receive_rate is not None else None,
+                network_transmit_bytes_per_second=round(transmit_rate, 1) if transmit_rate is not None else None,
             )
         except Exception as exc:
             return HostMetrics(available=False, error=str(exc))
@@ -119,3 +133,19 @@ class HostMetricsCollector:
             elif line.startswith("node_filesystem_avail_bytes"):
                 avail = float(line.rsplit(" ", 1)[1])
         return size, avail
+
+    @staticmethod
+    def _network_totals(text: str) -> tuple[float, float]:
+        received = transmitted = 0.0
+        ignored = {'lo', 'docker0'}
+        for match in re.finditer(r'node_network_(receive|transmit)_bytes_total\{([^}]*)\}\s+([0-9.eE+-]+)', text):
+            direction, labels, value = match.groups()
+            device_match = re.search(r'device="([^"]+)"', labels)
+            device = device_match.group(1) if device_match else ''
+            if device in ignored or device.startswith(('veth', 'br-', 'tun', 'tap')):
+                continue
+            if direction == 'receive':
+                received += float(value)
+            else:
+                transmitted += float(value)
+        return received, transmitted
