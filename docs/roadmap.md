@@ -1,104 +1,98 @@
 # SirisOS Roadmap
 
-## Milestone 1 — Foundation
+## Sprint 0.4.1 — SirisCore ✅ Complete
 
-- Repository scaffold
-- FastAPI service and health endpoint
-- PostgreSQL development service
-- Docker Compose environment
-- Flutter application scaffold
-- Configuration and secrets model
-- Automated backend tests
+Released foundation:
 
-## Milestone 2 — Dashboard and Homelab
+- [x] Typed Event Bus and module data-change publishers
+- [x] Event-driven Notification Centre
+- [x] Event-driven Mission Control/dashboard refresh with debounce
+- [x] Central Module Registry with module-owned routes, screens, quick actions, and availability states
+- [x] Reusable Widget Registry with namespaced IDs, module ownership, builders, and saved-layout migration
+- [x] Deterministic Briefing Engine with Running, Gym, Health, Homelab, and system contributors
+- [x] Deterministic Siris Score with weighted domains and human-readable explanations
+- [x] Registered `siris.score` widget
+- [x] SirisCore Scheduler with guarded periodic jobs
+- [x] Canonical AI Context Service derived from shared dashboard state
+- [x] Consolidated persisted SirisCore settings for refresh and module availability
+- [x] README, roadmap, ADRs, and standard `git pull && make up` deployment workflow
 
-- Dashboard API and card layout
-- Docker container status
-- Home Assistant status
-- Plex server status
-- Integration settings
-- Read-only alerts and summaries
-- Read-only Home Assistant, Plex, and Ollama diagnostics API
+Deferred enhancements are not Sprint 0.4.1 blockers and remain on the later backlog: notification action buttons, direct drag-and-drop on the workspace, optional Ollama wording, event diagnostics, and score domains whose modules do not yet exist.
 
-## Milestone 3 — Personal Modules
+## Sprint 0.4.2 — Mission Control
 
-- Tasks and calendar
-- Gym workout logging
-- Health data import
-- Trends and progress charts
-- Morning briefing
+Build the dedicated `/mission` Situation Room using SirisCore services.
 
-## Milestone 4 — SirisCore and Mission Control
+- [ ] Navigation-free full-screen shell
+- [ ] Large live clock
+- [ ] Shared Widget Registry grid
+- [ ] Siris Score presentation and detailed explanation
+- [ ] Deterministic briefing panel
+- [ ] Activity timeline
+- [ ] Event-driven auto-refresh
+- [ ] Focus modes: Work, Home, Fitness, and Travel
+- [ ] Smooth transitions and ambient display modes
+- [ ] Second-monitor and wall-display optimisation
 
-- [x] Mission Control widget registry
-- [x] Namespaced widget IDs
-- [x] Module-owned widget registration
-- [x] Reusable widget builders
-- [x] Legacy layout ID migration
-- [x] Persistent widget visibility, ordering and sizing
-- [x] Existing dashboard panels rendered through registered builders
-- [x] Module registry with declared capabilities
-- [x] Typed broadcast event bus
-- [x] Mission Control refresh events
-- [x] Running and Gym data-change event publishers
-- [x] Health snapshot refresh event publisher
-- [x] Homelab container action event publisher
-- [x] Notification unread/read state events
-- [x] Notification Centre live event subscriptions
-- [x] Automatic debounced Notification Centre refresh
-- [x] Registry-driven desktop navigation
-- [x] Registry-driven mobile navigation
-- [x] Registry-driven module quick actions
-- [x] Module-owned route and screen builders
-- [x] Preview and unavailable module handling
-- [x] Typed briefing observation model and contributor interface
-- [x] Running, Gym, Homelab, and system briefing contributors
-- [x] Dedicated Health snapshot in the shared briefing input
-- [x] Deterministic Health briefing observations for availability, sleep, steps, and resting heart rate
-- [x] Deterministic briefing ranking, deduplication, expiry, and assembly
-- [x] Briefing widget consumes deterministic output with backend fallback
-- [x] Siris Score deterministic weighted domain model
-- [x] Human-readable Siris Score contribution explanations
-- [ ] Event-driven briefing refresh subscriptions
-- [ ] Siris Score widget and Mission Control presentation
-- [ ] Shared dedicated Mission Control consumption
-- [ ] Module enable/disable settings and persisted availability
-- [ ] Drag-and-drop layout directly on the workspace
-- [ ] Notification action metadata and action buttons
-- [ ] Consistent module notification policies
-- [ ] Dashboard and Mission Control event subscriptions
-- [ ] Scheduler
-- [ ] AI context service
-- [ ] Ambient display modes
+## Sprint 0.4.3 — Live Homelab
 
-## Milestone 5 — AI and Knowledge
+- [x] Live containers, CPU/RAM, state, health, logs, and actions
+- [x] Host metrics and history
+- [x] Alerts and action audit history
+- [x] Home Assistant, Plex, and Ollama diagnostics
+- [ ] Container image update availability
+- [ ] Broader notification policies
+- [ ] Prometheus and Grafana integrations
+- [ ] Expanded Home Assistant integration
+- [ ] UniFi, Proxmox, NAS, backup, and UPS integrations
 
-- Ollama integration
-- Command palette
-- Personal knowledge search
-- AI-generated daily briefing
-- Integration diagnostics UI
+## Sprint 0.4.4 — Engineering Module
 
-## Milestone 6 — Engineering
-
-- Hydraulic calculators
-- Standards knowledge library
-- SirisHydro integration
-- SirisPM integration
-- Project notes and tools
+- [ ] Engineering module scaffold
+- [ ] Manning equation calculator
+- [ ] Pipe capacity calculator
+- [ ] Rational Method calculator
+- [ ] Pipe buoyancy checker
+- [ ] Detention basin sizing helper
+- [ ] Standards search scaffold for WSAA, Sydney Water, Austroads, Australian Standards, and authorities
+- [ ] SirisHydro and SirisPM integration
+- [ ] Project notes, drawing review, and Civil 3D utilities
 
 ## Sprint 0.5.0 — Knowledge Platform
 
-Integrate the existing server-hosted Obsidian instance running in Docker through Selkies and make the vault a first-class SirisOS knowledge source.
+Integrate the server-hosted Obsidian instance running through Selkies as the Knowledge pillar.
 
 - [ ] Obsidian/Selkies launch integration
 - [ ] Vault browser
-- [ ] Recent notes widget
-- [ ] Daily Notes integration
+- [ ] Recent notes and Daily Notes widgets
 - [ ] Global SirisOS search across vault content
 - [ ] Wikilink navigation and graph exploration
 - [ ] Metadata and tag support
-- [ ] AI semantic search across the vault
+- [ ] AI semantic search
 - [ ] Mission Control Knowledge widget
-- [ ] Context-aware related note suggestions
-- [ ] Cross-linking with Engineering, Homelab, Tasks, and Briefings
+- [ ] Context-aware related notes
+- [ ] Cross-linking with Engineering, Homelab, Tasks, Calendar, and Briefings
+
+## Sprint 0.6 — Projects and Context Graph
+
+- [ ] General project model
+- [ ] Relationships between notes, tasks, files, calculations, events, repositories, and conversations
+- [ ] Context containers for engineering, homelab, travel, fitness, and personal projects
+
+## Sprint 0.7 — Intelligence and Automation
+
+- [ ] Ollama-backed rewriting over deterministic outputs
+- [ ] Recommendation engine
+- [ ] Semantic context and memory
+- [ ] n8n workflow integration
+- [ ] Automation schedules, triggers, and action audit
+
+## Sprint 0.8 — Plugin SDK
+
+- [ ] External module contract
+- [ ] Plugin routes, widgets, notifications, briefing contributors, search providers, actions, and AI context providers
+- [ ] Versioned public APIs and compatibility policy
+
+## Sprint 1.0 — Personal Operating System
+
+Stable daily platform across Mission Control, Personal, Infrastructure, Engineering, Knowledge, Intelligence, and Automation.
