@@ -10,8 +10,7 @@ class HostMetricHistorySample {
 
   factory HostMetricHistorySample.fromJson(Map<String, dynamic> json) =>
       HostMetricHistorySample(
-        sampledAt: DateTime.tryParse(json['sampled_at'] as String? ?? '') ??
-            DateTime.now(),
+        sampledAt: DateTime.tryParse(json['sampled_at'] as String? ?? '') ?? DateTime.now(),
         hostname: json['hostname'] as String?,
         cpuPercent: (json['cpu_percent'] as num?)?.toDouble(),
         memoryPercent: (json['memory_percent'] as num?)?.toDouble(),
@@ -40,6 +39,8 @@ class HostMetrics {
     required this.diskTotalBytes,
     required this.load1m,
     required this.uptimeSeconds,
+    required this.networkReceiveBytesPerSecond,
+    required this.networkTransmitBytesPerSecond,
     required this.generatedAt,
     required this.error,
   });
@@ -56,8 +57,9 @@ class HostMetrics {
         diskTotalBytes: json['disk_total_bytes'] as int?,
         load1m: (json['load_1m'] as num?)?.toDouble(),
         uptimeSeconds: (json['uptime_seconds'] as num?)?.toDouble(),
-        generatedAt: DateTime.tryParse(json['generated_at'] as String? ?? '') ??
-            DateTime.now(),
+        networkReceiveBytesPerSecond: (json['network_receive_bytes_per_second'] as num?)?.toDouble(),
+        networkTransmitBytesPerSecond: (json['network_transmit_bytes_per_second'] as num?)?.toDouble(),
+        generatedAt: DateTime.tryParse(json['generated_at'] as String? ?? '') ?? DateTime.now(),
         error: json['error'] as String?,
       );
 
@@ -72,6 +74,8 @@ class HostMetrics {
   final int? diskTotalBytes;
   final double? load1m;
   final double? uptimeSeconds;
+  final double? networkReceiveBytesPerSecond;
+  final double? networkTransmitBytesPerSecond;
   final DateTime generatedAt;
   final String? error;
 
@@ -83,7 +87,7 @@ class HostMetrics {
     return days > 0 ? '${days}d ${hours}h' : '${hours}h';
   }
 
-  static String formatBytes(int? bytes) {
+  static String formatBytes(num? bytes) {
     if (bytes == null) return '—';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     var value = bytes.toDouble();
@@ -93,5 +97,10 @@ class HostMetrics {
       index++;
     }
     return '${value.toStringAsFixed(value >= 100 ? 0 : 1)} ${units[index]}';
+  }
+
+  static String formatRate(double? bytesPerSecond) {
+    if (bytesPerSecond == null) return 'Warming up';
+    return '${formatBytes(bytesPerSecond)}/s';
   }
 }
