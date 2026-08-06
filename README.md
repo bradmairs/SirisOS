@@ -2,25 +2,15 @@
 
 SirisOS is a self-hosted personal operating system that brings together homelab monitoring, health and gym tracking, productivity, engineering tools, media services, knowledge management, and AI assistants.
 
-## Initial stack
+## Stack
 
 - Flutter frontend
+- Nginx web server
 - FastAPI backend
 - PostgreSQL
 - Docker Compose
 - Restricted Docker socket proxy
 - Ollama integration planned
-
-## Repository layout
-
-```text
-apps/           Application code
-data/           Persistent runtime data stored beside the Compose file
-modules/        Feature modules
-docs/           Project documentation
-infrastructure/ Deployment and service configuration
-scripts/        Development helper scripts
-```
 
 ## Current capabilities
 
@@ -28,101 +18,90 @@ scripts/        Development helper scripts
 - Functional Dashboard, Homelab, Gym, and Siris navigation
 - Live Docker container monitoring
 - FastAPI dashboard and Homelab APIs
-- PostgreSQL service
-- Self-contained relative data directories
+- PostgreSQL persistence under `./data/postgres`
+- Docker-served web UI on port `6464`
 - Restricted Docker socket proxy
 
-## Prerequisites
+## Run SirisOS
 
-Install the following before starting development:
-
-- Docker with Docker Compose v2
-- Flutter with web support
-- GNU Make
-- curl
-
-Check Flutter with:
+Install Docker with Docker Compose v2 and GNU Make, then run from the repository root:
 
 ```bash
-flutter doctor
-flutter devices
+cp .env.example .env
+make up
 ```
 
-## One-command web development
-
-From the repository root, run:
-
-```bash
-make dev
-```
-
-This command:
-
-1. Creates `.env` from `.env.example` when needed.
-2. Creates the relative `data/` directories.
-3. Builds and starts PostgreSQL, the Docker socket proxy, and FastAPI.
-4. Waits for the API health endpoint.
-5. Generates Flutter Web platform files when missing.
-6. Runs `flutter pub get`.
-7. Serves SirisOS Web on `0.0.0.0:6464` using `http://192.168.0.100:8000` as its API.
-
-Open SirisOS from another device at:
+Open SirisOS from any device on the LAN:
 
 ```text
 http://192.168.0.100:6464
 ```
 
-The API and interactive documentation are available at:
+API and interactive documentation:
 
 ```text
 http://192.168.0.100:8000
 http://192.168.0.100:8000/docs
 ```
 
-The first run may download Docker images and Flutter dependencies.
+The Flutter web app is compiled inside Docker and served by Nginx. Flutter does not need to remain running on the server.
 
-If Make is unavailable, use:
+## Configuration
 
-```bash
-bash scripts/dev-web.sh
+The browser-facing API address is compiled into the Flutter web build using `SIRISOS_API_URL` from `.env`:
+
+```env
+SIRISOS_API_URL=http://192.168.0.100:8000
 ```
 
-The defaults can be overridden for another host or port:
+After changing this value, rebuild the web image:
 
 ```bash
-SIRISOS_SERVER_IP=192.168.0.100 SIRISOS_WEB_PORT=6464 make dev
+make rebuild-web
 ```
 
-### Useful commands
+## Development with hot reload
+
+For active Flutter development, install Flutter with web support and run:
 
 ```bash
-make backend   # Start backend services only
-make status    # Show containers and API health
-make logs      # Follow Docker Compose logs
-make restart   # Rebuild and restart backend services
-make stop      # Stop backend services
-make clean     # Stop services and clean Flutter build output
+make dev
 ```
 
-Quitting Flutter with `q` stops the web development process but leaves the Docker backend running. Use `make stop` when finished.
+This starts the backend services and launches Flutter's development web server at:
 
-## Manual web development
+```text
+http://192.168.0.100:6464
+```
+
+## Useful commands
 
 ```bash
-cd apps/mobile
-flutter run \
-  -d web-server \
-  --web-hostname=0.0.0.0 \
-  --web-port=6464 \
-  --dart-define=SIRISOS_API_URL=http://192.168.0.100:8000
+make up          # Build and start the complete SirisOS stack
+make dev         # Start Flutter Web with hot reload
+make backend     # Start backend services only
+make rebuild-web # Rebuild only the Docker-served Flutter UI
+make status      # Show containers and health checks
+make logs        # Follow all service logs
+make restart     # Rebuild and restart the complete stack
+make stop        # Stop all services
+make clean       # Stop services and clean Flutter build output
 ```
 
-Persistent PostgreSQL files and application logs are stored under `./data/`. Back up the `data` directory and `.env` file to preserve the installation.
+## Persistent data
 
-## Migrating from the previous named volume
+Runtime data is stored inside the repository directory:
 
-The current Compose file uses `./data/postgres/pgdata` rather than the former `sirisos_postgres_data` named volume. Existing deployments should export or copy their PostgreSQL data before removing the old volume. For a new development installation with no important data, simply rebuild the stack.
+```text
+data/
+├── postgres/
+├── logs/
+├── backups/
+└── uploads/
+```
+
+Back up the `data` directory and `.env` file to preserve the installation.
 
 ## Docker access
 
-The API does not mount the host Docker socket directly. A dedicated socket proxy exposes only the read-only Docker endpoints required for monitoring containers. The proxy still mounts `/var/run/docker.sock` because that socket belongs to the host and cannot be stored inside the repository.
+The API does not mount the host Docker socket directly. A dedicated socket proxy exposes only the read-only Docker endpoints required for monitoring containers. The proxy still mounts `/var/run/docker.sock` because that socket belongs to the host operating system and cannot be stored inside the repository.
