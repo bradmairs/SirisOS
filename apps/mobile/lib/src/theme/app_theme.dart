@@ -17,7 +17,7 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: scheme,
       scaffoldBackgroundColor: _background,
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: _surface,
         elevation: 0,
         margin: EdgeInsets.zero,
@@ -32,7 +32,7 @@ abstract final class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: _surface,
-        indicatorColor: _primary.withValues(alpha: 0.18),
+        indicatorColor: _primary.withOpacity(0.18),
       ),
     );
   }
