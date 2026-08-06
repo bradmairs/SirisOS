@@ -1,3 +1,32 @@
+class HostMetricHistorySample {
+  const HostMetricHistorySample({
+    required this.sampledAt,
+    required this.hostname,
+    required this.cpuPercent,
+    required this.memoryPercent,
+    required this.diskPercent,
+    required this.load1m,
+  });
+
+  factory HostMetricHistorySample.fromJson(Map<String, dynamic> json) =>
+      HostMetricHistorySample(
+        sampledAt: DateTime.tryParse(json['sampled_at'] as String? ?? '') ??
+            DateTime.now(),
+        hostname: json['hostname'] as String?,
+        cpuPercent: (json['cpu_percent'] as num?)?.toDouble(),
+        memoryPercent: (json['memory_percent'] as num?)?.toDouble(),
+        diskPercent: (json['disk_percent'] as num?)?.toDouble(),
+        load1m: (json['load_1m'] as num?)?.toDouble(),
+      );
+
+  final DateTime sampledAt;
+  final String? hostname;
+  final double? cpuPercent;
+  final double? memoryPercent;
+  final double? diskPercent;
+  final double? load1m;
+}
+
 class HostMetrics {
   const HostMetrics({
     required this.available,
@@ -27,7 +56,8 @@ class HostMetrics {
         diskTotalBytes: json['disk_total_bytes'] as int?,
         load1m: (json['load_1m'] as num?)?.toDouble(),
         uptimeSeconds: (json['uptime_seconds'] as num?)?.toDouble(),
-        generatedAt: DateTime.tryParse(json['generated_at'] as String? ?? '') ?? DateTime.now(),
+        generatedAt: DateTime.tryParse(json['generated_at'] as String? ?? '') ??
+            DateTime.now(),
         error: json['error'] as String?,
       );
 
