@@ -20,6 +20,13 @@ class ModuleDataChanged extends SirisEvent {
   final String? reason;
 }
 
+class NotificationStateChanged extends SirisEvent {
+  NotificationStateChanged({required this.source, this.unreadCount, super.occurredAt});
+
+  final String source;
+  final int? unreadCount;
+}
+
 class SirisEventBus {
   SirisEventBus._();
 
@@ -30,7 +37,8 @@ class SirisEventBus {
 
   Stream<SirisEvent> get events => _controller.stream;
 
-  Stream<T> on<T extends SirisEvent>() => events.where((event) => event is T).cast<T>();
+  Stream<T> on<T extends SirisEvent>() =>
+      events.where((event) => event is T).cast<T>();
 
   void publish(SirisEvent event) {
     if (!_controller.isClosed) _controller.add(event);
