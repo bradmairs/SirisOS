@@ -14,7 +14,7 @@ from app.api.running import router as running_router
 from app.services.docker_service import DockerMonitor
 from app.services.host_metrics_service import HostMetricsCollector
 
-API_VERSION = "0.11.0"
+API_VERSION = "0.12.0"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -79,6 +79,12 @@ class DockerLogsResponse(BaseModel):
     container_id: str
     tail: int
     logs: str
+    generated_at: str
+
+class DockerActionResponse(BaseModel):
+    container_id: str
+    action: Literal["start", "stop", "restart"]
+    status: str
     generated_at: str
 
 class HostMetricsResponse(BaseModel):
@@ -166,6 +172,18 @@ async def docker_logs(container_id: str, _: CurrentUsername, tail: Annotated[int
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=f"Docker logs unavailable: {exc}") from exc
     return DockerLogsResponse(container_id=container_id, tail=tail, logs=logs, generated_at=datetime.now().astimezone().isoformat())
+
+@app.post("/api/v1/homelab/docker/{container_id}/{action}", response_model=DockerActionResponse, tags=["homelab"])
+async def docker_action(container_id: str, action: Literal["start", "stop", "restart"], _: CurrentUsername) -> DockerActionResponse:
+    try:
+        current_status = docker_monitor.action(container_id, action)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Docker action failed: {exc}") from exc
+    return DockerActionResponse(container_id=container_id, action=action, status=current_status, generated_at=datetime.now().astimezone().isoformat())
 
 def _homelab_card() -> tuple[DashboardCardResponse, str]:
     summary = docker_monitor.collect()
