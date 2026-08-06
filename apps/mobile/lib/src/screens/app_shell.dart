@@ -7,6 +7,7 @@ import '../services/dashboard_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/siris_logo.dart';
 import 'global_search_screen.dart';
+import 'mission_control_screen.dart';
 import 'notification_center_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -50,6 +51,9 @@ class _AppShellState extends State<AppShell> {
         _selectedIndex = AppModuleRegistry.navigationIndexOf('gym');
         _workoutAddRequest++;
       });
+
+  Future<void> _openMissionControl() =>
+      Navigator.of(context).pushNamed(MissionControlScreen.routeName);
 
   void _openSearchTarget(String target) {
     if (target == 'notifications') {
@@ -107,6 +111,14 @@ class _AppShellState extends State<AppShell> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 14),
+              _QuickActionTile(
+                icon: Icons.monitor_heart_rounded,
+                title: 'Open Mission Control',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _openMissionControl();
+                },
+              ),
               _QuickActionTile(
                 icon: Icons.search_rounded,
                 title: 'Search SirisOS',
@@ -213,6 +225,13 @@ class _AppShellState extends State<AppShell> {
                               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                               child: Column(
                                 children: [
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.monitor_heart_rounded,
+                                    ),
+                                    title: const Text('Mission Control'),
+                                    onTap: _openMissionControl,
+                                  ),
                                   ListTile(
                                     leading: const Icon(Icons.search_rounded),
                                     title: const Text('Search'),
