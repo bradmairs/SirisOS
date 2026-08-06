@@ -12,9 +12,9 @@ This README is the authoritative project handover and roadmap. Future developers
 
 ## Product direction
 
-SirisOS is a modular platform built around **SirisCore** and a dedicated **Mission Control** experience. Modules register their identity and capabilities, publish typed events, and contribute reusable widgets, notifications, briefing observations, search targets, quick actions, and AI context.
+SirisOS is a modular platform built around **SirisCore** and a dedicated **Mission Control** experience. Modules register identity and capabilities, publish typed events, and contribute reusable widgets, notifications, briefing observations, search targets, quick actions, and AI context.
 
-Avoid isolated feature pages when the capability should instead be a shared SirisCore service, registered module, or reusable widget.
+Avoid isolated feature pages when a capability should instead be a shared SirisCore service, registered module, or reusable widget.
 
 ## Stack
 
@@ -43,10 +43,11 @@ make up
 - Responsive Flutter web application and persisted authentication
 - Configurable Mission Control-style dashboard workspace
 - Persistent widget ordering, visibility, and sizing
-- Widget metadata registry
+- Namespaced widget IDs such as `running.summary`
+- Module-owned widget registrations and reusable widget builders
+- Automatic migration of legacy saved widget layouts
 - SirisOS module registry with IDs, labels, icons, capabilities, navigation metadata, and quick actions
 - Registry-driven desktop and mobile navigation
-- Registry-driven module quick actions
 - Module-owned screen builders and availability metadata
 - Consistent preview and unavailable module screens
 - Typed SirisCore broadcast event bus
@@ -94,12 +95,13 @@ This is the current development priority. Complete SirisCore before substantial 
 ### Widget Registry
 
 - [x] Widget metadata registry
+- [x] Namespaced IDs such as `running.summary`
+- [x] Reusable widget builders
+- [x] Module-owned widget registration
 - [x] Persistent widget visibility, ordering, and sizing
-- [x] Briefing, Homelab, Running, Gym, Server, and Activity panels use registered layout metadata
-- [ ] Namespaced IDs such as `running.summary`
-- [ ] Reusable widget builders
-- [ ] Module-owned widget registration
-- [ ] Shared Dashboard and Mission Control consumption
+- [x] Legacy saved-layout migration
+- [x] Dashboard consumption through registered builders
+- [ ] Shared dedicated Mission Control consumption
 - [ ] Direct drag-and-drop and resizing
 
 ### Notification Centre
@@ -206,14 +208,13 @@ Long-term examples include surfacing engineering project notes beside calculatio
 
 Unless deliberately revised and documented:
 
-1. Complete the reusable Widget Registry.
-2. Build the deterministic Briefing Engine and Siris Score foundation.
-3. Complete Scheduler, AI Context, and remaining SirisCore systems.
-4. Declare Sprint 0.4.1 complete.
-5. Build the dedicated Mission Control route.
-6. Finish Live Homelab capabilities.
-7. Begin the Engineering module.
-8. Build the Obsidian-backed Knowledge Platform.
+1. Build the deterministic Briefing Engine and Siris Score foundation.
+2. Complete Scheduler, AI Context, and remaining SirisCore systems.
+3. Declare Sprint 0.4.1 complete.
+4. Build the dedicated Mission Control route using the shared Widget Registry.
+5. Finish Live Homelab capabilities.
+6. Begin the Engineering module.
+7. Build the Obsidian-backed Knowledge Platform.
 
 # Running and development
 
