@@ -8,12 +8,13 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.api.homelab_alerts import router as homelab_alerts_router
 from app.api.host_history import router as host_history_router
 from app.api.running import router as running_router
 from app.services.docker_service import DockerMonitor
 from app.services.host_metrics_service import HostMetricsCollector
 
-API_VERSION = "0.10.0"
+API_VERSION = "0.11.0"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -100,6 +101,7 @@ class HostMetricsResponse(BaseModel):
 app = FastAPI(title="SirisOS API", description="Backend API for the SirisOS personal operating system.", version=API_VERSION)
 app.include_router(running_router)
 app.include_router(host_history_router)
+app.include_router(homelab_alerts_router)
 docker_monitor = DockerMonitor()
 host_metrics_collector = HostMetricsCollector()
 
@@ -148,23 +150,7 @@ async def current_user(username: CurrentUsername) -> CurrentUserResponse:
 @app.get("/api/v1/homelab/host", response_model=HostMetricsResponse, tags=["homelab"])
 async def host_metrics(_: CurrentUsername) -> HostMetricsResponse:
     metrics = host_metrics_collector.collect()
-    return HostMetricsResponse(
-        available=metrics.available,
-        hostname=metrics.hostname,
-        cpu_percent=metrics.cpu_percent,
-        memory_percent=metrics.memory_percent,
-        memory_used_bytes=metrics.memory_used_bytes,
-        memory_total_bytes=metrics.memory_total_bytes,
-        disk_percent=metrics.disk_percent,
-        disk_used_bytes=metrics.disk_used_bytes,
-        disk_total_bytes=metrics.disk_total_bytes,
-        load_1m=metrics.load_1m,
-        uptime_seconds=metrics.uptime_seconds,
-        network_receive_bytes_per_second=metrics.network_receive_bytes_per_second,
-        network_transmit_bytes_per_second=metrics.network_transmit_bytes_per_second,
-        generated_at=datetime.now().astimezone().isoformat(),
-        error=metrics.error,
-    )
+    return HostMetricsResponse(available=metrics.available, hostname=metrics.hostname, cpu_percent=metrics.cpu_percent, memory_percent=metrics.memory_percent, memory_used_bytes=metrics.memory_used_bytes, memory_total_bytes=metrics.memory_total_bytes, disk_percent=metrics.disk_percent, disk_used_bytes=metrics.disk_used_bytes, disk_total_bytes=metrics.disk_total_bytes, load_1m=metrics.load_1m, uptime_seconds=metrics.uptime_seconds, network_receive_bytes_per_second=metrics.network_receive_bytes_per_second, network_transmit_bytes_per_second=metrics.network_transmit_bytes_per_second, generated_at=datetime.now().astimezone().isoformat(), error=metrics.error)
 
 @app.get("/api/v1/homelab/docker", response_model=DockerStatusResponse, tags=["homelab"])
 async def docker_status(_: CurrentUsername) -> DockerStatusResponse:
