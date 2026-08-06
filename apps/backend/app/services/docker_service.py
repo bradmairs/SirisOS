@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+import os
 
 import docker
 from docker.errors import DockerException, NotFound
+
+from app.services.homelab_audit_service import HomelabAuditService
 
 
 PROTECTED_CONTAINERS = {
@@ -67,6 +70,11 @@ def _memory_metrics(stats: dict) -> tuple[int | None, int | None, float | None]:
 class DockerMonitor:
     """Docker status, logs, and tightly constrained lifecycle controls."""
 
+    def __init__(self) -> None:
+        self._audit = HomelabAuditService()
+        self._audit.initialise()
+        self._username = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
+
     def collect(self) -> DockerSummary:
         try:
             client = docker.from_env()
@@ -118,8 +126,11 @@ class DockerMonitor:
     def action(self, container_id: str, action: str) -> str:
         if action not in {"start", "stop", "restart"}:
             raise ValueError("Unsupported container action.")
+
+        container_name: str | None = None
         try:
             container = docker.from_env().containers.get(container_id)
+            container_name = container.name
             if container.name in PROTECTED_CONTAINERS:
                 raise PermissionError("Core SirisOS containers cannot be controlled from the app.")
             if action == "start":
@@ -129,8 +140,36 @@ class DockerMonitor:
             else:
                 container.restart(timeout=10)
             container.reload()
-            return str(container.status)
+            status = str(container.status)
+            self._record_audit(container_id, container_name, action, "success", status)
+            return status
+        except PermissionError as exc:
+            self._record_audit(container_id, container_name, action, "blocked", str(exc))
+            raise
         except NotFound as exc:
+            self._record_audit(container_id, container_name, action, "failed", "Container not found.")
             raise LookupError("Container not found.") from exc
         except DockerException as exc:
+            self._record_audit(container_id, container_name, action, "failed", str(exc))
             raise RuntimeError(str(exc)) from exc
+
+    def _record_audit(
+        self,
+        container_id: str,
+        container_name: str | None,
+        action: str,
+        result: str,
+        detail: str | None,
+    ) -> None:
+        try:
+            self._audit.record(
+                username=self._username,
+                container_id=container_id,
+                container_name=container_name,
+                action=action,
+                result=result,
+                detail=detail,
+            )
+        except Exception:
+            # Audit persistence must not obscure the underlying Docker result.
+            pass
