@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.services.activity_service import ActivityService
 
-router = APIRouter(prefix="/api/v1/activity", tags=["activity"])
+router = APIRouter(prefix="/activity", tags=["activity"])
 service = ActivityService()
 service.initialise()
 
