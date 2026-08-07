@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'connectors/docker_connector.dart';
+import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/mission_control_screen.dart';
@@ -26,6 +28,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
 
   Future<void> _restoreSession() async {
     final authenticated = await _authService.restoreSession();
+    if (authenticated) await _startIntegrations();
     if (!mounted) return;
     setState(() {
       _authenticated = authenticated;
@@ -33,7 +36,17 @@ class _SirisOsAppState extends State<SirisOsApp> {
     });
   }
 
+  Future<void> _startIntegrations() async {
+    await SirisIntegrationManager.instance.register(DockerConnector());
+  }
+
+  Future<void> _onAuthenticated() async {
+    await _startIntegrations();
+    if (mounted) setState(() => _authenticated = true);
+  }
+
   Future<void> _logout() async {
+    await SirisIntegrationManager.instance.dispose();
     await _authService.logout();
     if (mounted) setState(() => _authenticated = false);
   }
@@ -47,17 +60,13 @@ class _SirisOsAppState extends State<SirisOsApp> {
       routes: {
         MissionControlScreen.routeName: (_) => _authenticated
             ? const MissionControlScreen()
-            : LoginScreen(
-                onAuthenticated: () => setState(() => _authenticated = true),
-              ),
+            : LoginScreen(onAuthenticated: _onAuthenticated),
       },
       home: _checkingSession
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : _authenticated
               ? AppShell(onLogout: _logout)
-              : LoginScreen(
-                  onAuthenticated: () => setState(() => _authenticated = true),
-                ),
+              : LoginScreen(onAuthenticated: _onAuthenticated),
     );
   }
 }

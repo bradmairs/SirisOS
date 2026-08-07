@@ -87,14 +87,22 @@ Existing specialised widgets may migrate incrementally as they are touched; new 
 - [x] Credential values explicitly excluded from Flutter client persistence
 - [x] Integration Framework architecture documented in ADR 012
 
-### 0.4.3b — Docker Connector
+### 0.4.3b — Docker Connector ✅ Complete
 
 - [x] Existing live containers, CPU/RAM, state, health, logs, and actions
 - [x] Host metrics and history
 - [x] Alerts and action audit history
-- [ ] Migrate Docker integration behind the SirisConnector contract
-- [ ] Container image update availability
-- [ ] Docker event-stream publishing through the Integration Manager
+- [x] Docker migrated behind the `SirisConnector` contract
+- [x] Authenticated connector lifecycle managed by `SirisIntegrationManager`
+- [x] Scheduler-backed Docker refreshes
+- [x] Meaningful Docker state changes publish Homelab events through SirisCore
+- [x] Container image update availability via registry digest comparison
+- [x] Update checks deduplicated per image within each collection
+- [x] Image updates surfaced through Homelab alert policy and Docker summary model
+- [x] Update-check failures are non-fatal and preserved as per-container diagnostics
+- [x] Docker connector architecture documented in ADR 013
+
+A direct Docker daemon event-stream subscription remains an optional later optimisation; the current connector uses deterministic snapshot comparison so it works through the existing authenticated API and restricted Docker proxy.
 
 ### 0.4.3c — Notification Policies
 

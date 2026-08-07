@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import os
 
 import docker
-from docker.errors import DockerException, NotFound
+from docker.errors import DockerException, ImageNotFound, NotFound
 
 from app.services.activity_service import ActivityService
 from app.services.homelab_audit_service import HomelabAuditService
@@ -29,6 +29,8 @@ class DockerContainer:
     memory_usage_bytes: int | None
     memory_limit_bytes: int | None
     memory_percent: float | None
+    update_available: bool = False
+    update_check_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,7 @@ class DockerSummary:
     running: int
     stopped: int
     unhealthy: int
+    updates_available: int
     containers: list[DockerContainer]
     error: str | None = None
 
@@ -68,8 +71,14 @@ def _memory_metrics(stats: dict) -> tuple[int | None, int | None, float | None]:
     return usage_int, limit_int, round((usage_int / limit_int) * 100.0, 2)
 
 
+def _digest(value: str | None) -> str | None:
+    if not value:
+        return None
+    return value.split("@", 1)[-1] if "@" in value else value
+
+
 class DockerMonitor:
-    """Docker status, logs, and tightly constrained lifecycle controls."""
+    """Docker status, update checks, logs, and constrained lifecycle controls."""
 
     def __init__(self) -> None:
         self._audit = HomelabAuditService()
@@ -78,16 +87,41 @@ class DockerMonitor:
         self._activity.initialise()
         self._username = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 
+    def _update_status(self, client, image_name: str, cache: dict[str, tuple[bool, str | None]]) -> tuple[bool, str | None]:
+        if image_name in cache:
+            return cache[image_name]
+        if image_name in {"", "unknown"} or "@sha256:" in image_name:
+            result = (False, None)
+            cache[image_name] = result
+            return result
+        try:
+            local = client.images.get(image_name)
+            repo_digests = local.attrs.get("RepoDigests") or []
+            local_digests = {_digest(str(item)) for item in repo_digests}
+            local_digests.discard(None)
+            if not local_digests:
+                result = (False, "Local image has no repository digest.")
+            else:
+                remote = client.images.get_registry_data(image_name)
+                remote_digest = _digest(str(remote.id))
+                result = (remote_digest is not None and remote_digest not in local_digests, None)
+        except (DockerException, ImageNotFound) as exc:
+            result = (False, str(exc))
+        cache[image_name] = result
+        return result
+
     def collect(self) -> DockerSummary:
         try:
             client = docker.from_env()
             containers = client.containers.list(all=True)
+            update_cache: dict[str, tuple[bool, str | None]] = {}
             items: list[DockerContainer] = []
             for container in containers:
                 attrs = container.attrs
                 state_data = attrs.get("State", {})
                 health_data = state_data.get("Health") or {}
                 config_data = attrs.get("Config", {})
+                image_name = str(config_data.get("Image") or "unknown")
                 state = str(state_data.get("Status", container.status))
                 cpu_percent = memory_usage = memory_limit = memory_percent = None
                 if state == "running":
@@ -97,10 +131,13 @@ class DockerMonitor:
                         memory_usage, memory_limit, memory_percent = _memory_metrics(stats)
                     except DockerException:
                         pass
+                update_available, update_error = self._update_status(
+                    client, image_name, update_cache
+                )
                 items.append(DockerContainer(
                     container_id=container.short_id,
                     name=container.name,
-                    image=str(config_data.get("Image") or "unknown"),
+                    image=image_name,
                     state=state,
                     status=container.status,
                     health=str(health_data.get("Status")) if health_data.get("Status") else None,
@@ -108,12 +145,23 @@ class DockerMonitor:
                     memory_usage_bytes=memory_usage,
                     memory_limit_bytes=memory_limit,
                     memory_percent=memory_percent,
+                    update_available=update_available,
+                    update_check_error=update_error,
                 ))
             running = sum(item.state == "running" for item in items)
             unhealthy = sum(item.health == "unhealthy" for item in items)
-            return DockerSummary(True, len(items), running, len(items) - running, unhealthy, sorted(items, key=lambda item: item.name.lower()))
+            updates_available = sum(item.update_available for item in items)
+            return DockerSummary(
+                True,
+                len(items),
+                running,
+                len(items) - running,
+                unhealthy,
+                updates_available,
+                sorted(items, key=lambda item: item.name.lower()),
+            )
         except DockerException as exc:
-            return DockerSummary(False, 0, 0, 0, 0, [], str(exc))
+            return DockerSummary(False, 0, 0, 0, 0, 0, [], str(exc))
 
     def logs(self, container_id: str, *, tail: int = 300) -> str:
         safe_tail = max(20, min(tail, 1000))
