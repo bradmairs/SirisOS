@@ -7,6 +7,7 @@ import '../widgets/activity_feed_panel.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_hero.dart';
 import '../widgets/grafana_panel.dart';
+import '../widgets/hyper_backup_panel.dart';
 import '../widgets/prometheus_panel.dart';
 import '../widgets/siris_score_panel.dart';
 import '../widgets/storage_panel.dart';
@@ -160,6 +161,14 @@ class AppWidgetRegistry {
         icon: Icons.storage_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const SynologyPanel(),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.backups', moduleId: 'homelab', label: 'Backups',
+        description: 'Synology Hyper Backup task state and latest results.',
+        icon: Icons.backup_rounded, defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const HyperBackupPanel(),
     ),
   ];
 
