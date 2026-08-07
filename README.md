@@ -62,7 +62,7 @@ Home Assistant runs through `SirisIntegrationManager`. Its token remains server-
 
 ### 0.4.3e — Broader infrastructure integrations in progress
 
-Prometheus is now the first broader observability integration:
+Prometheus is the first broader observability integration:
 
 - Optional `PrometheusConnector`; an empty `PROMETHEUS_URL` cleanly disables it
 - Backend-only Prometheus endpoint configuration
@@ -75,7 +75,20 @@ Prometheus is now the first broader observability integration:
 - Prometheus diagnostics included in the existing integration status endpoint
 - Architecture documented in ADR 017
 
-Next in 0.4.3e is **Grafana dashboard discovery/launch and panel rendering where practical**, followed by UniFi, Proxmox, NAS/backups, and UPS.
+Grafana is now paired with Prometheus through the same integration framework:
+
+- Optional `GrafanaConnector`; missing `GRAFANA_URL`/`GRAFANA_TOKEN` cleanly disables it
+- Service-account token remains backend-side and is never exposed to Flutter
+- Authenticated health/version and dashboard discovery through the SirisOS API
+- Dashboard discovery prefers Grafana 12+ dashboard APIs and falls back to the still-operative legacy search endpoint for older installs
+- Authenticated `/grafana` browser with dashboard, folder and tag search
+- Dashboard links launch the selected Grafana dashboard externally
+- Deterministic Grafana availability Notification Policy
+- Optional backend panel PNG render endpoint when Grafana image rendering is explicitly enabled
+- Rendering remains disabled by default because Grafana requires its separate image-renderer service for reliable PNG generation
+- Architecture documented in ADR 018
+
+Next in 0.4.3e is **UniFi**, followed by Proxmox, NAS/backups, and UPS.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -90,6 +103,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Live Docker monitoring, actions, updates, alerts, audit history, and host metrics
 - Home Assistant WebSocket live state, entity browser, safe controls, and policies
 - Optional Prometheus target monitoring, PromQL queries, policies, and Mission Control widget
+- Optional Grafana health, dashboard discovery, launch integration, and panel-render proxy support
 - Plex and Ollama diagnostics
 - Reusable Siris Integration Framework for external systems
 - Deterministic Notification Policy engine
@@ -126,6 +140,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Web UI: `http://192.168.0.100:6464`
 - Mission Control: `http://192.168.0.100:6464/#/mission`
 - Home Assistant browser: `http://192.168.0.100:6464/#/home-assistant`
+- Grafana browser: `http://192.168.0.100:6464/#/grafana`
 - API: `http://192.168.0.100:8000`
 - API docs: `http://192.168.0.100:8000/docs`
 

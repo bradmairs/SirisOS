@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'connectors/docker_connector.dart';
+import 'connectors/grafana_connector.dart';
 import 'connectors/home_assistant_connector.dart';
 import 'connectors/prometheus_connector.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
+import 'screens/grafana_screen.dart';
 import 'screens/home_assistant_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mission_control_screen.dart';
@@ -48,6 +50,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
       DockerConnector(),
       HomeAssistantConnector(),
       PrometheusConnector(),
+      GrafanaConnector(),
     ]) {
       try {
         await SirisIntegrationManager.instance.register(connector);
@@ -83,6 +86,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
             _authenticatedRoute(const MissionControlScreen()),
         HomeAssistantScreen.routeName: (_) =>
             _authenticatedRoute(const HomeAssistantScreen()),
+        GrafanaScreen.routeName: (_) => _authenticatedRoute(const GrafanaScreen()),
       },
       home: _checkingSession
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))

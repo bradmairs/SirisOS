@@ -6,6 +6,7 @@ import '../models/mission_control_widget.dart';
 import '../widgets/activity_feed_panel.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_hero.dart';
+import '../widgets/grafana_panel.dart';
 import '../widgets/prometheus_panel.dart';
 import '../widgets/siris_score_panel.dart';
 
@@ -127,6 +128,17 @@ class AppWidgetRegistry {
         defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const PrometheusPanel(),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.grafana',
+        moduleId: 'homelab',
+        label: 'Grafana',
+        description: 'Grafana availability, version and dashboard discovery.',
+        icon: Icons.analytics_rounded,
+        defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const GrafanaPanel(),
     ),
   ];
 
