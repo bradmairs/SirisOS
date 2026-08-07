@@ -58,8 +58,12 @@ class NotificationPolicyStateChanged extends SirisEvent {
 }
 
 class _PolicyState {
-  _PolicyState({required this.firstMatchedAt});
+  _PolicyState({
+    required this.moduleId,
+    required this.firstMatchedAt,
+  });
 
+  final String moduleId;
   final DateTime firstMatchedAt;
   NotificationPolicyOutcome? outcome;
 }
@@ -97,14 +101,17 @@ class NotificationPolicyEngine {
 
     final state = _states.putIfAbsent(
       rule.id,
-      () => _PolicyState(firstMatchedAt: evaluatedAt),
+      () => _PolicyState(
+        moduleId: rule.moduleId,
+        firstMatchedAt: evaluatedAt,
+      ),
     );
     final elapsed = evaluatedAt.difference(state.firstMatchedAt);
-    if (elapsed < rule.activeAfter) return;
+    if (elapsed.compareTo(rule.activeAfter) < 0) return;
 
     var severity = rule.severity;
     final escalateAfter = rule.escalateAfter;
-    if (escalateAfter != null && elapsed >= escalateAfter) {
+    if (escalateAfter != null && elapsed.compareTo(escalateAfter) >= 0) {
       severity = rule.escalatedSeverity;
     }
 
@@ -135,7 +142,7 @@ class NotificationPolicyEngine {
 
   void clearModule(String moduleId) {
     final ids = _states.entries
-        .where((entry) => entry.value.outcome?.moduleId == moduleId)
+        .where((entry) => entry.value.moduleId == moduleId)
         .map((entry) => entry.key)
         .toList(growable: false);
     for (final id in ids) {
