@@ -110,7 +110,12 @@ class DockerMonitor:
         cache[image_name] = result
         return result
 
-    def collect(self) -> DockerSummary:
+    def collect(self, *, check_updates: bool = False) -> DockerSummary:
+        """Collect live Docker state.
+
+        Registry update checks are intentionally opt-in because they are remote
+        network operations and must not sit on the dashboard/login critical path.
+        """
         try:
             client = docker.from_env()
             containers = client.containers.list(all=True)
@@ -131,9 +136,12 @@ class DockerMonitor:
                         memory_usage, memory_limit, memory_percent = _memory_metrics(stats)
                     except DockerException:
                         pass
-                update_available, update_error = self._update_status(
-                    client, image_name, update_cache
-                )
+                if check_updates:
+                    update_available, update_error = self._update_status(
+                        client, image_name, update_cache
+                    )
+                else:
+                    update_available, update_error = False, None
                 items.append(DockerContainer(
                     container_id=container.short_id,
                     name=container.name,
