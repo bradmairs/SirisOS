@@ -194,7 +194,7 @@ UPS / power:
 - [ ] Persist incident lifecycle/history through the History Engine
 - [ ] Add incident acknowledgement/assignment/resolution workflow
 
-### 0.4.3j — Digital Twin / Dependency Graph ✅ Foundation complete
+### 0.4.3j — Digital Twin / Dependency Graph ✅ Configurable foundation complete
 
 - [x] Deterministic dependency node/edge model
 - [x] Directed `dependent -> dependency` semantics
@@ -203,10 +203,15 @@ UPS / power:
 - [x] Initial explicit `Synology -> Hyper Backup -> Backup Protection Analytics` chain
 - [x] Incident Engine enrichment with graph-derived downstream impacts
 - [x] Operations Center separates `Declared downstream` from correlated affected integrations
-- [x] Unit coverage for transitive impact and non-guessed UPS topology
-- [x] ADR 027
-- [ ] Editable dependency/topology configuration
-- [ ] Physical power/network dependency mapping
+- [x] Editable dependency/topology configuration in Operations Center
+- [x] Persist custom edges through versioned Flutter local settings
+- [x] Keep built-in edges immutable and removable/resettable custom edges separate
+- [x] Reject self-dependencies, duplicate edges and topology cycles
+- [x] Recompute incident downstream impact immediately after topology edits
+- [x] Unit coverage for transitive impact, explicit UPS mapping and cycle rejection
+- [x] ADRs 027–028
+- [ ] Move topology persistence server-side when multiple-client/discovered topology requires one canonical graph
+- [ ] Arbitrary custom component/node creation
 - [ ] Dynamic dependency discovery where authoritative APIs expose it
 - [ ] Interactive Digital Twin graph visualization
 - [ ] Dependency-aware recommended actions
