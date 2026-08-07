@@ -38,7 +38,8 @@ class SynologyPanel extends StatelessWidget {
           );
         }
 
-        final issues = data.unhealthyDisks + data.unhealthyVolumes;
+        final issues = data.unhealthyDisks + data.unhealthyVolumes +
+            data.failedBackupTasks + data.staleBackupTasks;
         final status = !data.available
             ? SirisStatus.critical
             : issues > 0
@@ -57,22 +58,42 @@ class SynologyPanel extends StatelessWidget {
           subtitle: data.dsmVersion ?? 'DSM',
           icon: Icons.storage_rounded,
           trailing: SirisStatusChip(label: label, status: status),
-          child: Wrap(
-            spacing: 28,
-            runSpacing: 16,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SirisMetric(label: 'Volumes', value: '${data.volumes.length}'),
-              SirisMetric(label: 'Disks', value: '${data.disks.length}'),
-              SirisMetric(
-                label: 'Peak use',
-                value: data.highestUsedPercent == null
-                    ? '—'
-                    : '${data.highestUsedPercent!.toStringAsFixed(0)}%',
+              Wrap(
+                spacing: 28,
+                runSpacing: 16,
+                children: [
+                  SirisMetric(label: 'Volumes', value: '${data.volumes.length}'),
+                  SirisMetric(label: 'Disks', value: '${data.disks.length}'),
+                  SirisMetric(
+                    label: 'Peak use',
+                    value: data.highestUsedPercent == null
+                        ? '—'
+                        : '${data.highestUsedPercent!.toStringAsFixed(0)}%',
+                  ),
+                  SirisMetric(label: 'Backup tasks', value: '${data.backupTasks.length}'),
+                  SirisMetric(
+                    label: 'Backup issues',
+                    value: '${data.failedBackupTasks + data.staleBackupTasks}',
+                  ),
+                ],
               ),
-              SirisMetric(
-                label: 'Backup API',
-                value: data.backupApiAvailable ? 'Detected' : 'Not detected',
-              ),
+              if (data.backupHistory.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Latest: ${data.backupHistory.first.taskName} · '
+                  '${data.backupHistory.first.status}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ] else if (data.backupApiAvailable) ...[
+                const SizedBox(height: 16),
+                Text(
+                  data.backupError ?? 'Hyper Backup detected; no history is available yet.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ],
           ),
         );

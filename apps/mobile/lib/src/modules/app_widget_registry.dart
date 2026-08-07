@@ -156,7 +156,7 @@ class AppWidgetRegistry {
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
         id: 'homelab.synology', moduleId: 'homelab', label: 'Synology',
-        description: 'Synology DSM, disk, volume and backup capability status.',
+        description: 'Synology DSM, storage and Hyper Backup task/history status.',
         icon: Icons.storage_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const SynologyPanel(),

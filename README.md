@@ -54,6 +54,7 @@ Server-side HA credentials, live `/api/websocket` `state_changed` cache with RES
 Prometheus, Grafana and UniFi are complete through the Integration Framework with server-side credentials, deterministic policies and Mission Control widgets. ADRs 017–019 document those integrations.
 
 Storage/NAS work now targets the actual homelab platform: **Synology DSM**. Proxmox has been removed from the roadmap because it is not required for this installation.
+ADRs 020–021 document storage, DSM and Hyper Backup compatibility decisions.
 
 Current storage/NAS slice:
 
@@ -68,9 +69,12 @@ Current storage/NAS slice:
 - Unhealthy disk/volume Notification Policy
 - Synology availability policy
 - `homelab.synology` Mission Control widget
-- Detection of installed Synology backup APIs to prepare Hyper Backup monitoring
+- Runtime-discovered Hyper Backup task status and up to 20 recent history entries
+- Backup failure and 48-hour staleness Notification Policies
+- Backup task/issue/latest-result summary in the Synology Mission Control widget
+- Best-effort package compatibility: unavailable or unreadable backup APIs never block NAS health
 
-Next in 0.4.3e is **Synology Hyper Backup task/history integration**, then **UPS monitoring**.
+Next in 0.4.3e is **UPS monitoring**.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 

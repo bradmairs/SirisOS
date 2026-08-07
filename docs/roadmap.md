@@ -113,12 +113,13 @@ Storage and Synology NAS:
 - [x] Synology availability and unhealthy-storage Notification Policies
 - [x] Registered `homelab.synology` Mission Control widget
 - [x] Detect installed Synology backup APIs for follow-on Hyper Backup integration
-- [ ] Hyper Backup task status and recent backup history
-- [ ] Backup failure/staleness Notification Policies
-- [ ] Synology backup summary in Mission Control
+- [x] Hyper Backup task status and recent backup history
+- [x] Backup failure/staleness Notification Policies
+- [x] Synology backup summary in Mission Control
+- [x] ADRs 020–021
 
 Remaining 0.4.3e:
-- [ ] Synology Hyper Backup monitoring
+- [x] Synology Hyper Backup monitoring
 - [ ] UPS integration
 
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.

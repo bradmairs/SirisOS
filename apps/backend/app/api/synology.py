@@ -29,6 +29,26 @@ class SynologyDiskResponse(BaseModel):
     temperature_c: float | None
 
 
+class SynologyBackupTaskResponse(BaseModel):
+    task_id: str
+    name: str
+    status: str
+    enabled: bool
+    last_result: str | None
+    last_run_at: str | None
+    next_run_at: str | None
+    destination: str | None
+
+
+class SynologyBackupHistoryResponse(BaseModel):
+    task_id: str | None
+    task_name: str
+    status: str
+    started_at: str | None
+    finished_at: str | None
+    message: str | None
+
+
 class SynologySnapshotResponse(BaseModel):
     configured: bool
     available: bool
@@ -40,6 +60,13 @@ class SynologySnapshotResponse(BaseModel):
     unhealthy_disks: int
     highest_used_percent: float | None
     backup_api_available: bool
+    backup_monitoring_available: bool
+    backup_tasks: list[SynologyBackupTaskResponse]
+    backup_history: list[SynologyBackupHistoryResponse]
+    failed_backup_tasks: int
+    stale_backup_tasks: int
+    last_successful_backup_at: str | None
+    backup_error: str | None
     generated_at: str
     error: str | None = None
 
@@ -77,6 +104,13 @@ async def synology_snapshot(
         unhealthy_disks=snapshot.unhealthy_disks,
         highest_used_percent=snapshot.highest_used_percent,
         backup_api_available=snapshot.backup_api_available,
+        backup_monitoring_available=snapshot.backup_monitoring_available,
+        backup_tasks=[SynologyBackupTaskResponse(**item.__dict__) for item in snapshot.backup_tasks],
+        backup_history=[SynologyBackupHistoryResponse(**item.__dict__) for item in snapshot.backup_history],
+        failed_backup_tasks=snapshot.failed_backup_tasks,
+        stale_backup_tasks=snapshot.stale_backup_tasks,
+        last_successful_backup_at=snapshot.last_successful_backup_at,
+        backup_error=snapshot.backup_error,
         generated_at=snapshot.generated_at,
         error=snapshot.error,
     )
