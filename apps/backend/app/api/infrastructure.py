@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.services.grafana_service import GrafanaService
 from app.services.storage_service import StorageService
+from app.services.time_series_history_service import history_service
 from app.services.unifi_service import UniFiService
 from app.services.ups_service import UpsService
 
@@ -229,6 +230,21 @@ async def storage_snapshot(
 ) -> StorageSnapshotResponse:
     _authenticate(authorization)
     snapshot = storage_service.snapshot()
+    if snapshot.available:
+        history_service.record_if_due(
+            source="storage",
+            metric="highest_used_percent",
+            numeric_value=snapshot.highest_used_percent,
+            minimum_interval_seconds=300,
+        )
+        for volume in snapshot.volumes:
+            history_service.record_if_due(
+                source="storage",
+                metric="volume_used_percent",
+                numeric_value=volume.used_percent,
+                dimensions={"mountpoint": volume.mountpoint, "device": volume.device},
+                minimum_interval_seconds=300,
+            )
     return StorageSnapshotResponse(
         available=snapshot.available,
         volumes=[StorageVolumeResponse(**item.__dict__) for item in snapshot.volumes],
@@ -247,4 +263,29 @@ async def ups_snapshot(
 ) -> UpsSnapshotResponse:
     _authenticate(authorization)
     snapshot = await ups_service.snapshot()
+    if snapshot.available:
+        dimensions = {"ups": snapshot.ups_name or "default"}
+        for metric, value in (
+            ("battery_charge_percent", snapshot.battery_charge_percent),
+            ("battery_runtime_seconds", snapshot.battery_runtime_seconds),
+            ("load_percent", snapshot.load_percent),
+            ("input_voltage", snapshot.input_voltage),
+            ("output_voltage", snapshot.output_voltage),
+            ("on_battery", 1 if snapshot.on_battery else 0),
+            ("low_battery", 1 if snapshot.low_battery else 0),
+        ):
+            history_service.record_if_due(
+                source="ups",
+                metric=metric,
+                numeric_value=value,
+                dimensions=dimensions,
+                minimum_interval_seconds=60,
+            )
+        history_service.record_if_due(
+            source="ups",
+            metric="status",
+            text_value=snapshot.status,
+            dimensions=dimensions,
+            minimum_interval_seconds=60,
+        )
     return UpsSnapshotResponse(**snapshot.__dict__)
