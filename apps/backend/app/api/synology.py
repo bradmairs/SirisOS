@@ -6,6 +6,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.services.synology_service import SynologyService
+from app.services.time_series_history_service import history_service
 
 router = APIRouter(prefix="/api/v1/homelab/synology", tags=["homelab"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
@@ -82,6 +83,52 @@ async def synology_snapshot(
 ) -> SynologySnapshotResponse:
     _authenticate(authorization)
     snapshot = await service.snapshot()
+    if snapshot.available:
+        history_service.record_if_due(
+            source="synology",
+            metric="highest_used_percent",
+            numeric_value=snapshot.highest_used_percent,
+            minimum_interval_seconds=300,
+        )
+        history_service.record_if_due(
+            source="synology",
+            metric="failed_backup_tasks",
+            numeric_value=snapshot.failed_backup_tasks,
+            minimum_interval_seconds=300,
+        )
+        history_service.record_if_due(
+            source="synology",
+            metric="running_backup_tasks",
+            numeric_value=snapshot.running_backup_tasks,
+            minimum_interval_seconds=300,
+        )
+        for volume in snapshot.volumes:
+            history_service.record_if_due(
+                source="synology",
+                metric="volume_used_percent",
+                numeric_value=volume.used_percent,
+                text_value=volume.status,
+                dimensions={"volume": volume.name, "path": volume.path},
+                minimum_interval_seconds=300,
+            )
+        for task in snapshot.backup_tasks:
+            dimensions = {"task_id": task.task_id, "task": task.name}
+            history_service.record_if_due(
+                source="synology_backup",
+                metric="failed",
+                numeric_value=1 if task.failed else 0,
+                text_value=task.last_result or task.state,
+                dimensions=dimensions,
+                minimum_interval_seconds=300,
+            )
+            history_service.record_if_due(
+                source="synology_backup",
+                metric="running",
+                numeric_value=1 if task.running else 0,
+                text_value=task.state,
+                dimensions=dimensions,
+                minimum_interval_seconds=300,
+            )
     return SynologySnapshotResponse(
         configured=snapshot.configured,
         available=snapshot.available,
