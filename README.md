@@ -38,37 +38,55 @@ make up
 
 SirisCore includes the typed Event Bus, Module and Widget Registries, deterministic Briefing Engine and Siris Score, Scheduler, AI Context Service, persisted settings, and event-driven Notification Centre. Significant decisions are recorded under `docs/adr/`.
 
-## Active milestone — Sprint 0.4.2 Mission Control
+## Sprint 0.4.2 — Mission Control complete
 
-### 0.4.2a — Situation Room foundation complete
+The authenticated `/mission` Situation Room now provides:
 
-The authenticated `/mission` experience includes a navigation-free shell, large live clock/date, shared registered widget grid, Siris Score, deterministic briefing, activity timeline, event-driven refresh, scheduled fallback, responsive layout, in-app launchers, and display controls.
+- Navigation-free full-screen Mission Control
+- Large live clock and date
+- Shared Widget Registry grid
+- Siris Score, deterministic briefing, activity timeline, and module summaries
+- Event-driven refresh plus scheduled fallback
+- Adaptive widget prioritisation and temporary enlargement
+- Critical-event wake behaviour
+- Persisted Balanced, Operations, and Compact display profiles
+- Runtime event and refresh diagnostics
+- Persisted All, Work, Home, Fitness, and Travel Focus Modes
+- Ambient mode after inactivity with automatic event wake
+- Reduced-motion and burn-in-conscious display behaviour
+- Shared SirisOS design-system primitives
+- Premium black/red visual language and semantic status colours
 
-### 0.4.2b — Adaptive runtime complete
+Mission Control presentation remains a transient view over shared SirisCore data and user-owned layout settings. Adaptive priority, profiles, focus, ambient mode, and critical wake do not overwrite the saved workspace.
 
-Mission Control provides deterministic adaptive ordering, temporary enlargement for attention-worthy widgets, critical-event wake, persisted Balanced/Operations/Compact display profiles, optional clock seconds, and runtime event/refresh diagnostics. Adaptive presentation never overwrites the saved widget layout.
+### SirisOS design system
 
-### 0.4.2c — Focus and ambient modes complete
+Shared Flutter primitives now live in `widgets/siris_design_system.dart`:
 
-Mission Control now adds:
+- `SirisCard`
+- `SirisPanel`
+- `SirisMetric`
+- `SirisStatusChip`
+- `SirisGauge`
+- `SirisTimeline`
 
-- Persisted **All**, **Work**, **Home**, **Fitness**, and **Travel** Focus Modes
-- Focus policies that select and order existing registered widgets without changing saved workspace data
-- Ambient mode after 30 seconds of inactivity
-- Larger clock, reduced chrome, and fewer lower-priority widgets in ambient presentation
-- Automatic wake from module and notification events
-- Critical events overriding ambient mode immediately
-- Persisted reduced-motion preference
-- Burn-in-conscious behaviour by hiding seconds and reducing continuously changing display elements in ambient mode
+The global theme owns the premium dark red/black visual language, typography, navigation, forms, actions, and semantic status tokens. Mission Control summary cards are the first existing widgets migrated to these primitives. New UI should prefer the shared components, while specialised legacy widgets can migrate incrementally when touched.
 
-Focus and ambient presentation are transient views over the same SirisCore data and Widget Registry. They do not create duplicate widgets or fork business logic.
+Architecture is documented in ADRs 007–011.
 
-### Next: 0.4.2d — Design system and polish
+## Active milestone — Sprint 0.4.3 Live Homelab
 
-- Introduce shared SirisCard, SirisMetric, SirisPanel, SirisTimeline, SirisGauge, and SirisStatusChip components
-- Refine the premium red/black visual language
-- Consolidate typography, spacing, transitions, and warning states
-- Move Mission Control controls onto the shared design system
+Existing Homelab capability already includes live containers, CPU/RAM, state and health, start/stop/restart actions, logs, host metrics/history, alerts, audit history, and Home Assistant/Plex/Ollama diagnostics.
+
+Next work:
+
+- Container image update availability
+- Broader notification policies
+- Prometheus and Grafana integrations
+- Expanded Home Assistant integration
+- UniFi, Proxmox, NAS, backup, and UPS integrations
+
+After Live Homelab, continue with the Engineering module, Obsidian/Selkies Knowledge Platform, Projects and Context Graph, Intelligence/Automation, and Plugin SDK. See `docs/roadmap.md` for the authoritative sequence.
 
 ## Current application capabilities
 
@@ -83,7 +101,7 @@ Focus and ambient presentation are transient views over the same SirisCore data 
 - Home Assistant, Plex, and Ollama diagnostics
 - Global search
 - Configurable workspace and dedicated adaptive `/mission` Situation Room
-- Mission Control display profiles, Focus Modes, ambient display, critical wake, and diagnostics
+- Mission Control display profiles, Focus Modes, ambient display, critical wake, diagnostics, and shared design system
 
 ## Long-term pillars
 
@@ -103,6 +121,7 @@ Focus and ambient presentation are transient views over the same SirisCore data 
 5. Update README and roadmap together.
 6. Record significant architecture decisions in `docs/adr/`.
 7. Prefer reusable SirisCore services over one-off feature code.
+8. Prefer shared Siris design components over new parallel card/status/metric implementations.
 
 ## Local endpoints
 
