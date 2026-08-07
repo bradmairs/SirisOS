@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/dependency_graph.dart';
 import '../core/incident_engine.dart';
 import '../core/notification_policy.dart';
 import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
 import '../core/siris_integration_manager.dart';
 import '../widgets/backup_protection_panel.dart';
+import '../widgets/dependency_graph_panel.dart';
 import '../widgets/siris_design_system.dart';
 
 class OperationsCenterScreen extends StatefulWidget {
@@ -25,6 +27,11 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(
+      DependencyGraph.instance.load().then((_) {
+        if (mounted) setState(() {});
+      }),
+    );
     _events = SirisEventBus.instance.events.listen((event) {
       if (event is IntegrationHealthChanged ||
           event is NotificationPolicyStateChanged ||
@@ -107,6 +114,14 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
                 ],
                 const SizedBox(height: 18),
                 _AttentionPanel(policies: policies, health: health),
+                const SizedBox(height: 18),
+                RepaintBoundary(
+                  child: DependencyGraphPanel(
+                    onChanged: () {
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ),
                 const SizedBox(height: 18),
                 const RepaintBoundary(child: BackupProtectionPanel()),
               ],
