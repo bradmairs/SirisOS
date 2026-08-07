@@ -1,3 +1,4 @@
+import 'dependency_graph.dart';
 import 'notification_policy.dart';
 import 'siris_connector.dart';
 
@@ -13,6 +14,7 @@ class SirisIncident {
     required this.policyOutcomes,
     required this.affectedIntegrations,
     required this.correlationReason,
+    this.dependencyImpacts = const [],
   });
 
   final String id;
@@ -23,6 +25,7 @@ class SirisIncident {
   final List<NotificationPolicyOutcome> policyOutcomes;
   final List<String> affectedIntegrations;
   final String correlationReason;
+  final List<DependencyImpact> dependencyImpacts;
 
   bool get isCritical => severity == SirisIncidentSeverity.critical;
 }
@@ -80,6 +83,7 @@ class IncidentEngine {
           affectedIntegrations: affected.toList()..sort(),
           correlationReason:
               'UPS power-state policy is the anchor; concurrent infrastructure failures are attached as possible impacts.',
+          dependencyImpacts: _declaredImpacts(related),
         ),
       );
     }
@@ -107,6 +111,7 @@ class IncidentEngine {
               .toList()
             ..sort(),
           correlationReason: category.reason,
+          dependencyImpacts: _declaredImpacts(matched),
         ),
       );
     }
@@ -123,6 +128,7 @@ class IncidentEngine {
           policyOutcomes: [outcome],
           affectedIntegrations: integrationLabel == null ? const [] : [integrationLabel],
           correlationReason: 'Standalone policy outcome; no stronger correlation rule matched.',
+          dependencyImpacts: _declaredImpacts([outcome]),
         ),
       );
     }
@@ -133,6 +139,16 @@ class IncidentEngine {
       return a.startedAt.compareTo(b.startedAt);
     });
     return incidents;
+  }
+
+  static List<DependencyImpact> _declaredImpacts(
+    List<NotificationPolicyOutcome> outcomes,
+  ) {
+    final ids = outcomes
+        .map((item) => _policyDependencyNodeId(item.id))
+        .whereType<String>()
+        .toSet();
+    return DependencyGraph.instance.downstreamForMany(ids);
   }
 
   static final Set<String> _powerRelatedPolicyIds = {
@@ -243,6 +259,18 @@ class IncidentEngine {
     if (policyId.startsWith('grafana.')) return 'Grafana';
     if (policyId.startsWith('ups.')) return 'UPS';
     if (policyId.startsWith('storage.')) return 'Storage';
+    return null;
+  }
+
+  static String? _policyDependencyNodeId(String policyId) {
+    if (policyId.startsWith('docker.')) return 'docker';
+    if (policyId.startsWith('synology.hyper_backup.')) return 'hyper_backup';
+    if (policyId.startsWith('synology.')) return 'synology';
+    if (policyId.startsWith('home_assistant.')) return 'home_assistant';
+    if (policyId.startsWith('unifi.')) return 'unifi';
+    if (policyId.startsWith('prometheus.')) return 'prometheus';
+    if (policyId.startsWith('grafana.')) return 'grafana';
+    if (policyId.startsWith('ups.')) return 'ups';
     return null;
   }
 }
