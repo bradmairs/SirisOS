@@ -6,6 +6,7 @@ import '../models/mission_control_widget.dart';
 import '../widgets/activity_feed_panel.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_hero.dart';
+import '../widgets/prometheus_panel.dart';
 import '../widgets/siris_score_panel.dart';
 
 class MissionControlWidgetContext {
@@ -115,6 +116,17 @@ class AppWidgetRegistry {
         height: 190,
         child: _summaryCard(context.dashboard.homelab, Icons.dns_rounded),
       ),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.prometheus',
+        moduleId: 'homelab',
+        label: 'Prometheus',
+        description: 'Prometheus scrape target health and availability.',
+        icon: Icons.monitor_heart_rounded,
+        defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const PrometheusPanel(),
     ),
   ];
 
