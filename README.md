@@ -157,19 +157,23 @@ Operations Center now correlates related Notification Policy outcomes into deter
 
 The Incident Engine is intentionally deterministic and explainable. Correlation is not treated as proof of causation.
 
-### 0.4.3j — Digital Twin dependency graph foundation complete
+### 0.4.3j — Digital Twin dependency graph and configurable topology complete
 
 SirisOS now has a deterministic dependency graph that is separate from incident correlation:
 
 - Typed dependency nodes and directed `dependent -> dependency` relationships
 - Transitive downstream traversal with cycle/duplicate protection
-- Known software dependency chain `Synology -> Hyper Backup -> Backup Protection Analytics`
+- Built-in software dependency chain `Synology -> Hyper Backup -> Backup Protection Analytics`
 - Incident Engine attaches graph-derived downstream impacts separately from correlated affected integrations
 - Operations Center labels graph evidence as `Declared downstream`
-- Unit coverage verifies transitive impact and confirms that UPS physical dependencies are not guessed
-- Architecture documented in ADR 027
+- Editable Digital Twin topology panel in Operations Center
+- Custom relationships persist through the existing Flutter local settings store
+- Built-in relationships remain immutable while custom edges can be removed/reset
+- Self-dependencies, duplicates and cycles are rejected before persistence
+- Topology edits immediately update deterministic incident downstream impact
+- Architecture documented in ADRs 027–028
 
-Only relationships SirisOS can explicitly justify belong in the graph. The initial foundation intentionally does **not** assert physical relationships such as UPS → Docker or UPS → UniFi. Future work will add editable/discovered topology, visualization, dependency-aware recommendations and incident history.
+Only relationships SirisOS can explicitly justify or the user explicitly declares belong in the graph. Physical relationships such as `Docker -> UPS` or `UniFi -> UPS` are never inferred merely because systems fail together. This first editable slice only links existing graph nodes and stores custom topology per browser/profile; server-side topology, arbitrary custom components, authoritative discovery and interactive graph visualization remain follow-on work.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -190,11 +194,11 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - NUT UPS monitoring for power state, battery, runtime and load
 - Generic persistent operational time-series history API/client
 - Deterministic Incident Engine with explainable cross-system correlation
-- Deterministic Digital Twin dependency graph with declared downstream impact analysis
+- Configurable Digital Twin dependency graph with declared downstream impact analysis
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
-- `/operations` Operations Center with correlated incidents, declared downstream impact, integration health, operational attention queue and backup protection history
+- `/operations` Operations Center with correlated incidents, editable topology, declared downstream impact, integration health, operational attention queue and backup protection history
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -224,7 +228,8 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 14. Low-frequency historical observations use the generic History Engine; high-frequency telemetry belongs in Prometheus.
 15. Historical analytics must be derived from observed events/samples, never inferred from polling frequency when the source data cannot support that claim.
 16. Incident correlation must remain deterministic and expose its source evidence/reason; correlation must not be presented as proven causation without dependency evidence.
-17. Digital Twin dependency claims must come from explicit graph relationships; never infer physical power/network dependencies solely from simultaneous failures.
+17. Digital Twin dependency claims must come from built-in explicit relationships or user-declared topology; never infer physical power/network dependencies solely from simultaneous failures.
+18. Custom Digital Twin topology must remain cycle-safe and clearly distinguish built-in from user-declared relationships.
 
 ## Local endpoints
 
