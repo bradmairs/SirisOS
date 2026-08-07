@@ -31,6 +31,16 @@ class SynologyConnector extends SirisConnector {
     scorePenalty: 12,
   );
 
+  static const _backupFailurePolicy = NotificationPolicyRule(
+    id: 'synology.hyper_backup.failed',
+    moduleId: 'homelab',
+    title: 'Hyper Backup needs attention',
+    message: 'One or more Synology Hyper Backup tasks last reported a failure.',
+    severity: NotificationPolicySeverity.critical,
+    activeAfter: Duration.zero,
+    scorePenalty: 12,
+  );
+
   @override
   String get id => 'synology';
   @override
@@ -67,7 +77,10 @@ class SynologyConnector extends SirisConnector {
         previous.available != next.available ||
         previous.unhealthyVolumes != next.unhealthyVolumes ||
         previous.unhealthyDisks != next.unhealthyDisks ||
-        previous.highestUsedPercent != next.highestUsedPercent) {
+        previous.highestUsedPercent != next.highestUsedPercent ||
+        previous.runningBackupTasks != next.runningBackupTasks ||
+        previous.failedBackupTasks != next.failedBackupTasks ||
+        previous.latestBackupFinishAt != next.latestBackupFinishAt) {
       SirisEventBus.instance.publish(
         ModuleDataChanged(moduleId: 'homelab', reason: 'synology_state_changed'),
       );
@@ -78,6 +91,7 @@ class SynologyConnector extends SirisConnector {
   Future<void> disconnect() async {
     NotificationPolicyEngine.instance.evaluate(_unavailablePolicy, condition: false);
     NotificationPolicyEngine.instance.evaluate(_storagePolicy, condition: false);
+    NotificationPolicyEngine.instance.evaluate(_backupFailurePolicy, condition: false);
   }
 
   void _evaluate(SynologySnapshot snapshot) {
@@ -89,6 +103,10 @@ class SynologyConnector extends SirisConnector {
       _storagePolicy,
       condition: snapshot.available &&
           (snapshot.unhealthyVolumes > 0 || snapshot.unhealthyDisks > 0),
+    );
+    NotificationPolicyEngine.instance.evaluate(
+      _backupFailurePolicy,
+      condition: snapshot.available && snapshot.failedBackupTasks > 0,
     );
   }
 }
