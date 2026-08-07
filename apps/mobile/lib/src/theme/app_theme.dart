@@ -51,8 +51,8 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w800,
           letterSpacing: -0.6,
         ),
-        titleLarge: TextStyle(fontWeight: FontWeight.w750),
-        titleMedium: TextStyle(fontWeight: FontWeight.w650),
+        titleLarge: TextStyle(fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(fontWeight: FontWeight.w600),
         labelSmall: TextStyle(fontWeight: FontWeight.w700),
       ),
       chipTheme: ChipThemeData(
