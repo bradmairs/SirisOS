@@ -8,6 +8,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.docker_service import DockerMonitor
+from app.services.home_assistant_service import HomeAssistantService
 from app.services.homelab_audit_service import HomelabAuditService
 from app.services.host_metrics_service import HostMetricsCollector
 
@@ -24,6 +25,7 @@ DISK_CRITICAL = float(os.getenv("SIRISOS_DISK_CRITICAL_PERCENT", "90"))
 
 collector = HostMetricsCollector()
 docker_monitor = DockerMonitor()
+home_assistant_service = HomeAssistantService()
 audit_service = HomelabAuditService()
 audit_service.initialise()
 
@@ -89,6 +91,37 @@ class DockerUpdateSummaryResponse(BaseModel):
     containers: list[DockerUpdateResponse]
     generated_at: str
     error: str | None = None
+
+
+class HomeAssistantEntityResponse(BaseModel):
+    entity_id: str
+    state: str
+    name: str
+    domain: str
+    last_changed: str | None = None
+
+
+class HomeAssistantSnapshotResponse(BaseModel):
+    configured: bool
+    available: bool
+    total: int
+    unavailable: int
+    entities: list[HomeAssistantEntityResponse]
+    generated_at: str
+    error: str | None = None
+
+
+class HomeAssistantActionRequest(BaseModel):
+    domain: str
+    service: str
+    entity_id: str
+
+
+class HomeAssistantActionResponse(BaseModel):
+    accepted: bool
+    entity_id: str
+    service: str
+    generated_at: str
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -229,6 +262,48 @@ async def docker_updates(
         ],
         generated_at=datetime.now().astimezone().isoformat(),
         error=summary.error,
+    )
+
+
+@router.get("/home-assistant/states", response_model=HomeAssistantSnapshotResponse)
+async def home_assistant_states(
+    authorization: Annotated[str | None, Header()] = None,
+) -> HomeAssistantSnapshotResponse:
+    _authenticate(authorization)
+    snapshot = await home_assistant_service.snapshot()
+    unavailable = sum(item.state in {"unavailable", "unknown"} for item in snapshot.entities)
+    return HomeAssistantSnapshotResponse(
+        configured=snapshot.configured,
+        available=snapshot.available,
+        total=len(snapshot.entities),
+        unavailable=unavailable,
+        entities=[HomeAssistantEntityResponse(**item.__dict__) for item in snapshot.entities],
+        generated_at=datetime.now().astimezone().isoformat(),
+        error=snapshot.error,
+    )
+
+
+@router.post("/home-assistant/action", response_model=HomeAssistantActionResponse)
+async def home_assistant_action(
+    request: HomeAssistantActionRequest,
+    authorization: Annotated[str | None, Header()] = None,
+) -> HomeAssistantActionResponse:
+    _authenticate(authorization)
+    try:
+        await home_assistant_service.call_service(
+            request.domain,
+            request.service,
+            request.entity_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return HomeAssistantActionResponse(
+        accepted=True,
+        entity_id=request.entity_id,
+        service=f"{request.domain}.{request.service}",
+        generated_at=datetime.now().astimezone().isoformat(),
     )
 
 

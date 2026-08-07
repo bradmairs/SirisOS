@@ -124,9 +124,18 @@ Current policy state is intentionally in-memory. Persisted policy history and us
 ### 0.4.3d — Home Assistant Connector
 
 - [x] Existing Home Assistant diagnostics
-- [ ] Migrate Home Assistant behind the `SirisConnector` contract
-- [ ] WebSocket/event subscription support
-- [ ] Expanded Home Assistant entities, states, and actions
+- [x] Home Assistant migrated behind the `SirisConnector` contract
+- [x] Home Assistant credentials remain server-side and are never exposed to Flutter
+- [x] Authenticated Home Assistant state snapshot endpoint
+- [x] Authenticated Home Assistant service-action endpoint
+- [x] Scheduler-backed 30-second connector refreshes
+- [x] Deterministic state snapshot comparison publishes Homelab events through SirisCore
+- [x] Home Assistant availability and unavailable-entity Notification Policies
+- [x] Connector starts asynchronously and cannot block authentication/dashboard rendering
+- [ ] Direct Home Assistant WebSocket event subscription
+- [ ] Dedicated Home Assistant entity browser and richer entity controls in the SirisOS UI
+
+The first Home Assistant connector intentionally uses bounded REST snapshots through the SirisOS backend. Direct WebSocket streaming is a later transport optimisation; the connector/event contract does not depend on it.
 
 ### 0.4.3e — Broader infrastructure integrations
 

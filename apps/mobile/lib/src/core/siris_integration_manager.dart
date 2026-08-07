@@ -78,15 +78,19 @@ class SirisIntegrationManager {
         ),
       );
       await refresh(connector.id);
-      SirisScheduler.instance.register(
-        SirisScheduledJob(
-          id: _jobId(connector.id),
-          interval: connector.refreshInterval,
-          run: () => refresh(connector.id),
+      _registerRefreshJob(connector);
+    } on SirisConnectorDisabledException catch (error) {
+      _setHealth(
+        connector.id,
+        SirisConnectorHealth(
+          state: SirisConnectorState.disabled,
+          message: error.message,
+          lastAttemptAt: DateTime.now(),
         ),
       );
     } catch (error) {
       _recordFailure(connector.id, error);
+      _registerRefreshJob(connector);
     }
   }
 
@@ -95,6 +99,7 @@ class SirisIntegrationManager {
     if (connector == null || !connector.enabled) return;
 
     final previous = _health[connectorId];
+    if (previous?.state == SirisConnectorState.disabled) return;
     final attemptAt = DateTime.now();
     final stopwatch = Stopwatch()..start();
 
@@ -114,6 +119,18 @@ class SirisIntegrationManager {
         IntegrationRefreshed(
           connectorId: connectorId,
           duration: stopwatch.elapsed,
+        ),
+      );
+    } on SirisConnectorDisabledException catch (error) {
+      stopwatch.stop();
+      SirisScheduler.instance.unregister(_jobId(connectorId));
+      _setHealth(
+        connectorId,
+        SirisConnectorHealth(
+          state: SirisConnectorState.disabled,
+          message: error.message,
+          lastAttemptAt: attemptAt,
+          lastSuccessAt: previous?.lastSuccessAt,
         ),
       );
     } catch (error) {
@@ -136,6 +153,16 @@ class SirisIntegrationManager {
     for (final id in ids) {
       await unregister(id);
     }
+  }
+
+  void _registerRefreshJob(SirisConnector connector) {
+    SirisScheduler.instance.register(
+      SirisScheduledJob(
+        id: _jobId(connector.id),
+        interval: connector.refreshInterval,
+        run: () => refresh(connector.id),
+      ),
+    );
   }
 
   void _recordFailure(
