@@ -19,7 +19,7 @@ Released foundation:
 
 Deferred enhancements remain on the later backlog: notification action buttons, direct drag-and-drop, optional Ollama wording, and score domains whose modules do not yet exist.
 
-## Sprint 0.4.2 — Mission Control
+## Sprint 0.4.2 — Mission Control ✅ Complete
 
 Build the dedicated `/mission` Situation Room using SirisCore services.
 
@@ -61,12 +61,16 @@ Build the dedicated `/mission` Situation Room using SirisCore services.
 - [x] Ambient mode hides clock seconds and reduces continuously changing content
 - [x] Second-monitor and wall-display behaviour refined through profiles, focus, and ambient presentation
 
-### 0.4.2d — Design system and polish
+### 0.4.2d — Design system and polish ✅ Complete
 
-- [ ] Shared SirisCard, SirisMetric, SirisPanel, SirisTimeline, SirisGauge, and SirisStatusChip components
-- [ ] Premium red/black visual refinement
-- [ ] Consistent typography, spacing, animations, and warning states
-- [ ] Consolidate Mission Control controls into shared Siris design components
+- [x] Shared SirisCard, SirisMetric, SirisPanel, SirisTimeline, SirisGauge, and SirisStatusChip components
+- [x] Premium red/black visual refinement
+- [x] Central semantic tokens for info, success, warning, and critical states
+- [x] Consistent typography, navigation, form, action, surface, and warning-state styling
+- [x] Mission Control summary cards migrated to shared Siris design primitives
+- [x] Design-system architecture documented in ADR 011
+
+Existing specialised widgets may migrate incrementally as they are touched; new UI should use the shared design primitives rather than introducing parallel card/status/metric systems.
 
 ## Sprint 0.4.3 — Live Homelab
 
