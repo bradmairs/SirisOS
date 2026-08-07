@@ -152,14 +152,21 @@ The Home Assistant token remains inside the API container. SirisOS subscribes to
 - [x] Prometheus availability and down-target Notification Policies
 - [x] Registered `homelab.prometheus` Mission Control widget using the shared design system
 - [x] Prometheus architecture documented in ADR 017
-- [ ] Grafana dashboard discovery and launch integration
-- [ ] Grafana panel/dashboard rendering where practical
+- [x] Optional Grafana connector through the Integration Framework
+- [x] Grafana service-account credentials retained server-side
+- [x] Authenticated Grafana health/version and dashboard discovery endpoint
+- [x] Grafana 12+ dashboard discovery with legacy `/api/search` compatibility fallback
+- [x] Dedicated authenticated `/grafana` dashboard browser with dashboard/folder/tag search
+- [x] External dashboard launch integration
+- [x] Grafana availability Notification Policy
+- [x] Optional bounded panel PNG rendering proxy when Grafana image rendering is enabled
+- [x] Grafana architecture documented in ADR 018
 - [ ] UniFi integration
 - [ ] Proxmox integration
 - [ ] NAS and backup integrations
 - [ ] UPS integration
 
-Prometheus remains optional: if `PROMETHEUS_URL` is empty, the connector reports disabled and produces no alert noise. The Integration Framework is also the intended foundation for the later Obsidian/Selkies Knowledge connector and other external systems.
+Prometheus and Grafana remain optional: empty integration configuration reports disabled and produces no alert noise. Grafana rendering is disabled by default and requires Grafana's separate image-renderer service. The Integration Framework is also the intended foundation for the later Obsidian/Selkies Knowledge connector and other external systems.
 
 ## Sprint 0.4.4 — Engineering Module
 
