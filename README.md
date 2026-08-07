@@ -93,18 +93,32 @@ Core pieces:
 
 This framework is documented in ADR 012 and is now the intended foundation for Docker, Home Assistant, Obsidian/Selkies, UniFi, Proxmox, NAS, and other external integrations.
 
-### Next: 0.4.3b — Docker Connector
+### 0.4.3b — Docker Connector complete
 
-Existing Homelab capability already includes live containers, CPU/RAM, state and health, start/stop/restart actions, logs, host metrics/history, alerts, audit history, and Home Assistant/Plex/Ollama diagnostics.
+Docker is now the first production integration running through the framework:
+
+- Authenticated `DockerConnector` lifecycle owned by `SirisIntegrationManager`
+- Scheduled 30-second connector refreshes
+- Snapshot comparison publishes Homelab events only when meaningful state changes occur
+- Existing container actions, logs, CPU/RAM, health, host metrics, history, alerts, and audit history are preserved
+- Registry digest checks identify newer container images
+- Update checks are deduplicated per image within each Docker collection
+- Available image updates are exposed through the Homelab summary model and existing Homelab alert pipeline
+- Registry/update-check failures remain non-fatal and are retained as per-container diagnostics
+
+The first implementation intentionally uses authenticated snapshot comparison rather than a direct Docker daemon event stream. This works with the existing restricted Docker proxy and keeps SirisCore decoupled from Docker-specific transport details. ADR 013 records the decision.
+
+### Next: 0.4.3c — Notification Policies
 
 Next work:
 
-- Migrate Docker monitoring/actions behind the `SirisConnector` contract
-- Add container image update availability
-- Publish Docker lifecycle/state changes through the Integration Manager/Event Bus
-- Then build reusable notification policies before expanding Home Assistant and other infrastructure connectors
+- Reusable integration notification policies
+- Duration and threshold rules such as unhealthy for five minutes
+- Severity escalation and deduplication
+- Mission Control wake integration
+- Briefing and Siris Score policy hooks
 
-After Live Homelab, continue with the Engineering module, Obsidian/Selkies Knowledge Platform, Projects and Context Graph, Intelligence/Automation, and Plugin SDK. See `docs/roadmap.md` for the authoritative sequence.
+After that, Live Homelab continues with the Home Assistant connector and broader infrastructure integrations. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
 
@@ -115,6 +129,7 @@ After Live Homelab, continue with the Engineering module, Obsidian/Selkies Knowl
 - Gym workouts, templates, progress, and personal records
 - Health Auto Export MCP integration scaffold
 - Live Docker monitoring and container actions
+- Docker connector lifecycle, scheduled state-change detection, and image update availability
 - Host metrics, history, alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
 - Reusable Siris Integration Framework for external systems
