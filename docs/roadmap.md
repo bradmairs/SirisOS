@@ -119,8 +119,6 @@ Storage and Synology NAS:
 - [x] Backup state changes publish standard Homelab events
 - [x] Registered `homelab.backups` Mission Control widget
 - [x] Hyper Backup architecture documented in ADR 021
-- [ ] Persist backup observations for 30-day success rate, duration trends and failure history
-- [ ] Optional schedule-aware staleness policy after persistent history exists
 
 UPS / power:
 - [x] Vendor-neutral Network UPS Tools (NUT) backend client
@@ -135,13 +133,30 @@ UPS / power:
 - [x] Registered `homelab.ups` Mission Control widget
 - [x] ADR 022
 
+### 0.4.3f — Operations Center foundation ✅ Complete
+
+- [x] Authenticated `/operations` route
+- [x] Operational overview counts
+- [x] Active incident list from Notification Policy outcomes
+- [x] Live connector health from `SirisIntegrationManager`
+- [x] Prioritised operational attention queue
+- [x] Event-driven refresh on policy/integration changes
+- [x] Manual Integration Manager refresh action
+- [x] Desktop sidebar and Quick Actions access
+- [x] No independent polling/backend aggregation layer
+- [x] ADR 023
+
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
-### Homelab follow-on backlog
+### Homelab / Operations follow-on backlog
 
+- [ ] Generic Time-Series / History Engine for connector observations
 - [ ] Persist backup observations and build 30-day protection analytics
+- [ ] Incident Engine to correlate related policy outcomes into one incident
+- [ ] Dependency / Digital Twin graph for downstream impact analysis
+- [ ] Recommended operational actions and maintenance queue
 - [ ] Safe UPS power-event automation and graceful shutdown orchestration
-- [ ] Operations Center for incidents, integrations, updates, backups and maintenance actions
+- [ ] Explainable Siris Score contribution history
 - [ ] Further Flutter web performance work: isolate Mission Control clock state and throttle pointer-hover activity
 
 ## Sprint 0.4.4 — Engineering Module
@@ -192,4 +207,4 @@ Proxmox is intentionally not part of the SirisOS roadmap because this installati
 
 ## Sprint 1.0 — Personal Operating System
 
-Stable daily platform across Mission Control, Personal, Infrastructure, Engineering, Knowledge, Intelligence, and Automation.
+Stable daily platform across Mission Control, Operations Center, Personal, Infrastructure, Engineering, Knowledge, Intelligence, and Automation.
