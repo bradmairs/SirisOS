@@ -121,21 +121,26 @@ A direct Docker daemon event-stream subscription remains an optional later optim
 
 Current policy state is intentionally in-memory. Persisted policy history and user-editable policy configuration are later enhancements and do not change the evaluation contract.
 
-### 0.4.3d — Home Assistant Connector
+### 0.4.3d — Home Assistant Connector ✅ Complete
 
 - [x] Existing Home Assistant diagnostics
 - [x] Home Assistant migrated behind the `SirisConnector` contract
 - [x] Home Assistant credentials remain server-side and are never exposed to Flutter
 - [x] Authenticated Home Assistant state snapshot endpoint
 - [x] Authenticated Home Assistant service-action endpoint
-- [x] Scheduler-backed 30-second connector refreshes
-- [x] Deterministic state snapshot comparison publishes Homelab events through SirisCore
+- [x] Scheduler-backed connector refreshes
+- [x] Deterministic state comparison publishes Homelab events through SirisCore
 - [x] Home Assistant availability and unavailable-entity Notification Policies
 - [x] Connector starts asynchronously and cannot block authentication/dashboard rendering
-- [ ] Direct Home Assistant WebSocket event subscription
-- [ ] Dedicated Home Assistant entity browser and richer entity controls in the SirisOS UI
+- [x] Direct backend Home Assistant WebSocket subscription to `state_changed`
+- [x] Server-side live entity cache with REST fallback while the stream reconnects
+- [x] Five-second Siris connector refresh against cached live state
+- [x] Dedicated authenticated `/home-assistant` entity browser
+- [x] Search and domain filters across Home Assistant entities
+- [x] Allow-listed light, switch, input-boolean, and cover actions
+- [x] Home Assistant live-state architecture documented in ADR 016
 
-The first Home Assistant connector intentionally uses bounded REST snapshots through the SirisOS backend. Direct WebSocket streaming is a later transport optimisation; the connector/event contract does not depend on it.
+The Home Assistant token remains inside the API container. SirisOS subscribes to Home Assistant's `/api/websocket` endpoint server-side and uses REST only for initial state and reconnect fallback. Flutter never connects directly to Home Assistant.
 
 ### 0.4.3e — Broader infrastructure integrations
 

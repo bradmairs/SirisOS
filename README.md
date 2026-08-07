@@ -125,31 +125,33 @@ SirisCore now has a deterministic policy engine for integration conditions:
 
 Notification policy architecture is documented in ADR 014. Active policy state is currently in-memory; persisted history and user-editable policy configuration remain later enhancements.
 
-### 0.4.3d — Home Assistant Connector foundation
+### 0.4.3d — Home Assistant Connector complete
 
-Home Assistant is now the second integration running through the shared framework:
+Home Assistant is the second integration running through the shared framework:
 
 - `HomeAssistantConnector` lifecycle owned by `SirisIntegrationManager`
 - Home Assistant URL/token remain in backend environment configuration and never reach Flutter
 - Authenticated backend state snapshot endpoint
 - Authenticated backend service-action endpoint
-- Scheduled 30-second connector refreshes
-- Deterministic snapshot comparison publishes Homelab events only when entity/state availability changes
+- Server-side WebSocket connection to Home Assistant `/api/websocket`
+- WebSocket authentication followed by a dedicated `state_changed` subscription
+- Live entity cache updated from Home Assistant state events
+- REST `/api/states` used for initial state and availability fallback while the stream reconnects
+- Five-second connector refreshes consume cached backend state
+- Deterministic state changes publish Homelab events through SirisCore
 - Home Assistant unavailability policy: warning after 2 minutes, critical after 10 minutes
 - Multiple unavailable/unknown entities policy: warning after 2 minutes
 - Connector startup remains asynchronous so Home Assistant can never block login or the dashboard
+- Authenticated `/home-assistant` entity browser with two-second cached refresh
+- Entity search and domain filtering
+- Allow-listed actions for lights, switches, input booleans, and covers
+- Arbitrary Home Assistant service calls are rejected server-side
 
-This first slice deliberately uses bounded REST snapshots through the SirisOS backend. Direct Home Assistant WebSocket streaming and a dedicated entity browser/richer entity controls remain follow-on work; the SirisCore connector/event contract does not depend on transport choice.
+ADR 015 documents the connector foundation and ADR 016 documents the live-state and safe-control architecture. Flutter deliberately talks only to the SirisOS API; the Home Assistant token remains inside the backend security boundary.
 
-### Next: finish 0.4.3d and continue 0.4.3e
+### Next: 0.4.3e — Broader infrastructure integrations
 
-Next work:
-
-- Add direct Home Assistant WebSocket event subscription where practical
-- Add a dedicated Home Assistant entity browser and richer safe controls
-- Then expand Live Homelab with Prometheus/Grafana, UniFi, Proxmox, NAS, backups, and UPS
-
-The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
+Next work expands Live Homelab with Prometheus/Grafana and then integrations such as UniFi, Proxmox, NAS, backups, and UPS. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
 
@@ -161,10 +163,10 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Health Auto Export MCP integration scaffold
 - Live Docker monitoring and container actions
 - Docker connector lifecycle, scheduled state-change detection, and image update availability
-- Home Assistant connector lifecycle, state snapshots, state-change events, and safe backend service actions
+- Home Assistant connector lifecycle, WebSocket live state, entity browser, and safe controls
 - Deterministic duration/escalation Notification Policy engine
 - Host metrics, history, alerts, audit history, and logs
-- Home Assistant, Plex, and Ollama diagnostics
+- Plex and Ollama diagnostics
 - Reusable Siris Integration Framework for external systems
 - Global search
 - Configurable workspace and dedicated adaptive `/mission` Situation Room
@@ -192,11 +194,13 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 9. New external-system integrations should implement the Integration Framework rather than inventing bespoke lifecycle/polling code.
 10. Integration alert behaviour should use Notification Policies rather than emitting repeated notifications directly from connector refresh loops.
 11. External integration startup and enrichment must never block authentication or core dashboard rendering.
+12. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs rather than third-party secrets.
 
 ## Local endpoints
 
 - Web UI: `http://192.168.0.100:6464`
 - Mission Control: `http://192.168.0.100:6464/#/mission`
+- Home Assistant browser: `http://192.168.0.100:6464/#/home-assistant`
 - API: `http://192.168.0.100:8000`
 - API docs: `http://192.168.0.100:8000/docs`
 

@@ -6,6 +6,7 @@ import 'connectors/docker_connector.dart';
 import 'connectors/home_assistant_connector.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
+import 'screens/home_assistant_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mission_control_screen.dart';
 import 'services/auth_service.dart';
@@ -63,6 +64,9 @@ class _SirisOsAppState extends State<SirisOsApp> {
     if (mounted) setState(() => _authenticated = false);
   }
 
+  Widget _authenticatedRoute(Widget child) =>
+      _authenticated ? child : LoginScreen(onAuthenticated: _onAuthenticated);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -70,9 +74,10 @@ class _SirisOsAppState extends State<SirisOsApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       routes: {
-        MissionControlScreen.routeName: (_) => _authenticated
-            ? const MissionControlScreen()
-            : LoginScreen(onAuthenticated: _onAuthenticated),
+        MissionControlScreen.routeName: (_) =>
+            _authenticatedRoute(const MissionControlScreen()),
+        HomeAssistantScreen.routeName: (_) =>
+            _authenticatedRoute(const HomeAssistantScreen()),
       },
       home: _checkingSession
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
