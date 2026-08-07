@@ -42,37 +42,33 @@ SirisCore includes the typed Event Bus, Module and Widget Registries, determinis
 
 ### 0.4.2a — Situation Room foundation complete
 
-The authenticated `/mission` experience includes:
-
-- Navigation-free full-screen shell
-- Large live clock and date
-- Shared registered widget grid
-- Siris Score, deterministic briefing, module summaries, and activity timeline
-- Event-driven debounced refreshes and scheduled fallback
-- Responsive layouts and smooth transitions
-- In-app launchers and display controls
+The authenticated `/mission` experience includes a navigation-free shell, large live clock/date, shared registered widget grid, Siris Score, deterministic briefing, activity timeline, event-driven refresh, scheduled fallback, responsive layout, in-app launchers, and display controls.
 
 ### 0.4.2b — Adaptive runtime complete
 
-Mission Control now provides:
+Mission Control provides deterministic adaptive ordering, temporary enlargement for attention-worthy widgets, critical-event wake, persisted Balanced/Operations/Compact display profiles, optional clock seconds, and runtime event/refresh diagnostics. Adaptive presentation never overwrites the saved widget layout.
 
-- Deterministic adaptive widget ordering and temporary enlargement
-- Preserved user-owned widget order, visibility, and sizes
-- Critical-event wake state with temporary visual escalation
-- Persisted **Balanced**, **Operations**, and **Compact** display profiles
-- Optional clock seconds
-- Runtime diagnostics showing event count, latest event type, and refresh latency
-- User control to disable adaptive prioritisation
+### 0.4.2c — Focus and ambient modes complete
 
-Critical wake and adaptive presentation never overwrite the saved workspace. Profiles only change display density and presentation. These rules are documented in ADRs 008 and 009.
+Mission Control now adds:
 
-### Next: 0.4.2c — Focus and ambient modes
+- Persisted **All**, **Work**, **Home**, **Fitness**, and **Travel** Focus Modes
+- Focus policies that select and order existing registered widgets without changing saved workspace data
+- Ambient mode after 30 seconds of inactivity
+- Larger clock, reduced chrome, and fewer lower-priority widgets in ambient presentation
+- Automatic wake from module and notification events
+- Critical events overriding ambient mode immediately
+- Persisted reduced-motion preference
+- Burn-in-conscious behaviour by hiding seconds and reducing continuously changing display elements in ambient mode
 
-- Focus modes for Work, Home, Fitness, and Travel
-- Ambient mode after inactivity
-- Critical-event wake from ambient mode
-- Reduced-motion and burn-in-conscious display behaviour
-- Second-monitor and wall-display refinement
+Focus and ambient presentation are transient views over the same SirisCore data and Widget Registry. They do not create duplicate widgets or fork business logic.
+
+### Next: 0.4.2d — Design system and polish
+
+- Introduce shared SirisCard, SirisMetric, SirisPanel, SirisTimeline, SirisGauge, and SirisStatusChip components
+- Refine the premium red/black visual language
+- Consolidate typography, spacing, transitions, and warning states
+- Move Mission Control controls onto the shared design system
 
 ## Current application capabilities
 
@@ -87,6 +83,7 @@ Critical wake and adaptive presentation never overwrite the saved workspace. Pro
 - Home Assistant, Plex, and Ollama diagnostics
 - Global search
 - Configurable workspace and dedicated adaptive `/mission` Situation Room
+- Mission Control display profiles, Focus Modes, ambient display, critical wake, and diagnostics
 
 ## Long-term pillars
 
