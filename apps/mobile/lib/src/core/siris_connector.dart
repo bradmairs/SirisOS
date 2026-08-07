@@ -44,6 +44,15 @@ class SirisConnectorHealth {
       );
 }
 
+class SirisConnectorDisabledException implements Exception {
+  const SirisConnectorDisabledException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 abstract class SirisConnector {
   String get id;
   String get label;
