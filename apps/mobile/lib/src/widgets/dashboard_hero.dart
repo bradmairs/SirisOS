@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/notification_policy.dart';
+import '../core/siris_score.dart';
 import '../models/dashboard_summary.dart';
 import '../theme/app_theme.dart';
 
@@ -17,7 +19,12 @@ class DashboardHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final wide = width >= 980;
-    final items = data.briefingItems.take(4).toList(growable: false);
+    final policyItems = NotificationPolicyEngine.instance.activeOutcomes
+        .map((outcome) => outcome.rule.message);
+    final items = <String>{
+      ...policyItems,
+      ...data.briefingItems,
+    }.take(4).toList(growable: false);
 
     return Container(
       decoration: BoxDecoration(
@@ -57,14 +64,8 @@ class DashboardHero extends StatelessWidget {
     );
   }
 
-  int _score(DashboardSummary data) {
-    var score = 100;
-    for (final item in [data.homelab, data.running, data.gym, data.system]) {
-      if (item.status == 'warning') score -= 12;
-      if (item.status == 'unknown') score -= 6;
-    }
-    return score.clamp(0, 100);
-  }
+  int _score(DashboardSummary data) =>
+      const DeterministicSirisScore().calculate(data).score;
 }
 
 class _Briefing extends StatelessWidget {
