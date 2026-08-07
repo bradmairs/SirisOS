@@ -112,6 +112,7 @@ class IncidentEngine {
     }
 
     for (final outcome in remaining) {
+      final integrationLabel = _policyIntegrationLabel(outcome.id);
       incidents.add(
         SirisIncident(
           id: 'incident.policy.${outcome.id}',
@@ -120,9 +121,7 @@ class IncidentEngine {
           severity: _fromPolicy(outcome.severity),
           startedAt: outcome.activatedAt,
           policyOutcomes: [outcome],
-          affectedIntegrations: [
-            if (_policyIntegrationLabel(outcome.id) case final label?) label,
-          ],
+          affectedIntegrations: integrationLabel == null ? const [] : [integrationLabel],
           correlationReason: 'Standalone policy outcome; no stronger correlation rule matched.',
         ),
       );
@@ -159,7 +158,7 @@ class IncidentEngine {
     _IncidentCategory(
       id: 'backup',
       title: 'Backup protection issue',
-      prefixes: ['synology.backup', 'synology_backup', 'backup.'],
+      prefixes: ['synology.hyper_backup.', 'synology.backup', 'synology_backup', 'backup.'],
       reason: 'Backup-related policy outcomes are grouped into one data-protection incident.',
     ),
     _IncidentCategory(
