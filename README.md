@@ -12,7 +12,7 @@ This README is the authoritative project handover. `docs/roadmap.md` is the impl
 
 ## Product architecture
 
-SirisOS is a modular platform built around **SirisCore** and the **Mission Control** experience. Core principles are one source of truth, event-driven updates, deterministic/explainable intelligence, context over raw data, reusable platform services, server-side external credentials, and a deployable `main` branch.
+SirisOS is a modular platform built around **SirisCore**, **Mission Control**, and the emerging **Operations Center**. Core principles are one source of truth, event-driven updates, deterministic/explainable intelligence, context over raw data, reusable platform services, server-side external credentials, and a deployable `main` branch.
 
 ## Standard deployment workflow
 
@@ -31,7 +31,7 @@ Typed Event Bus, Module/Widget Registries, deterministic Briefing Engine and Sir
 
 The authenticated `/mission` Situation Room provides the navigation-free full-screen shell, shared Widget Registry grid, Siris Score, briefing, activity timeline, event-driven refresh, adaptive priority, critical wake, profiles, Focus Modes, ambient mode, reduced-motion behaviour, diagnostics, and shared red/black SirisOS design system.
 
-## Active milestone — Sprint 0.4.3 Live Homelab
+## Sprint 0.4.3 — Live Homelab
 
 ### 0.4.3a — Integration Framework complete
 
@@ -49,7 +49,7 @@ Deterministic duration-based activation, escalation, stable-ID deduplication, ex
 
 Server-side HA credentials, live `/api/websocket` `state_changed` cache with REST fallback, authenticated entity browser, search/domain filters, safe allow-listed controls, and HA policies. ADRs 015–016.
 
-### 0.4.3e — Broader infrastructure integrations
+### 0.4.3e — Broader infrastructure integrations complete
 
 Prometheus, Grafana and UniFi are complete through the Integration Framework with server-side credentials, deterministic policies and Mission Control widgets. ADRs 017–019 document those integrations.
 
@@ -75,7 +75,7 @@ Current Synology/storage capabilities:
 
 Hyper Backup fields are parsed defensively because DSM package/API versions differ. Unsupported optional task fields degrade to unavailable values rather than breaking Synology monitoring. Long-term backup analytics (for example 30-day success rate and duration trends) require SirisOS-side persistent history and remain a later enhancement.
 
-UPS monitoring now uses **Network UPS Tools (NUT)** as the vendor-neutral interface:
+UPS monitoring uses **Network UPS Tools (NUT)** as the vendor-neutral interface:
 
 - Optional `UpsConnector`; blank `NUT_HOST` disables the integration quietly
 - Backend speaks the NUT text protocol; the browser never connects directly to the UPS/NUT server
@@ -88,7 +88,22 @@ UPS monitoring now uses **Network UPS Tools (NUT)** as the vendor-neutral interf
 - Registered `homelab.ups` Mission Control widget
 - Architecture documented in ADR 022
 
-This completes the planned infrastructure connector set for Sprint 0.4.3e. Follow-on Homelab work includes persisted backup analytics, safe power-event automation, and the planned Operations Center experience.
+### 0.4.3f — Operations Center foundation complete
+
+The authenticated `/operations` route provides the first operational-management layer above Mission Control.
+
+It currently provides:
+
+- Operational overview counts for attention items, critical issues and healthy integrations
+- Active incidents sourced directly from deterministic Notification Policy outcomes
+- Live connector status sourced from `SirisIntegrationManager`
+- Prioritised "What needs attention" work queue
+- Manual integration refresh without adding a second polling system
+- Event-driven updates for policy and integration health changes
+- Desktop sidebar and Quick Actions access
+- Architecture documented in ADR 023
+
+Mission Control remains the ambient "what is happening now?" surface. Operations Center is the focused "what needs my attention?" surface. Cross-system incident correlation, historical incidents, maintenance workflows and recommended actions remain follow-on work.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -106,10 +121,10 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Host storage capacity monitoring and Synology DSM NAS monitoring
 - Synology Hyper Backup task/result monitoring and Mission Control backup status
 - NUT UPS monitoring for power state, battery, runtime and load
-- Plex and Ollama diagnostics
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
+- `/operations` Operations Center with incidents, integration health and operational attention queue
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -135,11 +150,13 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 10. External integration startup/enrichment must never block authentication or core dashboard rendering.
 11. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs.
 12. UI widgets must not initiate fresh network requests from `build()`; cache futures/state at widget or connector level.
+13. Mission Control is ambient status; Operations Center is focused operational work.
 
 ## Local endpoints
 
 - Web UI: `http://192.168.0.100:6464`
 - Mission Control: `http://192.168.0.100:6464/#/mission`
+- Operations Center: `http://192.168.0.100:6464/#/operations`
 - Home Assistant browser: `http://192.168.0.100:6464/#/home-assistant`
 - Grafana browser: `http://192.168.0.100:6464/#/grafana`
 - API: `http://192.168.0.100:8000`
