@@ -47,8 +47,8 @@ void main() {
       dependencyId: 'ups',
     );
 
-    expect(
-      () => graph.addCustomEdge(dependentId: 'ups', dependencyId: 'docker'),
+    await expectLater(
+      graph.addCustomEdge(dependentId: 'ups', dependencyId: 'docker'),
       throwsA(isA<DependencyGraphException>()),
     );
   });
