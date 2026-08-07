@@ -17,18 +17,18 @@ Released foundation:
 - [x] Consolidated persisted SirisCore settings for refresh and module availability
 - [x] README, roadmap, ADRs, and standard `git pull && make up` deployment workflow
 
-Deferred enhancements are not Sprint 0.4.1 blockers and remain on the later backlog: notification action buttons, direct drag-and-drop on the workspace, optional Ollama wording, event diagnostics, and score domains whose modules do not yet exist.
+Deferred enhancements remain on the later backlog: notification action buttons, direct drag-and-drop, optional Ollama wording, and score domains whose modules do not yet exist.
 
 ## Sprint 0.4.2 — Mission Control
 
 Build the dedicated `/mission` Situation Room using SirisCore services.
 
-### 0.4.2a — Situation Room foundation
+### 0.4.2a — Situation Room foundation ✅ Complete
 
 - [x] Navigation-free full-screen shell
 - [x] Large live clock and date
 - [x] Shared Widget Registry grid
-- [x] Siris Score presentation and explanation through the registered widget
+- [x] Siris Score presentation and explanation
 - [x] Deterministic briefing panel
 - [x] Activity timeline
 - [x] Event-driven debounced auto-refresh
@@ -38,20 +38,22 @@ Build the dedicated `/mission` Situation Room using SirisCore services.
 - [x] In-app Mission Control launcher
 - [x] Persisted display controls
 
-### 0.4.2b — Adaptive runtime
+### 0.4.2b — Adaptive runtime ✅ Complete
 
 - [x] Adaptive widget priority based on deterministic module severity
 - [x] Automatic temporary enlargement of widgets needing attention
 - [x] Preserve the saved layout while applying transient priorities
 - [x] User control to disable adaptive mode
-- [ ] Critical-event wake behaviour
-- [ ] Mission Control-specific display profile persistence
-- [ ] Event diagnostics and refresh latency visibility
+- [x] Critical-event wake behaviour with temporary visual escalation
+- [x] Persisted Balanced, Operations, and Compact display profiles
+- [x] Event count, latest event, and refresh latency diagnostics
+- [x] Diagnostics surfaced in the header and display controls
 
 ### 0.4.2c — Focus and ambient modes
 
 - [ ] Focus modes: Work, Home, Fitness, and Travel
 - [ ] Ambient display mode after inactivity
+- [ ] Critical events wake the interface from ambient mode
 - [ ] Reduced-motion and burn-in-conscious display behaviour
 - [ ] Second-monitor and wall-display optimisation
 

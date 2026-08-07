@@ -36,74 +36,48 @@ make up
 
 ## Sprint 0.4.1 — SirisCore complete
 
-SirisCore includes:
-
-- Typed broadcast Event Bus
-- Module data-change and notification events
-- Event-driven, debounced Mission Control refreshes
-- Central Module Registry
-- Module-owned screens, routes, quick actions, and availability states
-- Reusable Widget Registry with namespaced IDs
-- Persisted widget order, visibility, and sizing
-- Legacy layout migration
-- Deterministic Briefing Engine
-- Running, Gym, Health, Homelab, and system briefing contributors
-- Deterministic Siris Score with weighted domains and plain-language explanations
-- Registered `siris.score` widget
-- Shared Scheduler for guarded recurring jobs
-- Canonical AI Context Service built from shared dashboard state
-- Consolidated persisted SirisCore settings
-- Event-driven Notification Centre
-- Architecture Decision Records under `docs/adr/`
+SirisCore includes the typed Event Bus, Module and Widget Registries, deterministic Briefing Engine and Siris Score, Scheduler, AI Context Service, persisted settings, and event-driven Notification Centre. Significant decisions are recorded under `docs/adr/`.
 
 ## Active milestone — Sprint 0.4.2 Mission Control
 
-### Situation Room foundation
+### 0.4.2a — Situation Room foundation complete
 
-The dedicated Mission Control experience is available at `/mission` and includes:
+The authenticated `/mission` experience includes:
 
 - Navigation-free full-screen shell
 - Large live clock and date
 - Shared registered widget grid
 - Siris Score, deterministic briefing, module summaries, and activity timeline
-- Event-driven debounced refreshes
-- Five-minute scheduled refresh fallback
-- Responsive layouts for desktop, tablet, and narrow screens
-- Smooth layout transitions
-- Explicit refresh and exit controls
-- In-app launchers in the desktop shell and quick-actions menu
+- Event-driven debounced refreshes and scheduled fallback
+- Responsive layouts and smooth transitions
+- In-app launchers and display controls
 
-### Adaptive runtime foundation
+### 0.4.2b — Adaptive runtime complete
 
-Mission Control now supports persisted display controls for:
+Mission Control now provides:
 
-- Adaptive prioritisation on or off
+- Deterministic adaptive widget ordering and temporary enlargement
+- Preserved user-owned widget order, visibility, and sizes
+- Critical-event wake state with temporary visual escalation
+- Persisted **Balanced**, **Operations**, and **Compact** display profiles
 - Optional clock seconds
+- Runtime diagnostics showing event count, latest event type, and refresh latency
+- User control to disable adaptive prioritisation
 
-Adaptive mode applies a transient deterministic priority layer over the saved layout:
+Critical wake and adaptive presentation never overwrite the saved workspace. Profiles only change display density and presentation. These rules are documented in ADRs 008 and 009.
 
-- Siris Score and briefing remain prominent
-- Warning and critical module widgets move forward
-- Attention-worthy widgets may temporarily expand
-- The user's stored widget order and sizes are never overwritten
-- Disabling adaptive mode immediately restores the saved presentation
+### Next: 0.4.2c — Focus and ambient modes
 
-This rule is documented in `docs/adr/008-adaptive-mission-control-layout.md`.
-
-Next within Sprint 0.4.2:
-
-- Add critical-event wake behaviour
-- Add Mission Control-specific display profile persistence
-- Add event diagnostics and refresh latency visibility
-- Add Focus Modes for Work, Home, Fitness, and Travel
-- Add ambient mode and second-monitor refinements
-- Complete the SirisOS design system and visual polish
+- Focus modes for Work, Home, Fitness, and Travel
+- Ambient mode after inactivity
+- Critical-event wake from ambient mode
+- Reduced-motion and burn-in-conscious display behaviour
+- Second-monitor and wall-display refinement
 
 ## Current application capabilities
 
 - Responsive Flutter web application with persisted authentication
-- FastAPI backend and PostgreSQL
-- Docker Compose deployment
+- FastAPI backend, PostgreSQL, and Docker Compose deployment
 - Restricted Docker socket proxy
 - Running logging and trends
 - Gym workouts, templates, progress, and personal records
@@ -112,8 +86,7 @@ Next within Sprint 0.4.2:
 - Host metrics, history, alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
 - Global search
-- Configurable Mission Control workspace
-- Dedicated `/mission` Situation Room with adaptive prioritisation
+- Configurable workspace and dedicated adaptive `/mission` Situation Room
 
 ## Long-term pillars
 
