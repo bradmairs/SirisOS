@@ -3,11 +3,12 @@ import os
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.grafana_service import GrafanaService
 from app.services.storage_service import StorageService
+from app.services.time_series_history_service import history_service
 from app.services.unifi_service import UniFiService
 from app.services.ups_service import UpsService
 
@@ -127,6 +128,54 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
         raise HTTPException(status_code=401, detail="Invalid session user.")
 
 
+def _record_storage_history(snapshot: object) -> None:
+    if not getattr(snapshot, "available", False):
+        return
+    history_service.record_if_due(
+        source="storage",
+        metric="highest_used_percent",
+        numeric_value=getattr(snapshot, "highest_used_percent", None),
+        minimum_interval_seconds=300,
+    )
+    for volume in getattr(snapshot, "volumes", []):
+        history_service.record_if_due(
+            source="storage",
+            metric="volume_used_percent",
+            numeric_value=volume.used_percent,
+            dimensions={"mountpoint": volume.mountpoint, "device": volume.device},
+            minimum_interval_seconds=300,
+        )
+
+
+def _record_ups_history(snapshot: object) -> None:
+    if not getattr(snapshot, "available", False):
+        return
+    dimensions = {"ups": getattr(snapshot, "ups_name", None) or "default"}
+    for metric, value in (
+        ("battery_charge_percent", getattr(snapshot, "battery_charge_percent", None)),
+        ("battery_runtime_seconds", getattr(snapshot, "battery_runtime_seconds", None)),
+        ("load_percent", getattr(snapshot, "load_percent", None)),
+        ("input_voltage", getattr(snapshot, "input_voltage", None)),
+        ("output_voltage", getattr(snapshot, "output_voltage", None)),
+        ("on_battery", 1 if getattr(snapshot, "on_battery", False) else 0),
+        ("low_battery", 1 if getattr(snapshot, "low_battery", False) else 0),
+    ):
+        history_service.record_if_due(
+            source="ups",
+            metric=metric,
+            numeric_value=value,
+            dimensions=dimensions,
+            minimum_interval_seconds=60,
+        )
+    history_service.record_if_due(
+        source="ups",
+        metric="status",
+        text_value=getattr(snapshot, "status", None),
+        dimensions=dimensions,
+        minimum_interval_seconds=60,
+    )
+
+
 @router.get("/grafana", response_model=GrafanaSnapshotResponse)
 async def grafana_snapshot(
     authorization: Annotated[str | None, Header()] = None,
@@ -225,10 +274,12 @@ async def unifi_snapshot(
 
 @router.get("/storage", response_model=StorageSnapshotResponse)
 async def storage_snapshot(
+    background_tasks: BackgroundTasks,
     authorization: Annotated[str | None, Header()] = None,
 ) -> StorageSnapshotResponse:
     _authenticate(authorization)
     snapshot = storage_service.snapshot()
+    background_tasks.add_task(_record_storage_history, snapshot)
     return StorageSnapshotResponse(
         available=snapshot.available,
         volumes=[StorageVolumeResponse(**item.__dict__) for item in snapshot.volumes],
@@ -243,8 +294,10 @@ async def storage_snapshot(
 
 @router.get("/ups", response_model=UpsSnapshotResponse)
 async def ups_snapshot(
+    background_tasks: BackgroundTasks,
     authorization: Annotated[str | None, Header()] = None,
 ) -> UpsSnapshotResponse:
     _authenticate(authorization)
     snapshot = await ups_service.snapshot()
+    background_tasks.add_task(_record_ups_history, snapshot)
     return UpsSnapshotResponse(**snapshot.__dict__)
