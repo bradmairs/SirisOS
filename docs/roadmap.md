@@ -145,10 +145,21 @@ The Home Assistant token remains inside the API container. SirisOS subscribes to
 ### 0.4.3e — Broader infrastructure integrations
 
 - [x] Existing Plex and Ollama diagnostics
-- [ ] Prometheus and Grafana integrations
-- [ ] UniFi, Proxmox, NAS, backup, and UPS integrations
+- [x] Optional Prometheus connector through the Integration Framework
+- [x] Authenticated Prometheus target-health endpoint backed by the standard `up` metric
+- [x] Authenticated instant PromQL query endpoint
+- [x] Fifteen-second backend snapshot cache and connector refresh cadence
+- [x] Prometheus availability and down-target Notification Policies
+- [x] Registered `homelab.prometheus` Mission Control widget using the shared design system
+- [x] Prometheus architecture documented in ADR 017
+- [ ] Grafana dashboard discovery and launch integration
+- [ ] Grafana panel/dashboard rendering where practical
+- [ ] UniFi integration
+- [ ] Proxmox integration
+- [ ] NAS and backup integrations
+- [ ] UPS integration
 
-The Integration Framework is also the intended foundation for the later Obsidian/Selkies Knowledge connector and other external systems.
+Prometheus remains optional: if `PROMETHEUS_URL` is empty, the connector reports disabled and produces no alert noise. The Integration Framework is also the intended foundation for the later Obsidian/Selkies Knowledge connector and other external systems.
 
 ## Sprint 0.4.4 — Engineering Module
 
