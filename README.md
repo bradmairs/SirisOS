@@ -124,6 +124,23 @@ SirisOS now has a connector-neutral persistent history layer for low-frequency o
 
 This engine is intentionally for low-frequency SirisOS operational history. Prometheus remains the high-frequency metrics system. Existing dedicated host/Docker history will be bridged into the generic contract in a later slice rather than replaced speculatively.
 
+### 0.4.3h — Backup protection analytics complete
+
+SirisOS now turns observed Hyper Backup completions into deterministic protection analytics rather than estimating success from polling state.
+
+- Each distinct Hyper Backup completion is stored once as `synology_backup/completion`
+- Repeated DSM polling is deduplicated through change-based persistence
+- Completion records retain finish timestamp, reported result and destination context
+- Authenticated `/api/v1/history/backup-protection` endpoint calculates rolling 1–90 day summaries
+- Default Operations Center view uses a 30-day window
+- Overall completion, success, failure and success-rate metrics
+- Per-task completion/success/failure/success-rate metrics
+- Last completion and last failure timestamps retained in the summary model
+- Cached and repaint-isolated Backup Protection panel in Operations Center
+- Architecture documented in ADR 025
+
+The analytics only claim runs SirisOS has actually observed. A newly deployed installation starts building trustworthy history from the latest completion DSM exposes and future completions; it does not invent older backup runs. Schedule-aware overdue detection and duration analytics remain follow-on work until those data are reliable.
+
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
@@ -139,12 +156,13 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - UniFi controller/device/AP/client/WAN overview and policies
 - Host storage capacity monitoring and Synology DSM NAS monitoring
 - Synology Hyper Backup task/result monitoring and Mission Control backup status
+- 30-day Hyper Backup protection analytics in Operations Center
 - NUT UPS monitoring for power state, battery, runtime and load
 - Generic persistent operational time-series history API/client
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
-- `/operations` Operations Center with incidents, integration health and operational attention queue
+- `/operations` Operations Center with incidents, integration health, operational attention queue and backup protection history
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -172,6 +190,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 12. UI widgets must not initiate fresh network requests from `build()`; cache futures/state at widget or connector level.
 13. Mission Control is ambient status; Operations Center is focused operational work.
 14. Low-frequency historical observations use the generic History Engine; high-frequency telemetry belongs in Prometheus.
+15. Historical analytics must be derived from observed events/samples, never inferred from polling frequency when the source data cannot support that claim.
 
 ## Local endpoints
 
@@ -183,6 +202,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - API: `http://192.168.0.100:8000`
 - API docs: `http://192.168.0.100:8000/docs`
 - Generic history API: `http://192.168.0.100:8000/api/v1/history`
+- Backup protection API: `http://192.168.0.100:8000/api/v1/history/backup-protection`
 
 Useful commands:
 
