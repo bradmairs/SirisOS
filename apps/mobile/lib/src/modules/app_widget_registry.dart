@@ -66,8 +66,10 @@ class AppWidgetRegistry {
         defaultSize: MissionControlWidgetSize.standard,
       );
 
-  static Widget build(String id, MissionControlWidgetContext context) =>
-      find(id)?.builder(context) ?? const SizedBox.shrink();
+  static Widget build(String id, MissionControlWidgetContext context) {
+    final child = find(id)?.builder(context) ?? const SizedBox.shrink();
+    return RepaintBoundary(child: child);
+  }
 
   static String canonicalIdFor(String id) => _legacyIds[id] ?? id;
 
