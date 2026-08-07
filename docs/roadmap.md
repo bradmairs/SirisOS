@@ -146,12 +146,28 @@ UPS / power:
 - [x] No independent polling/backend aggregation layer
 - [x] ADR 023
 
+### 0.4.3g — Generic Time-Series / History Engine ✅ Foundation complete
+
+- [x] Generic PostgreSQL `time_series_observations` store
+- [x] Source + metric + canonical-dimensions series identity
+- [x] Numeric and short text observations
+- [x] Central minimum-sample interval and 90-day default retention
+- [x] Authenticated bounded `GET /api/v1/history` query API
+- [x] Shared Flutter `HistoryService` and observation model
+- [x] Host storage peak/volume utilisation producers
+- [x] Synology volume utilisation producers
+- [x] Hyper Backup failed/running task state producers
+- [x] UPS battery charge/runtime/load/voltage/power-state producers
+- [x] ADR 024
+- [ ] Migrate/bridge existing dedicated host/Docker history into the generic history contract
+- [ ] Add UniFi client/outage history producers
+- [ ] Add trend widgets and Operations Center historical context
+
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ### Homelab / Operations follow-on backlog
 
-- [ ] Generic Time-Series / History Engine for connector observations
-- [ ] Persist backup observations and build 30-day protection analytics
+- [ ] Build 30-day backup protection analytics from persisted observations
 - [ ] Incident Engine to correlate related policy outcomes into one incident
 - [ ] Dependency / Digital Twin graph for downstream impact analysis
 - [ ] Recommended operational actions and maintenance queue
