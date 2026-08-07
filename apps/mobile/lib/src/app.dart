@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'connectors/docker_connector.dart';
 import 'connectors/home_assistant_connector.dart';
+import 'connectors/prometheus_connector.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
 import 'screens/home_assistant_screen.dart';
@@ -43,7 +44,11 @@ class _SirisOsAppState extends State<SirisOsApp> {
   }
 
   Future<void> _startIntegrations() async {
-    for (final connector in [DockerConnector(), HomeAssistantConnector()]) {
+    for (final connector in [
+      DockerConnector(),
+      HomeAssistantConnector(),
+      PrometheusConnector(),
+    ]) {
       try {
         await SirisIntegrationManager.instance.register(connector);
       } catch (_) {
