@@ -78,13 +78,7 @@ class SirisIntegrationManager {
         ),
       );
       await refresh(connector.id);
-      SirisScheduler.instance.register(
-        SirisScheduledJob(
-          id: _jobId(connector.id),
-          interval: connector.refreshInterval,
-          run: () => refresh(connector.id),
-        ),
-      );
+      _registerRefreshJob(connector);
     } on SirisConnectorDisabledException catch (error) {
       _setHealth(
         connector.id,
@@ -96,6 +90,7 @@ class SirisIntegrationManager {
       );
     } catch (error) {
       _recordFailure(connector.id, error);
+      _registerRefreshJob(connector);
     }
   }
 
@@ -158,6 +153,16 @@ class SirisIntegrationManager {
     for (final id in ids) {
       await unregister(id);
     }
+  }
+
+  void _registerRefreshJob(SirisConnector connector) {
+    SirisScheduler.instance.register(
+      SirisScheduledJob(
+        id: _jobId(connector.id),
+        interval: connector.refreshInterval,
+        run: () => refresh(connector.id),
+      ),
+    );
   }
 
   void _recordFailure(
