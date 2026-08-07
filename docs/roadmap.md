@@ -74,15 +74,50 @@ Existing specialised widgets may migrate incrementally as they are touched; new 
 
 ## Sprint 0.4.3 — Live Homelab
 
-- [x] Live containers, CPU/RAM, state, health, logs, and actions
+### 0.4.3a — Integration Framework ✅ Complete
+
+- [x] Reusable `SirisConnector` contract
+- [x] Shared connector health/state model
+- [x] Central `SirisIntegrationManager`
+- [x] Connector lifecycle: register, connect, refresh, disconnect, unregister
+- [x] Scheduler-backed per-connector refresh intervals with overlap protection inherited from SirisScheduler
+- [x] Typed integration health and refresh events on the Siris Event Bus
+- [x] Deterministic degraded/failed health transitions after repeated refresh failures
+- [x] Non-secret connector configuration contract with opaque credential references
+- [x] Credential values explicitly excluded from Flutter client persistence
+- [x] Integration Framework architecture documented in ADR 012
+
+### 0.4.3b — Docker Connector
+
+- [x] Existing live containers, CPU/RAM, state, health, logs, and actions
 - [x] Host metrics and history
 - [x] Alerts and action audit history
-- [x] Home Assistant, Plex, and Ollama diagnostics
+- [ ] Migrate Docker integration behind the SirisConnector contract
 - [ ] Container image update availability
-- [ ] Broader notification policies
+- [ ] Docker event-stream publishing through the Integration Manager
+
+### 0.4.3c — Notification Policies
+
+- [ ] Reusable integration notification policy model
+- [ ] Duration/threshold-based policies (for example unhealthy for five minutes)
+- [ ] Severity escalation and deduplication
+- [ ] Mission Control wake integration
+- [ ] Briefing and Siris Score policy hooks
+
+### 0.4.3d — Home Assistant Connector
+
+- [x] Existing Home Assistant diagnostics
+- [ ] Migrate Home Assistant behind the SirisConnector contract
+- [ ] WebSocket/event subscription support
+- [ ] Expanded Home Assistant entities, states, and actions
+
+### 0.4.3e — Broader infrastructure integrations
+
+- [x] Existing Plex and Ollama diagnostics
 - [ ] Prometheus and Grafana integrations
-- [ ] Expanded Home Assistant integration
 - [ ] UniFi, Proxmox, NAS, backup, and UPS integrations
+
+The Integration Framework is also the intended foundation for the later Obsidian/Selkies Knowledge connector and other external systems.
 
 ## Sprint 0.4.4 — Engineering Module
 
@@ -101,6 +136,7 @@ Existing specialised widgets may migrate incrementally as they are touched; new 
 Integrate the server-hosted Obsidian instance running through Selkies as the Knowledge pillar.
 
 - [ ] Obsidian/Selkies launch integration
+- [ ] Obsidian connector implemented through the Integration Framework
 - [ ] Vault browser
 - [ ] Recent notes and Daily Notes widgets
 - [ ] Global SirisOS search across vault content
