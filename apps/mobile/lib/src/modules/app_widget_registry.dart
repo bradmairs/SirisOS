@@ -149,7 +149,7 @@ class AppWidgetRegistry {
       definition: const MissionControlWidgetDefinition(
         id: 'homelab.storage', moduleId: 'homelab', label: 'Storage',
         description: 'Host filesystem capacity and low-space monitoring.',
-        icon: Icons.hard_drive_rounded, defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.storage_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const StoragePanel(),
     ),
