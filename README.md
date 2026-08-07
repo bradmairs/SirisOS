@@ -125,16 +125,31 @@ SirisCore now has a deterministic policy engine for integration conditions:
 
 Notification policy architecture is documented in ADR 014. Active policy state is currently in-memory; persisted history and user-editable policy configuration remain later enhancements.
 
-### Next: 0.4.3d — Home Assistant Connector
+### 0.4.3d — Home Assistant Connector foundation
+
+Home Assistant is now the second integration running through the shared framework:
+
+- `HomeAssistantConnector` lifecycle owned by `SirisIntegrationManager`
+- Home Assistant URL/token remain in backend environment configuration and never reach Flutter
+- Authenticated backend state snapshot endpoint
+- Authenticated backend service-action endpoint
+- Scheduled 30-second connector refreshes
+- Deterministic snapshot comparison publishes Homelab events only when entity/state availability changes
+- Home Assistant unavailability policy: warning after 2 minutes, critical after 10 minutes
+- Multiple unavailable/unknown entities policy: warning after 2 minutes
+- Connector startup remains asynchronous so Home Assistant can never block login or the dashboard
+
+This first slice deliberately uses bounded REST snapshots through the SirisOS backend. Direct Home Assistant WebSocket streaming and a dedicated entity browser/richer entity controls remain follow-on work; the SirisCore connector/event contract does not depend on transport choice.
+
+### Next: finish 0.4.3d and continue 0.4.3e
 
 Next work:
 
-- Migrate Home Assistant behind the `SirisConnector` contract
-- Add event subscription/WebSocket support where practical
-- Expand entity/state visibility and safe actions
-- Reuse Notification Policies for Home Assistant conditions rather than adding bespoke alert logic
+- Add direct Home Assistant WebSocket event subscription where practical
+- Add a dedicated Home Assistant entity browser and richer safe controls
+- Then expand Live Homelab with Prometheus/Grafana, UniFi, Proxmox, NAS, backups, and UPS
 
-After that, Live Homelab continues with broader infrastructure integrations such as Prometheus/Grafana, UniFi, Proxmox, NAS, backups, and UPS. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
+The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
 
@@ -146,6 +161,7 @@ After that, Live Homelab continues with broader infrastructure integrations such
 - Health Auto Export MCP integration scaffold
 - Live Docker monitoring and container actions
 - Docker connector lifecycle, scheduled state-change detection, and image update availability
+- Home Assistant connector lifecycle, state snapshots, state-change events, and safe backend service actions
 - Deterministic duration/escalation Notification Policy engine
 - Host metrics, history, alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
@@ -175,6 +191,7 @@ After that, Live Homelab continues with broader infrastructure integrations such
 8. Prefer shared Siris design components over new parallel card/status/metric implementations.
 9. New external-system integrations should implement the Integration Framework rather than inventing bespoke lifecycle/polling code.
 10. Integration alert behaviour should use Notification Policies rather than emitting repeated notifications directly from connector refresh loops.
+11. External integration startup and enrichment must never block authentication or core dashboard rendering.
 
 ## Local endpoints
 
