@@ -13,6 +13,7 @@ import '../widgets/siris_score_panel.dart';
 import '../widgets/storage_panel.dart';
 import '../widgets/synology_panel.dart';
 import '../widgets/unifi_panel.dart';
+import '../widgets/ups_panel.dart';
 
 class MissionControlWidgetContext {
   const MissionControlWidgetContext({required this.dashboard, required this.greeting});
@@ -85,12 +86,9 @@ class AppWidgetRegistry {
   static final _sirisWidgets = <RegisteredMissionControlWidget>[
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'siris.briefing',
-        moduleId: 'siris',
-        label: 'Siris briefing',
+        id: 'siris.briefing', moduleId: 'siris', label: 'Siris briefing',
         description: 'A concise summary of what needs your attention.',
-        icon: Icons.auto_awesome_rounded,
-        defaultSize: MissionControlWidgetSize.wide,
+        icon: Icons.auto_awesome_rounded, defaultSize: MissionControlWidgetSize.wide,
       ),
       builder: (context) => DashboardHero(
         greeting: context.greeting,
@@ -101,12 +99,9 @@ class AppWidgetRegistry {
     ),
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'siris.score',
-        moduleId: 'siris',
-        label: 'Siris Score',
+        id: 'siris.score', moduleId: 'siris', label: 'Siris Score',
         description: 'An explainable daily score across your active domains.',
-        icon: Icons.insights_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.insights_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (context) => SirisScorePanel(dashboard: context.dashboard),
     ),
@@ -171,6 +166,14 @@ class AppWidgetRegistry {
         icon: Icons.backup_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const HyperBackupPanel(),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.ups', moduleId: 'homelab', label: 'UPS',
+        description: 'UPS line state, battery, runtime and load through Network UPS Tools.',
+        icon: Icons.battery_charging_full_rounded, defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const UpsPanel(),
     ),
   ];
 
