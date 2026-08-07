@@ -1,4 +1,5 @@
 import '../models/dashboard_summary.dart';
+import 'notification_policy.dart';
 
 enum SirisScoreDomain { health, running, gym, homelab, system }
 
@@ -35,12 +36,15 @@ class DeterministicSirisScore {
 
   SirisScoreResult calculate(DashboardSummary dashboard) {
     final contributions = <SirisScoreContribution>[
-      _statusContribution(
-        domain: SirisScoreDomain.homelab,
-        status: dashboard.homelab.status,
-        weight: 0.25,
-        healthy: 'Homelab health supports the score.',
-        warning: 'Homelab warnings reduce the score.',
+      _policyAdjustedContribution(
+        _statusContribution(
+          domain: SirisScoreDomain.homelab,
+          status: dashboard.homelab.status,
+          weight: 0.25,
+          healthy: 'Homelab health supports the score.',
+          warning: 'Homelab warnings reduce the score.',
+        ),
+        moduleId: 'homelab',
       ),
       _statusContribution(
         domain: SirisScoreDomain.system,
@@ -80,6 +84,29 @@ class DeterministicSirisScore {
     return SirisScoreResult(
       score: score.clamp(0, 100).toInt(),
       contributions: contributions,
+    );
+  }
+
+  SirisScoreContribution _policyAdjustedContribution(
+    SirisScoreContribution contribution, {
+    required String moduleId,
+  }) {
+    final outcomes = NotificationPolicyEngine.instance.activeForModule(moduleId);
+    if (outcomes.isEmpty) return contribution;
+
+    final penalty = outcomes.fold<int>(
+      0,
+      (total, outcome) => total + outcome.rule.scorePenalty,
+    );
+    final mostSevere = outcomes.reduce(
+      (a, b) => a.severity.index >= b.severity.index ? a : b,
+    );
+    return SirisScoreContribution(
+      domain: contribution.domain,
+      score: (contribution.score - penalty).clamp(0, 100).toInt(),
+      weight: contribution.weight,
+      explanation:
+          '${mostSevere.rule.title} is active and reduces the ${moduleId == 'homelab' ? 'Homelab' : moduleId} contribution.',
     );
   }
 
