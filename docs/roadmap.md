@@ -67,7 +67,7 @@
 - [x] Allow-listed light/switch/input-boolean/cover controls
 - [x] ADRs 015–016
 
-### 0.4.3e — Broader infrastructure integrations
+### 0.4.3e — Broader infrastructure integrations ✅ Complete
 
 Prometheus:
 - [x] Optional Prometheus connector
@@ -122,10 +122,27 @@ Storage and Synology NAS:
 - [ ] Persist backup observations for 30-day success rate, duration trends and failure history
 - [ ] Optional schedule-aware staleness policy after persistent history exists
 
-Remaining 0.4.3e:
-- [ ] UPS integration
+UPS / power:
+- [x] Vendor-neutral Network UPS Tools (NUT) backend client
+- [x] Optional `NUT_HOST`, port and UPS selector; blank host disables quietly
+- [x] Auto-discover first UPS when no explicit UPS name is configured
+- [x] Read line/battery state, battery charge, estimated runtime, load and voltages when available
+- [x] `UpsConnector` through the Integration Framework with 15-second refresh
+- [x] Immediate on-battery warning policy
+- [x] Immediate low-battery critical policy
+- [x] NUT availability escalation policy
+- [x] Standard Homelab events on meaningful UPS state changes
+- [x] Registered `homelab.ups` Mission Control widget
+- [x] ADR 022
 
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
+
+### Homelab follow-on backlog
+
+- [ ] Persist backup observations and build 30-day protection analytics
+- [ ] Safe UPS power-event automation and graceful shutdown orchestration
+- [ ] Operations Center for incidents, integrations, updates, backups and maintenance actions
+- [ ] Further Flutter web performance work: isolate Mission Control clock state and throttle pointer-hover activity
 
 ## Sprint 0.4.4 — Engineering Module
 
