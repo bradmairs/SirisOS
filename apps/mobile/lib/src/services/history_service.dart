@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/backup_protection.dart';
 import '../models/time_series_observation.dart';
 import 'auth_service.dart';
 
@@ -49,6 +50,27 @@ class HistoryService {
         .whereType<Map<String, dynamic>>()
         .map(TimeSeriesObservation.fromJson)
         .toList(growable: false);
+  }
+
+  Future<BackupProtectionSummary> fetchBackupProtection({int days = 30}) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/history/backup-protection')
+        .replace(queryParameters: {'days': '$days'});
+    final response = await _client
+        .get(uri, headers: AuthService.authorizationHeaders)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 401) {
+      throw const HistoryServiceException('Your session has expired.');
+    }
+    if (response.statusCode != 200) {
+      throw HistoryServiceException(
+        'Backup analytics request failed with status ${response.statusCode}.',
+      );
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const HistoryServiceException('Invalid backup analytics response.');
+    }
+    return BackupProtectionSummary.fromJson(decoded);
   }
 }
 
