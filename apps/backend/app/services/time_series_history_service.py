@@ -170,3 +170,4 @@ class TimeSeriesHistoryService:
 
 
 history_service = TimeSeriesHistoryService()
+history_service.initialise()
