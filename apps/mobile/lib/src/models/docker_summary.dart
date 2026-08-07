@@ -10,6 +10,8 @@ class DockerContainerInfo {
     required this.memoryUsageBytes,
     required this.memoryLimitBytes,
     required this.memoryPercent,
+    required this.updateAvailable,
+    required this.updateCheckError,
   });
 
   factory DockerContainerInfo.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,8 @@ class DockerContainerInfo {
       memoryUsageBytes: json['memory_usage_bytes'] as int?,
       memoryLimitBytes: json['memory_limit_bytes'] as int?,
       memoryPercent: (json['memory_percent'] as num?)?.toDouble(),
+      updateAvailable: json['update_available'] as bool? ?? false,
+      updateCheckError: json['update_check_error'] as String?,
     );
   }
 
@@ -37,6 +41,8 @@ class DockerContainerInfo {
   final int? memoryUsageBytes;
   final int? memoryLimitBytes;
   final double? memoryPercent;
+  final bool updateAvailable;
+  final String? updateCheckError;
 
   bool get isRunning => state.toLowerCase() == 'running';
   bool get isUnhealthy => health?.toLowerCase() == 'unhealthy';
@@ -69,6 +75,7 @@ class DockerSummary {
     required this.running,
     required this.stopped,
     required this.unhealthy,
+    required this.updatesAvailable,
     required this.containers,
     required this.error,
   });
@@ -88,6 +95,8 @@ class DockerSummary {
       running: json['running'] as int? ?? 0,
       stopped: json['stopped'] as int? ?? 0,
       unhealthy: json['unhealthy'] as int? ?? 0,
+      updatesAvailable: json['updates_available'] as int? ??
+          containers.where((item) => item.updateAvailable).length,
       containers: containers,
       error: json['error'] as String?,
     );
@@ -98,6 +107,7 @@ class DockerSummary {
   final int running;
   final int stopped;
   final int unhealthy;
+  final int updatesAvailable;
   final List<DockerContainerInfo> containers;
   final String? error;
 }
