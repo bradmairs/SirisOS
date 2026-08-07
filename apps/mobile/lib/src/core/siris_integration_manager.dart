@@ -85,6 +85,15 @@ class SirisIntegrationManager {
           run: () => refresh(connector.id),
         ),
       );
+    } on SirisConnectorDisabledException catch (error) {
+      _setHealth(
+        connector.id,
+        SirisConnectorHealth(
+          state: SirisConnectorState.disabled,
+          message: error.message,
+          lastAttemptAt: DateTime.now(),
+        ),
+      );
     } catch (error) {
       _recordFailure(connector.id, error);
     }
@@ -95,6 +104,7 @@ class SirisIntegrationManager {
     if (connector == null || !connector.enabled) return;
 
     final previous = _health[connectorId];
+    if (previous?.state == SirisConnectorState.disabled) return;
     final attemptAt = DateTime.now();
     final stopwatch = Stopwatch()..start();
 
@@ -114,6 +124,18 @@ class SirisIntegrationManager {
         IntegrationRefreshed(
           connectorId: connectorId,
           duration: stopwatch.elapsed,
+        ),
+      );
+    } on SirisConnectorDisabledException catch (error) {
+      stopwatch.stop();
+      SirisScheduler.instance.unregister(_jobId(connectorId));
+      _setHealth(
+        connectorId,
+        SirisConnectorHealth(
+          state: SirisConnectorState.disabled,
+          message: error.message,
+          lastAttemptAt: attemptAt,
+          lastSuccessAt: previous?.lastSuccessAt,
         ),
       );
     } catch (error) {
