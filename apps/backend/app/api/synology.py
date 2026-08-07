@@ -29,6 +29,18 @@ class SynologyDiskResponse(BaseModel):
     temperature_c: float | None
 
 
+class HyperBackupTaskResponse(BaseModel):
+    task_id: str
+    name: str
+    state: str
+    last_result: str | None
+    last_finish_at: str | None
+    next_run_at: str | None
+    destination: str | None
+    running: bool
+    failed: bool
+
+
 class SynologySnapshotResponse(BaseModel):
     configured: bool
     available: bool
@@ -40,6 +52,10 @@ class SynologySnapshotResponse(BaseModel):
     unhealthy_disks: int
     highest_used_percent: float | None
     backup_api_available: bool
+    backup_tasks: list[HyperBackupTaskResponse]
+    running_backup_tasks: int
+    failed_backup_tasks: int
+    latest_backup_finish_at: str | None
     generated_at: str
     error: str | None = None
 
@@ -77,6 +93,10 @@ async def synology_snapshot(
         unhealthy_disks=snapshot.unhealthy_disks,
         highest_used_percent=snapshot.highest_used_percent,
         backup_api_available=snapshot.backup_api_available,
+        backup_tasks=[HyperBackupTaskResponse(**item.__dict__) for item in snapshot.backup_tasks],
+        running_backup_tasks=snapshot.running_backup_tasks,
+        failed_backup_tasks=snapshot.failed_backup_tasks,
+        latest_backup_finish_at=snapshot.latest_backup_finish_at,
         generated_at=snapshot.generated_at,
         error=snapshot.error,
     )
