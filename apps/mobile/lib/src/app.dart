@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'connectors/docker_connector.dart';
+import 'connectors/home_assistant_connector.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
 import 'screens/login_screen.dart';
@@ -41,11 +42,13 @@ class _SirisOsAppState extends State<SirisOsApp> {
   }
 
   Future<void> _startIntegrations() async {
-    try {
-      await SirisIntegrationManager.instance.register(DockerConnector());
-    } catch (_) {
-      // Integration health is tracked by SirisIntegrationManager. A slow or
-      // unavailable external integration must never block the core app shell.
+    for (final connector in [DockerConnector(), HomeAssistantConnector()]) {
+      try {
+        await SirisIntegrationManager.instance.register(connector);
+      } catch (_) {
+        // Integration health is tracked by SirisIntegrationManager. A slow or
+        // unavailable external integration must never block the core app shell.
+      }
     }
   }
 
