@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/core/incident_engine.dart';
-import 'package:sirisos/src/core/notification_policy.dart';
-import 'package:sirisos/src/core/siris_connector.dart';
+import 'package:siris_os/src/core/incident_engine.dart';
+import 'package:siris_os/src/core/notification_policy.dart';
 
 NotificationPolicyOutcome outcome(
   String id, {
