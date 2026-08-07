@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/core/dependency_graph.dart';
+import 'package:siris_os/src/core/dependency_graph.dart';
 
 void main() {
   final graph = DependencyGraph.instance;
