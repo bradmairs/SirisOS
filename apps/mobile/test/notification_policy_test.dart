@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/core/notification_policy.dart';
+import 'package:siris_os/src/core/notification_policy.dart';
 
 void main() {
   final engine = NotificationPolicyEngine.instance;
