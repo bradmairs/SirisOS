@@ -6,6 +6,7 @@ import 'connectors/docker_connector.dart';
 import 'connectors/grafana_connector.dart';
 import 'connectors/home_assistant_connector.dart';
 import 'connectors/prometheus_connector.dart';
+import 'connectors/unifi_connector.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
 import 'screens/grafana_screen.dart';
@@ -51,6 +52,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
       HomeAssistantConnector(),
       PrometheusConnector(),
       GrafanaConnector(),
+      UniFiConnector(),
     ]) {
       try {
         await SirisIntegrationManager.instance.register(connector);

@@ -12,108 +12,101 @@ This README is the authoritative project handover. `docs/roadmap.md` is the impl
 
 ## Product architecture
 
-SirisOS is a modular platform built around **SirisCore** and the **Mission Control** experience. Modules register identity, capabilities, screens, quick actions, widgets, notifications, briefing observations, search providers, and AI context.
-
-Core principles:
-
-- One source of truth
-- Event-driven updates
-- Deterministic and explainable intelligence
-- Context over raw data
-- Reusable platform services instead of isolated pages
-- `main` remains deployable
+SirisOS is a modular platform built around **SirisCore** and the **Mission Control** experience. Core principles are one source of truth, event-driven updates, deterministic/explainable intelligence, context over raw data, reusable platform services, server-side external credentials, and a deployable `main` branch.
 
 ## Standard deployment workflow
-
-Completed work is merged into `main` and deployed with:
 
 ```bash
 git pull
 make up
 ```
 
-`make up` creates missing local configuration and data directories, rebuilds the Docker images, and starts the stack.
+`make up` creates missing local configuration/data directories, rebuilds the Docker images, and starts the stack.
 
 ## Sprint 0.4.1 — SirisCore complete
 
-SirisCore includes the typed Event Bus, Module and Widget Registries, deterministic Briefing Engine and Siris Score, Scheduler, AI Context Service, persisted settings, and event-driven Notification Centre. Significant decisions are recorded under `docs/adr/`.
+Typed Event Bus, Module/Widget Registries, deterministic Briefing Engine and Siris Score, Scheduler, AI Context Service, persisted settings, and event-driven Notification Centre. ADRs under `docs/adr/` record significant decisions.
 
 ## Sprint 0.4.2 — Mission Control complete
 
-The authenticated `/mission` Situation Room provides a navigation-free full-screen shell, live clock/date, shared Widget Registry grid, Siris Score, deterministic briefing, activity timeline, event-driven refresh, adaptive priority, critical wake, display profiles, Focus Modes, ambient mode, reduced-motion behaviour, diagnostics, and the shared red/black SirisOS design system.
+The authenticated `/mission` Situation Room provides the navigation-free full-screen shell, shared Widget Registry grid, Siris Score, briefing, activity timeline, event-driven refresh, adaptive priority, critical wake, profiles, Focus Modes, ambient mode, reduced-motion behaviour, diagnostics, and shared red/black SirisOS design system.
 
 ## Active milestone — Sprint 0.4.3 Live Homelab
 
 ### 0.4.3a — Integration Framework complete
 
-External systems use the reusable `SirisConnector` contract, shared connector health states, `SirisIntegrationManager`, Scheduler-backed refreshes, typed integration events, failure recovery, and server-side credential boundaries. ADR 012 documents the framework.
+External systems use `SirisConnector`, shared health states, `SirisIntegrationManager`, Scheduler-backed refresh, typed events, failure recovery, disabled/unconfigured state, and server-side credential boundaries. ADR 012.
 
 ### 0.4.3b — Docker Connector complete
 
-Docker runs through the Integration Framework with container state, CPU/RAM, health, logs, actions, host metrics/history, image-update availability, action audit history, meaningful state-change events, and non-fatal registry diagnostics. ADR 013 records the design.
+Docker monitoring/actions, host metrics/history, logs, image-update availability, audit history, meaningful state events, and non-fatal registry diagnostics run through the Integration Framework. ADR 013.
 
 ### 0.4.3c — Notification Policies complete
 
-SirisCore has deterministic duration-based policy activation, escalation, stable-ID deduplication, explicit resolution, Mission Control wake integration, Briefing output, and explainable Siris Score penalties. Docker and later connectors consume the same policy engine. ADR 014 documents the contract.
+Deterministic duration-based activation, escalation, stable-ID deduplication, explicit resolution, Mission Control wake, Briefing output, and Siris Score penalties. ADR 014.
 
 ### 0.4.3d — Home Assistant Connector complete
 
-Home Assistant runs through `SirisIntegrationManager`. Its token remains server-side; the backend maintains live entity state through `/api/websocket` `state_changed` events with REST fallback. SirisOS provides an authenticated entity browser, search/domain filters, and allow-listed controls for lights, switches, input booleans, and covers. ADRs 015–016 document the architecture.
+Server-side HA credentials, live `/api/websocket` `state_changed` cache with REST fallback, authenticated entity browser, search/domain filters, safe allow-listed controls, and HA policies. ADRs 015–016.
 
 ### 0.4.3e — Broader infrastructure integrations in progress
 
-Prometheus is the first broader observability integration:
+Prometheus:
 
-- Optional `PrometheusConnector`; an empty `PROMETHEUS_URL` cleanly disables it
-- Backend-only Prometheus endpoint configuration
-- Authenticated target-health snapshot derived from the standard `up` metric
-- Authenticated instant PromQL query endpoint for future SirisOS observability features
-- Fifteen-second backend cache to prevent duplicate requests from widgets/connectors
-- Fifteen-second Siris connector refreshes with meaningful Homelab events
-- Notification Policies for Prometheus unavailability and scrape targets remaining down
-- Registered `homelab.prometheus` Mission Control widget using shared Siris design primitives
-- Prometheus diagnostics included in the existing integration status endpoint
-- Architecture documented in ADR 017
+- Optional connector; blank `PROMETHEUS_URL` disables it quietly
+- Authenticated target-health snapshot from `up`
+- Authenticated instant PromQL query endpoint
+- 15-second backend cache and connector refresh
+- Availability/down-target Notification Policies
+- `homelab.prometheus` Mission Control widget
+- ADR 017
 
-Grafana is now paired with Prometheus through the same integration framework:
+Grafana:
 
-- Optional `GrafanaConnector`; missing `GRAFANA_URL`/`GRAFANA_TOKEN` cleanly disables it
-- Service-account token remains backend-side and is never exposed to Flutter
-- Authenticated health/version and dashboard discovery through the SirisOS API
-- Dashboard discovery prefers Grafana 12+ dashboard APIs and falls back to the still-operative legacy search endpoint for older installs
-- Authenticated `/grafana` browser with dashboard, folder and tag search
-- Dashboard links launch the selected Grafana dashboard externally
-- Deterministic Grafana availability Notification Policy
-- Optional backend panel PNG render endpoint when Grafana image rendering is explicitly enabled
-- Rendering remains disabled by default because Grafana requires its separate image-renderer service for reliable PNG generation
-- Architecture documented in ADR 018
+- Optional connector with server-side service-account credentials
+- Health/version and dashboard discovery
+- Grafana 12+ dashboard API preference with legacy search compatibility fallback
+- Authenticated `/grafana` browser and external dashboard launch
+- Availability policy and `homelab.grafana` widget
+- Optional panel PNG proxy when Grafana image rendering is explicitly enabled
+- ADR 018
 
-Next in 0.4.3e is **UniFi**, followed by Proxmox, NAS/backups, and UPS.
+UniFi:
+
+- Optional `UniFiConnector` using the official local UniFi Network API and API-key authentication
+- Server-side `UNIFI_URL`/`UNIFI_API_KEY`; Flutter never receives the key
+- Site discovery with optional `UNIFI_SITE_ID` override
+- Controller reachability plus adopted device online/offline summary
+- Access-point, connected-client and WAN-interface overview
+- 15-second backend cache and 30-second connector refresh
+- Deterministic controller-unavailable and device-offline Notification Policies
+- Registered `homelab.unifi` Mission Control widget using shared Siris design primitives
+- Supports UniFi OS `/proxy/network/integration/v1` and direct `/integration/v1` local API roots
+- ADR 019
+
+Next in 0.4.3e is **Proxmox**, then NAS/backups and UPS.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
 
 - Responsive Flutter web application with persisted authentication
-- FastAPI backend, PostgreSQL, and Docker Compose deployment
-- Restricted Docker socket proxy
-- Running logging and trends
-- Gym workouts, templates, progress, and personal records
-- Health Auto Export MCP integration scaffold
-- Live Docker monitoring, actions, updates, alerts, audit history, and host metrics
-- Home Assistant WebSocket live state, entity browser, safe controls, and policies
-- Optional Prometheus target monitoring, PromQL queries, policies, and Mission Control widget
-- Optional Grafana health, dashboard discovery, launch integration, and panel-render proxy support
+- FastAPI backend, PostgreSQL, Docker Compose, restricted Docker socket proxy
+- Running logging/trends and Gym workouts/templates/progress/PRs
+- Health Auto Export MCP scaffold
+- Docker monitoring/actions/updates/alerts/audit/host metrics
+- Home Assistant live state/browser/safe controls/policies
+- Prometheus monitoring/PromQL/policies/widget
+- Grafana health/dashboard discovery/launch/render proxy support
+- UniFi controller/device/AP/client/WAN overview and policies
 - Plex and Ollama diagnostics
-- Reusable Siris Integration Framework for external systems
-- Deterministic Notification Policy engine
-- Global search
-- Configurable workspace and dedicated adaptive `/mission` Situation Room
-- Mission Control profiles, Focus Modes, ambient display, critical wake, diagnostics, and shared design system
+- Reusable Integration Framework and deterministic Notification Policy engine
+- Global search and configurable workspace
+- Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
 
 ## Long-term pillars
 
-- **Personal:** Health, recovery, running, gym, sleep, and nutrition
+- **Personal:** Health, recovery, running, gym, sleep, nutrition
 - **Infrastructure:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Proxmox, NAS, backups, UPS, Plex
 - **Engineering:** SirisHydro, SirisPM, calculators, standards, Civil 3D, project tools
 - **Knowledge:** Obsidian, documents, notes, search, semantic memory
@@ -128,12 +121,11 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 4. Keep finished slices deployable with `git pull && make up`.
 5. Update README and roadmap together.
 6. Record significant architecture decisions in `docs/adr/`.
-7. Prefer reusable SirisCore services over one-off feature code.
-8. Prefer shared Siris design components over new parallel card/status/metric implementations.
-9. New external-system integrations should implement the Integration Framework rather than inventing bespoke lifecycle/polling code.
-10. Integration alert behaviour should use Notification Policies rather than emitting repeated notifications directly from connector refresh loops.
-11. External integration startup and enrichment must never block authentication or core dashboard rendering.
-12. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs rather than third-party secrets.
+7. Prefer reusable SirisCore services and shared design components.
+8. New external integrations implement the Integration Framework.
+9. Integration alert behaviour uses Notification Policies.
+10. External integration startup/enrichment must never block authentication or core dashboard rendering.
+11. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs.
 
 ## Local endpoints
 
