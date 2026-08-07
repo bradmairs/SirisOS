@@ -4,14 +4,21 @@ import '../models/synology_snapshot.dart';
 import '../services/synology_service.dart';
 import 'siris_design_system.dart';
 
-class HyperBackupPanel extends StatelessWidget {
+class HyperBackupPanel extends StatefulWidget {
   const HyperBackupPanel({super.key});
-  static final SynologyService _service = SynologyService();
+
+  @override
+  State<HyperBackupPanel> createState() => _HyperBackupPanelState();
+}
+
+class _HyperBackupPanelState extends State<HyperBackupPanel> {
+  final SynologyService _service = SynologyService();
+  late final Future<SynologySnapshot> _future = _service.fetchSnapshot();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<SynologySnapshot>(
-      future: _service.fetchSnapshot(),
+      future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SirisPanel(

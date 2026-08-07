@@ -4,15 +4,21 @@ import '../models/prometheus_snapshot.dart';
 import '../services/prometheus_service.dart';
 import 'siris_design_system.dart';
 
-class PrometheusPanel extends StatelessWidget {
+class PrometheusPanel extends StatefulWidget {
   const PrometheusPanel({super.key});
 
-  static final PrometheusService _service = PrometheusService();
+  @override
+  State<PrometheusPanel> createState() => _PrometheusPanelState();
+}
+
+class _PrometheusPanelState extends State<PrometheusPanel> {
+  final PrometheusService _service = PrometheusService();
+  late final Future<PrometheusSnapshot> _future = _service.fetchSnapshot();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<PrometheusSnapshot>(
-      future: _service.fetchSnapshot(),
+      future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SirisPanel(
