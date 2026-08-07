@@ -49,19 +49,24 @@ Build the dedicated `/mission` Situation Room using SirisCore services.
 - [x] Event count, latest event, and refresh latency diagnostics
 - [x] Diagnostics surfaced in the header and display controls
 
-### 0.4.2c — Focus and ambient modes
+### 0.4.2c — Focus and ambient modes ✅ Complete
 
-- [ ] Focus modes: Work, Home, Fitness, and Travel
-- [ ] Ambient display mode after inactivity
-- [ ] Critical events wake the interface from ambient mode
-- [ ] Reduced-motion and burn-in-conscious display behaviour
-- [ ] Second-monitor and wall-display optimisation
+- [x] Persisted Focus Modes: All, Work, Home, Fitness, and Travel
+- [x] Focus policies select relevant registered widgets without mutating saved layout
+- [x] Ambient display mode after 30 seconds of inactivity
+- [x] Ambient mode enlarges the clock, reduces chrome, and limits lower-priority widgets
+- [x] Module and notification events wake the interface from ambient mode
+- [x] Critical events override ambient mode and trigger critical wake presentation
+- [x] Persisted reduced-motion setting removes non-essential Mission Control transitions
+- [x] Ambient mode hides clock seconds and reduces continuously changing content
+- [x] Second-monitor and wall-display behaviour refined through profiles, focus, and ambient presentation
 
 ### 0.4.2d — Design system and polish
 
 - [ ] Shared SirisCard, SirisMetric, SirisPanel, SirisTimeline, SirisGauge, and SirisStatusChip components
 - [ ] Premium red/black visual refinement
 - [ ] Consistent typography, spacing, animations, and warning states
+- [ ] Consolidate Mission Control controls into shared Siris design components
 
 ## Sprint 0.4.3 — Live Homelab
 
