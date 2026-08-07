@@ -155,7 +155,21 @@ Operations Center now correlates related Notification Policy outcomes into deter
 - Unit coverage protects power correlation, subsystem grouping and standalone fallback
 - Architecture documented in ADR 026
 
-The Incident Engine is intentionally deterministic and explainable. Correlation is not treated as proof of causation. Stronger downstream-impact reasoning belongs to the planned dependency/Digital Twin graph, and incident lifecycle persistence/acknowledgement remains follow-on work.
+The Incident Engine is intentionally deterministic and explainable. Correlation is not treated as proof of causation.
+
+### 0.4.3j — Digital Twin dependency graph foundation complete
+
+SirisOS now has a deterministic dependency graph that is separate from incident correlation:
+
+- Typed dependency nodes and directed `dependent -> dependency` relationships
+- Transitive downstream traversal with cycle/duplicate protection
+- Known software dependency chain `Synology -> Hyper Backup -> Backup Protection Analytics`
+- Incident Engine attaches graph-derived downstream impacts separately from correlated affected integrations
+- Operations Center labels graph evidence as `Declared downstream`
+- Unit coverage verifies transitive impact and confirms that UPS physical dependencies are not guessed
+- Architecture documented in ADR 027
+
+Only relationships SirisOS can explicitly justify belong in the graph. The initial foundation intentionally does **not** assert physical relationships such as UPS → Docker or UPS → UniFi. Future work will add editable/discovered topology, visualization, dependency-aware recommendations and incident history.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -176,10 +190,11 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - NUT UPS monitoring for power state, battery, runtime and load
 - Generic persistent operational time-series history API/client
 - Deterministic Incident Engine with explainable cross-system correlation
+- Deterministic Digital Twin dependency graph with declared downstream impact analysis
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
-- `/operations` Operations Center with correlated incidents, integration health, operational attention queue and backup protection history
+- `/operations` Operations Center with correlated incidents, declared downstream impact, integration health, operational attention queue and backup protection history
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -209,6 +224,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 14. Low-frequency historical observations use the generic History Engine; high-frequency telemetry belongs in Prometheus.
 15. Historical analytics must be derived from observed events/samples, never inferred from polling frequency when the source data cannot support that claim.
 16. Incident correlation must remain deterministic and expose its source evidence/reason; correlation must not be presented as proven causation without dependency evidence.
+17. Digital Twin dependency claims must come from explicit graph relationships; never infer physical power/network dependencies solely from simultaneous failures.
 
 ## Local endpoints
 

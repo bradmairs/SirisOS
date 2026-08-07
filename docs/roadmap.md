@@ -192,14 +192,29 @@ UPS / power:
 - [x] Unit coverage for power correlation, category grouping and standalone fallback
 - [x] ADR 026
 - [ ] Persist incident lifecycle/history through the History Engine
-- [ ] Add dependency-graph context for stronger causal/impact reasoning
 - [ ] Add incident acknowledgement/assignment/resolution workflow
+
+### 0.4.3j — Digital Twin / Dependency Graph ✅ Foundation complete
+
+- [x] Deterministic dependency node/edge model
+- [x] Directed `dependent -> dependency` semantics
+- [x] Transitive downstream impact traversal
+- [x] Cycle/duplicate protection across multiple dependency roots
+- [x] Initial explicit `Synology -> Hyper Backup -> Backup Protection Analytics` chain
+- [x] Incident Engine enrichment with graph-derived downstream impacts
+- [x] Operations Center separates `Declared downstream` from correlated affected integrations
+- [x] Unit coverage for transitive impact and non-guessed UPS topology
+- [x] ADR 027
+- [ ] Editable dependency/topology configuration
+- [ ] Physical power/network dependency mapping
+- [ ] Dynamic dependency discovery where authoritative APIs expose it
+- [ ] Interactive Digital Twin graph visualization
+- [ ] Dependency-aware recommended actions
 
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ### Homelab / Operations follow-on backlog
 
-- [ ] Dependency / Digital Twin graph for downstream impact analysis
 - [ ] Recommended operational actions and maintenance queue
 - [ ] Safe UPS power-event automation and graceful shutdown orchestration
 - [ ] Explainable Siris Score contribution history

@@ -178,7 +178,7 @@ class _IncidentPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SirisPanel(
         title: 'Active incidents',
-        subtitle: 'Correlated deterministic operational conditions',
+        subtitle: 'Correlated conditions with declared dependency impact',
         icon: Icons.warning_amber_rounded,
         child: incidents.isEmpty
             ? const _EmptyState(
@@ -234,6 +234,15 @@ class _IncidentRow extends StatelessWidget {
                   Text(
                     'Affected: ${incident.affectedIntegrations.join(', ')}',
                     style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (incident.dependencyImpacts.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    'Declared downstream: ${incident.dependencyImpacts.map((item) => item.node.label).join(', ')}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                 ],
                 const SizedBox(height: 5),
