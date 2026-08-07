@@ -9,6 +9,7 @@ import '../widgets/siris_logo.dart';
 import 'global_search_screen.dart';
 import 'mission_control_screen.dart';
 import 'notification_center_screen.dart';
+import 'operations_center_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.onLogout, super.key});
@@ -54,6 +55,9 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _openMissionControl() =>
       Navigator.of(context).pushNamed(MissionControlScreen.routeName);
+
+  Future<void> _openOperationsCenter() =>
+      Navigator.of(context).pushNamed(OperationsCenterScreen.routeName);
 
   void _openSearchTarget(String target) {
     if (target == 'notifications') {
@@ -117,6 +121,14 @@ class _AppShellState extends State<AppShell> {
                 onTap: () {
                   Navigator.pop(sheetContext);
                   _openMissionControl();
+                },
+              ),
+              _QuickActionTile(
+                icon: Icons.radar_rounded,
+                title: 'Open Operations Center',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _openOperationsCenter();
                 },
               ),
               _QuickActionTile(
@@ -233,6 +245,11 @@ class _AppShellState extends State<AppShell> {
                                     onTap: _openMissionControl,
                                   ),
                                   ListTile(
+                                    leading: const Icon(Icons.radar_rounded),
+                                    title: const Text('Operations Center'),
+                                    onTap: _openOperationsCenter,
+                                  ),
+                                  ListTile(
                                     leading: const Icon(Icons.search_rounded),
                                     title: const Text('Search'),
                                     onTap: _openSearch,
@@ -264,14 +281,11 @@ class _AppShellState extends State<AppShell> {
                   selectedIndex: _selectedIndex,
                   onDestinationSelected: _selectTab,
                   destinations: _navigationModules
-                      .map(
-                        (registration) => NavigationDestination(
-                          icon: Icon(registration.definition.icon),
-                          selectedIcon:
-                              Icon(registration.definition.selectedIcon),
-                          label: registration.definition.label,
-                        ),
-                      )
+                      .map((registration) => NavigationDestination(
+                            icon: Icon(registration.definition.icon),
+                            selectedIcon: Icon(registration.definition.selectedIcon),
+                            label: registration.definition.label,
+                          ))
                       .toList(growable: false),
                 ),
         );

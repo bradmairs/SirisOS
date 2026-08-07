@@ -16,6 +16,7 @@ import 'screens/grafana_screen.dart';
 import 'screens/home_assistant_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mission_control_screen.dart';
+import 'screens/operations_center_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
@@ -92,6 +93,8 @@ class _SirisOsAppState extends State<SirisOsApp> {
       routes: {
         MissionControlScreen.routeName: (_) =>
             _authenticatedRoute(const MissionControlScreen()),
+        OperationsCenterScreen.routeName: (_) =>
+            _authenticatedRoute(const OperationsCenterScreen()),
         HomeAssistantScreen.routeName: (_) =>
             _authenticatedRoute(const HomeAssistantScreen()),
         GrafanaScreen.routeName: (_) => _authenticatedRoute(const GrafanaScreen()),
