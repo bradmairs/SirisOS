@@ -49,7 +49,12 @@ class HomeAssistantConnector extends SirisConnector {
     final snapshot = await _service.fetchSnapshot();
     _latest = snapshot;
     _evaluatePolicies(snapshot);
-    if (snapshot.configured && !snapshot.available) {
+    if (!snapshot.configured) {
+      throw const SirisConnectorDisabledException(
+        'Home Assistant is not configured.',
+      );
+    }
+    if (!snapshot.available) {
       throw HomeAssistantServiceException(
         snapshot.error ?? 'Home Assistant is unavailable.',
       );
@@ -63,7 +68,12 @@ class HomeAssistantConnector extends SirisConnector {
     _latest = next;
     _evaluatePolicies(next);
 
-    if (next.configured && !next.available) {
+    if (!next.configured) {
+      throw const SirisConnectorDisabledException(
+        'Home Assistant is not configured.',
+      );
+    }
+    if (!next.available) {
       throw HomeAssistantServiceException(
         next.error ?? 'Home Assistant is unavailable.',
       );
