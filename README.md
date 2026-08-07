@@ -49,7 +49,7 @@ Deterministic duration-based activation, escalation, stable-ID deduplication, ex
 
 Server-side HA credentials, live `/api/websocket` `state_changed` cache with REST fallback, authenticated entity browser, search/domain filters, safe allow-listed controls, and HA policies. ADRs 015–016.
 
-### 0.4.3e — Broader infrastructure integrations in progress
+### 0.4.3e — Broader infrastructure integrations
 
 Prometheus, Grafana and UniFi are complete through the Integration Framework with server-side credentials, deterministic policies and Mission Control widgets. ADRs 017–019 document those integrations.
 
@@ -75,7 +75,20 @@ Current Synology/storage capabilities:
 
 Hyper Backup fields are parsed defensively because DSM package/API versions differ. Unsupported optional task fields degrade to unavailable values rather than breaking Synology monitoring. Long-term backup analytics (for example 30-day success rate and duration trends) require SirisOS-side persistent history and remain a later enhancement.
 
-Next in 0.4.3e is **UPS monitoring**.
+UPS monitoring now uses **Network UPS Tools (NUT)** as the vendor-neutral interface:
+
+- Optional `UpsConnector`; blank `NUT_HOST` disables the integration quietly
+- Backend speaks the NUT text protocol; the browser never connects directly to the UPS/NUT server
+- Auto-discovers the first UPS, or uses `NUT_UPS_NAME` when configured
+- Monitors line/on-battery state, low-battery state, battery charge, estimated runtime, UPS load and input/output voltage when exposed by the UPS driver
+- 15-second connector refresh
+- Immediate warning policy when utility power is lost and the UPS is on battery
+- Immediate critical policy when NUT reports low battery
+- Availability policy escalates when the NUT server remains unreachable
+- Registered `homelab.ups` Mission Control widget
+- Architecture documented in ADR 022
+
+This completes the planned infrastructure connector set for Sprint 0.4.3e. Follow-on Homelab work includes persisted backup analytics, safe power-event automation, and the planned Operations Center experience.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -92,10 +105,12 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - UniFi controller/device/AP/client/WAN overview and policies
 - Host storage capacity monitoring and Synology DSM NAS monitoring
 - Synology Hyper Backup task/result monitoring and Mission Control backup status
+- NUT UPS monitoring for power state, battery, runtime and load
 - Plex and Ollama diagnostics
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
+- Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
 
@@ -119,6 +134,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 9. Integration alert behaviour uses Notification Policies.
 10. External integration startup/enrichment must never block authentication or core dashboard rendering.
 11. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs.
+12. UI widgets must not initiate fresh network requests from `build()`; cache futures/state at widget or connector level.
 
 ## Local endpoints
 
