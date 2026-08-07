@@ -81,7 +81,14 @@ class HomeAssistantConnector extends SirisConnector {
 
   @override
   Future<void> disconnect() async {
-    NotificationPolicyEngine.instance.clearModule('homelab');
+    NotificationPolicyEngine.instance.evaluate(
+      _unavailablePolicy,
+      condition: false,
+    );
+    NotificationPolicyEngine.instance.evaluate(
+      _entityPolicy,
+      condition: false,
+    );
   }
 
   void _evaluatePolicies(HomeAssistantSnapshot snapshot) {
