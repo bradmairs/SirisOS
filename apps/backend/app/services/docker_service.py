@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import os
+from threading import Lock, Thread
+from time import monotonic
 
 import docker
 from docker.errors import DockerException, ImageNotFound, NotFound
@@ -15,6 +17,7 @@ PROTECTED_CONTAINERS = {
     "sirisos-docker-proxy",
     "sirisos-node-exporter",
 }
+UPDATE_CACHE_TTL_SECONDS = 15 * 60
 
 
 @dataclass(frozen=True)
@@ -78,7 +81,7 @@ def _digest(value: str | None) -> str | None:
 
 
 class DockerMonitor:
-    """Docker status, update checks, logs, and constrained lifecycle controls."""
+    """Docker status, cached image-update checks, logs, and lifecycle controls."""
 
     def __init__(self) -> None:
         self._audit = HomelabAuditService()
@@ -86,40 +89,81 @@ class DockerMonitor:
         self._activity = ActivityService()
         self._activity.initialise()
         self._username = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
+        self._update_cache: dict[str, tuple[bool, str | None]] = {}
+        self._update_cache_at = 0.0
+        self._update_refresh_running = False
+        self._update_lock = Lock()
 
-    def _update_status(self, client, image_name: str, cache: dict[str, tuple[bool, str | None]]) -> tuple[bool, str | None]:
-        if image_name in cache:
-            return cache[image_name]
+    def _update_status(self, client, image_name: str) -> tuple[bool, str | None]:
         if image_name in {"", "unknown"} or "@sha256:" in image_name:
-            result = (False, None)
-            cache[image_name] = result
-            return result
+            return False, None
         try:
             local = client.images.get(image_name)
             repo_digests = local.attrs.get("RepoDigests") or []
             local_digests = {_digest(str(item)) for item in repo_digests}
             local_digests.discard(None)
             if not local_digests:
-                result = (False, "Local image has no repository digest.")
-            else:
-                remote = client.images.get_registry_data(image_name)
-                remote_digest = _digest(str(remote.id))
-                result = (remote_digest is not None and remote_digest not in local_digests, None)
+                return False, "Local image has no repository digest."
+            remote = client.images.get_registry_data(image_name)
+            remote_digest = _digest(str(remote.id))
+            return remote_digest is not None and remote_digest not in local_digests, None
         except (DockerException, ImageNotFound) as exc:
-            result = (False, str(exc))
-        cache[image_name] = result
-        return result
+            return False, str(exc)
+
+    def _schedule_update_refresh(self, image_names: set[str]) -> None:
+        with self._update_lock:
+            cache_fresh = (
+                bool(self._update_cache)
+                and monotonic() - self._update_cache_at < UPDATE_CACHE_TTL_SECONDS
+            )
+            if cache_fresh or self._update_refresh_running or not image_names:
+                return
+            self._update_refresh_running = True
+
+        Thread(
+            target=self._refresh_update_cache,
+            args=(image_names,),
+            name="sirisos-docker-update-check",
+            daemon=True,
+        ).start()
+
+    def _refresh_update_cache(self, image_names: set[str]) -> None:
+        refreshed: dict[str, tuple[bool, str | None]] = {}
+        try:
+            client = docker.from_env(timeout=5)
+            for image_name in sorted(image_names):
+                refreshed[image_name] = self._update_status(client, image_name)
+        except DockerException:
+            # Keep the previous cache when Docker itself is temporarily unavailable.
+            refreshed = {}
+        finally:
+            with self._update_lock:
+                if refreshed:
+                    self._update_cache = refreshed
+                    self._update_cache_at = monotonic()
+                self._update_refresh_running = False
+
+    def _cached_update_status(self, image_name: str) -> tuple[bool, str | None]:
+        with self._update_lock:
+            return self._update_cache.get(image_name, (False, None))
 
     def collect(self, *, check_updates: bool = False) -> DockerSummary:
-        """Collect live Docker state.
+        """Collect live Docker state without waiting on external registries.
 
-        Registry update checks are intentionally opt-in because they are remote
-        network operations and must not sit on the dashboard/login critical path.
+        `check_updates` is retained for API compatibility, but registry access is
+        always performed asynchronously and cached. This keeps authentication,
+        dashboards, alerts, and connector refreshes responsive even when a
+        registry is slow or unavailable.
         """
         try:
-            client = docker.from_env()
+            client = docker.from_env(timeout=5)
             containers = client.containers.list(all=True)
-            update_cache: dict[str, tuple[bool, str | None]] = {}
+            image_names = {
+                str((container.attrs.get("Config", {}) or {}).get("Image") or "unknown")
+                for container in containers
+            }
+            self._schedule_update_refresh(image_names)
+
             items: list[DockerContainer] = []
             for container in containers:
                 attrs = container.attrs
@@ -136,12 +180,7 @@ class DockerMonitor:
                         memory_usage, memory_limit, memory_percent = _memory_metrics(stats)
                     except DockerException:
                         pass
-                if check_updates:
-                    update_available, update_error = self._update_status(
-                        client, image_name, update_cache
-                    )
-                else:
-                    update_available, update_error = False, None
+                update_available, update_error = self._cached_update_status(image_name)
                 items.append(DockerContainer(
                     container_id=container.short_id,
                     name=container.name,
@@ -174,7 +213,7 @@ class DockerMonitor:
     def logs(self, container_id: str, *, tail: int = 300) -> str:
         safe_tail = max(20, min(tail, 1000))
         try:
-            container = docker.from_env().containers.get(container_id)
+            container = docker.from_env(timeout=5).containers.get(container_id)
             output = container.logs(stdout=True, stderr=True, timestamps=True, tail=safe_tail)
             return output.decode("utf-8", errors="replace")
         except NotFound as exc:
@@ -188,7 +227,7 @@ class DockerMonitor:
 
         container_name: str | None = None
         try:
-            container = docker.from_env().containers.get(container_id)
+            container = docker.from_env(timeout=5).containers.get(container_id)
             container_name = container.name
             if container.name in PROTECTED_CONTAINERS:
                 raise PermissionError("Core SirisOS containers cannot be controlled from the app.")
