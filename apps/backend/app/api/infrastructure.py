@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.grafana_service import GrafanaService
+from app.services.storage_service import StorageService
 from app.services.unifi_service import UniFiService
 
 router = APIRouter(prefix="/api/v1/homelab", tags=["homelab"])
@@ -16,6 +17,7 @@ JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 
 grafana_service = GrafanaService()
 unifi_service = UniFiService()
+storage_service = StorageService()
 
 
 class GrafanaDashboardResponse(BaseModel):
@@ -65,6 +67,27 @@ class UniFiSnapshotResponse(BaseModel):
     connected_clients: int
     wan_interfaces: int
     devices: list[UniFiDeviceResponse]
+    generated_at: str
+    error: str | None = None
+
+
+class StorageVolumeResponse(BaseModel):
+    mountpoint: str
+    device: str
+    filesystem: str
+    size_bytes: int
+    available_bytes: int
+    used_bytes: int
+    used_percent: float
+
+
+class StorageSnapshotResponse(BaseModel):
+    available: bool
+    volumes: list[StorageVolumeResponse]
+    total_bytes: int
+    used_bytes: int
+    available_bytes: int
+    highest_used_percent: float | None
     generated_at: str
     error: str | None = None
 
@@ -177,5 +200,23 @@ async def unifi_snapshot(
             for item in snapshot.devices
         ],
         generated_at=snapshot.generated_at,
+        error=snapshot.error,
+    )
+
+
+@router.get("/storage", response_model=StorageSnapshotResponse)
+async def storage_snapshot(
+    authorization: Annotated[str | None, Header()] = None,
+) -> StorageSnapshotResponse:
+    _authenticate(authorization)
+    snapshot = storage_service.snapshot()
+    return StorageSnapshotResponse(
+        available=snapshot.available,
+        volumes=[StorageVolumeResponse(**item.__dict__) for item in snapshot.volumes],
+        total_bytes=snapshot.total_bytes,
+        used_bytes=snapshot.used_bytes,
+        available_bytes=snapshot.available_bytes,
+        highest_used_percent=snapshot.highest_used_percent,
+        generated_at=datetime.now().astimezone().isoformat(),
         error=snapshot.error,
     )
