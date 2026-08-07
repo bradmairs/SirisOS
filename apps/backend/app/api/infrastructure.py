@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.services.grafana_service import GrafanaService
 from app.services.storage_service import StorageService
 from app.services.unifi_service import UniFiService
+from app.services.ups_service import UpsService
 
 router = APIRouter(prefix="/api/v1/homelab", tags=["homelab"])
 
@@ -18,6 +19,7 @@ JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 grafana_service = GrafanaService()
 unifi_service = UniFiService()
 storage_service = StorageService()
+ups_service = UpsService()
 
 
 class GrafanaDashboardResponse(BaseModel):
@@ -88,6 +90,23 @@ class StorageSnapshotResponse(BaseModel):
     used_bytes: int
     available_bytes: int
     highest_used_percent: float | None
+    generated_at: str
+    error: str | None = None
+
+
+class UpsSnapshotResponse(BaseModel):
+    configured: bool
+    available: bool
+    ups_name: str | None
+    description: str | None
+    status: str | None
+    on_battery: bool
+    low_battery: bool
+    battery_charge_percent: float | None
+    battery_runtime_seconds: float | None
+    load_percent: float | None
+    input_voltage: float | None
+    output_voltage: float | None
     generated_at: str
     error: str | None = None
 
@@ -220,3 +239,12 @@ async def storage_snapshot(
         generated_at=datetime.now().astimezone().isoformat(),
         error=snapshot.error,
     )
+
+
+@router.get("/ups", response_model=UpsSnapshotResponse)
+async def ups_snapshot(
+    authorization: Annotated[str | None, Header()] = None,
+) -> UpsSnapshotResponse:
+    _authenticate(authorization)
+    snapshot = await ups_service.snapshot()
+    return UpsSnapshotResponse(**snapshot.__dict__)

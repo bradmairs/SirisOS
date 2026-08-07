@@ -9,6 +9,7 @@ import 'connectors/prometheus_connector.dart';
 import 'connectors/storage_connector.dart';
 import 'connectors/synology_connector.dart';
 import 'connectors/unifi_connector.dart';
+import 'connectors/ups_connector.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
 import 'screens/grafana_screen.dart';
@@ -57,6 +58,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
       UniFiConnector(),
       StorageConnector(),
       SynologyConnector(),
+      UpsConnector(),
     ]) {
       try {
         await SirisIntegrationManager.instance.register(connector);
