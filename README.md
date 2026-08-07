@@ -51,40 +51,26 @@ Server-side HA credentials, live `/api/websocket` `state_changed` cache with RES
 
 ### 0.4.3e — Broader infrastructure integrations in progress
 
-Prometheus:
+Prometheus, Grafana and UniFi are complete through the Integration Framework with server-side credentials, deterministic policies and Mission Control widgets. ADRs 017–019 document those integrations.
 
-- Optional connector; blank `PROMETHEUS_URL` disables it quietly
-- Authenticated target-health snapshot from `up`
-- Authenticated instant PromQL query endpoint
-- 15-second backend cache and connector refresh
-- Availability/down-target Notification Policies
-- `homelab.prometheus` Mission Control widget
-- ADR 017
+Storage/NAS work now targets the actual homelab platform: **Synology DSM**. Proxmox has been removed from the roadmap because it is not required for this installation.
 
-Grafana:
+Current storage/NAS slice:
 
-- Optional connector with server-side service-account credentials
-- Health/version and dashboard discovery
-- Grafana 12+ dashboard API preference with legacy search compatibility fallback
-- Authenticated `/grafana` browser and external dashboard launch
-- Availability policy and `homelab.grafana` widget
-- Optional panel PNG proxy when Grafana image rendering is explicitly enabled
-- ADR 018
+- Vendor-neutral host filesystem monitoring through the existing node-exporter
+- `homelab.storage` Mission Control widget with volume count, used/free capacity and peak utilisation
+- Warning policy above 85% filesystem utilisation and critical policy above 95%
+- Optional `SynologyConnector` through the Integration Framework
+- DSM URL, username and password remain backend-side
+- Runtime DSM WebAPI discovery and authenticated session lifecycle
+- DSM model/version discovery
+- Synology disk and volume discovery/status where exposed by the running DSM version
+- Unhealthy disk/volume Notification Policy
+- Synology availability policy
+- `homelab.synology` Mission Control widget
+- Detection of installed Synology backup APIs to prepare Hyper Backup monitoring
 
-UniFi:
-
-- Optional `UniFiConnector` using the official local UniFi Network API and API-key authentication
-- Server-side `UNIFI_URL`/`UNIFI_API_KEY`; Flutter never receives the key
-- Site discovery with optional `UNIFI_SITE_ID` override
-- Controller reachability plus adopted device online/offline summary
-- Access-point, connected-client and WAN-interface overview
-- 15-second backend cache and 30-second connector refresh
-- Deterministic controller-unavailable and device-offline Notification Policies
-- Registered `homelab.unifi` Mission Control widget using shared Siris design primitives
-- Supports UniFi OS `/proxy/network/integration/v1` and direct `/integration/v1` local API roots
-- ADR 019
-
-Next in 0.4.3e is **Proxmox**, then NAS/backups and UPS.
+Next in 0.4.3e is **Synology Hyper Backup task/history integration**, then **UPS monitoring**.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -99,6 +85,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Prometheus monitoring/PromQL/policies/widget
 - Grafana health/dashboard discovery/launch/render proxy support
 - UniFi controller/device/AP/client/WAN overview and policies
+- Host storage capacity monitoring and Synology DSM NAS monitoring
 - Plex and Ollama diagnostics
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
@@ -107,7 +94,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 ## Long-term pillars
 
 - **Personal:** Health, recovery, running, gym, sleep, nutrition
-- **Infrastructure:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Proxmox, NAS, backups, UPS, Plex
+- **Infrastructure:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Synology NAS, backups, UPS, Plex
 - **Engineering:** SirisHydro, SirisPM, calculators, standards, Civil 3D, project tools
 - **Knowledge:** Obsidian, documents, notes, search, semantic memory
 - **Intelligence:** Briefings, Siris Score, recommendations, Ollama, agents, context

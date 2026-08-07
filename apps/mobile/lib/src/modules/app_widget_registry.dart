@@ -9,6 +9,8 @@ import '../widgets/dashboard_hero.dart';
 import '../widgets/grafana_panel.dart';
 import '../widgets/prometheus_panel.dart';
 import '../widgets/siris_score_panel.dart';
+import '../widgets/storage_panel.dart';
+import '../widgets/synology_panel.dart';
 import '../widgets/unifi_panel.dart';
 
 class MissionControlWidgetContext {
@@ -121,36 +123,43 @@ class AppWidgetRegistry {
     ),
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'homelab.prometheus',
-        moduleId: 'homelab',
-        label: 'Prometheus',
+        id: 'homelab.prometheus', moduleId: 'homelab', label: 'Prometheus',
         description: 'Prometheus scrape target health and availability.',
-        icon: Icons.monitor_heart_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.monitor_heart_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const PrometheusPanel(),
     ),
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'homelab.grafana',
-        moduleId: 'homelab',
-        label: 'Grafana',
+        id: 'homelab.grafana', moduleId: 'homelab', label: 'Grafana',
         description: 'Grafana availability, version and dashboard discovery.',
-        icon: Icons.analytics_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.analytics_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const GrafanaPanel(),
     ),
     RegisteredMissionControlWidget(
       definition: const MissionControlWidgetDefinition(
-        id: 'homelab.unifi',
-        moduleId: 'homelab',
-        label: 'UniFi',
+        id: 'homelab.unifi', moduleId: 'homelab', label: 'UniFi',
         description: 'UniFi controller, devices, access points, clients and WAN overview.',
-        icon: Icons.wifi_rounded,
-        defaultSize: MissionControlWidgetSize.standard,
+        icon: Icons.wifi_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const UniFiPanel(),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.storage', moduleId: 'homelab', label: 'Storage',
+        description: 'Host filesystem capacity and low-space monitoring.',
+        icon: Icons.storage_rounded, defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const StoragePanel(),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.synology', moduleId: 'homelab', label: 'Synology',
+        description: 'Synology DSM, disk, volume and backup capability status.',
+        icon: Icons.storage_rounded, defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const SynologyPanel(),
     ),
   ];
 
