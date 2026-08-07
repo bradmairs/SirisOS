@@ -95,15 +95,15 @@ The authenticated `/operations` route provides the first operational-management 
 It currently provides:
 
 - Operational overview counts for attention items, critical issues and healthy integrations
-- Active incidents sourced directly from deterministic Notification Policy outcomes
+- Correlated active incidents from the deterministic Incident Engine
 - Live connector status sourced from `SirisIntegrationManager`
-- Prioritised "What needs attention" work queue
+- Prioritised "What needs attention" work queue retaining raw policy evidence
 - Manual integration refresh without adding a second polling system
 - Event-driven updates for policy and integration health changes
 - Desktop sidebar and Quick Actions access
 - Architecture documented in ADR 023
 
-Mission Control remains the ambient "what is happening now?" surface. Operations Center is the focused "what needs my attention?" surface. Cross-system incident correlation, historical incidents, maintenance workflows and recommended actions remain follow-on work.
+Mission Control remains the ambient "what is happening now?" surface. Operations Center is the focused "what needs my attention?" surface.
 
 ### 0.4.3g — Generic Time-Series / History Engine foundation complete
 
@@ -141,6 +141,22 @@ SirisOS now turns observed Hyper Backup completions into deterministic protectio
 
 The analytics only claim runs SirisOS has actually observed. A newly deployed installation starts building trustworthy history from the latest completion DSM exposes and future completions; it does not invent older backup runs. Schedule-aware overdue detection and duration analytics remain follow-on work until those data are reliable.
 
+### 0.4.3i — Incident Engine foundation complete
+
+Operations Center now correlates related Notification Policy outcomes into deterministic incidents instead of treating every alert as an independent incident.
+
+- Stable `SirisIncident` model and `IncidentEngine`
+- UPS on-battery or low-battery conditions anchor a power-outage incident
+- Concurrent Docker, Synology, Home Assistant, UniFi, Prometheus and Grafana failures attach as possible impacts
+- Remaining outcomes group into compute, storage/backup, network, observability and Home Assistant incidents
+- Unmatched policies remain visible as standalone incidents
+- Each incident exposes severity, start time, source policy count, affected integrations and an explicit correlation reason
+- Raw source policy outcomes remain visible in the Operations Center attention queue
+- Unit coverage protects power correlation, subsystem grouping and standalone fallback
+- Architecture documented in ADR 026
+
+The Incident Engine is intentionally deterministic and explainable. Correlation is not treated as proof of causation. Stronger downstream-impact reasoning belongs to the planned dependency/Digital Twin graph, and incident lifecycle persistence/acknowledgement remains follow-on work.
+
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
@@ -159,10 +175,11 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - 30-day Hyper Backup protection analytics in Operations Center
 - NUT UPS monitoring for power state, battery, runtime and load
 - Generic persistent operational time-series history API/client
+- Deterministic Incident Engine with explainable cross-system correlation
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
-- `/operations` Operations Center with incidents, integration health, operational attention queue and backup protection history
+- `/operations` Operations Center with correlated incidents, integration health, operational attention queue and backup protection history
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -191,6 +208,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 13. Mission Control is ambient status; Operations Center is focused operational work.
 14. Low-frequency historical observations use the generic History Engine; high-frequency telemetry belongs in Prometheus.
 15. Historical analytics must be derived from observed events/samples, never inferred from polling frequency when the source data cannot support that claim.
+16. Incident correlation must remain deterministic and expose its source evidence/reason; correlation must not be presented as proven causation without dependency evidence.
 
 ## Local endpoints
 

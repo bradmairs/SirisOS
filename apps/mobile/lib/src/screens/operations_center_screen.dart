@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/incident_engine.dart';
 import '../core/notification_policy.dart';
 import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
@@ -46,9 +47,13 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
     final manager = SirisIntegrationManager.instance;
     final connectors = manager.connectors.toList(growable: false);
     final health = manager.health;
-    final attentionCount = policies.length +
+    final incidents = IncidentEngine.instance.correlate(
+      outcomes: policies,
+      integrationHealth: health,
+    );
+    final attentionCount = incidents.length +
         health.values.where((value) => value.hasError).length;
-    final criticalCount = policies.where((item) => item.isCritical).length +
+    final criticalCount = incidents.where((item) => item.isCritical).length +
         health.values.where((value) => value.state == SirisConnectorState.failed).length;
 
     return Scaffold(
@@ -85,7 +90,7 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _IncidentPanel(policies: policies)),
+                      Expanded(child: _IncidentPanel(incidents: incidents)),
                       const SizedBox(width: 18),
                       Expanded(
                         child: _IntegrationPanel(
@@ -96,7 +101,7 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
                     ],
                   )
                 else ...[
-                  _IncidentPanel(policies: policies),
+                  _IncidentPanel(incidents: incidents),
                   const SizedBox(height: 18),
                   _IntegrationPanel(connectors: connectors, health: health),
                 ],
@@ -166,50 +171,50 @@ class _Overview extends StatelessWidget {
 }
 
 class _IncidentPanel extends StatelessWidget {
-  const _IncidentPanel({required this.policies});
+  const _IncidentPanel({required this.incidents});
 
-  final List<NotificationPolicyOutcome> policies;
+  final List<SirisIncident> incidents;
 
   @override
   Widget build(BuildContext context) => SirisPanel(
         title: 'Active incidents',
-        subtitle: 'Deterministic Notification Policy outcomes',
+        subtitle: 'Correlated deterministic operational conditions',
         icon: Icons.warning_amber_rounded,
-        child: policies.isEmpty
+        child: incidents.isEmpty
             ? const _EmptyState(
                 icon: Icons.verified_rounded,
                 title: 'No active incidents',
                 message: 'All active policy conditions are currently clear.',
               )
             : Column(
-                children: policies
-                    .map((outcome) => _IncidentRow(outcome: outcome))
+                children: incidents
+                    .map((incident) => _IncidentRow(incident: incident))
                     .toList(growable: false),
               ),
       );
 }
 
 class _IncidentRow extends StatelessWidget {
-  const _IncidentRow({required this.outcome});
+  const _IncidentRow({required this.incident});
 
-  final NotificationPolicyOutcome outcome;
+  final SirisIncident incident;
 
   @override
   Widget build(BuildContext context) {
-    final status = switch (outcome.severity) {
-      NotificationPolicySeverity.info => SirisStatus.info,
-      NotificationPolicySeverity.warning => SirisStatus.warning,
-      NotificationPolicySeverity.critical => SirisStatus.critical,
+    final status = switch (incident.severity) {
+      SirisIncidentSeverity.info => SirisStatus.info,
+      SirisIncidentSeverity.warning => SirisStatus.warning,
+      SirisIncidentSeverity.critical => SirisStatus.critical,
     };
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Icon(
-              outcome.isCritical ? Icons.error_rounded : Icons.warning_amber_rounded,
+              incident.isCritical ? Icons.error_rounded : Icons.warning_amber_rounded,
               size: 19,
             ),
           ),
@@ -218,22 +223,36 @@ class _IncidentRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(outcome.rule.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(incident.title, style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
                 Text(
-                  outcome.rule.message,
+                  incident.summary,
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
+                if (incident.affectedIntegrations.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    'Affected: ${incident.affectedIntegrations.join(', ')}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
                 const SizedBox(height: 5),
                 Text(
-                  '${outcome.moduleId} · active since ${_formatDateTime(outcome.activatedAt)}',
+                  '${incident.policyOutcomes.length} signal${incident.policyOutcomes.length == 1 ? '' : 's'} · since ${_formatDateTime(incident.startedAt)}',
                   style: Theme.of(context).textTheme.labelSmall,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  incident.correlationReason,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          SirisStatusChip(label: outcome.severity.name.toUpperCase(), status: status),
+          SirisStatusChip(label: incident.severity.name.toUpperCase(), status: status),
         ],
       ),
     );

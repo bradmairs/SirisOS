@@ -137,7 +137,7 @@ UPS / power:
 
 - [x] Authenticated `/operations` route
 - [x] Operational overview counts
-- [x] Active incident list from Notification Policy outcomes
+- [x] Active incident presentation
 - [x] Live connector health from `SirisIntegrationManager`
 - [x] Prioritised operational attention queue
 - [x] Event-driven refresh on policy/integration changes
@@ -179,11 +179,26 @@ UPS / power:
 - [ ] Schedule-aware overdue/staleness policy once DSM schedule semantics are reliable
 - [ ] Backup duration analytics when reliable per-run duration data is available
 
+### 0.4.3i — Incident Engine ✅ Foundation complete
+
+- [x] Deterministic `IncidentEngine` over active Notification Policy outcomes and Integration Manager health
+- [x] Stable incident IDs and severity ordering
+- [x] UPS on-battery/low-battery policies anchor a correlated power-outage incident
+- [x] Concurrent Docker, Synology, Home Assistant, UniFi, Prometheus and Grafana failures attach as possible power-event impacts
+- [x] Subsystem grouping for compute, storage/backup, network, observability and Home Assistant conditions
+- [x] Unmatched policy outcomes remain visible as standalone incidents
+- [x] Correlation reason and affected integrations shown in Operations Center
+- [x] Raw policy evidence remains visible in the attention queue
+- [x] Unit coverage for power correlation, category grouping and standalone fallback
+- [x] ADR 026
+- [ ] Persist incident lifecycle/history through the History Engine
+- [ ] Add dependency-graph context for stronger causal/impact reasoning
+- [ ] Add incident acknowledgement/assignment/resolution workflow
+
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ### Homelab / Operations follow-on backlog
 
-- [ ] Incident Engine to correlate related policy outcomes into one incident
 - [ ] Dependency / Digital Twin graph for downstream impact analysis
 - [ ] Recommended operational actions and maintenance queue
 - [ ] Safe UPS power-event automation and graceful shutdown orchestration
