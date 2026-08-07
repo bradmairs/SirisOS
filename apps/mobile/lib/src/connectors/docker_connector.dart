@@ -1,3 +1,4 @@
+import '../core/notification_policy.dart';
 import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
 import '../models/docker_summary.dart';
@@ -9,6 +10,39 @@ class DockerConnector extends SirisConnector {
 
   final HomelabService _service;
   DockerSummary? _latest;
+
+  static const _unhealthyPolicy = NotificationPolicyRule(
+    id: 'docker.unhealthy',
+    moduleId: 'homelab',
+    title: 'Docker container unhealthy',
+    message: 'One or more Docker containers have remained unhealthy.',
+    severity: NotificationPolicySeverity.warning,
+    activeAfter: Duration(minutes: 2),
+    escalateAfter: Duration(minutes: 5),
+    escalatedSeverity: NotificationPolicySeverity.critical,
+    scorePenalty: 12,
+  );
+
+  static const _stoppedPolicy = NotificationPolicyRule(
+    id: 'docker.stopped',
+    moduleId: 'homelab',
+    title: 'Docker container stopped',
+    message: 'One or more Docker containers are not running.',
+    severity: NotificationPolicySeverity.warning,
+    activeAfter: Duration(minutes: 2),
+    escalateAfter: Duration(minutes: 10),
+    escalatedSeverity: NotificationPolicySeverity.critical,
+    scorePenalty: 8,
+  );
+
+  static const _updatesPolicy = NotificationPolicyRule(
+    id: 'docker.updates',
+    moduleId: 'homelab',
+    title: 'Docker image updates available',
+    message: 'One or more Docker containers have image updates available.',
+    severity: NotificationPolicySeverity.warning,
+    scorePenalty: 2,
+  );
 
   DockerSummary? get latest => _latest;
 
@@ -30,6 +64,7 @@ class DockerConnector extends SirisConnector {
       );
     }
     _latest = summary;
+    _evaluatePolicies(summary);
   }
 
   @override
@@ -42,6 +77,7 @@ class DockerConnector extends SirisConnector {
       );
     }
     _latest = next;
+    _evaluatePolicies(next);
 
     if (_hasMeaningfulChange(previous, next)) {
       SirisEventBus.instance.publish(
@@ -51,6 +87,21 @@ class DockerConnector extends SirisConnector {
         ),
       );
     }
+  }
+
+  @override
+  Future<void> disconnect() async {
+    NotificationPolicyEngine.instance.clearModule('homelab');
+  }
+
+  void _evaluatePolicies(DockerSummary summary) {
+    final policies = NotificationPolicyEngine.instance;
+    policies.evaluate(_unhealthyPolicy, condition: summary.unhealthy > 0);
+    policies.evaluate(_stoppedPolicy, condition: summary.stopped > 0);
+    policies.evaluate(
+      _updatesPolicy,
+      condition: summary.updatesAvailable > 0,
+    );
   }
 
   bool _hasMeaningfulChange(DockerSummary? previous, DockerSummary next) {
