@@ -9,6 +9,7 @@ import '../widgets/dashboard_hero.dart';
 import '../widgets/grafana_panel.dart';
 import '../widgets/prometheus_panel.dart';
 import '../widgets/siris_score_panel.dart';
+import '../widgets/unifi_panel.dart';
 
 class MissionControlWidgetContext {
   const MissionControlWidgetContext({required this.dashboard, required this.greeting});
@@ -139,6 +140,17 @@ class AppWidgetRegistry {
         defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (_) => const GrafanaPanel(),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'homelab.unifi',
+        moduleId: 'homelab',
+        label: 'UniFi',
+        description: 'UniFi controller, devices, access points, clients and WAN overview.',
+        icon: Icons.wifi_rounded,
+        defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const UniFiPanel(),
     ),
   ];
 
