@@ -75,6 +75,22 @@ class IntegrationDiagnosticsResponse(BaseModel):
     generated_at: str
 
 
+class DockerUpdateResponse(BaseModel):
+    container_id: str
+    name: str
+    image: str
+    update_available: bool
+    update_check_error: str | None = None
+
+
+class DockerUpdateSummaryResponse(BaseModel):
+    available: bool
+    updates_available: int
+    containers: list[DockerUpdateResponse]
+    generated_at: str
+    error: str | None = None
+
+
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -183,11 +199,37 @@ async def alerts(authorization: Annotated[str | None, Header()] = None) -> Alert
                 items.append(AlertResponse(id=f"container-{container.container_id}-unhealthy", severity="critical", source=container.name, title="Container unhealthy", message=f"{container.name} is reporting an unhealthy status."))
             elif container.state != "running":
                 items.append(AlertResponse(id=f"container-{container.container_id}-stopped", severity="warning", source=container.name, title="Container not running", message=f"{container.name} is currently {container.state}."))
+            if container.update_available:
+                items.append(AlertResponse(id=f"container-{container.container_id}-update", severity="warning", source=container.name, title="Container image update available", message=f"A newer image is available for {container.image}."))
 
     warning_count = sum(item.severity == "warning" for item in items)
     critical_count = sum(item.severity == "critical" for item in items)
     status_value: Literal["healthy", "warning", "critical"] = "critical" if critical_count else "warning" if warning_count else "healthy"
     return AlertSummaryResponse(status=status_value, warning_count=warning_count, critical_count=critical_count, alerts=items)
+
+
+@router.get("/docker/updates", response_model=DockerUpdateSummaryResponse)
+async def docker_updates(
+    authorization: Annotated[str | None, Header()] = None,
+) -> DockerUpdateSummaryResponse:
+    _authenticate(authorization)
+    summary = docker_monitor.collect()
+    return DockerUpdateSummaryResponse(
+        available=summary.available,
+        updates_available=summary.updates_available,
+        containers=[
+            DockerUpdateResponse(
+                container_id=item.container_id,
+                name=item.name,
+                image=item.image,
+                update_available=item.update_available,
+                update_check_error=item.update_check_error,
+            )
+            for item in summary.containers
+        ],
+        generated_at=datetime.now().astimezone().isoformat(),
+        error=summary.error,
+    )
 
 
 @router.get("/audit", response_model=list[AuditEventResponse])
