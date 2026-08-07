@@ -78,7 +78,7 @@ Architecture is documented in ADRs 007–011.
 
 ### 0.4.3a — Integration Framework complete
 
-SirisOS now has a reusable integration layer for external systems rather than treating Docker, Home Assistant, Obsidian, UniFi, and future services as unrelated one-off implementations.
+SirisOS has a reusable integration layer for external systems rather than treating Docker, Home Assistant, Obsidian, UniFi, and future services as unrelated one-off implementations.
 
 Core pieces:
 
@@ -95,7 +95,7 @@ This framework is documented in ADR 012 and is now the intended foundation for D
 
 ### 0.4.3b — Docker Connector complete
 
-Docker is now the first production integration running through the framework:
+Docker is the first production integration running through the framework:
 
 - Authenticated `DockerConnector` lifecycle owned by `SirisIntegrationManager`
 - Scheduled 30-second connector refreshes
@@ -108,17 +108,33 @@ Docker is now the first production integration running through the framework:
 
 The first implementation intentionally uses authenticated snapshot comparison rather than a direct Docker daemon event stream. This works with the existing restricted Docker proxy and keeps SirisCore decoupled from Docker-specific transport details. ADR 013 records the decision.
 
-### Next: 0.4.3c — Notification Policies
+### 0.4.3c — Notification Policies complete
+
+SirisCore now has a deterministic policy engine for integration conditions:
+
+- Stable-ID rules with module ownership, title/message, severity, activation duration, optional escalation duration, and score penalty
+- Conditions activate only after their configured duration
+- Repeated connector refreshes are deduplicated rather than generating duplicate alerts
+- Escalation changes the existing active outcome instead of creating a second notification
+- Clearing a condition explicitly resolves the policy
+- Policy transitions publish typed events plus existing notification/module events, reusing Mission Control wake and refresh behaviour
+- Active policy messages are surfaced in the Mission Control briefing
+- Active policy penalties feed the deterministic Siris Score with explainable wording
+- Docker initially contributes unhealthy, stopped-container, and image-update policies
+- Unit coverage verifies duration activation, escalation deduplication, and resolution
+
+Notification policy architecture is documented in ADR 014. Active policy state is currently in-memory; persisted history and user-editable policy configuration remain later enhancements.
+
+### Next: 0.4.3d — Home Assistant Connector
 
 Next work:
 
-- Reusable integration notification policies
-- Duration and threshold rules such as unhealthy for five minutes
-- Severity escalation and deduplication
-- Mission Control wake integration
-- Briefing and Siris Score policy hooks
+- Migrate Home Assistant behind the `SirisConnector` contract
+- Add event subscription/WebSocket support where practical
+- Expand entity/state visibility and safe actions
+- Reuse Notification Policies for Home Assistant conditions rather than adding bespoke alert logic
 
-After that, Live Homelab continues with the Home Assistant connector and broader infrastructure integrations. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
+After that, Live Homelab continues with broader infrastructure integrations such as Prometheus/Grafana, UniFi, Proxmox, NAS, backups, and UPS. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
 
@@ -130,6 +146,7 @@ After that, Live Homelab continues with the Home Assistant connector and broader
 - Health Auto Export MCP integration scaffold
 - Live Docker monitoring and container actions
 - Docker connector lifecycle, scheduled state-change detection, and image update availability
+- Deterministic duration/escalation Notification Policy engine
 - Host metrics, history, alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
 - Reusable Siris Integration Framework for external systems
@@ -157,6 +174,7 @@ After that, Live Homelab continues with the Home Assistant connector and broader
 7. Prefer reusable SirisCore services over one-off feature code.
 8. Prefer shared Siris design components over new parallel card/status/metric implementations.
 9. New external-system integrations should implement the Integration Framework rather than inventing bespoke lifecycle/polling code.
+10. Integration alert behaviour should use Notification Policies rather than emitting repeated notifications directly from connector refresh loops.
 
 ## Local endpoints
 

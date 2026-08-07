@@ -104,18 +104,27 @@ Existing specialised widgets may migrate incrementally as they are touched; new 
 
 A direct Docker daemon event-stream subscription remains an optional later optimisation; the current connector uses deterministic snapshot comparison so it works through the existing authenticated API and restricted Docker proxy.
 
-### 0.4.3c — Notification Policies
+### 0.4.3c — Notification Policies ✅ Complete
 
-- [ ] Reusable integration notification policy model
-- [ ] Duration/threshold-based policies (for example unhealthy for five minutes)
-- [ ] Severity escalation and deduplication
-- [ ] Mission Control wake integration
-- [ ] Briefing and Siris Score policy hooks
+- [x] Reusable deterministic `NotificationPolicyRule` and active outcome model
+- [x] Duration-based activation thresholds
+- [x] Optional time-based severity escalation
+- [x] Stable-ID deduplication across frequent connector refreshes
+- [x] Explicit policy resolution when a condition clears
+- [x] Typed policy transition events on the Siris Event Bus
+- [x] Existing Mission Control wake/refresh path reused through notification/module events
+- [x] Active policy messages surfaced in the Mission Control briefing
+- [x] Active policy penalties applied to the deterministic Siris Score with human-readable explanation
+- [x] Initial Docker policies for unhealthy, stopped, and image-update conditions
+- [x] Unit tests for activation duration, escalation deduplication, and resolution
+- [x] Notification policy architecture documented in ADR 014
+
+Current policy state is intentionally in-memory. Persisted policy history and user-editable policy configuration are later enhancements and do not change the evaluation contract.
 
 ### 0.4.3d — Home Assistant Connector
 
 - [x] Existing Home Assistant diagnostics
-- [ ] Migrate Home Assistant behind the SirisConnector contract
+- [ ] Migrate Home Assistant behind the `SirisConnector` contract
 - [ ] WebSocket/event subscription support
 - [ ] Expanded Home Assistant entities, states, and actions
 
