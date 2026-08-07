@@ -26,11 +26,11 @@ class DashboardHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0D2035), Color(0xFF081522)],
+          colors: [Color(0xFF180D0F), Color(0xFF0D090A)],
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x263B82F6),
+            color: Color(0x33E5484D),
             blurRadius: 30,
             spreadRadius: -12,
           ),
@@ -84,10 +84,10 @@ class _Briefing extends StatelessWidget {
             Container(
               width: 54,
               height: 54,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.cyan]),
-                boxShadow: const [BoxShadow(color: Color(0x553B82F6), blurRadius: 18)],
+                gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryBright]),
+                boxShadow: [BoxShadow(color: Color(0x55E5484D), blurRadius: 18)],
               ),
               child: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
             ),
@@ -122,7 +122,7 @@ class _Briefing extends StatelessWidget {
                       color: AppTheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.check_rounded, size: 17, color: AppTheme.cyan),
+                    child: const Icon(Icons.check_rounded, size: 17, color: AppTheme.primaryBright),
                   ),
                   const SizedBox(width: 12),
                   Expanded(child: Text(item)),
@@ -156,7 +156,7 @@ class _ScoreGauge extends StatelessWidget {
               value: score / 100,
               strokeWidth: 12,
               backgroundColor: AppTheme.border,
-              color: AppTheme.cyan,
+              color: AppTheme.primaryBright,
               strokeCap: StrokeCap.round,
             ),
           ),
