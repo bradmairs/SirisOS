@@ -40,7 +40,37 @@ SirisCore includes the typed Event Bus, Module and Widget Registries, determinis
 
 ## Sprint 0.4.2 — Mission Control complete
 
-The authenticated `/mission` Situation Room provides a navigation-free full-screen Mission Control with live clock/date, shared Widget Registry grid, Siris Score, deterministic briefing, activity timeline, adaptive prioritisation, critical wake, display profiles, Focus Modes, ambient mode, diagnostics, reduced-motion behaviour, and the shared SirisOS design system.
+The authenticated `/mission` Situation Room now provides:
+
+- Navigation-free full-screen Mission Control
+- Large live clock and date
+- Shared Widget Registry grid
+- Siris Score, deterministic briefing, activity timeline, and module summaries
+- Event-driven refresh plus scheduled fallback
+- Adaptive widget prioritisation and temporary enlargement
+- Critical-event wake behaviour
+- Persisted Balanced, Operations, and Compact display profiles
+- Runtime event and refresh diagnostics
+- Persisted All, Work, Home, Fitness, and Travel Focus Modes
+- Ambient mode after inactivity with automatic event wake
+- Reduced-motion and burn-in-conscious display behaviour
+- Shared SirisOS design-system primitives
+- Premium black/red visual language and semantic status colours
+
+Mission Control presentation remains a transient view over shared SirisCore data and user-owned layout settings. Adaptive priority, profiles, focus, ambient mode, and critical wake do not overwrite the saved workspace.
+
+### SirisOS design system
+
+Shared Flutter primitives now live in `widgets/siris_design_system.dart`:
+
+- `SirisCard`
+- `SirisPanel`
+- `SirisMetric`
+- `SirisStatusChip`
+- `SirisGauge`
+- `SirisTimeline`
+
+The global theme owns the premium dark red/black visual language, typography, navigation, forms, actions, and semantic status tokens. Mission Control summary cards are the first existing widgets migrated to these primitives. New UI should prefer the shared components, while specialised legacy widgets can migrate incrementally when touched.
 
 Architecture is documented in ADRs 007–011.
 
@@ -48,40 +78,80 @@ Architecture is documented in ADRs 007–011.
 
 ### 0.4.3a — Integration Framework complete
 
-External systems use the shared `SirisConnector` contract and `SirisIntegrationManager` for lifecycle, health, scheduler-backed refresh, typed events, and non-secret configuration. External integration startup is asynchronous and must never block authentication or the core dashboard. ADR 012 documents the framework.
+SirisOS has a reusable integration layer for external systems rather than treating Docker, Home Assistant, Obsidian, UniFi, and future services as unrelated one-off implementations.
+
+Core pieces:
+
+- `SirisConnector` contract for connector identity, lifecycle, refresh interval, and refresh logic
+- Shared connector states: disconnected, connecting, healthy, degraded, failed, and disabled
+- `SirisIntegrationManager` for registration, connect/refresh/disconnect lifecycle, health tracking, and scheduled refresh
+- Scheduler-backed connector refresh jobs with existing overlap protection
+- Typed `IntegrationHealthChanged` and `IntegrationRefreshed` events on the Siris Event Bus
+- Deterministic degraded/failed transitions after repeated failures
+- Non-secret connector configuration with endpoint/options and opaque credential references
+- Credential values deliberately excluded from Flutter client persistence
+
+This framework is documented in ADR 012 and is now the intended foundation for Docker, Home Assistant, Obsidian/Selkies, UniFi, Proxmox, NAS, and other external integrations.
 
 ### 0.4.3b — Docker Connector complete
 
-Docker runs through the Integration Framework with live container state, CPU/RAM, logs/actions, host metrics/history, alerts, audit history, image update availability, snapshot-based state-change events, and server-side registry checks. ADR 013 documents the connector architecture.
+Docker is the first production integration running through the framework:
+
+- Authenticated `DockerConnector` lifecycle owned by `SirisIntegrationManager`
+- Scheduled 30-second connector refreshes
+- Snapshot comparison publishes Homelab events only when meaningful state changes occur
+- Existing container actions, logs, CPU/RAM, health, host metrics, history, alerts, and audit history are preserved
+- Registry digest checks identify newer container images
+- Update checks are deduplicated per image within each Docker collection
+- Available image updates are exposed through the Homelab summary model and existing Homelab alert pipeline
+- Registry/update-check failures remain non-fatal and are retained as per-container diagnostics
+
+The first implementation intentionally uses authenticated snapshot comparison rather than a direct Docker daemon event stream. This works with the existing restricted Docker proxy and keeps SirisCore decoupled from Docker-specific transport details. ADR 013 records the decision.
 
 ### 0.4.3c — Notification Policies complete
 
-SirisCore has deterministic duration/threshold rules, escalation, stable-ID deduplication, resolution, Mission Control wake hooks, Briefing integration, and explainable Siris Score penalties. ADR 014 documents the policy engine.
+SirisCore now has a deterministic policy engine for integration conditions:
+
+- Stable-ID rules with module ownership, title/message, severity, activation duration, optional escalation duration, and score penalty
+- Conditions activate only after their configured duration
+- Repeated connector refreshes are deduplicated rather than generating duplicate alerts
+- Escalation changes the existing active outcome instead of creating a second notification
+- Clearing a condition explicitly resolves the policy
+- Policy transitions publish typed events plus existing notification/module events, reusing Mission Control wake and refresh behaviour
+- Active policy messages are surfaced in the Mission Control briefing
+- Active policy penalties feed the deterministic Siris Score with explainable wording
+- Docker initially contributes unhealthy, stopped-container, and image-update policies
+- Unit coverage verifies duration activation, escalation deduplication, and resolution
+
+Notification policy architecture is documented in ADR 014. Active policy state is currently in-memory; persisted history and user-editable policy configuration remain later enhancements.
 
 ### 0.4.3d — Home Assistant Connector complete
 
-Home Assistant is the second production integration running through the shared framework:
+Home Assistant is the second integration running through the shared framework:
 
+- `HomeAssistantConnector` lifecycle owned by `SirisIntegrationManager`
 - Home Assistant URL/token remain in backend environment configuration and never reach Flutter
-- Backend state snapshot and allow-listed service-action endpoints
+- Authenticated backend state snapshot endpoint
+- Authenticated backend service-action endpoint
 - Server-side WebSocket connection to Home Assistant `/api/websocket`
-- Authenticates with the configured access token and subscribes specifically to `state_changed`
-- Live entity cache updates immediately from Home Assistant events
-- REST `/api/states` remains the initial-state and reconnect fallback path
-- Five-second Siris connector refreshes read the local cache rather than repeatedly querying Home Assistant
-- Deterministic Home Assistant state changes publish Homelab events through SirisCore
+- WebSocket authentication followed by a dedicated `state_changed` subscription
+- Live entity cache updated from Home Assistant state events
+- REST `/api/states` used for initial state and availability fallback while the stream reconnects
+- Five-second connector refreshes consume cached backend state
+- Deterministic state changes publish Homelab events through SirisCore
 - Home Assistant unavailability policy: warning after 2 minutes, critical after 10 minutes
 - Multiple unavailable/unknown entities policy: warning after 2 minutes
-- Authenticated `/home-assistant` entity browser with live cached state
+- Connector startup remains asynchronous so Home Assistant can never block login or the dashboard
+- Authenticated `/home-assistant` entity browser with two-second cached refresh
 - Entity search and domain filtering
 - Allow-listed actions for lights, switches, input booleans, and covers
-- Arbitrary Home Assistant service execution is rejected server-side
+- Arbitrary Home Assistant service calls are rejected server-side
 
-ADR 015 documents the connector foundation and ADR 016 documents live state streaming and the entity-control boundary.
+ADR 015 documents the connector foundation and ADR 016 documents the live-state and safe-control architecture. Flutter deliberately talks only to the SirisOS API; the Home Assistant token remains inside the backend security boundary.
 
 ### Next: 0.4.3e — Broader infrastructure integrations
 
-Next work expands Live Homelab with Prometheus/Grafana and then additional integrations such as UniFi, Proxmox, NAS, backups, and UPS. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
+Next work expands Live Homelab with Prometheus/Grafana and then integrations such as UniFi, Proxmox, NAS, backups, and UPS. The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
 
@@ -92,8 +162,9 @@ Next work expands Live Homelab with Prometheus/Grafana and then additional integ
 - Gym workouts, templates, progress, and personal records
 - Health Auto Export MCP integration scaffold
 - Live Docker monitoring and container actions
-- Docker image update availability and notification policies
-- Home Assistant WebSocket state stream, entity browser, and safe controls
+- Docker connector lifecycle, scheduled state-change detection, and image update availability
+- Home Assistant connector lifecycle, WebSocket live state, entity browser, and safe controls
+- Deterministic duration/escalation Notification Policy engine
 - Host metrics, history, alerts, audit history, and logs
 - Plex and Ollama diagnostics
 - Reusable Siris Integration Framework for external systems
