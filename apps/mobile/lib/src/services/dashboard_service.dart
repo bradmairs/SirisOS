@@ -15,6 +15,8 @@ import 'running_service.dart';
 class DashboardService {
   DashboardService({http.Client? client}) : _client = client ?? http.Client();
 
+  static const _optionalTimeout = Duration(seconds: 4);
+
   final http.Client _client;
   final HomelabService _homelabService = HomelabService();
   final RunningService _runningService = RunningService();
@@ -22,10 +24,22 @@ class DashboardService {
   final HealthService _healthService = HealthService();
 
   Future<DashboardSummary> fetchDashboard() async {
+    // Start all work together, but treat non-core enrichment as optional. The
+    // dashboard should never remain blocked because Health, trends, or the
+    // recommendation service is slow or unavailable.
     final dashboardFuture = _fetchDashboardSummary();
-    final recommendationsFuture = _fetchRecommendations();
-    final trendsFuture = _fetchTrends();
-    final healthFuture = _fetchHealthSnapshot();
+    final recommendationsFuture = _fetchRecommendations().timeout(
+      _optionalTimeout,
+      onTimeout: () => const <String>[],
+    );
+    final trendsFuture = _fetchTrends().timeout(
+      _optionalTimeout,
+      onTimeout: () => const _DashboardTrends.empty(),
+    );
+    final healthFuture = _fetchHealthSnapshot().timeout(
+      _optionalTimeout,
+      onTimeout: () => null,
+    );
 
     final dashboard = await dashboardFuture;
     final recommendations = await recommendationsFuture;
@@ -83,48 +97,65 @@ class DashboardService {
   }
 
   Future<_DashboardTrends> _fetchTrends() async {
-    var cpu = const <double>[];
-    var memory = const <double>[];
-    var running = const <double>[];
-    var gym = const <double>[];
+    final hostFuture = _fetchHostTrends();
+    final runningFuture = _fetchRunningTrend();
+    final gymFuture = _fetchGymTrend();
 
+    final host = await hostFuture;
+    final running = await runningFuture;
+    final gym = await gymFuture;
+
+    return _DashboardTrends(
+      cpu: host.cpu,
+      memory: host.memory,
+      running: running,
+      gym: gym,
+    );
+  }
+
+  Future<_HostTrends> _fetchHostTrends() async {
     try {
       final history = await _homelabService.fetchHostHistory();
       final recent = history.length > 24
           ? history.sublist(history.length - 24)
           : history;
-      cpu = recent
-          .map((item) => item.cpuPercent)
-          .whereType<double>()
-          .toList(growable: false);
-      memory = recent
-          .map((item) => item.memoryPercent)
-          .whereType<double>()
-          .toList(growable: false);
-    } catch (_) {}
+      return _HostTrends(
+        cpu: recent
+            .map((item) => item.cpuPercent)
+            .whereType<double>()
+            .toList(growable: false),
+        memory: recent
+            .map((item) => item.memoryPercent)
+            .whereType<double>()
+            .toList(growable: false),
+      );
+    } catch (_) {
+      return const _HostTrends();
+    }
+  }
 
+  Future<List<double>> _fetchRunningTrend() async {
     try {
       final runs = await _runningService.fetchRuns();
-      running = runs.reversed
+      return runs.reversed
           .take(12)
           .map((item) => item.fitnessScore)
           .toList(growable: false);
-    } catch (_) {}
+    } catch (_) {
+      return const <double>[];
+    }
+  }
 
+  Future<List<double>> _fetchGymTrend() async {
     try {
       final workouts = await _gymService.fetchWorkouts();
-      gym = workouts.reversed
+      return workouts.reversed
           .take(12)
           .map((item) => item.totalVolumeKg)
           .toList(growable: false);
-    } catch (_) {}
-
-    return _DashboardTrends(
-      cpu: cpu,
-      memory: memory,
-      running: running,
-      gym: gym,
-    );
+    } catch (_) {
+      return const <double>[];
+    }
   }
 
   Future<List<String>> _fetchRecommendations() async {
@@ -155,6 +186,16 @@ class DashboardService {
   }
 }
 
+class _HostTrends {
+  const _HostTrends({
+    this.cpu = const <double>[],
+    this.memory = const <double>[],
+  });
+
+  final List<double> cpu;
+  final List<double> memory;
+}
+
 class _DashboardTrends {
   const _DashboardTrends({
     required this.cpu,
@@ -162,6 +203,12 @@ class _DashboardTrends {
     required this.running,
     required this.gym,
   });
+
+  const _DashboardTrends.empty()
+      : cpu = const <double>[],
+        memory = const <double>[],
+        running = const <double>[],
+        gym = const <double>[];
 
   final List<double> cpu;
   final List<double> memory;
