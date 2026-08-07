@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import os
+from threading import Lock
 from typing import Mapping
 
 from sqlalchemy import DateTime, Float, Index, Integer, String, Text, create_engine, delete, select
@@ -55,6 +56,8 @@ class TimeSeriesHistoryService:
         )
         self._engine = create_engine(database_url, pool_pre_ping=True)
         self._session_factory = sessionmaker(self._engine, expire_on_commit=False)
+        self._write_lock = Lock()
+        self._last_recorded: dict[tuple[str, str, str], datetime] = {}
 
     def initialise(self) -> None:
         Base.metadata.create_all(self._engine)
@@ -78,41 +81,54 @@ class TimeSeriesHistoryService:
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
         dimensions_key = self._dimensions_key(dimensions)
+        series_key = (source, metric, dimensions_key)
 
-        with self._session_factory() as session:
-            latest = session.scalar(
-                select(TimeSeriesObservationModel)
-                .where(TimeSeriesObservationModel.source == source)
-                .where(TimeSeriesObservationModel.metric == metric)
-                .where(TimeSeriesObservationModel.dimensions_key == dimensions_key)
-                .order_by(TimeSeriesObservationModel.observed_at.desc())
-                .limit(1)
-            )
-            if latest is not None:
-                latest_at = latest.observed_at
-                if latest_at.tzinfo is None:
-                    latest_at = latest_at.replace(tzinfo=timezone.utc)
-                if (now - latest_at).total_seconds() < minimum_interval_seconds:
-                    return False
+        with self._write_lock:
+            cached_at = self._last_recorded.get(series_key)
+            if cached_at is not None and (now - cached_at).total_seconds() < minimum_interval_seconds:
+                return False
 
-            session.add(
-                TimeSeriesObservationModel(
-                    observed_at=now,
-                    source=source,
-                    metric=metric,
-                    dimensions_key=dimensions_key,
-                    numeric_value=float(numeric_value) if numeric_value is not None else None,
-                    text_value=text_value[:512] if text_value is not None else None,
-                )
-            )
-            cutoff = now - timedelta(days=retention_days)
-            session.execute(
-                delete(TimeSeriesObservationModel).where(
-                    TimeSeriesObservationModel.observed_at < cutoff
-                )
-            )
-            session.commit()
-        return True
+            try:
+                with self._session_factory() as session:
+                    latest = session.scalar(
+                        select(TimeSeriesObservationModel)
+                        .where(TimeSeriesObservationModel.source == source)
+                        .where(TimeSeriesObservationModel.metric == metric)
+                        .where(TimeSeriesObservationModel.dimensions_key == dimensions_key)
+                        .order_by(TimeSeriesObservationModel.observed_at.desc())
+                        .limit(1)
+                    )
+                    if latest is not None:
+                        latest_at = latest.observed_at
+                        if latest_at.tzinfo is None:
+                            latest_at = latest_at.replace(tzinfo=timezone.utc)
+                        self._last_recorded[series_key] = latest_at
+                        if (now - latest_at).total_seconds() < minimum_interval_seconds:
+                            return False
+
+                    session.add(
+                        TimeSeriesObservationModel(
+                            observed_at=now,
+                            source=source,
+                            metric=metric,
+                            dimensions_key=dimensions_key,
+                            numeric_value=float(numeric_value) if numeric_value is not None else None,
+                            text_value=text_value[:512] if text_value is not None else None,
+                        )
+                    )
+                    cutoff = now - timedelta(days=retention_days)
+                    session.execute(
+                        delete(TimeSeriesObservationModel).where(
+                            TimeSeriesObservationModel.observed_at < cutoff
+                        )
+                    )
+                    session.commit()
+                self._last_recorded[series_key] = now
+                return True
+            except Exception:
+                # History is enrichment. Persistence failure must never take an
+                # operational integration offline or slow its primary response.
+                return False
 
     def history(
         self,
