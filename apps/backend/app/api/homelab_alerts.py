@@ -11,6 +11,7 @@ from app.services.docker_service import DockerMonitor
 from app.services.home_assistant_service import HomeAssistantService
 from app.services.homelab_audit_service import HomelabAuditService
 from app.services.host_metrics_service import HostMetricsCollector
+from app.services.prometheus_service import PrometheusService
 
 router = APIRouter(prefix="/api/v1/homelab", tags=["homelab"])
 
@@ -26,6 +27,7 @@ DISK_CRITICAL = float(os.getenv("SIRISOS_DISK_CRITICAL_PERCENT", "90"))
 collector = HostMetricsCollector()
 docker_monitor = DockerMonitor()
 home_assistant_service = HomeAssistantService()
+prometheus_service = PrometheusService()
 audit_service = HomelabAuditService()
 audit_service.initialise()
 
@@ -121,6 +123,22 @@ class HomeAssistantActionResponse(BaseModel):
     accepted: bool
     entity_id: str
     service: str
+    generated_at: str
+
+
+class PrometheusSnapshotResponse(BaseModel):
+    configured: bool
+    available: bool
+    healthy_targets: int
+    unhealthy_targets: int
+    total_targets: int
+    generated_at: str
+    error: str | None = None
+
+
+class PrometheusQueryResponse(BaseModel):
+    expression: str
+    result: list[dict]
     generated_at: str
 
 
@@ -307,6 +325,34 @@ async def home_assistant_action(
     )
 
 
+@router.get("/prometheus", response_model=PrometheusSnapshotResponse)
+async def prometheus_snapshot(
+    authorization: Annotated[str | None, Header()] = None,
+) -> PrometheusSnapshotResponse:
+    _authenticate(authorization)
+    snapshot = await prometheus_service.snapshot()
+    return PrometheusSnapshotResponse(**snapshot.__dict__)
+
+
+@router.get("/prometheus/query", response_model=PrometheusQueryResponse)
+async def prometheus_query(
+    query: Annotated[str, Query(min_length=1, max_length=1000)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> PrometheusQueryResponse:
+    _authenticate(authorization)
+    try:
+        result = await prometheus_service.query(query)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return PrometheusQueryResponse(
+        expression=query,
+        result=result,
+        generated_at=datetime.now().astimezone().isoformat(),
+    )
+
+
 @router.get("/audit", response_model=list[AuditEventResponse])
 async def audit_history(
     authorization: Annotated[str | None, Header()] = None,
@@ -345,6 +391,12 @@ async def integration_diagnostics(
             base_url=home_assistant_url if home_assistant_token else None,
             path="/api/",
             headers={"Authorization": f"Bearer {home_assistant_token}"} if home_assistant_token else None,
+        ),
+        await _probe_integration(
+            key="prometheus",
+            name="Prometheus",
+            base_url=os.getenv("PROMETHEUS_URL"),
+            path="/-/ready",
         ),
         await _probe_integration(
             key="plex",
