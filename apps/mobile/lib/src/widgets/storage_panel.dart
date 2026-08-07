@@ -4,15 +4,21 @@ import '../models/storage_snapshot.dart';
 import '../services/storage_service.dart';
 import 'siris_design_system.dart';
 
-class StoragePanel extends StatelessWidget {
+class StoragePanel extends StatefulWidget {
   const StoragePanel({super.key});
 
-  static final StorageService _service = StorageService();
+  @override
+  State<StoragePanel> createState() => _StoragePanelState();
+}
+
+class _StoragePanelState extends State<StoragePanel> {
+  final StorageService _service = StorageService();
+  late final Future<StorageSnapshot> _future = _service.fetchSnapshot();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<StorageSnapshot>(
-      future: _service.fetchSnapshot(),
+      future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SirisPanel(
