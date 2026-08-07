@@ -82,18 +82,18 @@ class HomeAssistantService:
             cached = list(self._entities.values())
             live_connected = self._live_connected
             sequence = self._sequence
-            last_error = self._last_error
 
-        if cached:
+        if cached and live_connected:
             return HomeAssistantSnapshot(
                 True,
                 True,
                 sorted(cached, key=lambda item: (item.domain, item.name.lower())),
-                live_connected=live_connected,
+                live_connected=True,
                 sequence=sequence,
-                error=None if live_connected else last_error,
             )
 
+        # If the event stream is reconnecting, verify availability through REST
+        # rather than treating stale cached state as proof that HA is healthy.
         return await self._rest_snapshot()
 
     async def call_service(self, domain: str, service: str, entity_id: str) -> None:
