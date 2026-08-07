@@ -76,15 +76,33 @@ Architecture is documented in ADRs 007–011.
 
 ## Active milestone — Sprint 0.4.3 Live Homelab
 
+### 0.4.3a — Integration Framework complete
+
+SirisOS now has a reusable integration layer for external systems rather than treating Docker, Home Assistant, Obsidian, UniFi, and future services as unrelated one-off implementations.
+
+Core pieces:
+
+- `SirisConnector` contract for connector identity, lifecycle, refresh interval, and refresh logic
+- Shared connector states: disconnected, connecting, healthy, degraded, failed, and disabled
+- `SirisIntegrationManager` for registration, connect/refresh/disconnect lifecycle, health tracking, and scheduled refresh
+- Scheduler-backed connector refresh jobs with existing overlap protection
+- Typed `IntegrationHealthChanged` and `IntegrationRefreshed` events on the Siris Event Bus
+- Deterministic degraded/failed transitions after repeated failures
+- Non-secret connector configuration with endpoint/options and opaque credential references
+- Credential values deliberately excluded from Flutter client persistence
+
+This framework is documented in ADR 012 and is now the intended foundation for Docker, Home Assistant, Obsidian/Selkies, UniFi, Proxmox, NAS, and other external integrations.
+
+### Next: 0.4.3b — Docker Connector
+
 Existing Homelab capability already includes live containers, CPU/RAM, state and health, start/stop/restart actions, logs, host metrics/history, alerts, audit history, and Home Assistant/Plex/Ollama diagnostics.
 
 Next work:
 
-- Container image update availability
-- Broader notification policies
-- Prometheus and Grafana integrations
-- Expanded Home Assistant integration
-- UniFi, Proxmox, NAS, backup, and UPS integrations
+- Migrate Docker monitoring/actions behind the `SirisConnector` contract
+- Add container image update availability
+- Publish Docker lifecycle/state changes through the Integration Manager/Event Bus
+- Then build reusable notification policies before expanding Home Assistant and other infrastructure connectors
 
 After Live Homelab, continue with the Engineering module, Obsidian/Selkies Knowledge Platform, Projects and Context Graph, Intelligence/Automation, and Plugin SDK. See `docs/roadmap.md` for the authoritative sequence.
 
@@ -99,6 +117,7 @@ After Live Homelab, continue with the Engineering module, Obsidian/Selkies Knowl
 - Live Docker monitoring and container actions
 - Host metrics, history, alerts, audit history, and logs
 - Home Assistant, Plex, and Ollama diagnostics
+- Reusable Siris Integration Framework for external systems
 - Global search
 - Configurable workspace and dedicated adaptive `/mission` Situation Room
 - Mission Control display profiles, Focus Modes, ambient display, critical wake, diagnostics, and shared design system
@@ -122,6 +141,7 @@ After Live Homelab, continue with the Engineering module, Obsidian/Selkies Knowl
 6. Record significant architecture decisions in `docs/adr/`.
 7. Prefer reusable SirisCore services over one-off feature code.
 8. Prefer shared Siris design components over new parallel card/status/metric implementations.
+9. New external-system integrations should implement the Integration Framework rather than inventing bespoke lifecycle/polling code.
 
 ## Local endpoints
 
