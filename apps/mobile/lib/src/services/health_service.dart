@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
-import '../core/siris_event_bus.dart';
 import '../models/health_snapshot.dart';
 import 'auth_service.dart';
 
@@ -18,7 +17,7 @@ class HealthService {
           Uri.parse('${ApiConfig.baseUrl}/api/v1/health/snapshot'),
           headers: AuthService.authorizationHeaders,
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 8));
 
     if (response.statusCode == 401) {
       throw const HealthServiceException('Your SirisOS session has expired.');
@@ -34,14 +33,10 @@ class HealthService {
       throw const HealthServiceException('Health response was not a JSON object.');
     }
 
-    final snapshot = HealthSnapshot.fromJson(decoded);
-    SirisEventBus.instance.publish(
-      ModuleDataChanged(
-        moduleId: 'health',
-        reason: 'snapshot_refreshed',
-      ),
-    );
-    return snapshot;
+    // Reading a snapshot must be side-effect free. Publishing ModuleDataChanged
+    // here caused DashboardService -> HealthService -> Event Bus -> DashboardService
+    // refresh loops. Producers should publish only when health data actually changes.
+    return HealthSnapshot.fromJson(decoded);
   }
 }
 
