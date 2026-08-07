@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'connectors/docker_connector.dart';
@@ -28,21 +30,28 @@ class _SirisOsAppState extends State<SirisOsApp> {
 
   Future<void> _restoreSession() async {
     final authenticated = await _authService.restoreSession();
-    if (authenticated) await _startIntegrations();
     if (!mounted) return;
     setState(() {
       _authenticated = authenticated;
       _checkingSession = false;
     });
+    if (authenticated) {
+      unawaited(_startIntegrations());
+    }
   }
 
   Future<void> _startIntegrations() async {
-    await SirisIntegrationManager.instance.register(DockerConnector());
+    try {
+      await SirisIntegrationManager.instance.register(DockerConnector());
+    } catch (_) {
+      // Integration health is tracked by SirisIntegrationManager. A slow or
+      // unavailable external integration must never block the core app shell.
+    }
   }
 
   Future<void> _onAuthenticated() async {
-    await _startIntegrations();
     if (mounted) setState(() => _authenticated = true);
+    unawaited(_startIntegrations());
   }
 
   Future<void> _logout() async {
