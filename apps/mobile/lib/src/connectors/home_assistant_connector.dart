@@ -42,7 +42,7 @@ class HomeAssistantConnector extends SirisConnector {
   String get label => 'Home Assistant';
 
   @override
-  Duration get refreshInterval => const Duration(seconds: 30);
+  Duration get refreshInterval => const Duration(seconds: 5);
 
   @override
   Future<void> connect() async {
