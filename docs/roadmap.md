@@ -96,17 +96,32 @@ UniFi:
 - [x] Adopted device online/offline summary
 - [x] Access-point and connected-client overview
 - [x] WAN interface discovery
-- [x] 15-second backend cache and 30-second connector refresh
+- [x] Backend cache and connector refresh
 - [x] Controller-unavailable and device-offline Notification Policies
 - [x] Registered `homelab.unifi` Mission Control widget
 - [x] ADR 019
 
+Storage and Synology NAS:
+- [x] Vendor-neutral host filesystem capacity snapshot from node-exporter
+- [x] `homelab.storage` Mission Control widget
+- [x] 85% warning and 95% critical host-storage policies
+- [x] Optional Synology DSM connector through the Integration Framework
+- [x] DSM credentials retained server-side
+- [x] Runtime DSM WebAPI discovery and authenticated session lifecycle
+- [x] DSM model/version discovery
+- [x] Synology disk and volume discovery/status with DSM-version fallback handling
+- [x] Synology availability and unhealthy-storage Notification Policies
+- [x] Registered `homelab.synology` Mission Control widget
+- [x] Detect installed Synology backup APIs for follow-on Hyper Backup integration
+- [ ] Hyper Backup task status and recent backup history
+- [ ] Backup failure/staleness Notification Policies
+- [ ] Synology backup summary in Mission Control
+
 Remaining 0.4.3e:
-- [ ] Proxmox integration
-- [ ] NAS and backup integrations
+- [ ] Synology Hyper Backup monitoring
 - [ ] UPS integration
 
-All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
+Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ## Sprint 0.4.4 — Engineering Module
 
