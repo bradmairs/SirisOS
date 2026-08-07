@@ -161,13 +161,28 @@ UPS / power:
 - [x] ADR 024
 - [ ] Migrate/bridge existing dedicated host/Docker history into the generic history contract
 - [ ] Add UniFi client/outage history producers
-- [ ] Add trend widgets and Operations Center historical context
+- [x] Add first Operations Center historical context through backup protection analytics
+
+### 0.4.3h — Backup protection analytics ✅ Complete
+
+- [x] Persist one discrete `synology_backup/completion` event per observed Hyper Backup completion
+- [x] Deduplicate repeated DSM polling using change-based history persistence
+- [x] Preserve completion finish timestamp, result and destination context
+- [x] Deterministic rolling backup summary for 1–90 day windows
+- [x] 30-day overall completion, success, failure and success-rate analytics
+- [x] Per-task completion/success/failure/success-rate analytics
+- [x] Last completion and last failure timestamps
+- [x] Authenticated `GET /api/v1/history/backup-protection` endpoint
+- [x] Shared Flutter backup protection model/client
+- [x] Cached/repaint-isolated Backup Protection panel in Operations Center
+- [x] ADR 025
+- [ ] Schedule-aware overdue/staleness policy once DSM schedule semantics are reliable
+- [ ] Backup duration analytics when reliable per-run duration data is available
 
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ### Homelab / Operations follow-on backlog
 
-- [ ] Build 30-day backup protection analytics from persisted observations
 - [ ] Incident Engine to correlate related policy outcomes into one incident
 - [ ] Dependency / Digital Twin graph for downstream impact analysis
 - [ ] Recommended operational actions and maintenance queue

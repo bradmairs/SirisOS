@@ -1,4 +1,5 @@
 from typing import Annotated
+import json
 import os
 
 import jwt
@@ -125,6 +126,26 @@ def _record_synology_history(snapshot: object) -> None:
             dimensions=dimensions,
             minimum_interval_seconds=300,
         )
+        if task.last_finish_at:
+            result = (task.last_result or task.state or "unknown").lower()
+            success = not task.failed and not any(
+                token in result for token in ("fail", "error", "cancel", "abort")
+            )
+            completion_payload = json.dumps(
+                {
+                    "finish_at": task.last_finish_at,
+                    "result": task.last_result or task.state,
+                    "destination": task.destination,
+                },
+                separators=(",", ":"),
+            )
+            history_service.record_if_changed(
+                source="synology_backup",
+                metric="completion",
+                numeric_value=1 if success else 0,
+                text_value=completion_payload,
+                dimensions=dimensions,
+            )
 
 
 @router.get("", response_model=SynologySnapshotResponse)

@@ -116,18 +116,65 @@ class TimeSeriesHistoryService:
                             text_value=text_value[:512] if text_value is not None else None,
                         )
                     )
-                    cutoff = now - timedelta(days=retention_days)
-                    session.execute(
-                        delete(TimeSeriesObservationModel).where(
-                            TimeSeriesObservationModel.observed_at < cutoff
-                        )
-                    )
+                    self._prune(session, now=now, retention_days=retention_days)
                     session.commit()
                 self._last_recorded[series_key] = now
                 return True
             except Exception:
-                # History is enrichment. Persistence failure must never take an
-                # operational integration offline or slow its primary response.
+                return False
+
+    def record_if_changed(
+        self,
+        *,
+        source: str,
+        metric: str,
+        numeric_value: float | int | None = None,
+        text_value: str | None = None,
+        dimensions: Mapping[str, object] | None = None,
+        observed_at: datetime | None = None,
+        retention_days: int = 90,
+    ) -> bool:
+        """Persist a series only when its value changes.
+
+        This is useful for discrete operational events such as completed backup
+        jobs where repeated polling must not create duplicate observations.
+        """
+        if numeric_value is None and text_value is None:
+            return False
+        now = observed_at or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        dimensions_key = self._dimensions_key(dimensions)
+        numeric = float(numeric_value) if numeric_value is not None else None
+        text = text_value[:512] if text_value is not None else None
+
+        with self._write_lock:
+            try:
+                with self._session_factory() as session:
+                    latest = session.scalar(
+                        select(TimeSeriesObservationModel)
+                        .where(TimeSeriesObservationModel.source == source)
+                        .where(TimeSeriesObservationModel.metric == metric)
+                        .where(TimeSeriesObservationModel.dimensions_key == dimensions_key)
+                        .order_by(TimeSeriesObservationModel.observed_at.desc())
+                        .limit(1)
+                    )
+                    if latest is not None and latest.numeric_value == numeric and latest.text_value == text:
+                        return False
+                    session.add(
+                        TimeSeriesObservationModel(
+                            observed_at=now,
+                            source=source,
+                            metric=metric,
+                            dimensions_key=dimensions_key,
+                            numeric_value=numeric,
+                            text_value=text,
+                        )
+                    )
+                    self._prune(session, now=now, retention_days=retention_days)
+                    session.commit()
+                return True
+            except Exception:
                 return False
 
     def history(
@@ -165,6 +212,14 @@ class TimeSeriesHistoryService:
             )
             for row in rows
         ]
+
+    def _prune(self, session: object, *, now: datetime, retention_days: int) -> None:
+        cutoff = now - timedelta(days=retention_days)
+        session.execute(
+            delete(TimeSeriesObservationModel).where(
+                TimeSeriesObservationModel.observed_at < cutoff
+            )
+        )
 
     @staticmethod
     def _dimensions_key(dimensions: Mapping[str, object] | None) -> str:

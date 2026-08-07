@@ -8,6 +8,7 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
+from app.services.backup_analytics_service import backup_analytics_service
 from app.services.time_series_history_service import history_service
 
 router = APIRouter(prefix="/api/v1/history", tags=["history"])
@@ -29,6 +30,29 @@ class TimeSeriesHistoryResponse(BaseModel):
     metric: str
     hours: int
     observations: list[TimeSeriesObservationResponse]
+
+
+class BackupTaskProtectionResponse(BaseModel):
+    task_id: str
+    task_name: str
+    completions: int
+    successes: int
+    failures: int
+    success_rate_percent: float | None
+    last_finish_at: str | None
+    last_result: str | None
+
+
+class BackupProtectionResponse(BaseModel):
+    days: int
+    completions: int
+    successes: int
+    failures: int
+    success_rate_percent: float | None
+    last_finish_at: str | None
+    last_failure_at: str | None
+    protected: bool | None
+    tasks: list[BackupTaskProtectionResponse]
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -89,4 +113,24 @@ async def time_series_history(
             )
             for item in observations
         ],
+    )
+
+
+@router.get("/backup-protection", response_model=BackupProtectionResponse)
+async def backup_protection(
+    days: Annotated[int, Query(ge=1, le=90)] = 30,
+    authorization: Annotated[str | None, Header()] = None,
+) -> BackupProtectionResponse:
+    _authenticate(authorization)
+    summary = backup_analytics_service.summary(days=days)
+    return BackupProtectionResponse(
+        days=summary.days,
+        completions=summary.completions,
+        successes=summary.successes,
+        failures=summary.failures,
+        success_rate_percent=summary.success_rate_percent,
+        last_finish_at=summary.last_finish_at,
+        last_failure_at=summary.last_failure_at,
+        protected=summary.protected,
+        tasks=[BackupTaskProtectionResponse(**item.__dict__) for item in summary.tasks],
     )
