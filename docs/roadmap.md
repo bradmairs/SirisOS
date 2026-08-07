@@ -112,16 +112,20 @@ Storage and Synology NAS:
 - [x] Synology disk and volume discovery/status with DSM-version fallback handling
 - [x] Synology availability and unhealthy-storage Notification Policies
 - [x] Registered `homelab.synology` Mission Control widget
-- [x] Detect installed Synology backup APIs for follow-on Hyper Backup integration
-- [ ] Hyper Backup task status and recent backup history
-- [ ] Backup failure/staleness Notification Policies
-- [ ] Synology backup summary in Mission Control
+- [x] Detect installed Synology backup APIs
+- [x] Hyper Backup task list/status monitoring through `SYNO.Backup.Task`
+- [x] Task name/state plus last result, finish time, next-run time and destination when exposed by DSM
+- [x] Hyper Backup failure Notification Policy
+- [x] Backup state changes publish standard Homelab events
+- [x] Registered `homelab.backups` Mission Control widget
+- [x] Hyper Backup architecture documented in ADR 021
+- [ ] Persist backup observations for 30-day success rate, duration trends and failure history
+- [ ] Optional schedule-aware staleness policy after persistent history exists
 
 Remaining 0.4.3e:
-- [ ] Synology Hyper Backup monitoring
 - [ ] UPS integration
 
-Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
+Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ## Sprint 0.4.4 — Engineering Module
 

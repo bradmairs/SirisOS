@@ -53,9 +53,9 @@ Server-side HA credentials, live `/api/websocket` `state_changed` cache with RES
 
 Prometheus, Grafana and UniFi are complete through the Integration Framework with server-side credentials, deterministic policies and Mission Control widgets. ADRs 017–019 document those integrations.
 
-Storage/NAS work now targets the actual homelab platform: **Synology DSM**. Proxmox has been removed from the roadmap because it is not required for this installation.
+Storage/NAS work targets **Synology DSM**; Proxmox is intentionally not part of this installation.
 
-Current storage/NAS slice:
+Current Synology/storage capabilities:
 
 - Vendor-neutral host filesystem monitoring through the existing node-exporter
 - `homelab.storage` Mission Control widget with volume count, used/free capacity and peak utilisation
@@ -63,14 +63,19 @@ Current storage/NAS slice:
 - Optional `SynologyConnector` through the Integration Framework
 - DSM URL, username and password remain backend-side
 - Runtime DSM WebAPI discovery and authenticated session lifecycle
-- DSM model/version discovery
-- Synology disk and volume discovery/status where exposed by the running DSM version
-- Unhealthy disk/volume Notification Policy
-- Synology availability policy
+- DSM model/version, disk and volume discovery/status
+- Synology availability and unhealthy-storage Notification Policies
 - `homelab.synology` Mission Control widget
-- Detection of installed Synology backup APIs to prepare Hyper Backup monitoring
+- Runtime discovery of `SYNO.Backup.Task`
+- Hyper Backup task list/status monitoring with task name, state, last result, last finish time, next-run time and destination when DSM exposes those fields
+- Critical Notification Policy when one or more Hyper Backup tasks last report a failure
+- Hyper Backup state changes publish standard Homelab events
+- Dedicated `homelab.backups` Mission Control widget showing task/running/failed counts and recent task states
+- Hyper Backup monitoring architecture documented in ADR 021
 
-Next in 0.4.3e is **Synology Hyper Backup task/history integration**, then **UPS monitoring**.
+Hyper Backup fields are parsed defensively because DSM package/API versions differ. Unsupported optional task fields degrade to unavailable values rather than breaking Synology monitoring. Long-term backup analytics (for example 30-day success rate and duration trends) require SirisOS-side persistent history and remain a later enhancement.
+
+Next in 0.4.3e is **UPS monitoring**.
 
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
@@ -86,6 +91,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Grafana health/dashboard discovery/launch/render proxy support
 - UniFi controller/device/AP/client/WAN overview and policies
 - Host storage capacity monitoring and Synology DSM NAS monitoring
+- Synology Hyper Backup task/result monitoring and Mission Control backup status
 - Plex and Ollama diagnostics
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
