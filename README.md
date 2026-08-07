@@ -73,7 +73,7 @@ Current Synology/storage capabilities:
 - Dedicated `homelab.backups` Mission Control widget showing task/running/failed counts and recent task states
 - Hyper Backup monitoring architecture documented in ADR 021
 
-Hyper Backup fields are parsed defensively because DSM package/API versions differ. Unsupported optional task fields degrade to unavailable values rather than breaking Synology monitoring. Long-term backup analytics (for example 30-day success rate and duration trends) require SirisOS-side persistent history and remain a later enhancement.
+Hyper Backup fields are parsed defensively because DSM package/API versions differ. Unsupported optional task fields degrade to unavailable values rather than breaking Synology monitoring.
 
 UPS monitoring uses **Network UPS Tools (NUT)** as the vendor-neutral interface:
 
@@ -105,6 +105,25 @@ It currently provides:
 
 Mission Control remains the ambient "what is happening now?" surface. Operations Center is the focused "what needs my attention?" surface. Cross-system incident correlation, historical incidents, maintenance workflows and recommended actions remain follow-on work.
 
+### 0.4.3g — Generic Time-Series / History Engine foundation complete
+
+SirisOS now has a connector-neutral persistent history layer for low-frequency operational observations:
+
+- One PostgreSQL `time_series_observations` store using source, metric and canonical dimensions
+- Numeric values and short text/status values
+- Central minimum sampling intervals and 90-day default retention
+- Authenticated bounded `GET /api/v1/history` query endpoint
+- Shared Flutter `HistoryService` and `TimeSeriesObservation` model
+- Storage peak utilisation and per-volume history
+- Synology volume utilisation history
+- Hyper Backup failed/running task-state history
+- UPS battery charge, estimated runtime, load, voltage and power-state history
+- Background persistence so history writes do not delay connector responses
+- In-memory sample guards to avoid unnecessary PostgreSQL reads between due samples
+- Architecture documented in ADR 024
+
+This engine is intentionally for low-frequency SirisOS operational history. Prometheus remains the high-frequency metrics system. Existing dedicated host/Docker history will be bridged into the generic contract in a later slice rather than replaced speculatively.
+
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
@@ -121,6 +140,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Host storage capacity monitoring and Synology DSM NAS monitoring
 - Synology Hyper Backup task/result monitoring and Mission Control backup status
 - NUT UPS monitoring for power state, battery, runtime and load
+- Generic persistent operational time-series history API/client
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
@@ -151,6 +171,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 11. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs.
 12. UI widgets must not initiate fresh network requests from `build()`; cache futures/state at widget or connector level.
 13. Mission Control is ambient status; Operations Center is focused operational work.
+14. Low-frequency historical observations use the generic History Engine; high-frequency telemetry belongs in Prometheus.
 
 ## Local endpoints
 
@@ -161,6 +182,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Grafana browser: `http://192.168.0.100:6464/#/grafana`
 - API: `http://192.168.0.100:8000`
 - API docs: `http://192.168.0.100:8000/docs`
+- Generic history API: `http://192.168.0.100:8000/api/v1/history`
 
 Useful commands:
 
