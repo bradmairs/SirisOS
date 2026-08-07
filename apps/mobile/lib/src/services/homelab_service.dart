@@ -17,7 +17,51 @@ class HomelabService {
 
   Future<DockerSummary> fetchDockerSummary() async {
     final decoded = await _getJson('/api/v1/homelab/docker');
-    return DockerSummary.fromJson(decoded);
+    final base = DockerSummary.fromJson(decoded);
+
+    try {
+      final updates = await _getJson('/api/v1/homelab/docker/updates');
+      final raw = updates['containers'];
+      final byId = <String, Map<String, dynamic>>{};
+      if (raw is List) {
+        for (final item in raw.whereType<Map<String, dynamic>>()) {
+          final id = item['container_id'] as String?;
+          if (id != null) byId[id] = item;
+        }
+      }
+
+      final containers = base.containers.map((container) {
+        final update = byId[container.containerId];
+        return DockerContainerInfo(
+          containerId: container.containerId,
+          name: container.name,
+          image: container.image,
+          state: container.state,
+          status: container.status,
+          health: container.health,
+          cpuPercent: container.cpuPercent,
+          memoryUsageBytes: container.memoryUsageBytes,
+          memoryLimitBytes: container.memoryLimitBytes,
+          memoryPercent: container.memoryPercent,
+          updateAvailable: update?['update_available'] as bool? ?? false,
+          updateCheckError: update?['update_check_error'] as String?,
+        );
+      }).toList(growable: false);
+
+      return DockerSummary(
+        available: base.available,
+        total: base.total,
+        running: base.running,
+        stopped: base.stopped,
+        unhealthy: base.unhealthy,
+        updatesAvailable: updates['updates_available'] as int? ??
+            containers.where((item) => item.updateAvailable).length,
+        containers: containers,
+        error: base.error,
+      );
+    } catch (_) {
+      return base;
+    }
   }
 
   Future<HostMetrics> fetchHostMetrics() async {
