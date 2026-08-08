@@ -49,11 +49,15 @@ services:
       SIRISOS_STANDARDS_OCR_LANGUAGE: ${SIRISOS_STANDARDS_OCR_LANGUAGE:-eng}
       SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS: ${SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS:-300}
       SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS: ${SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS:-40}
+      SIRISOS_KNOWLEDGE_VAULT_PATH: /app/data/knowledge
+      SIRISOS_KNOWLEDGE_MAX_NOTE_KB: ${SIRISOS_KNOWLEDGE_MAX_NOTE_KB:-1024}
+      SIRISOS_KNOWLEDGE_MAX_SCAN_FILES: ${SIRISOS_KNOWLEDGE_MAX_SCAN_FILES:-5000}
     ports:
       - "6464:6464"
     volumes:
       - ./data/logs:/app/logs
       - ./data/standards:/app/data/standards
+      - ${SIRISOS_KNOWLEDGE_HOST_PATH:-./data/knowledge}:/app/data/knowledge:ro
     depends_on:
       postgres:
         condition: service_healthy
