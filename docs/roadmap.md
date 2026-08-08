@@ -257,13 +257,39 @@ Proxmox is intentionally not part of the SirisOS roadmap because this installati
 - [ ] Relationships between notes, tasks, files, calculations, events, repositories, and conversations
 - [ ] Context containers for engineering, homelab, travel, fitness, and personal projects
 
-## Sprint 0.7 — Intelligence and Automation
+## Sprint 0.7 — SirisAI, Intelligence and Automation
 
-- [ ] Ollama-backed rewriting over deterministic outputs
+SirisAI will deliberately separate **inference**, **agent execution**, and **SirisOS policy/orchestration** rather than treating one runtime as the whole AI stack.
+
+Ollama / local inference:
+- [ ] Ollama connector/provider with server-side configuration
+- [ ] Shared local model routing for SirisHydro, SirisPM, briefings, semantic search and deterministic-output rewriting
+- [ ] Per-module model/profile selection and context budgets
+- [ ] Health/model-availability monitoring through the Integration Framework
+- [ ] Preserve deterministic SirisCore outputs underneath optional LLM rewriting
+
+Hermes Agent / server agent runtime:
+- [ ] Optional Hermes Agent connector/runtime adapter
+- [ ] Integrate Hermes into SirisAI as the tool-using agent runtime for server administration
+- [ ] Keep Hermes endpoint/authentication server-side
+- [ ] Allow Hermes to use Ollama as one model backend without making Hermes mandatory for other SirisAI features
+- [ ] SirisAI action broker with allow-listed server operations
+- [ ] Explicit confirmation/approval flow for destructive or high-impact actions
+- [ ] Never enable Hermes dangerous-command approval bypass from SirisOS
+- [ ] Audit trail for prompts, approvals, invoked actions/commands and results
+- [ ] Feed Operations Center incidents and Digital Twin dependency context into agent tasks
+- [ ] Safe read-only diagnostics before write/action capabilities
+- [ ] Controlled Docker/service/file-management actions with least-privilege execution
+- [ ] Agent task/status/history surface in Operations Center
+
+Broader intelligence and automation:
 - [ ] Recommendation engine
 - [ ] Semantic context and memory
 - [ ] n8n workflow integration
 - [ ] Automation schedules, triggers, and action audit
+- [ ] Dependency-aware recommended operational actions
+- [ ] Human approval policies shared by Hermes actions and other SirisOS automations
+- [ ] ADR 029 architecture boundary: SirisAI orchestration vs Hermes runtime vs Ollama inference
 
 ## Sprint 0.8 — Plugin SDK
 
