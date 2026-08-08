@@ -181,16 +181,31 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 
 ## Sprint 0.4.5 — Engineering Module 🚧 In progress
 
-### Engineering calculators ✅ Foundation
+### Engineering calculators ✅ Expanded civil/water foundation
 - [x] First-class Engineering module through Module Registry
-- [x] Manning/full circular-pipe capacity calculator
-- [x] Flow and velocity outputs with explicit SI units
-- [x] Rational Method calculator using mm/h and hectares
+- [x] Mobile-friendly calculator category/selector surface
+- [x] Full circular-pipe Manning capacity and velocity
+- [x] Part-full circular-pipe Manning capacity, velocity and flow area
+- [x] Minimum full-pipe grade for a target Manning flow
+- [x] Rectangular open-channel Manning capacity
+- [x] Trapezoidal open-channel Manning capacity
+- [x] Rectangular-channel critical depth and velocity
+- [x] Rational Method peak flow using mm/h and hectares
+- [x] Rectangular free-flow weir discharge
+- [x] Circular orifice discharge
+- [x] Hazen–Williams pressure-pipe headloss
+- [x] Darcy–Weisbach headloss with Reynolds number and friction factor
+- [x] Pump hydraulic/input power estimate
 - [x] Buried-pipe buoyancy screening helper
 - [x] Constant-flow detention screening helper
 - [x] Input validation and numerical regression tests
 - [x] Engineering navigation and Quick Action
 - [x] ADR 032
+- [ ] Traceable standards/authority assumption profiles per calculator
+- [ ] Save/share calculation records into future project context
+- [ ] Minor-loss/K-value and fitting-loss calculator
+- [ ] Multi-stage detention routing / stage-storage-discharge helper
+- [ ] Pit/inlet capture and gutter-flow helpers once authority assumptions are profile-driven
 
 ### Standards Library / Search ✅ Foundation
 - [x] Engineering hub with Calculators and Standards surfaces
