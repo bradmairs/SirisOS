@@ -7,6 +7,7 @@ from app.api.infrastructure import router as infrastructure_router
 from app.api.intelligence import router as intelligence_router
 from app.api.knowledge import router as knowledge_router
 from app.api.knowledge_context import router as knowledge_context_router
+from app.api.project_relationships import router as project_relationships_router
 from app.api.projects import router as projects_router
 from app.api.search import router as search_router
 from app.api.synology import router as synology_router
@@ -23,6 +24,7 @@ for router in (
     knowledge_router,
     knowledge_context_router,
     projects_router,
+    project_relationships_router,
     search_router,
     synology_router,
 ):
