@@ -31,6 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _eventDebounce;
   List<DashboardWidgetPreference> _layout = DashboardLayoutService.defaultLayout();
   int _unreadCount = 0;
+  bool _refreshInProgress = false;
 
   @override
   void initState() {
@@ -60,7 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (event is MissionControlRefreshed && event.source == 'dashboard_service') return;
     if (event is! ModuleDataChanged && event is! NotificationStateChanged) return;
     _eventDebounce?.cancel();
-    _eventDebounce = Timer(const Duration(milliseconds: 350), _refreshSilently);
+    _eventDebounce = Timer(const Duration(milliseconds: 500), _refreshSilently);
   }
 
   Future<void> _loadLayout() async {
@@ -76,12 +77,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _refreshSilently() async {
-    if (!mounted) return;
+    if (!mounted || _refreshInProgress) return;
+    _refreshInProgress = true;
     final next = _service.fetchDashboard();
     setState(() => _dashboardFuture = next);
     try {
       await Future.wait([next, _loadUnreadCount()]);
-    } catch (_) {}
+    } catch (_) {
+      // Preserve the last successful FutureBuilder data during a transient refresh failure.
+    } finally {
+      _refreshInProgress = false;
+    }
   }
 
   Future<void> _refresh() => _refreshSilently();
@@ -210,10 +216,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: FutureBuilder<DashboardSummary>(
         future: _dashboardFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError || !snapshot.hasData) return _ErrorState(onRetry: _refresh);
+          if ((snapshot.hasError || !snapshot.hasData) && snapshot.data == null) {
+            return _ErrorState(onRetry: _refresh);
+          }
 
           final data = snapshot.data!;
           final widgetContext = MissionControlWidgetContext(dashboard: data, greeting: _greeting());
