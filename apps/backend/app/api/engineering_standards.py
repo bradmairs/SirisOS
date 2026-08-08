@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pypdf import PdfReader
 
+from app.services.engineering_standards_search import rank_pages
+
 router = APIRouter(prefix="/api/v1/engineering/standards", tags=["engineering"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -37,11 +39,20 @@ class StandardSearchHit(BaseModel):
     document: StandardDocumentResponse
     page: int | None = None
     snippet: str | None = None
+    score: int | None = None
+    citation: str | None = None
 
 
 class StandardSearchResponse(BaseModel):
     query: str
     hits: list[StandardSearchHit]
+
+
+class StandardPageResponse(BaseModel):
+    document: StandardDocumentResponse
+    page: int
+    text: str
+    citation: str
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -72,6 +83,17 @@ def _load_metadata(document_id: str) -> dict:
     return json.loads(metadata_path.read_text(encoding="utf-8"))
 
 
+def _load_pages(document_id: str) -> list[dict]:
+    _, _, index_path = _paths(document_id)
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="This standard has no searchable text index.")
+    try:
+        value = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="The standards text index is unreadable.") from exc
+    return value if isinstance(value, list) else []
+
+
 def _response(metadata: dict) -> StandardDocumentResponse:
     return StandardDocumentResponse(**metadata)
 
@@ -85,11 +107,27 @@ def _snippet(text: str, query: str, radius: int = 150) -> str | None:
     lowered = text.lower()
     position = lowered.find(query.lower())
     if position < 0:
+        terms = re.findall(r"[a-z0-9]+", query.lower())
+        positions = [lowered.find(term) for term in terms if lowered.find(term) >= 0]
+        position = min(positions) if positions else -1
+    if position < 0:
         return None
     start = max(0, position - radius)
-    end = min(len(text), position + len(query) + radius)
+    end = min(len(text), position + max(len(query), 1) + radius)
     excerpt = " ".join(text[start:end].split())
     return ("…" if start else "") + excerpt + ("…" if end < len(text) else "")
+
+
+def _citation(metadata: dict, page: int) -> str:
+    identity = str(metadata.get("reference") or metadata.get("title") or "Standard")
+    edition = str(metadata.get("edition") or "").strip()
+    authority = str(metadata.get("authority") or "").strip()
+    parts = [identity]
+    if edition:
+        parts.append(edition)
+    if authority:
+        parts.append(authority)
+    return f"{' · '.join(parts)} · p. {page}"
 
 
 @router.get("", response_model=StandardSearchResponse)
@@ -119,29 +157,32 @@ async def search_standards(
         )
         if not query_value:
             hits.append(StandardSearchHit(document=document))
-        elif query_value.lower() in searchable_metadata.lower():
-            hits.append(StandardSearchHit(document=document))
         else:
+            metadata_match = query_value.lower() in searchable_metadata.lower()
+            if metadata_match:
+                hits.append(StandardSearchHit(document=document, score=100))
             _, _, index_path = _paths(document.id)
             if index_path.exists():
                 try:
                     pages = json.loads(index_path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
                     pages = []
-                for item in pages:
-                    text = str(item.get("text") or "")
-                    excerpt = _snippet(text, query_value)
-                    if excerpt:
-                        hits.append(
-                            StandardSearchHit(
-                                document=document,
-                                page=int(item.get("page") or 0) or None,
-                                snippet=excerpt,
-                            )
+                remaining = max(0, min(5, limit - len(hits)))
+                for ranked in rank_pages(pages, query_value, limit=remaining):
+                    hits.append(
+                        StandardSearchHit(
+                            document=document,
+                            page=ranked.page or None,
+                            snippet=_snippet(ranked.text, query_value),
+                            score=ranked.score,
+                            citation=_citation(metadata, ranked.page),
                         )
+                    )
+                    if len(hits) >= limit:
                         break
         if len(hits) >= limit:
             break
+    hits.sort(key=lambda hit: -(hit.score or 0))
     return StandardSearchResponse(query=query_value, hits=hits[:limit])
 
 
@@ -197,6 +238,28 @@ async def upload_standard(
     }
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return _response(metadata)
+
+
+@router.get("/{document_id}/pages/{page}", response_model=StandardPageResponse)
+async def standard_page(
+    document_id: str,
+    page: int,
+    authorization: Annotated[str | None, Header()] = None,
+) -> StandardPageResponse:
+    _authenticate(authorization)
+    metadata = _load_metadata(document_id)
+    if page < 1 or page > int(metadata.get("pages") or 0):
+        raise HTTPException(status_code=404, detail="Standard page not found.")
+    pages = _load_pages(document_id)
+    item = next((value for value in pages if int(value.get("page") or 0) == page), None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Standard page text not found.")
+    return StandardPageResponse(
+        document=_response(metadata),
+        page=page,
+        text=str(item.get("text") or ""),
+        citation=_citation(metadata, page),
+    )
 
 
 @router.get("/{document_id}/file")

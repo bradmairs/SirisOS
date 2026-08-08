@@ -48,11 +48,15 @@ class EngineeringStandardSearchHit {
     required this.document,
     this.page,
     this.snippet,
+    this.score,
+    this.citation,
   });
 
   final EngineeringStandardDocument document;
   final int? page;
   final String? snippet;
+  final int? score;
+  final String? citation;
 
   factory EngineeringStandardSearchHit.fromJson(Map<String, dynamic> json) =>
       EngineeringStandardSearchHit(
@@ -61,6 +65,32 @@ class EngineeringStandardSearchHit {
         ),
         page: (json['page'] as num?)?.toInt(),
         snippet: json['snippet'] as String?,
+        score: (json['score'] as num?)?.toInt(),
+        citation: json['citation'] as String?,
+      );
+}
+
+class EngineeringStandardPage {
+  const EngineeringStandardPage({
+    required this.document,
+    required this.page,
+    required this.text,
+    required this.citation,
+  });
+
+  final EngineeringStandardDocument document;
+  final int page;
+  final String text;
+  final String citation;
+
+  factory EngineeringStandardPage.fromJson(Map<String, dynamic> json) =>
+      EngineeringStandardPage(
+        document: EngineeringStandardDocument.fromJson(
+          json['document'] as Map<String, dynamic>,
+        ),
+        page: (json['page'] as num).toInt(),
+        text: json['text'] as String? ?? '',
+        citation: json['citation'] as String? ?? '',
       );
 }
 
@@ -87,6 +117,24 @@ class EngineeringStandardsService {
         .whereType<Map<String, dynamic>>()
         .map(EngineeringStandardSearchHit.fromJson)
         .toList(growable: false);
+  }
+
+  Future<EngineeringStandardPage> page({
+    required String documentId,
+    required int page,
+  }) async {
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/v1/engineering/standards/$documentId/pages/$page',
+    );
+    final response = await http
+        .get(uri, headers: AuthService.authorizationHeaders)
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw EngineeringStandardsException('Unable to load standard page (${response.statusCode}).');
+    }
+    return EngineeringStandardPage.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<EngineeringStandardDocument> uploadPdf({

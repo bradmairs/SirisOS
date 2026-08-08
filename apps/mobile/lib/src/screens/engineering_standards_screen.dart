@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/engineering_standards_service.dart';
@@ -31,6 +32,100 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
 
   void _runSearch() {
     setState(() => _results = _service.search(query: _search.text.trim()));
+  }
+
+  Future<void> _showPage(EngineeringStandardSearchHit hit) async {
+    final pageNumber = hit.page;
+    if (pageNumber == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        child: SizedBox(
+          width: 760,
+          height: 640,
+          child: FutureBuilder<EngineeringStandardPage>(
+            future: _service.page(documentId: hit.document.id, page: pageNumber),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('Unable to load page: ${snapshot.error}'),
+                );
+              }
+              final page = snapshot.requireData;
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(page.document.title, style: Theme.of(context).textTheme.titleLarge),
+                              const SizedBox(height: 4),
+                              Text(page.citation, style: Theme.of(context).textTheme.labelLarge),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: page.citation));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Citation copied.')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.copy_rounded),
+                          label: const Text('Copy citation'),
+                        ),
+                        Chip(label: Text('Page ${page.page}')),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: SelectionArea(
+                        child: SingleChildScrollView(
+                          child: Text(
+                            page.text.trim().isEmpty
+                                ? 'No extractable text is available for this page.'
+                                : page.text,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Extracted local text for retrieval and verification. Check the licensed PDF when layout, figures or tables are material.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showUploadDialog() async {
@@ -90,10 +185,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                     TextField(
                       controller: title,
                       enabled: !uploading,
-                      decoration: const InputDecoration(
-                        labelText: 'Title',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -126,10 +218,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                     ),
                     if (error != null) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
-                      ),
+                      Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                     ],
                   ],
                 ),
@@ -145,12 +234,8 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                     ? null
                     : () async {
                         final file = selected;
-                        if (file?.bytes == null ||
-                            title.text.trim().isEmpty ||
-                            authority.text.trim().isEmpty) {
-                          setDialogState(() {
-                            error = 'Choose a PDF and enter its title and authority.';
-                          });
+                        if (file?.bytes == null || title.text.trim().isEmpty || authority.text.trim().isEmpty) {
+                          setDialogState(() => error = 'Choose a PDF and enter its title and authority.');
                           return;
                         }
                         setDialogState(() {
@@ -181,11 +266,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                         }
                       },
                 icon: uploading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.upload_file_rounded),
                 label: Text(uploading ? 'Indexing…' : 'Upload'),
               ),
@@ -249,18 +330,10 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
             future: _results,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ));
+                return const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()));
               }
               if (snapshot.hasError) {
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Text('Unable to load standards: ${snapshot.error}'),
-                  ),
-                );
+                return Card(child: Padding(padding: const EdgeInsets.all(18), child: Text('Unable to load standards: ${snapshot.error}')));
               }
               final hits = snapshot.data ?? const [];
               if (hits.isEmpty) {
@@ -273,7 +346,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
               }
               return Column(
                 children: hits
-                    .map((hit) => _StandardHitCard(hit: hit))
+                    .map((hit) => _StandardHitCard(hit: hit, onOpenPage: hit.page == null ? null : () => _showPage(hit)))
                     .toList(growable: false),
               );
             },
@@ -296,8 +369,9 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
 }
 
 class _StandardHitCard extends StatelessWidget {
-  const _StandardHitCard({required this.hit});
+  const _StandardHitCard({required this.hit, this.onOpenPage});
   final EngineeringStandardSearchHit hit;
+  final VoidCallback? onOpenPage;
 
   @override
   Widget build(BuildContext context) {
@@ -337,15 +411,20 @@ class _StandardHitCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Chip(label: Text('${document.pages} pages')),
                       Chip(
-                        avatar: Icon(
-                          document.indexed ? Icons.check_circle_rounded : Icons.image_rounded,
-                          size: 16,
-                        ),
+                        avatar: Icon(document.indexed ? Icons.check_circle_rounded : Icons.image_rounded, size: 16),
                         label: Text(document.indexed ? 'Searchable' : 'Stored · not indexed'),
                       ),
+                      if (onOpenPage != null)
+                        OutlinedButton.icon(
+                          onPressed: onOpenPage,
+                          icon: const Icon(Icons.article_rounded),
+                          label: const Text('View source page'),
+                        ),
                     ],
                   ),
                 ],
@@ -366,31 +445,11 @@ class _AuthoritySource {
 }
 
 const _authoritySources = <_AuthoritySource>[
-  _AuthoritySource(
-    'Standards Australia',
-    'Australian Standards catalogue and access services',
-    'https://www.standards.org.au/',
-  ),
-  _AuthoritySource(
-    'WSAA',
-    'Water Services Association of Australia codes and resources',
-    'https://www.wsaa.asn.au/',
-  ),
-  _AuthoritySource(
-    'Sydney Water',
-    'Technical specifications, standards and developer resources',
-    'https://www.sydneywater.com.au/',
-  ),
-  _AuthoritySource(
-    'Austroads',
-    'Road and transport guidance publications',
-    'https://austroads.com.au/',
-  ),
-  _AuthoritySource(
-    'Australian Rainfall & Runoff',
-    'National flood estimation guideline and supporting resources',
-    'https://arr.ga.gov.au/',
-  ),
+  _AuthoritySource('Standards Australia', 'Australian Standards catalogue and access services', 'https://www.standards.org.au/'),
+  _AuthoritySource('WSAA', 'Water Services Association of Australia codes and resources', 'https://www.wsaa.asn.au/'),
+  _AuthoritySource('Sydney Water', 'Technical specifications, standards and developer resources', 'https://www.sydneywater.com.au/'),
+  _AuthoritySource('Austroads', 'Road and transport guidance publications', 'https://austroads.com.au/'),
+  _AuthoritySource('Australian Rainfall & Runoff', 'National flood estimation guideline and supporting resources', 'https://arr.ga.gov.au/'),
 ];
 
 class _AuthoritySourceTile extends StatelessWidget {
@@ -404,9 +463,6 @@ class _AuthoritySourceTile extends StatelessWidget {
         title: Text(source.name),
         subtitle: Text(source.description),
         trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () => launchUrl(
-          Uri.parse(source.url),
-          mode: LaunchMode.externalApplication,
-        ),
+        onTap: () => launchUrl(Uri.parse(source.url), mode: LaunchMode.externalApplication),
       );
 }
