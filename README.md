@@ -191,6 +191,25 @@ SirisOS now has a declarative capability layer answering **"what can SirisOS cur
 
 This layer is discovery only. It does **not** execute commands. The future Action Framework will bind executable actions to stable capability IDs, and Hermes/Playbooks will eventually request capabilities instead of depending on connector-specific code.
 
+## Sprint 0.4.4 — SirisCore Context Service foundation complete
+
+SirisOS now has a shared deterministic answer to **"what is happening right now?"** that future planners, playbooks, notification logic, SirisAI and presence features can consume without polling every subsystem separately.
+
+- Typed `SirisContextFact` values with stable IDs, personal/homelab/engineering/AI domains, priorities, source provenance and optional detail
+- Modular `SirisContextProvider` contract
+- Prioritized `SirisContextSnapshot` with a single primary context
+- Event-driven refresh from Integration Manager and Notification Policy state changes
+- `ContextSnapshotChanged` events published through the existing Event Bus
+- Bounded context transition timeline recording entered and cleared states
+- Provider failures are isolated and cannot break the core application shell
+- Initial operational provider recognizes justified power events, backup attention, network/storage/compute degradation and nominal homelab state
+- Registered `siris.context` Mission Control widget
+- Shared Current Context surface in Operations Center
+- Unit coverage protects priority ordering and enter/clear transition semantics
+- Architecture documented in ADR 031
+
+The initial service deliberately does not infer personal states such as working, sleeping, travelling or focused from weak signals. Those states will be contributed later by authoritative Health Data Export, Home Assistant presence, calendar/project and AI runtime providers. The runtime context timeline is currently in memory; persistent context history and a backend/Hermes context API remain follow-on work.
+
 ## Planned SirisAI architecture — Hermes Agent + Ollama
 
 SirisOS will deliberately use **Hermes Agent and Ollama for different jobs** rather than choosing one as the entire AI stack.
@@ -224,10 +243,11 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Deterministic Incident Engine with explainable cross-system correlation
 - Configurable Digital Twin dependency graph with declared downstream impact analysis
 - Declarative Capability Framework with live provider availability and fail-closed control semantics
+- SirisCore Context Service with prioritized operational context, Event Bus updates and context timeline
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
-- Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
-- `/operations` Operations Center with correlated incidents, editable topology, capability availability, declared downstream impact, integration health, operational attention queue and backup protection history
+- Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake, diagnostics and `siris.context`
+- `/operations` Operations Center with correlated incidents, current context, editable topology, capability availability, declared downstream impact, integration health, operational attention queue and backup protection history
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -236,7 +256,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - **Infrastructure:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Synology NAS, backups, UPS, Plex
 - **Engineering:** SirisHydro, SirisPM, calculators, standards, Civil 3D, project tools
 - **Knowledge:** Obsidian, documents, notes, search, semantic memory
-- **Intelligence:** SirisAI orchestration, Ollama local inference, Hermes Agent server runtime, briefings, Siris Score, recommendations, context
+- **Intelligence:** SirisAI orchestration, Ollama local inference, Hermes Agent server runtime, context, briefings, Siris Score, recommendations
 - **Automation:** capabilities, actions, playbooks, n8n, schedules, triggers, scripts, workflows, notifications, approval/audit policies
 
 ## Development handover checklist
@@ -262,6 +282,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 19. SirisAI must keep agent execution separate from inference: Hermes handles optional tool-using execution, Ollama provides reusable local inference, and SirisOS owns approvals, policy and audit.
 20. Server-control AI actions must be least-privilege, allow-listed where possible, auditable, and must not use approval-bypass modes.
 21. Planners, playbooks and agents should target stable capability IDs rather than connector-specific implementation details; control capabilities fail closed when providers are not healthy.
+22. Context claims must be provider-backed and expose source/provenance; do not infer personal or operational states from weak correlation when authoritative evidence is unavailable.
 
 ## Local endpoints
 
