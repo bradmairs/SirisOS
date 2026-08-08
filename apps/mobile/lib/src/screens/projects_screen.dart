@@ -69,18 +69,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
                   sliver: SliverToBoxAdapter(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Projects', style: Theme.of(context).textTheme.headlineMedium),
-                            const SizedBox(height: 4),
-                            Text('Connect notes and context around the things you are actively working on.', style: Theme.of(context).textTheme.bodyMedium),
-                          ]),
-                        ),
-                        IconButton.filledTonal(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh'),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(onPressed: _createProject, icon: const Icon(Icons.add_rounded), label: const Text('Project')),
+                        Text('Projects', style: Theme.of(context).textTheme.headlineMedium),
+                        const SizedBox(height: 4),
+                        Text('Connect notes and context around the things you are actively working on.', style: Theme.of(context).textTheme.bodyMedium),
+                        const SizedBox(height: 12),
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          IconButton.filledTonal(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh'),
+                          FilledButton.icon(onPressed: _createProject, icon: const Icon(Icons.add_rounded), label: const Text('Project')),
+                        ]),
                       ],
                     ),
                   ),
@@ -145,7 +144,7 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
   void _refresh() => setState(() => _relationships = widget.projects.relationships(widget.project.id));
 
   Future<void> _attachNote() async {
-    final notes = await widget.knowledge.browse();
+    final notes = await widget.knowledge.search('');
     if (!mounted) return;
     final selected = await showDialog<KnowledgeNoteSummary>(
       context: context,
@@ -154,12 +153,12 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
         content: SizedBox(
           width: 520,
           height: 420,
-          child: notes.notes.isEmpty
+          child: notes.isEmpty
               ? const Center(child: Text('No Knowledge notes are available.'))
               : ListView.builder(
-                  itemCount: notes.notes.length,
+                  itemCount: notes.length,
                   itemBuilder: (context, index) {
-                    final note = notes.notes[index];
+                    final note = notes[index];
                     return ListTile(
                       leading: const Icon(Icons.description_outlined),
                       title: Text(note.title),
