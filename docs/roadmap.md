@@ -258,6 +258,17 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [ ] Project notes, drawing review and Civil 3D utilities
 - [ ] Engineering context provider for active project/design mode
 
+## Deployment architecture ✅ Unified application container
+
+- [x] One production `sirisos` application container for Flutter web + FastAPI
+- [x] Nginx serves Flutter and reverse-proxies same-origin `/api/*` to loopback Uvicorn
+- [x] Production API no longer requires a host/IP compiled into Flutter
+- [x] End-to-end Nginx → FastAPI `/health` container healthcheck
+- [x] Preserve OCRmyPDF/Tesseract inside the unified application image
+- [x] Keep PostgreSQL, docker-socket-proxy and node-exporter as separate infrastructure boundaries
+- [x] Remove obsolete standalone web/API production Dockerfiles
+- [x] ADR 039
+
 ## Build validation ✅ Foundation
 
 - [x] GitHub Actions workflow on pull requests and `main`
@@ -266,6 +277,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Flutter analyze
 - [x] Flutter test
 - [x] Flutter release web build
+- [x] Full unified production `sirisos` Docker image build
 - [ ] Require CI status checks in branch protection once repository policy is configured
 
 ## Health Data Export REST sidestep — planned
@@ -348,6 +360,7 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - Proxmox is intentionally not part of this installation.
 - External credentials remain server-side.
 - `main` must remain deployable through `git pull && make up`.
+- Production Flutter uses same-origin API routing through the unified `sirisos` container; avoid host-specific compiled API URLs unless explicitly required for development.
 - Historical analytics must come from observed data, not polling-frequency guesses.
 - Incident correlation is not causation without dependency evidence.
 - Digital Twin causal/downstream claims require explicit dependencies.
@@ -357,4 +370,4 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
 - Standards document IDs are immutable evidence identities; replacement creates a linked new revision rather than overwriting historical source material.
 - Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
-- Pull requests should pass backend and Flutter CI before merge except for explicit emergency hotfixes.
+- Pull requests should pass backend, Flutter and production-container CI before merge except for explicit emergency hotfixes.
