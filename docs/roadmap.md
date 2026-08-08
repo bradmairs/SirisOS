@@ -199,20 +199,48 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Configurable `SIRISOS_STANDARDS_MAX_UPLOAD_MB` limit
 - [x] Title, authority, reference and edition/revision metadata
 - [x] Page-level local text extraction with `pypdf`
-- [x] Private full-text search with page/snippet provenance
+- [x] Ranked local text search with page/snippet provenance
+- [x] Citation-bearing page retrieval
 - [x] Scanned/image PDFs accepted and marked not indexed
 - [x] Authoritative discovery links for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
 - [x] No scraping/republication of protected standards content
 - [x] ADR 033 private standards library and citation/provenance boundary
+- [x] ADR 034 citation-first retrieval boundary
 - [ ] OCR indexing for scanned/image-only PDFs
 - [ ] Document delete/replace/version workflow
-- [ ] Better ranking/tokenisation and multi-hit page search
 - [ ] Semantic/vector index for local standards
 - [ ] Traceable standards/authority assumption profiles for calculators
-- [ ] Citation-first SirisHydro retrieval against uploaded standards
+
+### SirisHydro retrieval v1 ✅ Evidence foundation
+- [x] Authenticated `/api/v1/engineering/sirishydro/evidence` endpoint
+- [x] Deterministic cross-document page ranking
+- [x] Bounded evidence excerpts
+- [x] Exact document/reference/edition/authority/page provenance
+- [x] Deterministic human-readable citations
+- [x] Explicit sufficient/insufficient evidence state
+- [x] Copyable evidence context packet for future model use
+- [x] Dedicated SirisHydro Engineering tab
+- [x] Backend evidence-assembly regression tests
+- [ ] Ollama-backed answer composition over retrieved evidence
+- [ ] Answer UI with source-supported vs general-reasoning distinction
+- [ ] Source-page deep links from SirisHydro results
+- [ ] Conversation/session context
+- [ ] Semantic retrieval reranking while retaining deterministic provenance
+
+### Engineering follow-ons
 - [ ] SirisPM integration
 - [ ] Project notes, drawing review and Civil 3D utilities
 - [ ] Engineering context provider for active project/design mode
+
+## Build validation ✅ Foundation
+
+- [x] GitHub Actions workflow on pull requests and `main`
+- [x] Python compile check
+- [x] Backend pytest suite
+- [x] Flutter analyze
+- [x] Flutter test
+- [x] Flutter release web build
+- [ ] Require CI status checks in branch protection once repository policy is configured
 
 ## Health Data Export REST sidestep — planned
 
@@ -300,4 +328,5 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - Context claims require provider-backed provenance.
 - Engineering calculations must expose assumptions/units and must not claim standards compliance unless traceable authority profiles justify it.
 - Licensed standards remain private local documents; SirisOS does not scrape or redistribute protected standards content.
-- Future SirisHydro answers should cite exact source/reference/edition/page wherever possible.
+- SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
+- Pull requests should pass backend and Flutter CI before merge except for explicit emergency hotfixes.

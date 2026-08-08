@@ -8,11 +8,13 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.api.engineering_standards import router as engineering_standards_router
 from app.api.grafana import router as grafana_router
 from app.api.gym import router as gym_router
 from app.api.homelab_alerts import router as homelab_alerts_router
 from app.api.host_history import router as host_history_router
 from app.api.running import router as running_router
+from app.api.sirishydro import router as sirishydro_router
 from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
 from app.services.host_metrics_service import HostMetricsCollector
@@ -130,6 +132,8 @@ app.include_router(gym_router)
 app.include_router(host_history_router)
 app.include_router(homelab_alerts_router)
 app.include_router(grafana_router)
+app.include_router(engineering_standards_router)
+app.include_router(sirishydro_router)
 
 docker_monitor = DockerMonitor()
 host_metrics_collector = HostMetricsCollector()

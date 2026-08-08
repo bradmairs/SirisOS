@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/core/briefing_engine.dart';
-import 'package:sirisos/src/models/dashboard_summary.dart';
+import 'package:siris_os/src/core/briefing_engine.dart';
+import 'package:siris_os/src/models/dashboard_summary.dart';
 
 void main() {
   const normal = DashboardCardData(
