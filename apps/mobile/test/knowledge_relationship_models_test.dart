@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/services/knowledge_service.dart';
+import 'package:siris_os/src/services/knowledge_service.dart';
 
 void main() {
   test('related note preserves score and explanation reasons', () {
