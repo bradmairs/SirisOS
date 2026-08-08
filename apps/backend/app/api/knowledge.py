@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
 import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/knowledge", tags=["knowledge"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
@@ -72,7 +72,14 @@ class KnowledgeLinkResolutionResponse(BaseModel):
     resolved: bool
     ambiguous: bool
     note: KnowledgeNoteSummary | None = None
-    candidates: list[KnowledgeNoteSummary] = []
+    candidates: list[KnowledgeNoteSummary] = Field(default_factory=list)
+
+
+LinkIndex = tuple[
+    dict[str, KnowledgeNoteSummary],
+    dict[str, list[KnowledgeNoteSummary]],
+    dict[str, list[KnowledgeNoteSummary]],
+]
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -149,8 +156,6 @@ def _frontmatter_tags(text: str) -> list[str]:
 
 def _tags(text: str) -> list[str]:
     values = list(_frontmatter_tags(text))
-    # Obsidian also supports inline #tags. Heading markers are excluded because a
-    # tag must begin with an alphanumeric character after '#'.
     values.extend(re.findall(r"(?<![\w#])#([A-Za-z0-9][A-Za-z0-9_/-]*)", text))
     return sorted({value.strip().lstrip("#") for value in values if value.strip()})[:100]
 
@@ -208,12 +213,30 @@ def _normalise_target(target: str) -> str:
     return value.strip("/")
 
 
-def _resolve_link(target: str, source_path: str | None = None) -> tuple[KnowledgeNoteSummary | None, list[KnowledgeNoteSummary]]:
+def _build_link_index(summaries: list[KnowledgeNoteSummary]) -> LinkIndex:
+    by_path: dict[str, KnowledgeNoteSummary] = {}
+    by_stem: dict[str, list[KnowledgeNoteSummary]] = defaultdict(list)
+    by_title: dict[str, list[KnowledgeNoteSummary]] = defaultdict(list)
+    for item in summaries:
+        path_key = item.path[:-3] if item.path.lower().endswith(".md") else item.path
+        by_path[path_key.lower()] = item
+        by_stem[Path(item.path).stem.lower()].append(item)
+        by_title[item.title.strip().lower()].append(item)
+    return by_path, dict(by_stem), dict(by_title)
+
+
+def _resolve_link(
+    target: str,
+    source_path: str | None = None,
+    *,
+    summaries: list[KnowledgeNoteSummary] | None = None,
+    index: LinkIndex | None = None,
+) -> tuple[KnowledgeNoteSummary | None, list[KnowledgeNoteSummary]]:
     value = _normalise_target(target)
     if not value:
         return None, []
-    summaries = _all_summaries()
-    by_path = {item.path[:-3].lower() if item.path.lower().endswith(".md") else item.path.lower(): item for item in summaries}
+    values = summaries if summaries is not None else _all_summaries()
+    by_path, by_stem, by_title = index if index is not None else _build_link_index(values)
 
     direct = by_path.get(value.lower())
     if direct is not None:
@@ -226,13 +249,12 @@ def _resolve_link(target: str, source_path: str | None = None) -> tuple[Knowledg
         if relative is not None:
             return relative, [relative]
 
-    stem = Path(value).name.lower()
-    matches = [
-        item
-        for item in summaries
-        if Path(item.path).stem.lower() == stem or item.title.strip().lower() == value.lower()
-    ]
-    matches.sort(key=lambda item: item.path.lower())
+    matches_by_path: dict[str, KnowledgeNoteSummary] = {}
+    for item in by_stem.get(Path(value).name.lower(), []):
+        matches_by_path[item.path] = item
+    for item in by_title.get(value.lower(), []):
+        matches_by_path[item.path] = item
+    matches = sorted(matches_by_path.values(), key=lambda item: item.path.lower())
     return (matches[0], matches) if len(matches) == 1 else (None, matches)
 
 
@@ -312,8 +334,7 @@ async def search_knowledge(
                 score += 60
             if needle in relative:
                 score += 30
-            occurrences = body.count(needle)
-            score += min(occurrences, 10) * 5
+            score += min(body.count(needle), 10) * 5
         if score > 0:
             scored.append((score, summary))
     scored.sort(key=lambda item: (-item[0], item[1].title.lower()))
@@ -327,7 +348,8 @@ async def resolve_knowledge_link(
     source_path: Annotated[str | None, Query(max_length=1000)] = None,
 ) -> KnowledgeLinkResolutionResponse:
     _authenticate(authorization)
-    note, candidates = _resolve_link(target, source_path)
+    summaries = _all_summaries()
+    note, candidates = _resolve_link(target, source_path, summaries=summaries, index=_build_link_index(summaries))
     return KnowledgeLinkResolutionResponse(
         target=target,
         resolved=note is not None,
@@ -344,18 +366,15 @@ async def knowledge_backlinks(
 ) -> KnowledgeBacklinksResponse:
     _authenticate(authorization)
     target_path = _safe_note_path(path)
-    target_summary = _summary(target_path)
+    summaries = _all_summaries()
+    index = _build_link_index(summaries)
+    target_summary = next((item for item in summaries if item.path == target_path.relative_to(VAULT_ROOT).as_posix()), _summary(target_path))
     backlinks: list[KnowledgeNoteSummary] = []
-    for candidate_path in _markdown_files():
-        if candidate_path == target_path:
-            continue
-        try:
-            text = _read_text(candidate_path)
-            candidate = _summary(candidate_path, text)
-        except (OSError, HTTPException):
+    for candidate in summaries:
+        if candidate.path == target_summary.path:
             continue
         for link in candidate.wikilinks:
-            resolved, _ = _resolve_link(link, candidate.path)
+            resolved, _ = _resolve_link(link, candidate.path, summaries=summaries, index=index)
             if resolved is not None and resolved.path == target_summary.path:
                 backlinks.append(candidate)
                 break
