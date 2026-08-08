@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -14,9 +13,7 @@ from pydantic import BaseModel, Field
 from app.api import knowledge, projects
 
 router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
-RELATIONSHIPS_PATH = Path(
-    os.getenv("SIRISOS_PROJECT_RELATIONSHIPS_PATH", "/app/data/project_relationships.json")
-)
+RELATIONSHIPS_PATH = projects.PROJECTS_PATH.with_name("project_relationships.json")
 
 RelationshipKind = Literal["contains", "references"]
 TargetType = Literal["knowledge_note"]
@@ -93,8 +90,6 @@ def _canonical_knowledge_target(target_id: str) -> tuple[str, str]:
 
 
 def _refresh_target_label(item: ProjectRelationshipRecord) -> ProjectRelationshipRecord:
-    if item.target_type != "knowledge_note":
-        return item
     try:
         target_id, label = _canonical_knowledge_target(item.target_id)
     except HTTPException:
@@ -127,11 +122,7 @@ async def create_project_relationship(
     projects._authenticate(authorization)
     _require_project(project_id)
 
-    if request.target_type == "knowledge_note":
-        target_id, target_label = _canonical_knowledge_target(request.target_id)
-    else:  # pragma: no cover - Literal validation prevents unsupported types.
-        raise HTTPException(status_code=400, detail="Unsupported relationship target type.")
-
+    target_id, target_label = _canonical_knowledge_target(request.target_id)
     relationships = _load()
     duplicate = next(
         (
