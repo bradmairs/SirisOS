@@ -58,6 +58,10 @@ services:
       HEALTH_AUTO_EXPORT_MCP_TIMEOUT_SECONDS: ${HEALTH_AUTO_EXPORT_MCP_TIMEOUT_SECONDS:-12}
       SIRISOS_STANDARDS_PATH: /app/data/standards
       SIRISOS_STANDARDS_MAX_UPLOAD_MB: ${SIRISOS_STANDARDS_MAX_UPLOAD_MB:-100}
+      SIRISOS_STANDARDS_OCR_ENABLED: ${SIRISOS_STANDARDS_OCR_ENABLED:-true}
+      SIRISOS_STANDARDS_OCR_LANGUAGE: ${SIRISOS_STANDARDS_OCR_LANGUAGE:-eng}
+      SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS: ${SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS:-300}
+      SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS: ${SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS:-40}
     ports:
       - "8000:8000"
     volumes:
@@ -79,45 +83,39 @@ services:
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
       - --path.rootfs=/rootfs
-      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     pid: host
+    restart: unless-stopped
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/rootfs:ro,rslave
-    expose:
-      - "9100"
-    restart: unless-stopped
+      - /:/rootfs:ro
 
   docker-proxy:
-    image: ghcr.io/tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:0.4.1
     container_name: sirisos-docker-proxy
     environment:
       CONTAINERS: 1
       INFO: 1
-      PING: 1
-      VERSION: 1
       POST: 1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    expose:
-      - "2375"
     restart: unless-stopped
 
   postgres:
     image: postgres:17-alpine
     container_name: sirisos-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: ${POSTGRES_DB:-sirisos}
+      POSTGRES_USER: ${POSTGRES_USER:-sirisos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sirisos}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sirisos} -d ${POSTGRES_DB:-sirisos}"]
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 10s
     restart: unless-stopped
+
+volumes:
+  postgres-data:
