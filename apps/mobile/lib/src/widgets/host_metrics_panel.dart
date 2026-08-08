@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../config/display_config.dart';
 import '../models/host_metrics.dart';
 import '../services/homelab_service.dart';
 import 'metric_line_chart.dart';
@@ -166,7 +167,7 @@ class _HostMetricsPanelState extends State<HostMetricsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(metrics.hostname ?? 'SirisOS host', style: Theme.of(context).textTheme.titleMedium),
+                Text(DisplayConfig.hostLabel(metrics.hostname), style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,

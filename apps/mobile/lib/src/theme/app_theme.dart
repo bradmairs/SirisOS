@@ -16,6 +16,8 @@ abstract final class AppTheme {
     const scheme = ColorScheme.dark(
       primary: primary,
       secondary: primaryBright,
+      secondaryContainer: Color(0xFF5B2428),
+      onSecondaryContainer: Colors.white,
       surface: surface,
       error: Color(0xFFFF5D5D),
       onPrimary: Colors.white,
