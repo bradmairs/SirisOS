@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/display_config.dart';
 import '../models/ups_snapshot.dart';
 import '../services/ups_service.dart';
 import 'siris_design_system.dart';
@@ -64,7 +65,10 @@ class _UpsPanelState extends State<UpsPanel> {
                       : 'Online';
 
           return SirisPanel(
-            title: data.description ?? data.upsName ?? 'UPS',
+            title: DisplayConfig.upsLabel(
+              description: data.description,
+              canonicalName: data.upsName,
+            ),
             subtitle: data.status ?? 'Network UPS Tools',
             icon: Icons.battery_charging_full_rounded,
             trailing: SirisStatusChip(label: label, status: status),
