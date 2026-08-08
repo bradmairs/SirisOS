@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/search_result.dart';
+import '../services/knowledge_service.dart';
 import '../services/search_service.dart';
 
 class GlobalSearchScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class GlobalSearchScreen extends StatefulWidget {
 class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   final _controller = TextEditingController();
   final _service = SearchService();
+  final _knowledgeService = KnowledgeService();
   Timer? _debounce;
   List<SirisSearchResult> _results = const [];
   bool _loading = false;
@@ -73,10 +75,75 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         'running' => Icons.directions_run_rounded,
         'gym' => Icons.fitness_center_rounded,
         'activity' => Icons.notifications_rounded,
+        'knowledge' => Icons.menu_book_rounded,
         _ => Icons.search_rounded,
       };
 
-  void _open(SirisSearchResult result) {
+  Future<void> _open(SirisSearchResult result) async {
+    if (result.module == 'knowledge' && result.referenceId != null) {
+      try {
+        final note = await _knowledgeService.note(result.referenceId!);
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => Dialog(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.menu_book_rounded),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(note.title, style: Theme.of(context).textTheme.headlineSmall)),
+                        IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(note.path, style: Theme.of(context).textTheme.bodySmall),
+                    if (note.tags.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 6, runSpacing: 6, children: note.tags.map((tag) => Chip(label: Text('#$tag'))).toList()),
+                    ],
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: SelectionArea(
+                        child: SingleChildScrollView(
+                          child: Text(note.content, style: const TextStyle(fontFamily: 'monospace', height: 1.45)),
+                        ),
+                      ),
+                    ),
+                    const Divider(),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pop(this.context);
+                          widget.onOpenTarget('knowledge');
+                        },
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text('Open Knowledge'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unable to open note: $error')));
+      }
+      return;
+    }
+
     Navigator.pop(context);
     widget.onOpenTarget(result.target);
   }
@@ -92,7 +159,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: SearchBar(
                 controller: _controller,
-                hintText: 'Containers, runs, exercises, activity…',
+                hintText: 'Notes, containers, runs, exercises, activity…',
                 leading: const Icon(Icons.search_rounded),
                 trailing: [
                   if (_controller.text.isNotEmpty)
@@ -188,7 +255,7 @@ class _SearchHint extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Search Docker containers, running history, gym workouts and recent SirisOS activity.',
+              'Search Knowledge notes, Docker containers, running history, gym workouts and recent SirisOS activity.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
