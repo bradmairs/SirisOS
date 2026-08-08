@@ -95,7 +95,7 @@ async def search(
                 reference_id=str(workout.id),
             ))
 
-    for item in search_knowledge_notes(term):
+    for item in await search_knowledge_notes(term):
         results.append(SearchResult(
             module="knowledge",
             title=item.title,
