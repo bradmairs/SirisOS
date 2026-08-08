@@ -36,6 +36,11 @@ class StandardDocumentResponse(BaseModel):
     extraction_method: str = "native"
     ocr_attempted: bool = False
     ocr_error: str | None = None
+    active: bool = True
+    archived_at: str | None = None
+    supersedes_id: str | None = None
+    superseded_by_id: str | None = None
+    revision: int = 1
 
 
 class StandardSearchHit(BaseModel):
@@ -86,6 +91,11 @@ def _load_metadata(document_id: str) -> dict:
     return json.loads(metadata_path.read_text(encoding="utf-8"))
 
 
+def _write_metadata(metadata: dict) -> None:
+    _, metadata_path, _ = _paths(str(metadata["id"]))
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+
 def _load_pages(document_id: str) -> list[dict]:
     _, _, index_path = _paths(document_id)
     if not index_path.exists():
@@ -97,13 +107,21 @@ def _load_pages(document_id: str) -> list[dict]:
     return value if isinstance(value, list) else []
 
 
-def _response(metadata: dict) -> StandardDocumentResponse:
-    # Backward compatibility for standards uploaded before OCR metadata existed.
+def _normalise_metadata(metadata: dict) -> dict:
     value = dict(metadata)
     value.setdefault("extraction_method", "native" if value.get("indexed") else "none")
     value.setdefault("ocr_attempted", False)
     value.setdefault("ocr_error", None)
-    return StandardDocumentResponse(**value)
+    value.setdefault("active", True)
+    value.setdefault("archived_at", None)
+    value.setdefault("supersedes_id", None)
+    value.setdefault("superseded_by_id", None)
+    value.setdefault("revision", 1)
+    return value
+
+
+def _response(metadata: dict) -> StandardDocumentResponse:
+    return StandardDocumentResponse(**_normalise_metadata(metadata))
 
 
 def _safe_filename(value: str) -> str:
@@ -130,12 +148,68 @@ def _citation(metadata: dict, page: int) -> str:
     identity = str(metadata.get("reference") or metadata.get("title") or "Standard")
     edition = str(metadata.get("edition") or "").strip()
     authority = str(metadata.get("authority") or "").strip()
+    revision = int(metadata.get("revision") or 1)
     parts = [identity]
     if edition:
         parts.append(edition)
+    if revision > 1:
+        parts.append(f"library rev. {revision}")
     if authority:
         parts.append(authority)
     return f"{' · '.join(parts)} · p. {page}"
+
+
+async def _read_pdf(file: UploadFile) -> tuple[str, bytes]:
+    filename = _safe_filename(file.filename or "standard.pdf")
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Only PDF standards are supported in this release.")
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Uploaded standard exceeds the configured size limit.")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status_code=415, detail="The uploaded file is not a valid PDF.")
+    return filename, data
+
+
+def _store_document(
+    *,
+    filename: str,
+    data: bytes,
+    title: str,
+    authority: str,
+    reference: str | None,
+    edition: str | None,
+    revision: int = 1,
+    supersedes_id: str | None = None,
+) -> dict:
+    document_id = uuid.uuid4().hex
+    directory, metadata_path, index_path = _paths(document_id)
+    directory.mkdir(parents=True, exist_ok=False)
+    pdf_path = directory / filename
+    pdf_path.write_bytes(data)
+    extraction = extract_standard_pages(pdf_path)
+    index_path.write_text(json.dumps(extraction.pages, ensure_ascii=False), encoding="utf-8")
+    metadata = {
+        "id": document_id,
+        "title": title.strip(),
+        "authority": authority.strip(),
+        "reference": reference.strip() if reference else None,
+        "edition": edition.strip() if edition else None,
+        "filename": filename,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "pages": len(extraction.pages),
+        "indexed": extraction.indexed,
+        "extraction_method": extraction.extraction_method,
+        "ocr_attempted": extraction.ocr_attempted,
+        "ocr_error": extraction.ocr_error,
+        "active": True,
+        "archived_at": None,
+        "supersedes_id": supersedes_id,
+        "superseded_by_id": None,
+        "revision": revision,
+    }
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    return metadata
 
 
 @router.get("", response_model=StandardSearchResponse)
@@ -143,6 +217,7 @@ async def search_standards(
     authorization: Annotated[str | None, Header()] = None,
     query: Annotated[str, Query(max_length=200)] = "",
     authority: Annotated[str | None, Query(max_length=120)] = None,
+    include_archived: bool = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> StandardSearchResponse:
     _authenticate(authorization)
@@ -153,21 +228,19 @@ async def search_standards(
 
     for metadata_path in sorted(LIBRARY_ROOT.glob("*/metadata.json")):
         try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata = _normalise_metadata(json.loads(metadata_path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError):
+            continue
+        if not include_archived and not metadata["active"]:
             continue
         if authority_value and authority_value not in str(metadata.get("authority", "")).lower():
             continue
         document = _response(metadata)
-        searchable_metadata = " ".join(
-            str(metadata.get(key) or "")
-            for key in ("title", "authority", "reference", "edition", "filename")
-        )
+        searchable_metadata = " ".join(str(metadata.get(key) or "") for key in ("title", "authority", "reference", "edition", "filename"))
         if not query_value:
             hits.append(StandardSearchHit(document=document))
         else:
-            metadata_match = query_value.lower() in searchable_metadata.lower()
-            if metadata_match:
+            if query_value.lower() in searchable_metadata.lower():
                 hits.append(StandardSearchHit(document=document, score=100))
             _, _, index_path = _paths(document.id)
             if index_path.exists():
@@ -177,15 +250,7 @@ async def search_standards(
                     pages = []
                 remaining = max(0, min(5, limit - len(hits)))
                 for ranked in rank_pages(pages, query_value, limit=remaining):
-                    hits.append(
-                        StandardSearchHit(
-                            document=document,
-                            page=ranked.page or None,
-                            snippet=_snippet(ranked.text, query_value),
-                            score=ranked.score,
-                            citation=_citation(metadata, ranked.page),
-                        )
-                    )
+                    hits.append(StandardSearchHit(document=document, page=ranked.page or None, snippet=_snippet(ranked.text, query_value), score=ranked.score, citation=_citation(metadata, ranked.page)))
                     if len(hits) >= limit:
                         break
         if len(hits) >= limit:
@@ -204,70 +269,80 @@ async def upload_standard(
     authorization: Annotated[str | None, Header()] = None,
 ) -> StandardDocumentResponse:
     _authenticate(authorization)
-    filename = _safe_filename(file.filename or "standard.pdf")
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=415, detail="Only PDF standards are supported in this release.")
+    filename, data = await _read_pdf(file)
+    return _response(_store_document(filename=filename, data=data, title=title, authority=authority, reference=reference, edition=edition))
 
-    data = await file.read(MAX_UPLOAD_BYTES + 1)
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Uploaded standard exceeds the configured size limit.")
-    if not data.startswith(b"%PDF"):
-        raise HTTPException(status_code=415, detail="The uploaded file is not a valid PDF.")
 
-    document_id = uuid.uuid4().hex
-    directory, metadata_path, index_path = _paths(document_id)
-    directory.mkdir(parents=True, exist_ok=False)
-    pdf_path = directory / filename
-    pdf_path.write_bytes(data)
+@router.post("/{document_id}/replace", response_model=StandardDocumentResponse, status_code=201)
+async def replace_standard(
+    document_id: str,
+    file: Annotated[UploadFile, File()],
+    title: Annotated[str | None, Form(max_length=200)] = None,
+    authority: Annotated[str | None, Form(max_length=120)] = None,
+    reference: Annotated[str | None, Form(max_length=120)] = None,
+    edition: Annotated[str | None, Form(max_length=120)] = None,
+    authorization: Annotated[str | None, Header()] = None,
+) -> StandardDocumentResponse:
+    _authenticate(authorization)
+    old = _normalise_metadata(_load_metadata(document_id))
+    if not old["active"]:
+        raise HTTPException(status_code=409, detail="Only the active revision can be replaced.")
+    filename, data = await _read_pdf(file)
+    new = _store_document(
+        filename=filename,
+        data=data,
+        title=(title or old["title"]),
+        authority=(authority or old["authority"]),
+        reference=reference if reference is not None else old.get("reference"),
+        edition=edition if edition is not None else old.get("edition"),
+        revision=int(old.get("revision") or 1) + 1,
+        supersedes_id=document_id,
+    )
+    old["active"] = False
+    old["archived_at"] = datetime.now(timezone.utc).isoformat()
+    old["superseded_by_id"] = new["id"]
+    _write_metadata(old)
+    return _response(new)
 
-    extraction = extract_standard_pages(pdf_path)
-    index_path.write_text(json.dumps(extraction.pages, ensure_ascii=False), encoding="utf-8")
 
-    metadata = {
-        "id": document_id,
-        "title": title.strip(),
-        "authority": authority.strip(),
-        "reference": reference.strip() if reference else None,
-        "edition": edition.strip() if edition else None,
-        "filename": filename,
-        "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "pages": len(extraction.pages),
-        "indexed": extraction.indexed,
-        "extraction_method": extraction.extraction_method,
-        "ocr_attempted": extraction.ocr_attempted,
-        "ocr_error": extraction.ocr_error,
-    }
-    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+@router.delete("/{document_id}", response_model=StandardDocumentResponse)
+async def archive_standard(document_id: str, authorization: Annotated[str | None, Header()] = None) -> StandardDocumentResponse:
+    _authenticate(authorization)
+    metadata = _normalise_metadata(_load_metadata(document_id))
+    if metadata["active"]:
+        metadata["active"] = False
+        metadata["archived_at"] = datetime.now(timezone.utc).isoformat()
+        _write_metadata(metadata)
+    return _response(metadata)
+
+
+@router.post("/{document_id}/restore", response_model=StandardDocumentResponse)
+async def restore_standard(document_id: str, authorization: Annotated[str | None, Header()] = None) -> StandardDocumentResponse:
+    _authenticate(authorization)
+    metadata = _normalise_metadata(_load_metadata(document_id))
+    if metadata.get("superseded_by_id"):
+        raise HTTPException(status_code=409, detail="A superseded revision cannot be restored while a newer revision exists.")
+    metadata["active"] = True
+    metadata["archived_at"] = None
+    _write_metadata(metadata)
     return _response(metadata)
 
 
 @router.get("/{document_id}/pages/{page}", response_model=StandardPageResponse)
-async def standard_page(
-    document_id: str,
-    page: int,
-    authorization: Annotated[str | None, Header()] = None,
-) -> StandardPageResponse:
+async def standard_page(document_id: str, page: int, authorization: Annotated[str | None, Header()] = None) -> StandardPageResponse:
     _authenticate(authorization)
-    metadata = _load_metadata(document_id)
+    metadata = _normalise_metadata(_load_metadata(document_id))
     if page < 1 or page > int(metadata.get("pages") or 0):
         raise HTTPException(status_code=404, detail="Standard page not found.")
     pages = _load_pages(document_id)
     item = next((value for value in pages if int(value.get("page") or 0) == page), None)
     if item is None:
         raise HTTPException(status_code=404, detail="Standard page text not found.")
-    return StandardPageResponse(
-        document=_response(metadata),
-        page=page,
-        text=str(item.get("text") or ""),
-        citation=_citation(metadata, page),
-    )
+    return StandardPageResponse(document=_response(metadata), page=page, text=str(item.get("text") or ""), citation=_citation(metadata, page))
 
 
 @router.get("/{document_id}/file")
-async def download_standard(
-    document_id: str,
-    authorization: Annotated[str | None, Header()] = None,
-) -> FileResponse:
+async def download_standard(document_id: str, authorization: Annotated[str | None, Header()] = None) -> FileResponse:
     _authenticate(authorization)
     metadata = _load_metadata(document_id)
     directory, _, _ = _paths(document_id)

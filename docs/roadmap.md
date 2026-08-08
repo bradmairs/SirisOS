@@ -207,7 +207,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [ ] Multi-stage detention routing / stage-storage-discharge helper
 - [ ] Pit/inlet capture and gutter-flow helpers once authority assumptions are profile-driven
 
-### Standards Library / Search ✅ Foundation
+### Standards Library / Search ✅ Expanded foundation
 - [x] Engineering hub with Calculators and Standards surfaces
 - [x] Authenticated private PDF upload
 - [x] Persistent local storage under `data/standards`
@@ -216,13 +216,19 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Page-level local text extraction with `pypdf`
 - [x] Ranked local text search with page/snippet provenance
 - [x] Citation-bearing page retrieval
-- [x] Scanned/image PDFs accepted and marked not indexed
+- [x] Scanned/image PDFs accepted and handled by local OCR fallback
+- [x] OCRmyPDF/Tesseract indexing for scanned/image-only PDFs with native text preferred
+- [x] Immutable document IDs for citation provenance
+- [x] Archive/restore lifecycle without destructive deletion
+- [x] Replace-as-new-revision workflow with supersedes/superseded-by lineage
+- [x] Historical/archived revision search for citation review
 - [x] Authoritative discovery links for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
 - [x] No scraping/republication of protected standards content
 - [x] ADR 033 private standards library and citation/provenance boundary
 - [x] ADR 034 citation-first retrieval boundary
-- [ ] OCR indexing for scanned/image-only PDFs
-- [ ] Document delete/replace/version workflow
+- [x] ADR 036 local OCR boundary
+- [x] ADR 037 immutable document lifecycle/versioning
+- [ ] Optional explicit irreversible purge/export workflow for administrators
 - [ ] Semantic/vector index for local standards
 - [ ] Traceable standards/authority assumption profiles for calculators
 
@@ -344,4 +350,5 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - Engineering calculations must expose assumptions/units and must not claim standards compliance unless traceable authority profiles justify it.
 - Licensed standards remain private local documents; SirisOS does not scrape or redistribute protected standards content.
 - SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
+- Standards document IDs are immutable evidence identities; replacement creates a linked new revision rather than overwriting historical source material.
 - Pull requests should pass backend and Flutter CI before merge except for explicit emergency hotfixes.

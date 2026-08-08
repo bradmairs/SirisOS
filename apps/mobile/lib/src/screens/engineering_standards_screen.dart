@@ -9,19 +9,19 @@ class EngineeringStandardsScreen extends StatefulWidget {
   const EngineeringStandardsScreen({super.key});
 
   @override
-  State<EngineeringStandardsScreen> createState() =>
-      _EngineeringStandardsScreenState();
+  State<EngineeringStandardsScreen> createState() => _EngineeringStandardsScreenState();
 }
 
 class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen> {
   final _service = EngineeringStandardsService();
   final _search = TextEditingController();
   late Future<List<EngineeringStandardSearchHit>> _results;
+  bool _includeArchived = false;
 
   @override
   void initState() {
     super.initState();
-    _results = _service.search();
+    _refresh();
   }
 
   @override
@@ -30,9 +30,14 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
     super.dispose();
   }
 
-  void _runSearch() {
-    setState(() => _results = _service.search(query: _search.text.trim()));
+  void _refresh() {
+    _results = _service.search(
+      query: _search.text.trim(),
+      includeArchived: _includeArchived,
+    );
   }
+
+  void _runSearch() => setState(_refresh);
 
   Future<void> _showPage(EngineeringStandardSearchHit hit) async {
     final pageNumber = hit.page;
@@ -97,6 +102,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                           label: const Text('Copy citation'),
                         ),
                         Chip(label: Text('Page ${page.page}')),
+                        Chip(label: Text('Library rev. ${page.document.revision}')),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -115,7 +121,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Extracted local text for retrieval and verification. Check the licensed PDF when layout, figures or tables are material.',
+                      'Historical revisions remain directly retrievable so old citations keep pointing to the exact source they originally referenced.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -128,11 +134,11 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
     );
   }
 
-  Future<void> _showUploadDialog() async {
-    final title = TextEditingController();
-    final authority = TextEditingController();
-    final reference = TextEditingController();
-    final edition = TextEditingController();
+  Future<void> _showUploadDialog({EngineeringStandardDocument? replacing}) async {
+    final title = TextEditingController(text: replacing?.title ?? '');
+    final authority = TextEditingController(text: replacing?.authority ?? '');
+    final reference = TextEditingController(text: replacing?.reference ?? '');
+    final edition = TextEditingController(text: replacing?.edition ?? '');
     PlatformFile? selected;
     bool uploading = false;
     String? error;
@@ -143,7 +149,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
         barrierDismissible: !uploading,
         builder: (dialogContext) => StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Add licensed standard'),
+            title: Text(replacing == null ? 'Add licensed standard' : 'Replace with new revision'),
             content: SizedBox(
               width: 560,
               child: SingleChildScrollView(
@@ -152,7 +158,9 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Upload a PDF you are entitled to store and use. SirisOS keeps it private on this server and indexes extracted text for local search.',
+                      replacing == null
+                          ? 'Upload a PDF you are entitled to store and use. SirisOS keeps it private and indexes it locally.'
+                          : 'The existing revision will be archived, not overwritten. Existing citations will continue to resolve to that historical revision.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 16),
@@ -191,30 +199,19 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                     TextField(
                       controller: authority,
                       enabled: !uploading,
-                      decoration: const InputDecoration(
-                        labelText: 'Authority / publisher',
-                        hintText: 'e.g. Standards Australia, Sydney Water, WSAA',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Authority / publisher', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: reference,
                       enabled: !uploading,
-                      decoration: const InputDecoration(
-                        labelText: 'Reference (optional)',
-                        hintText: 'e.g. AS 3725',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Reference (optional)', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: edition,
                       enabled: !uploading,
-                      decoration: const InputDecoration(
-                        labelText: 'Edition / revision (optional)',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Edition / revision (optional)', border: OutlineInputBorder()),
                     ),
                     if (error != null) ...[
                       const SizedBox(height: 12),
@@ -243,19 +240,31 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                           error = null;
                         });
                         try {
-                          await _service.uploadPdf(
-                            bytes: file!.bytes!,
-                            filename: file.name,
-                            title: title.text,
-                            authority: authority.text,
-                            reference: reference.text,
-                            edition: edition.text,
-                          );
+                          if (replacing == null) {
+                            await _service.uploadPdf(
+                              bytes: file!.bytes!,
+                              filename: file.name,
+                              title: title.text,
+                              authority: authority.text,
+                              reference: reference.text,
+                              edition: edition.text,
+                            );
+                          } else {
+                            await _service.replacePdf(
+                              document: replacing,
+                              bytes: file!.bytes!,
+                              filename: file.name,
+                              title: title.text,
+                              authority: authority.text,
+                              reference: reference.text,
+                              edition: edition.text,
+                            );
+                          }
                           if (dialogContext.mounted) Navigator.pop(dialogContext);
                           if (mounted) {
-                            setState(() => _results = _service.search());
+                            setState(_refresh);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Standard added to private library.')),
+                              SnackBar(content: Text(replacing == null ? 'Standard added.' : 'New revision created.')),
                             );
                           }
                         } catch (e) {
@@ -268,7 +277,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                 icon: uploading
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.upload_file_rounded),
-                label: Text(uploading ? 'Indexing…' : 'Upload'),
+                label: Text(uploading ? 'Indexing…' : replacing == null ? 'Upload' : 'Create revision'),
               ),
             ],
           ),
@@ -279,6 +288,36 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
       authority.dispose();
       reference.dispose();
       edition.dispose();
+    }
+  }
+
+  Future<void> _archive(EngineeringStandardDocument document) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Archive standard?'),
+        content: Text('${document.title} will disappear from normal search, but its PDF and citation history will be retained.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Archive')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _service.archive(document.id);
+      if (mounted) setState(_refresh);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _restore(EngineeringStandardDocument document) async {
+    try {
+      await _service.restore(document.id);
+      if (mounted) setState(_refresh);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -299,11 +338,11 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                 children: [
                   Text('Standards Library', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 4),
-                  const Text('Private licensed documents + authoritative source catalogue'),
+                  const Text('Private licensed documents with citation-safe revision history'),
                 ],
               ),
               FilledButton.icon(
-                onPressed: _showUploadDialog,
+                onPressed: () => _showUploadDialog(),
                 icon: const Icon(Icons.upload_file_rounded),
                 label: const Text('Upload standard'),
               ),
@@ -325,7 +364,17 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 20),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Include archived revisions'),
+            subtitle: const Text('Useful when checking historical SirisHydro citations.'),
+            value: _includeArchived,
+            onChanged: (value) => setState(() {
+              _includeArchived = value;
+              _refresh();
+            }),
+          ),
+          const SizedBox(height: 8),
           FutureBuilder<List<EngineeringStandardSearchHit>>(
             future: _results,
             builder: (context, snapshot) {
@@ -337,16 +386,17 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
               }
               final hits = snapshot.data ?? const [];
               if (hits.isEmpty) {
-                return const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('No matching private standards yet. Upload a licensed PDF to begin.'),
-                  ),
-                );
+                return const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('No matching standards found.')));
               }
               return Column(
                 children: hits
-                    .map((hit) => _StandardHitCard(hit: hit, onOpenPage: hit.page == null ? null : () => _showPage(hit)))
+                    .map((hit) => _StandardHitCard(
+                          hit: hit,
+                          onOpenPage: hit.page == null ? null : () => _showPage(hit),
+                          onReplace: hit.document.active ? () => _showUploadDialog(replacing: hit.document) : null,
+                          onArchive: hit.document.active ? () => _archive(hit.document) : null,
+                          onRestore: !hit.document.active && !hit.document.superseded ? () => _restore(hit.document) : null,
+                        ))
                     .toList(growable: false),
               );
             },
@@ -369,9 +419,19 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
 }
 
 class _StandardHitCard extends StatelessWidget {
-  const _StandardHitCard({required this.hit, this.onOpenPage});
+  const _StandardHitCard({
+    required this.hit,
+    this.onOpenPage,
+    this.onReplace,
+    this.onArchive,
+    this.onRestore,
+  });
+
   final EngineeringStandardSearchHit hit;
   final VoidCallback? onOpenPage;
+  final VoidCallback? onReplace;
+  final VoidCallback? onArchive;
+  final VoidCallback? onRestore;
 
   @override
   Widget build(BuildContext context) {
@@ -396,10 +456,7 @@ class _StandardHitCard extends StatelessWidget {
                   Text(document.title, style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   Text(document.authority),
-                  if (reference.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(reference, style: Theme.of(context).textTheme.bodySmall),
-                  ],
+                  if (reference.isNotEmpty) Text(reference, style: Theme.of(context).textTheme.bodySmall),
                   if (hit.page != null) ...[
                     const SizedBox(height: 8),
                     Text('Page ${hit.page}', style: Theme.of(context).textTheme.labelMedium),
@@ -414,21 +471,36 @@ class _StandardHitCard extends StatelessWidget {
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      Chip(label: Text('rev. ${document.revision}')),
                       Chip(label: Text('${document.pages} pages')),
                       Chip(
                         avatar: Icon(document.indexed ? Icons.check_circle_rounded : Icons.image_rounded, size: 16),
-                        label: Text(document.indexed ? 'Searchable' : 'Stored · not indexed'),
+                        label: Text(document.indexedByOcr ? 'OCR searchable' : document.indexed ? 'Searchable' : 'Not indexed'),
                       ),
-                      if (onOpenPage != null)
-                        OutlinedButton.icon(
-                          onPressed: onOpenPage,
-                          icon: const Icon(Icons.article_rounded),
-                          label: const Text('View source page'),
+                      if (!document.active)
+                        Chip(
+                          avatar: const Icon(Icons.archive_rounded, size: 16),
+                          label: Text(document.superseded ? 'Superseded' : 'Archived'),
                         ),
+                      if (onOpenPage != null)
+                        OutlinedButton.icon(onPressed: onOpenPage, icon: const Icon(Icons.article_rounded), label: const Text('View source page')),
                     ],
                   ),
                 ],
               ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Document actions',
+              onSelected: (value) {
+                if (value == 'replace') onReplace?.call();
+                if (value == 'archive') onArchive?.call();
+                if (value == 'restore') onRestore?.call();
+              },
+              itemBuilder: (context) => [
+                if (onReplace != null) const PopupMenuItem(value: 'replace', child: Text('Replace with new revision')),
+                if (onArchive != null) const PopupMenuItem(value: 'archive', child: Text('Archive')),
+                if (onRestore != null) const PopupMenuItem(value: 'restore', child: Text('Restore')),
+              ],
             ),
           ],
         ),

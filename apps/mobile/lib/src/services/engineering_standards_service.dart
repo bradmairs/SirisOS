@@ -17,9 +17,14 @@ class EngineeringStandardDocument {
     required this.indexed,
     required this.extractionMethod,
     required this.ocrAttempted,
+    required this.active,
+    required this.revision,
     this.ocrError,
     this.reference,
     this.edition,
+    this.archivedAt,
+    this.supersedesId,
+    this.supersededById,
   });
 
   final String id;
@@ -34,8 +39,14 @@ class EngineeringStandardDocument {
   final String extractionMethod;
   final bool ocrAttempted;
   final String? ocrError;
+  final bool active;
+  final DateTime? archivedAt;
+  final String? supersedesId;
+  final String? supersededById;
+  final int revision;
 
   bool get indexedByOcr => indexed && extractionMethod == 'ocr';
+  bool get superseded => supersededById != null;
 
   factory EngineeringStandardDocument.fromJson(Map<String, dynamic> json) =>
       EngineeringStandardDocument(
@@ -52,6 +63,13 @@ class EngineeringStandardDocument {
             (json['indexed'] == true ? 'native' : 'none'),
         ocrAttempted: json['ocr_attempted'] == true,
         ocrError: json['ocr_error'] as String?,
+        active: json['active'] != false,
+        archivedAt: json['archived_at'] == null
+            ? null
+            : DateTime.tryParse(json['archived_at'] as String),
+        supersedesId: json['supersedes_id'] as String?,
+        supersededById: json['superseded_by_id'] as String?,
+        revision: (json['revision'] as num?)?.toInt() ?? 1,
       );
 }
 
@@ -110,8 +128,12 @@ class EngineeringStandardsService {
   Future<List<EngineeringStandardSearchHit>> search({
     String query = '',
     String? authority,
+    bool includeArchived = false,
   }) async {
-    final params = <String, String>{'query': query};
+    final params = <String, String>{
+      'query': query,
+      'include_archived': includeArchived.toString(),
+    };
     if (authority != null && authority.trim().isNotEmpty) {
       params['authority'] = authority.trim();
     }
@@ -156,10 +178,66 @@ class EngineeringStandardsService {
     required String authority,
     String? reference,
     String? edition,
+  }) => _upload(
+        path: '',
+        bytes: bytes,
+        filename: filename,
+        title: title,
+        authority: authority,
+        reference: reference,
+        edition: edition,
+      );
+
+  Future<EngineeringStandardDocument> replacePdf({
+    required EngineeringStandardDocument document,
+    required Uint8List bytes,
+    required String filename,
+    String? title,
+    String? authority,
+    String? reference,
+    String? edition,
+  }) => _upload(
+        path: '/${document.id}/replace',
+        bytes: bytes,
+        filename: filename,
+        title: title ?? document.title,
+        authority: authority ?? document.authority,
+        reference: reference ?? document.reference,
+        edition: edition ?? document.edition,
+      );
+
+  Future<EngineeringStandardDocument> archive(String documentId) async {
+    final response = await http
+        .delete(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/engineering/standards/$documentId'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 12));
+    return _documentResponse(response, 'Archive failed');
+  }
+
+  Future<EngineeringStandardDocument> restore(String documentId) async {
+    final response = await http
+        .post(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/engineering/standards/$documentId/restore'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 12));
+    return _documentResponse(response, 'Restore failed');
+  }
+
+  Future<EngineeringStandardDocument> _upload({
+    required String path,
+    required Uint8List bytes,
+    required String filename,
+    required String title,
+    required String authority,
+    String? reference,
+    String? edition,
   }) async {
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('${ApiConfig.baseUrl}/api/v1/engineering/standards'),
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/engineering/standards$path'),
     );
     request.headers.addAll(AuthService.authorizationHeaders);
     request.fields['title'] = title.trim();
@@ -170,17 +248,25 @@ class EngineeringStandardsService {
     if (edition != null && edition.trim().isNotEmpty) {
       request.fields['edition'] = edition.trim();
     }
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-      ),
-    );
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
     final streamed = await request.send().timeout(const Duration(minutes: 6));
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 201) {
       String detail = 'Standards upload failed (${response.statusCode}).';
+      try {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        if (decoded['detail'] is String) detail = decoded['detail'] as String;
+      } catch (_) {}
+      throw EngineeringStandardsException(detail);
+    }
+    return EngineeringStandardDocument.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  EngineeringStandardDocument _documentResponse(http.Response response, String fallback) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      String detail = '$fallback (${response.statusCode}).';
       try {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         if (decoded['detail'] is String) detail = decoded['detail'] as String;
