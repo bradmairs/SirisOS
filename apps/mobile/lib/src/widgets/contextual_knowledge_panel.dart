@@ -22,15 +22,13 @@ class _ContextualKnowledgePanelState extends State<ContextualKnowledgePanel> {
   final _service = KnowledgeService();
   late Future<List<KnowledgeNoteSummary>> _notes;
 
-  String get _tag => 'siris/${widget.contextId}';
-
   @override
   void initState() {
     super.initState();
     _notes = _load();
   }
 
-  Future<List<KnowledgeNoteSummary>> _load() => _service.search('', tag: _tag);
+  Future<List<KnowledgeNoteSummary>> _load() => _service.contextNotes(widget.contextId, limit: widget.maxNotes);
 
   void _refresh() => setState(() => _notes = _load());
 
@@ -144,7 +142,7 @@ class _ContextualKnowledgePanelState extends State<ContextualKnowledgePanel> {
                   )
                 else if (snapshot.connectionState != ConnectionState.waiting && values.isEmpty)
                   Text(
-                    'Tag a vault note with #$_tag to surface it here.',
+                    'Add siris: [${widget.contextId}] or #siris/${widget.contextId} to a vault note to surface it here.',
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   )
                 else
