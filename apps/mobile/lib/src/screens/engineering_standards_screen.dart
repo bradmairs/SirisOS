@@ -160,7 +160,7 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
                       onPressed: uploading
                           ? null
                           : () async {
-                              final result = await FilePicker.pickFiles(
+                              final result = await FilePicker.platform.pickFiles(
                                 type: FileType.custom,
                                 allowedExtensions: const ['pdf'],
                                 withData: true,
