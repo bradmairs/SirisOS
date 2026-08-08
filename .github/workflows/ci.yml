@@ -35,9 +35,9 @@ jobs:
         with:
           channel: stable
           cache: true
-      - run: flutter config --enable-web
-      - run: flutter create --platforms=web .
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
+      - run: flutter config --enable-web
+      - run: flutter create --platforms=web .
       - run: flutter build web --release --pwa-strategy=none --dart-define=SIRISOS_API_URL=http://127.0.0.1:8000
