@@ -89,16 +89,26 @@ The service publishes `ContextSnapshotChanged` through the Event Bus, keeps a bo
 
 Engineering is now a first-class SirisOS module.
 
-### Deterministic calculator foundation
+### Deterministic civil/water calculator library
 
-Current tools:
+The calculator surface now uses a mobile-friendly category/selector model rather than an ever-growing tab strip. Current tools:
 
 - Full circular-pipe Manning capacity and velocity
+- Part-full circular-pipe Manning capacity, velocity and flow area
+- Minimum full-pipe grade for a target Manning flow
+- Rectangular open-channel Manning capacity
+- Trapezoidal open-channel Manning capacity
+- Rectangular-channel critical depth and critical velocity
 - Rational Method peak flow using mm/h and hectares
+- Rectangular free-flow weir discharge
+- Circular orifice discharge
+- Hazen–Williams pressure-pipe headloss
+- Darcy–Weisbach headloss with Reynolds number and friction factor
+- Pump hydraulic/input power estimate
 - Buried-pipe buoyancy screening
 - Constant-flow detention storage screening
 
-The calculation core is pure Dart and regression-tested. Inputs/units/assumptions remain explicit. Screening helpers do **not** claim standards compliance or replace project-specific design checks. ADR 032.
+The calculation core is pure Dart and regression-tested. Inputs, units and assumptions remain explicit. Empirical coefficients remain user inputs rather than hidden defaults tied to a standard. Screening helpers do **not** claim standards compliance or replace project-specific criteria, detailed hydraulic modelling or manufacturer data. ADR 032.
 
 ### Private Standards Library / Search
 
