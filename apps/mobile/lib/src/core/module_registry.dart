@@ -116,6 +116,18 @@ class SirisModuleRegistry {
       primaryActionLabel: 'Open Health',
     ),
     SirisModuleDefinition(
+      id: 'engineering',
+      label: 'Engineering',
+      description: 'Civil engineering calculators, standards and project tools.',
+      icon: Icons.engineering_outlined,
+      selectedIcon: Icons.engineering_rounded,
+      capabilities: {
+        SirisModuleCapability.search,
+        SirisModuleCapability.quickAction,
+      },
+      primaryActionLabel: 'Open Engineering',
+    ),
+    SirisModuleDefinition(
       id: 'siris',
       label: 'Siris',
       description: 'AI context, recommendations and personal knowledge tools.',
