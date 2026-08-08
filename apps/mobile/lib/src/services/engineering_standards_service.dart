@@ -48,11 +48,15 @@ class EngineeringStandardSearchHit {
     required this.document,
     this.page,
     this.snippet,
+    this.score,
+    this.citation,
   });
 
   final EngineeringStandardDocument document;
   final int? page;
   final String? snippet;
+  final int? score;
+  final String? citation;
 
   factory EngineeringStandardSearchHit.fromJson(Map<String, dynamic> json) =>
       EngineeringStandardSearchHit(
@@ -61,6 +65,8 @@ class EngineeringStandardSearchHit {
         ),
         page: (json['page'] as num?)?.toInt(),
         snippet: json['snippet'] as String?,
+        score: (json['score'] as num?)?.toInt(),
+        citation: json['citation'] as String?,
       );
 }
 
