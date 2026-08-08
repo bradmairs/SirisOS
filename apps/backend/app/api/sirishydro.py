@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/v1/engineering/sirishydro", tags=["engineering"]
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 LIBRARY_ROOT = Path(os.getenv("SIRISOS_STANDARDS_PATH", "/app/data/standards"))
+RETRIEVAL_STRATEGY = "hybrid-lexical-civil-water-semantic-v1"
 
 
 class SirisHydroEvidenceItem(BaseModel):
@@ -36,6 +37,7 @@ class SirisHydroEvidenceResponse(BaseModel):
     evidence: list[SirisHydroEvidenceItem]
     context_text: str
     guidance: str
+    retrieval_strategy: str = RETRIEVAL_STRATEGY
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -58,9 +60,12 @@ def _citation(metadata: dict, page: int) -> str:
     identity = str(metadata.get("reference") or metadata.get("title") or "Standard")
     edition = str(metadata.get("edition") or "").strip()
     authority = str(metadata.get("authority") or "").strip()
+    revision = int(metadata.get("revision") or 1)
     parts = [identity]
     if edition:
         parts.append(edition)
+    if revision > 1:
+        parts.append(f"library rev. {revision}")
     if authority:
         parts.append(authority)
     return f"{' · '.join(parts)} · p. {page}"
@@ -81,6 +86,10 @@ def assemble_evidence(question: str, limit: int = 6) -> list[EngineeringEvidence
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
+            continue
+        # Historical revisions remain directly retrievable for old citations,
+        # but new SirisHydro answers should use only the active library view.
+        if metadata.get("active") is False:
             continue
         if not metadata.get("indexed"):
             continue
@@ -124,15 +133,14 @@ def assemble_evidence(question: str, limit: int = 6) -> list[EngineeringEvidence
 def _context_text(question: str, evidence: list[EngineeringEvidence]) -> str:
     if not evidence:
         return ""
-    blocks = [f"Question: {question}", "", "Retrieved engineering evidence:"]
+    blocks = [
+        f"Question: {question}",
+        f"Retrieval strategy: {RETRIEVAL_STRATEGY}",
+        "",
+        "Retrieved engineering evidence:",
+    ]
     for index, item in enumerate(evidence, start=1):
-        blocks.extend(
-            [
-                "",
-                f"[{index}] {item.citation}",
-                item.excerpt,
-            ]
-        )
+        blocks.extend(["", f"[{index}] {item.citation}", item.excerpt])
     blocks.extend(
         [
             "",
@@ -156,7 +164,7 @@ async def sirishydro_evidence(
     evidence = assemble_evidence(question_value, limit=limit)
     sufficient = bool(evidence)
     guidance = (
-        "Evidence found. Review the cited pages before relying on tables, figures, equations or layout-sensitive requirements."
+        "Evidence found using local hybrid retrieval. Review the cited pages before relying on tables, figures, equations or layout-sensitive requirements."
         if sufficient
         else "The private standards library did not establish this question. Upload or index the relevant source rather than relying on an invented standards answer."
     )
@@ -166,4 +174,5 @@ async def sirishydro_evidence(
         evidence=[SirisHydroEvidenceItem(**item.as_dict()) for item in evidence],
         context_text=_context_text(question_value, evidence),
         guidance=guidance,
+        retrieval_strategy=RETRIEVAL_STRATEGY,
     )
