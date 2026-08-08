@@ -65,6 +65,76 @@ class KnowledgeOverview {
       );
 }
 
+class KnowledgeFolderSummary {
+  const KnowledgeFolderSummary({required this.path, required this.name, required this.noteCount});
+  final String path;
+  final String name;
+  final int noteCount;
+
+  factory KnowledgeFolderSummary.fromJson(Map<String, dynamic> json) => KnowledgeFolderSummary(
+        path: json['path'] as String,
+        name: json['name'] as String,
+        noteCount: (json['note_count'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class KnowledgeTagSummary {
+  const KnowledgeTagSummary({required this.tag, required this.noteCount});
+  final String tag;
+  final int noteCount;
+
+  factory KnowledgeTagSummary.fromJson(Map<String, dynamic> json) => KnowledgeTagSummary(
+        tag: json['tag'] as String,
+        noteCount: (json['note_count'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class KnowledgeBrowse {
+  const KnowledgeBrowse({required this.folders, required this.tags});
+  final List<KnowledgeFolderSummary> folders;
+  final List<KnowledgeTagSummary> tags;
+
+  factory KnowledgeBrowse.fromJson(Map<String, dynamic> json) => KnowledgeBrowse(
+        folders: (json['folders'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(KnowledgeFolderSummary.fromJson)
+            .toList(growable: false),
+        tags: (json['tags'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(KnowledgeTagSummary.fromJson)
+            .toList(growable: false),
+      );
+}
+
+class KnowledgeLinkResolution {
+  const KnowledgeLinkResolution({
+    required this.target,
+    required this.resolved,
+    required this.ambiguous,
+    this.note,
+    required this.candidates,
+  });
+
+  final String target;
+  final bool resolved;
+  final bool ambiguous;
+  final KnowledgeNoteSummary? note;
+  final List<KnowledgeNoteSummary> candidates;
+
+  factory KnowledgeLinkResolution.fromJson(Map<String, dynamic> json) => KnowledgeLinkResolution(
+        target: json['target'] as String? ?? '',
+        resolved: json['resolved'] == true,
+        ambiguous: json['ambiguous'] == true,
+        note: json['note'] is Map<String, dynamic>
+            ? KnowledgeNoteSummary.fromJson(json['note'] as Map<String, dynamic>)
+            : null,
+        candidates: (json['candidates'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(KnowledgeNoteSummary.fromJson)
+            .toList(growable: false),
+      );
+}
+
 class KnowledgeNote extends KnowledgeNoteSummary {
   const KnowledgeNote({
     required super.path,
@@ -103,8 +173,23 @@ class KnowledgeService {
     return KnowledgeOverview.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
-  Future<List<KnowledgeNoteSummary>> search(String query) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/search').replace(queryParameters: {'query': query});
+  Future<KnowledgeBrowse> browse() async {
+    final response = await http
+        .get(Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/browse'), headers: AuthService.authorizationHeaders)
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) throw KnowledgeServiceException('Knowledge browse failed (${response.statusCode}).');
+    return KnowledgeBrowse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<List<KnowledgeNoteSummary>> search(
+    String query, {
+    String? folder,
+    String? tag,
+  }) async {
+    final params = <String, String>{'query': query};
+    if (folder != null && folder.isNotEmpty) params['folder'] = folder;
+    if (tag != null && tag.isNotEmpty) params['tag'] = tag;
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/search').replace(queryParameters: params);
     final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
     if (response.statusCode != 200) throw KnowledgeServiceException('Knowledge search failed (${response.statusCode}).');
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -119,6 +204,26 @@ class KnowledgeService {
     final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
     if (response.statusCode != 200) throw KnowledgeServiceException('Unable to open note (${response.statusCode}).');
     return KnowledgeNote.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<List<KnowledgeNoteSummary>> backlinks(String path) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/backlinks').replace(queryParameters: {'path': path});
+    final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) throw KnowledgeServiceException('Unable to load backlinks (${response.statusCode}).');
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['backlinks'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(KnowledgeNoteSummary.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<KnowledgeLinkResolution> resolveLink(String target, {String? sourcePath}) async {
+    final params = <String, String>{'target': target};
+    if (sourcePath != null && sourcePath.isNotEmpty) params['source_path'] = sourcePath;
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/resolve').replace(queryParameters: params);
+    final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) throw KnowledgeServiceException('Unable to resolve link (${response.statusCode}).');
+    return KnowledgeLinkResolution.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 }
 

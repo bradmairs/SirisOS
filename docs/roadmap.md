@@ -291,18 +291,29 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [ ] Health Data Export context provider
 - [ ] Keep MCP as an optional future query/interface layer rather than canonical ingestion
 
-## Sprint 0.5.0 — Knowledge Platform
+## Sprint 0.5.0 — Knowledge Platform 🚧 In progress
 
 - [ ] Obsidian/Selkies launch integration
 - [ ] Obsidian connector through Integration Framework
-- [ ] Vault browser
-- [ ] Recent Notes and Daily Notes widgets
+- [x] First-class Knowledge module
+- [x] Read-only Obsidian-compatible Markdown vault mount
+- [x] Authenticated overview/search/note APIs
+- [x] Recent Notes and Daily Notes surfaces
+- [x] Vault title/path/content search
+- [x] Folder browsing and filtering
+- [x] Frontmatter and inline Obsidian tag browsing/filtering
+- [x] Deterministic wikilink resolution
+- [x] Explicit ambiguous-wikilink candidate selection
+- [x] Clickable wikilink navigation in note viewer
+- [x] Backlink discovery and navigation
+- [x] Bounded per-request in-memory link index
+- [x] ADR 040 read-only Knowledge vault foundation
+- [x] ADR 041 knowledge relationship resolution
 - [ ] Global SirisOS search across vault content
-- [ ] Wikilink navigation and graph exploration
-- [ ] Metadata/tags
-- [ ] AI semantic search
+- [ ] Graph visualization
 - [ ] Mission Control Knowledge widget
 - [ ] Context-aware related notes
+- [ ] AI semantic search
 - [ ] Cross-link Engineering, Homelab, Tasks, Calendar and Briefings
 
 ## Sprint 0.6 — Projects and Context Graph
@@ -370,4 +381,5 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
 - Standards document IDs are immutable evidence identities; replacement creates a linked new revision rather than overwriting historical source material.
 - Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
+- Knowledge vault access remains read-only until a write/editing design is explicitly approved; ambiguous wikilinks must not be silently resolved.
 - Pull requests should pass backend, Flutter and production-container CI before merge except for explicit emergency hotfixes.

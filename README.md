@@ -197,20 +197,36 @@ Health module / Context / Briefing / Siris Score / SirisAI
 
 Initial metrics will target steps, sleep, HRV, resting heart rate and workouts with idempotent imports and an unattended bearer token.
 
-## Sprint 0.5.0 — Knowledge Platform
+## Sprint 0.5.0 — Knowledge Platform 🚧 in progress
 
-Planned Obsidian/Selkies integration:
+Knowledge is now a first-class SirisOS module backed by a read-only Obsidian-compatible Markdown vault.
 
-- Launch integration
-- Obsidian connector
-- Vault browser
-- Recent Notes / Daily Notes widgets
-- Global vault search
-- Wikilink navigation and graph exploration
-- Metadata/tags
-- Semantic search
+Current foundation:
+
+- Authenticated `/api/v1/knowledge` overview/search/note APIs
+- Read-only host vault mount with Markdown remaining the source of truth
+- Recent Notes and Daily Notes surfaces
+- Vault content/title/path search
+- Folder browsing and filtering
+- Frontmatter plus inline Obsidian `#tag` browsing/filtering
+- Deterministic `[[wikilink]]` resolution with explicit ambiguity handling
+- Clickable wikilinks in the Knowledge note viewer
+- Backlinks built from the same deterministic link-resolution rules
+- Hidden `.obsidian` internals excluded from scanning
+- Path traversal blocked and note reads bounded by configuration
+- One bounded in-memory link index per relationship request; no database/indexing daemon yet
+
+ADRs 040–041 define the read-only vault and relationship-resolution boundaries.
+
+Planned Knowledge follow-ons:
+
+- Obsidian/Selkies launch integration
+- Integration Framework connector/health surface
+- Global SirisOS search across vault content
+- Graph visualization above wikilinks/backlinks
 - Mission Control Knowledge widget
 - Context-aware related notes
+- Optional local semantic/vector search
 - Cross-links into Engineering, Homelab, Tasks, Calendar and Briefings
 
 ## Sprint 0.6 — Projects and Context Graph
@@ -285,6 +301,7 @@ Planned automation stack:
 27. Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
 28. Pull requests should pass backend, Flutter and production-container CI before merge unless an explicit emergency hotfix is required.
 29. Production Flutter uses same-origin API routing through the unified `sirisos` container; do not reintroduce a host-specific compiled API URL without an explicit deployment reason.
+30. Knowledge vault access remains read-only until an explicit write/editing design is approved; ambiguous wikilinks must not be silently resolved.
 
 ## Local endpoints
 
@@ -297,6 +314,7 @@ Planned automation stack:
 - Backup Protection API: `http://192.168.0.100:6464/api/v1/history/backup-protection`
 - Engineering Standards API: `http://192.168.0.100:6464/api/v1/engineering/standards`
 - SirisHydro Evidence API: `http://192.168.0.100:6464/api/v1/engineering/sirishydro/evidence`
+- Knowledge API: `http://192.168.0.100:6464/api/v1/knowledge`
 
 Useful commands:
 
@@ -312,4 +330,4 @@ make stop
 make clean
 ```
 
-Runtime state is stored under `data/`. Back up `data/` and `.env` to preserve the installation, including uploaded private engineering standards and historical revisions.
+Runtime state is stored under `data/`. Back up `data/` and `.env` to preserve the installation, including uploaded private engineering standards, historical revisions and the default local knowledge vault.
