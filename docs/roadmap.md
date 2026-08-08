@@ -222,14 +222,16 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Archive/restore lifecycle without destructive deletion
 - [x] Replace-as-new-revision workflow with supersedes/superseded-by lineage
 - [x] Historical/archived revision search for citation review
+- [x] Local hybrid civil/water semantic reranking with exact lexical priority
 - [x] Authoritative discovery links for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
 - [x] No scraping/republication of protected standards content
 - [x] ADR 033 private standards library and citation/provenance boundary
 - [x] ADR 034 citation-first retrieval boundary
 - [x] ADR 036 local OCR boundary
 - [x] ADR 037 immutable document lifecycle/versioning
+- [x] ADR 038 local hybrid semantic retrieval
 - [ ] Optional explicit irreversible purge/export workflow for administrators
-- [ ] Semantic/vector index for local standards
+- [ ] Optional local vector/embedding index for broader semantic recall
 - [ ] Traceable standards/authority assumption profiles for calculators
 
 ### SirisHydro retrieval v1 ✅ Evidence foundation
@@ -242,11 +244,14 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Copyable evidence context packet for future model use
 - [x] Dedicated SirisHydro Engineering tab
 - [x] Backend evidence-assembly regression tests
+- [x] Hybrid semantic retrieval reranking while retaining deterministic provenance
+- [x] Active-revision-only evidence assembly for new answers
+- [x] Retrieval strategy included in evidence context
 - [ ] Ollama-backed answer composition over retrieved evidence
 - [ ] Answer UI with source-supported vs general-reasoning distinction
 - [ ] Source-page deep links from SirisHydro results
 - [ ] Conversation/session context
-- [ ] Semantic retrieval reranking while retaining deterministic provenance
+- [ ] Optional vector/embedding reranking while retaining deterministic lexical fallback
 
 ### Engineering follow-ons
 - [ ] SirisPM integration
@@ -351,4 +356,5 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - Licensed standards remain private local documents; SirisOS does not scrape or redistribute protected standards content.
 - SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
 - Standards document IDs are immutable evidence identities; replacement creates a linked new revision rather than overwriting historical source material.
+- Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
 - Pull requests should pass backend and Flutter CI before merge except for explicit emergency hotfixes.
