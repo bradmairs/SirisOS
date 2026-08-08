@@ -1,0 +1,10 @@
+.git
+.github
+.env
+data
+apps/mobile/.dart_tool
+apps/mobile/build
+apps/mobile/web
+apps/backend/__pycache__
+**/__pycache__
+**/*.pyc
