@@ -44,6 +44,13 @@ class StandardSearchResponse(BaseModel):
     hits: list[StandardSearchHit]
 
 
+class StandardPageResponse(BaseModel):
+    document: StandardDocumentResponse
+    page: int
+    text: str
+    citation: str
+
+
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -72,6 +79,17 @@ def _load_metadata(document_id: str) -> dict:
     return json.loads(metadata_path.read_text(encoding="utf-8"))
 
 
+def _load_pages(document_id: str) -> list[dict]:
+    _, _, index_path = _paths(document_id)
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="This standard has no searchable text index.")
+    try:
+        value = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="The standards text index is unreadable.") from exc
+    return value if isinstance(value, list) else []
+
+
 def _response(metadata: dict) -> StandardDocumentResponse:
     return StandardDocumentResponse(**metadata)
 
@@ -90,6 +108,18 @@ def _snippet(text: str, query: str, radius: int = 150) -> str | None:
     end = min(len(text), position + len(query) + radius)
     excerpt = " ".join(text[start:end].split())
     return ("…" if start else "") + excerpt + ("…" if end < len(text) else "")
+
+
+def _citation(metadata: dict, page: int) -> str:
+    identity = str(metadata.get("reference") or metadata.get("title") or "Standard")
+    edition = str(metadata.get("edition") or "").strip()
+    authority = str(metadata.get("authority") or "").strip()
+    parts = [identity]
+    if edition:
+        parts.append(edition)
+    if authority:
+        parts.append(authority)
+    return f"{' · '.join(parts)} · p. {page}"
 
 
 @router.get("", response_model=StandardSearchResponse)
@@ -197,6 +227,28 @@ async def upload_standard(
     }
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return _response(metadata)
+
+
+@router.get("/{document_id}/pages/{page}", response_model=StandardPageResponse)
+async def standard_page(
+    document_id: str,
+    page: int,
+    authorization: Annotated[str | None, Header()] = None,
+) -> StandardPageResponse:
+    _authenticate(authorization)
+    metadata = _load_metadata(document_id)
+    if page < 1 or page > int(metadata.get("pages") or 0):
+        raise HTTPException(status_code=404, detail="Standard page not found.")
+    pages = _load_pages(document_id)
+    item = next((value for value in pages if int(value.get("page") or 0) == page), None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Standard page text not found.")
+    return StandardPageResponse(
+        document=_response(metadata),
+        page=page,
+        text=str(item.get("text") or ""),
+        citation=_citation(metadata, page),
+    )
 
 
 @router.get("/{document_id}/file")
