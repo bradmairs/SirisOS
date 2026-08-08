@@ -83,39 +83,45 @@ services:
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
       - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     pid: host
-    restart: unless-stopped
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/rootfs:ro
+      - /:/rootfs:ro,rslave
+    expose:
+      - "9100"
+    restart: unless-stopped
 
   docker-proxy:
-    image: tecnativa/docker-socket-proxy:0.4.1
+    image: ghcr.io/tecnativa/docker-socket-proxy:latest
     container_name: sirisos-docker-proxy
     environment:
       CONTAINERS: 1
       INFO: 1
+      PING: 1
+      VERSION: 1
       POST: 1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    expose:
+      - "2375"
     restart: unless-stopped
 
   postgres:
     image: postgres:17-alpine
     container_name: sirisos-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sirisos}
-      POSTGRES_USER: ${POSTGRES_USER:-sirisos}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sirisos}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sirisos} -d ${POSTGRES_DB:-sirisos}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
     restart: unless-stopped
-
-volumes:
-  postgres-data:
