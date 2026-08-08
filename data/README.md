@@ -7,8 +7,9 @@ The directory structure is tracked, but generated contents are ignored by Git.
 - `postgres/` — PostgreSQL database files
 - `logs/` — application logs
 - `backups/` — future database and configuration backups
-- `uploads/` — future user-uploaded files
+- `uploads/` — general user-uploaded files
+- `standards/` — private engineering standards PDFs, metadata and locally extracted search indexes
 
 Back up this directory together with `.env` to preserve a SirisOS installation.
 
-Do not commit database files, logs, credentials, backups, or uploads to Git.
+Licensed standards under `data/standards` are private runtime content and must never be committed to the repository. Do not commit database files, logs, credentials, backups, uploads, or standards to Git.
