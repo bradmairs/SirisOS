@@ -19,21 +19,21 @@ if [[ ! -f .env ]]; then
   echo "Created .env from .env.example"
 fi
 
-mkdir -p data/postgres data/logs data/backups data/uploads
+mkdir -p data/postgres data/logs data/backups data/uploads data/standards
 
-echo "Starting SirisOS backend services..."
-docker compose up --build -d
+echo "Starting SirisOS application and backend dependencies..."
+docker compose up --build -d --remove-orphans sirisos
 
-echo "Waiting for the API to become healthy..."
+echo "Waiting for SirisOS to become healthy..."
 for attempt in {1..60}; do
-  if curl --fail --silent http://localhost:8000/health >/dev/null 2>&1; then
-    echo "SirisOS API is healthy at http://localhost:8000"
-    echo "API documentation: http://localhost:8000/docs"
+  if curl --fail --silent http://localhost:6464/health >/dev/null 2>&1; then
+    echo "SirisOS backend is healthy via http://localhost:6464"
+    echo "API documentation: http://localhost:6464/docs"
     exit 0
   fi
   sleep 2
 done
 
-echo "The API did not become healthy. Recent logs:" >&2
-docker compose logs --tail=100 api >&2
+echo "SirisOS did not become healthy. Recent logs:" >&2
+docker compose logs --tail=100 sirisos >&2
 exit 1

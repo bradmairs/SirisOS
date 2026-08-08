@@ -19,6 +19,8 @@ make up
 
 `make up` creates missing local data/config directories, rebuilds the Docker images and starts the stack. Finished slices should keep `main` deployable through this workflow.
 
+Production now uses one **`sirisos` application container** for both Flutter web and FastAPI. Nginx serves the UI on port `6464` and reverse-proxies `/api/*` to Uvicorn inside the same container. PostgreSQL, docker-socket-proxy and node-exporter remain separate infrastructure containers because they have distinct persistence, privilege and host-access boundaries. Flutter resolves the API from the browser's current origin, so moving SirisOS to a different host/IP no longer requires recompiling a server-specific API address. ADR 039.
+
 ## Current architecture
 
 SirisOS is built around reusable platform layers rather than isolated dashboards:
@@ -171,8 +173,9 @@ GitHub Actions CI now runs on pull requests and `main` pushes. It validates:
 - Flutter analysis
 - Flutter tests
 - Flutter release web build
+- Full production `sirisos` Docker image build
 
-The goal is to prevent dependency/API regressions from reaching `main` while preserving the normal self-hosted deployment workflow.
+The goal is to prevent dependency/API/deployment regressions from reaching `main` while preserving the normal self-hosted deployment workflow.
 
 ## Planned Health Data Export REST ingestion
 
@@ -280,19 +283,20 @@ Planned automation stack:
 25. SirisHydro source-supported claims must cite document/reference/edition/page evidence wherever possible and must not invent missing authority requirements.
 26. Standards document IDs are immutable evidence identities; replacements create linked new revisions rather than overwriting historical source material.
 27. Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
-28. Pull requests should pass backend and Flutter CI before merge unless an explicit emergency hotfix is required.
+28. Pull requests should pass backend, Flutter and production-container CI before merge unless an explicit emergency hotfix is required.
+29. Production Flutter uses same-origin API routing through the unified `sirisos` container; do not reintroduce a host-specific compiled API URL without an explicit deployment reason.
 
 ## Local endpoints
 
-- Web UI: `http://192.168.0.100:6464`
+- SirisOS UI: `http://192.168.0.100:6464`
 - Mission Control: `http://192.168.0.100:6464/#/mission`
 - Operations Center: `http://192.168.0.100:6464/#/operations`
-- API: `http://192.168.0.100:8000`
-- API docs: `http://192.168.0.100:8000/docs`
-- History API: `http://192.168.0.100:8000/api/v1/history`
-- Backup Protection API: `http://192.168.0.100:8000/api/v1/history/backup-protection`
-- Engineering Standards API: `http://192.168.0.100:8000/api/v1/engineering/standards`
-- SirisHydro Evidence API: `http://192.168.0.100:8000/api/v1/engineering/sirishydro/evidence`
+- API base: `http://192.168.0.100:6464/api`
+- API docs: `http://192.168.0.100:6464/docs`
+- History API: `http://192.168.0.100:6464/api/v1/history`
+- Backup Protection API: `http://192.168.0.100:6464/api/v1/history/backup-protection`
+- Engineering Standards API: `http://192.168.0.100:6464/api/v1/engineering/standards`
+- SirisHydro Evidence API: `http://192.168.0.100:6464/api/v1/engineering/sirishydro/evidence`
 
 Useful commands:
 
@@ -300,7 +304,7 @@ Useful commands:
 make up
 make dev
 make backend
-make rebuild-web
+make rebuild-app
 make status
 make logs
 make restart

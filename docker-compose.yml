@@ -1,22 +1,9 @@
 services:
-  web:
+  sirisos:
     build:
-      context: ./apps/mobile
-      dockerfile: Dockerfile.web
-      args:
-        SIRISOS_API_URL: ${SIRISOS_API_URL:-http://192.168.0.100:8000}
-    container_name: sirisos-web
-    ports:
-      - "6464:80"
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-
-  api:
-    build:
-      context: ./apps/backend
-    container_name: sirisos-api
+      context: .
+      dockerfile: Dockerfile
+    container_name: sirisos
     environment:
       DATABASE_URL: ${DATABASE_URL}
       DOCKER_HOST: tcp://docker-proxy:2375
@@ -63,7 +50,7 @@ services:
       SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS: ${SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS:-300}
       SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS: ${SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS:-40}
     ports:
-      - "8000:8000"
+      - "6464:6464"
     volumes:
       - ./data/logs:/app/logs
       - ./data/standards:/app/data/standards
@@ -79,11 +66,11 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"
-      interval: 5s
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:6464/health', timeout=2).read()"
+      interval: 10s
       timeout: 3s
       retries: 12
-      start_period: 10s
+      start_period: 20s
     restart: unless-stopped
 
   node-exporter:
