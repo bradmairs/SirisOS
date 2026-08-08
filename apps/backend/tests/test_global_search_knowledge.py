@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -15,8 +16,7 @@ def _configure_vault(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
     monkeypatch.setattr(knowledge_global_search.semantic_search, "model", "")
 
 
-@pytest.mark.asyncio
-async def test_global_search_returns_knowledge_note_with_path_reference(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_global_search_returns_knowledge_note_with_path_reference(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _configure_vault(monkeypatch, tmp_path)
     projects = tmp_path / "Projects"
     projects.mkdir()
@@ -25,7 +25,7 @@ async def test_global_search_returns_knowledge_note_with_path_reference(tmp_path
         encoding="utf-8",
     )
 
-    results = await search_knowledge_notes("detention")
+    results = asyncio.run(search_knowledge_notes("detention"))
 
     assert len(results) == 1
     assert results[0].title == "Penrith drainage design"
@@ -34,12 +34,11 @@ async def test_global_search_returns_knowledge_note_with_path_reference(tmp_path
     assert results[0].strategy == "lexical"
 
 
-@pytest.mark.asyncio
-async def test_global_search_ranks_title_match_above_body_match(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_global_search_ranks_title_match_above_body_match(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _configure_vault(monkeypatch, tmp_path)
     (tmp_path / "Hydraulics.md").write_text("# Hydraulics\nGeneral note.", encoding="utf-8")
     (tmp_path / "Meeting.md").write_text("# Meeting\nDiscuss hydraulics later.", encoding="utf-8")
 
-    results = await search_knowledge_notes("hydraulics")
+    results = asyncio.run(search_knowledge_notes("hydraulics"))
 
     assert [result.title for result in results] == ["Hydraulics", "Meeting"]
