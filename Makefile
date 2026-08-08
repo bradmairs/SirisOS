@@ -19,7 +19,7 @@ help:
 up:
 	@test -f .env || cp .env.example .env
 	@mkdir -p data/postgres data/logs data/backups data/uploads data/standards
-	@docker compose up --build -d
+	@docker compose up --build -d --remove-orphans
 	@echo ""
 	@echo "SirisOS: http://192.168.0.100:6464"
 	@echo "API docs: http://192.168.0.100:6464/docs"
@@ -34,14 +34,14 @@ backend:
 
 rebuild-app:
 	@docker compose build --no-cache sirisos
-	@docker compose up -d sirisos
+	@docker compose up -d --remove-orphans sirisos
 
 stop:
-	@docker compose down
+	@docker compose down --remove-orphans
 
 restart:
-	@docker compose down
-	@docker compose up --build -d
+	@docker compose down --remove-orphans
+	@docker compose up --build -d --remove-orphans
 
 logs:
 	@docker compose logs -f
@@ -53,5 +53,5 @@ status:
 	@echo ""
 
 clean:
-	@docker compose down
+	@docker compose down --remove-orphans
 	@cd apps/mobile && flutter clean
