@@ -58,6 +58,19 @@ class SirisModuleRegistry {
       },
     ),
     SirisModuleDefinition(
+      id: 'projects',
+      label: 'Projects',
+      description: 'Context containers connecting work, homelab and personal projects.',
+      icon: Icons.folder_copy_outlined,
+      selectedIcon: Icons.folder_copy_rounded,
+      capabilities: {
+        SirisModuleCapability.search,
+        SirisModuleCapability.quickAction,
+        SirisModuleCapability.backgroundRefresh,
+      },
+      primaryActionLabel: 'Open Projects',
+    ),
+    SirisModuleDefinition(
       id: 'homelab',
       label: 'Homelab',
       description: 'Docker, host metrics, alerts and infrastructure integrations.',
