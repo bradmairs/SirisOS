@@ -216,11 +216,30 @@ UPS / power:
 - [ ] Interactive Digital Twin graph visualization
 - [ ] Dependency-aware recommended actions
 
+### 0.4.3k — Capability Framework ✅ Foundation complete
+
+- [x] Declarative `SirisCapability` model with stable capability IDs
+- [x] Capability kind, provider, risk and confirmation metadata
+- [x] `SirisCapabilityRegistry` independent from execution/action implementations
+- [x] Live capability availability derived from `SirisIntegrationManager` health
+- [x] Fail-closed control semantics when providers are degraded
+- [x] Read-only capabilities may remain available during degraded provider state
+- [x] Initial Docker, Home Assistant, Synology, UniFi, Prometheus, Grafana, storage and UPS capabilities
+- [x] Operations Center capability availability panel
+- [x] Unit coverage for healthy/degraded/disabled availability rules
+- [x] ADR 030
+- [ ] Provider-owned dynamic capability registration
+- [ ] Capability argument schemas and authorization requirements
+- [ ] Server-side capability endpoint for Hermes/external automation
+- [ ] Bind executable capabilities to the future Action Framework
+
 Proxmox is intentionally not part of the SirisOS roadmap because this installation does not use it. All broader integrations remain optional; blank configuration reports disabled and creates no alert noise. Credentials remain server-side. Hyper Backup monitoring uses runtime API discovery and degrades gracefully when optional task fields are unavailable. The same Integration Framework is the foundation for the later Obsidian/Selkies Knowledge connector.
 
 ### Homelab / Operations follow-on backlog
 
-- [ ] Recommended operational actions and maintenance queue
+- [ ] Operations Planner and deterministic recommended operational actions
+- [ ] Action Framework bound to stable capability IDs
+- [ ] Playbook Engine composed from registered actions
 - [ ] Safe UPS power-event automation and graceful shutdown orchestration
 - [ ] Explainable Siris Score contribution history
 - [ ] Further Flutter web performance work: isolate Mission Control clock state and throttle pointer-hover activity
