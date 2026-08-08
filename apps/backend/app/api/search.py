@@ -5,10 +5,10 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
-from app.api import knowledge
 from app.services.activity_service import ActivityService
 from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
+from app.services.knowledge_global_search import search_knowledge_notes
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -47,50 +47,6 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
         raise HTTPException(status_code=401, detail="Invalid or expired session.") from exc
     if payload.get("sub") != AUTH_USERNAME:
         raise HTTPException(status_code=401, detail="Invalid session user.")
-
-
-def _knowledge_results(term: str, limit: int = 20) -> list[SearchResult]:
-    scored: list[tuple[int, SearchResult]] = []
-    for path in knowledge._markdown_files():
-        try:
-            text = knowledge._read_text(path)
-            summary = knowledge._summary(path, text)
-        except (OSError, HTTPException):
-            continue
-
-        title = summary.title.lower()
-        relative = summary.path.lower()
-        body = text.lower()
-        tags = " ".join(summary.tags).lower()
-        score = 0
-        if term == title:
-            score += 120
-        elif term in title:
-            score += 80
-        if term in relative:
-            score += 40
-        if term in tags:
-            score += 30
-        score += min(body.count(term), 10) * 5
-        if score <= 0:
-            continue
-
-        details: list[str] = [summary.path]
-        if summary.tags:
-            details.append(" ".join(f"#{tag}" for tag in summary.tags[:4]))
-        scored.append((
-            score,
-            SearchResult(
-                module="knowledge",
-                title=summary.title,
-                subtitle=" · ".join(details),
-                target="knowledge",
-                reference_id=summary.path,
-            ),
-        ))
-
-    scored.sort(key=lambda item: (-item[0], item[1].title.lower()))
-    return [item[1] for item in scored[:limit]]
 
 
 @router.get("", response_model=list[SearchResult])
@@ -139,7 +95,14 @@ async def search(
                 reference_id=str(workout.id),
             ))
 
-    results.extend(_knowledge_results(term))
+    for item in search_knowledge_notes(term):
+        results.append(SearchResult(
+            module="knowledge",
+            title=item.title,
+            subtitle=item.subtitle,
+            target="knowledge",
+            reference_id=item.path,
+        ))
 
     for event in activity_service.list_events(limit=100):
         haystack = f"{event.module} {event.title} {event.message} {event.event_type}".lower()
