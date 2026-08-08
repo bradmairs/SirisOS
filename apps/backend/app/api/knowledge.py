@@ -237,10 +237,12 @@ def _resolve_link(
         return None, []
     values = summaries if summaries is not None else _all_summaries()
     by_path, by_stem, by_title = index if index is not None else _build_link_index(values)
+    path_qualified = "/" in value
 
-    direct = by_path.get(value.lower())
-    if direct is not None:
-        return direct, [direct]
+    if path_qualified:
+        direct = by_path.get(value.lower())
+        if direct is not None:
+            return direct, [direct]
 
     if source_path:
         parent = Path(source_path).parent.as_posix()
@@ -248,6 +250,11 @@ def _resolve_link(
         relative = by_path.get(relative_key)
         if relative is not None:
             return relative, [relative]
+
+    if not path_qualified:
+        direct = by_path.get(value.lower())
+        if direct is not None:
+            return direct, [direct]
 
     matches_by_path: dict[str, KnowledgeNoteSummary] = {}
     for item in by_stem.get(Path(value).name.lower(), []):
