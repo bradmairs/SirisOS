@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/docker_summary.dart';
 import '../services/homelab_service.dart';
+import '../widgets/contextual_knowledge_panel.dart';
 import '../widgets/homelab_alerts_panel.dart';
 import '../widgets/host_metrics_panel.dart';
 import 'container_detail_screen.dart';
@@ -88,6 +89,11 @@ class _HomelabScreenState extends State<HomelabScreen> {
                 const HomelabAlertsPanel(),
                 const SizedBox(height: 20),
                 const HostMetricsPanel(),
+                const SizedBox(height: 20),
+                const ContextualKnowledgePanel(
+                  contextId: 'homelab',
+                  title: 'Homelab Knowledge',
+                ),
                 const SizedBox(height: 28),
                 Text('Docker', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
