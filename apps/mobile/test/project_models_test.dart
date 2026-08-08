@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/core/module_registry.dart';
-import 'package:sirisos/src/modules/app_module_registry.dart';
-import 'package:sirisos/src/services/project_service.dart';
+import 'package:siris_os/src/core/module_registry.dart';
+import 'package:siris_os/src/modules/app_module_registry.dart';
+import 'package:siris_os/src/services/project_service.dart';
 
 void main() {
   test('ProjectRecord parses project API payloads', () {
