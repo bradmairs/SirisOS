@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/knowledge_service.dart';
+import '../widgets/knowledge_relationships_panel.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({super.key});
@@ -241,6 +242,15 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                             ),
                           ],
                         );
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    KnowledgeRelationshipsPanel(
+                      notePath: note.path,
+                      onOpen: (related) async {
+                        Navigator.pop(dialogContext);
+                        await Future<void>.delayed(Duration.zero);
+                        if (mounted) await _openNote(related);
                       },
                     ),
                   ],

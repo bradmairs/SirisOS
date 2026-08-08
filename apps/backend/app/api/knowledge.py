@@ -75,6 +75,36 @@ class KnowledgeLinkResolutionResponse(BaseModel):
     candidates: list[KnowledgeNoteSummary] = Field(default_factory=list)
 
 
+class KnowledgeRelatedNote(BaseModel):
+    note: KnowledgeNoteSummary
+    score: int
+    reasons: list[str]
+
+
+class KnowledgeRelatedResponse(BaseModel):
+    path: str
+    related: list[KnowledgeRelatedNote]
+
+
+class KnowledgeGraphNode(BaseModel):
+    id: str
+    title: str
+    center: bool = False
+
+
+class KnowledgeGraphEdge(BaseModel):
+    source: str
+    target: str
+    kind: str
+    label: str
+
+
+class KnowledgeGraphResponse(BaseModel):
+    center_path: str
+    nodes: list[KnowledgeGraphNode]
+    edges: list[KnowledgeGraphEdge]
+
+
 LinkIndex = tuple[
     dict[str, KnowledgeNoteSummary],
     dict[str, list[KnowledgeNoteSummary]],
@@ -265,6 +295,84 @@ def _resolve_link(
     return (matches[0], matches) if len(matches) == 1 else (None, matches)
 
 
+def _related_notes(
+    target_summary: KnowledgeNoteSummary,
+    summaries: list[KnowledgeNoteSummary],
+    index: LinkIndex,
+    *,
+    limit: int = 12,
+) -> list[KnowledgeRelatedNote]:
+    target_tags = {tag.lower() for tag in target_summary.tags}
+    target_parent = Path(target_summary.path).parent.as_posix().lower()
+    outgoing: set[str] = set()
+    for link in target_summary.wikilinks:
+        resolved, _ = _resolve_link(link, target_summary.path, summaries=summaries, index=index)
+        if resolved is not None:
+            outgoing.add(resolved.path)
+
+    ranked: list[KnowledgeRelatedNote] = []
+    for candidate in summaries:
+        if candidate.path == target_summary.path:
+            continue
+        score = 0
+        reasons: list[str] = []
+
+        if candidate.path in outgoing:
+            score += 100
+            reasons.append("linked from this note")
+
+        links_back = False
+        for link in candidate.wikilinks:
+            resolved, _ = _resolve_link(link, candidate.path, summaries=summaries, index=index)
+            if resolved is not None and resolved.path == target_summary.path:
+                links_back = True
+                break
+        if links_back:
+            score += 90
+            reasons.append("links back to this note")
+
+        shared_tags = sorted(target_tags & {tag.lower() for tag in candidate.tags})
+        if shared_tags:
+            score += min(len(shared_tags), 4) * 15
+            reasons.append("shared tags: " + ", ".join(f"#{tag}" for tag in shared_tags[:4]))
+
+        candidate_parent = Path(candidate.path).parent.as_posix().lower()
+        if target_parent != "." and candidate_parent == target_parent:
+            score += 5
+            reasons.append("same folder")
+
+        if score > 0:
+            ranked.append(KnowledgeRelatedNote(note=candidate, score=score, reasons=reasons))
+
+    ranked.sort(key=lambda item: (-item.score, item.note.title.lower(), item.note.path.lower()))
+    return ranked[:limit]
+
+
+def _graph_for(target_summary: KnowledgeNoteSummary, related: list[KnowledgeRelatedNote]) -> KnowledgeGraphResponse:
+    nodes = [KnowledgeGraphNode(id=target_summary.path, title=target_summary.title, center=True)]
+    edges: list[KnowledgeGraphEdge] = []
+    for item in related:
+        nodes.append(KnowledgeGraphNode(id=item.note.path, title=item.note.title))
+        for reason in item.reasons:
+            if reason == "linked from this note":
+                kind = "outgoing"
+            elif reason == "links back to this note":
+                kind = "backlink"
+            elif reason.startswith("shared tags"):
+                kind = "tag"
+            else:
+                kind = "folder"
+            edges.append(
+                KnowledgeGraphEdge(
+                    source=target_summary.path,
+                    target=item.note.path,
+                    kind=kind,
+                    label=reason,
+                )
+            )
+    return KnowledgeGraphResponse(center_path=target_summary.path, nodes=nodes, edges=edges)
+
+
 @router.get("/overview", response_model=KnowledgeOverviewResponse)
 async def knowledge_overview(
     authorization: Annotated[str | None, Header()] = None,
@@ -387,6 +495,40 @@ async def knowledge_backlinks(
                 break
     backlinks.sort(key=lambda item: item.modified_at, reverse=True)
     return KnowledgeBacklinksResponse(path=target_summary.path, backlinks=backlinks[:100])
+
+
+@router.get("/related", response_model=KnowledgeRelatedResponse)
+async def knowledge_related(
+    path: Annotated[str, Query(min_length=1, max_length=1000)],
+    authorization: Annotated[str | None, Header()] = None,
+    limit: Annotated[int, Query(ge=1, le=30)] = 12,
+) -> KnowledgeRelatedResponse:
+    _authenticate(authorization)
+    target_path = _safe_note_path(path)
+    summaries = _all_summaries()
+    index = _build_link_index(summaries)
+    relative = target_path.relative_to(VAULT_ROOT).as_posix()
+    target_summary = next((item for item in summaries if item.path == relative), _summary(target_path))
+    return KnowledgeRelatedResponse(
+        path=target_summary.path,
+        related=_related_notes(target_summary, summaries, index, limit=limit),
+    )
+
+
+@router.get("/graph", response_model=KnowledgeGraphResponse)
+async def knowledge_graph(
+    path: Annotated[str, Query(min_length=1, max_length=1000)],
+    authorization: Annotated[str | None, Header()] = None,
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+) -> KnowledgeGraphResponse:
+    _authenticate(authorization)
+    target_path = _safe_note_path(path)
+    summaries = _all_summaries()
+    index = _build_link_index(summaries)
+    relative = target_path.relative_to(VAULT_ROOT).as_posix()
+    target_summary = next((item for item in summaries if item.path == relative), _summary(target_path))
+    related = _related_notes(target_summary, summaries, index, limit=limit)
+    return _graph_for(target_summary, related)
 
 
 @router.get("/note", response_model=KnowledgeNoteResponse)

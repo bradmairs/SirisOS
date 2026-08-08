@@ -99,3 +99,44 @@ def test_folder_and_tag_metadata_can_be_counted(tmp_path: Path, monkeypatch: pyt
 
     assert {item.path for item in summaries} == {"Engineering/Drainage.md", "Engineering/Roads.md"}
     assert {tag for item in summaries for tag in item.tags} == {"stormwater", "transport"}
+
+
+def test_related_notes_prioritise_links_then_backlinks_then_shared_tags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _configure_vault(monkeypatch, tmp_path)
+    project = tmp_path / "Project"
+    project.mkdir()
+    (project / "Main.md").write_text("# Main\n#stormwater\nSee [[Linked]].", encoding="utf-8")
+    (project / "Linked.md").write_text("# Linked\n#stormwater", encoding="utf-8")
+    (project / "Backlink.md").write_text("# Backlink\nSee [[Main]].", encoding="utf-8")
+    (project / "TagOnly.md").write_text("# Tag only\n#stormwater", encoding="utf-8")
+
+    summaries = knowledge._all_summaries()
+    index = knowledge._build_link_index(summaries)
+    target = next(item for item in summaries if item.path == "Project/Main.md")
+    related = knowledge._related_notes(target, summaries, index)
+
+    assert [item.note.title for item in related[:3]] == ["Linked", "Backlink", "Tag only"]
+    assert related[0].score > related[1].score > related[2].score
+    assert "linked from this note" in related[0].reasons
+    assert "links back to this note" in related[1].reasons
+    assert any(reason.startswith("shared tags") for reason in related[2].reasons)
+
+
+def test_graph_projects_center_and_explainable_relationship_edges(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _configure_vault(monkeypatch, tmp_path)
+    (tmp_path / "Main.md").write_text("# Main\n#alpha\nSee [[Linked]].", encoding="utf-8")
+    (tmp_path / "Linked.md").write_text("# Linked\n#alpha", encoding="utf-8")
+
+    summaries = knowledge._all_summaries()
+    index = knowledge._build_link_index(summaries)
+    target = next(item for item in summaries if item.path == "Main.md")
+    related = knowledge._related_notes(target, summaries, index)
+    graph = knowledge._graph_for(target, related)
+
+    assert graph.center_path == "Main.md"
+    assert graph.nodes[0].center is True
+    assert {node.id for node in graph.nodes} == {"Main.md", "Linked.md"}
+    assert {(edge.kind, edge.label) for edge in graph.edges} >= {
+        ("outgoing", "linked from this note"),
+        ("tag", "shared tags: #alpha"),
+    }
