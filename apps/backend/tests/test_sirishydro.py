@@ -3,7 +3,18 @@ import json
 from app.api import sirishydro
 
 
-def _write_document(root, document_id, *, title, authority, reference, edition, pages):
+def _write_document(
+    root,
+    document_id,
+    *,
+    title,
+    authority,
+    reference,
+    edition,
+    pages,
+    active=True,
+    revision=1,
+):
     directory = root / document_id
     directory.mkdir(parents=True)
     metadata = {
@@ -16,6 +27,8 @@ def _write_document(root, document_id, *, title, authority, reference, edition, 
         "uploaded_at": "2026-08-08T00:00:00+00:00",
         "pages": len(pages),
         "indexed": True,
+        "active": active,
+        "revision": revision,
     }
     (directory / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     (directory / "index.json").write_text(
@@ -62,6 +75,57 @@ def test_assemble_evidence_ranks_and_preserves_citations(tmp_path, monkeypatch):
     assert "minimum cover" in evidence[0].excerpt.lower()
 
 
+def test_assemble_evidence_can_recover_semantically_related_wording(tmp_path, monkeypatch):
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    _write_document(
+        tmp_path,
+        "drainage",
+        title="Drainage specification",
+        authority="Example Authority",
+        reference="DRAIN 1",
+        edition="Rev B",
+        pages=["The conduit gradient shall be no flatter than the nominated design value."],
+    )
+
+    evidence = sirishydro.assemble_evidence("pipe slope", limit=3)
+
+    assert evidence
+    assert evidence[0].document_id == "drainage"
+    assert evidence[0].page == 1
+
+
+def test_assemble_evidence_ignores_archived_or_superseded_revisions(tmp_path, monkeypatch):
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    _write_document(
+        tmp_path,
+        "old",
+        title="Old drainage standard",
+        authority="Example Authority",
+        reference="SPEC 3",
+        edition="2020",
+        pages=["Minimum pipe slope is 1 percent."],
+        active=False,
+        revision=1,
+    )
+    _write_document(
+        tmp_path,
+        "current",
+        title="Current drainage standard",
+        authority="Example Authority",
+        reference="SPEC 3",
+        edition="2026",
+        pages=["Minimum pipe slope is 0.5 percent."],
+        active=True,
+        revision=2,
+    )
+
+    evidence = sirishydro.assemble_evidence("minimum pipe slope", limit=3)
+
+    assert evidence
+    assert [item.document_id for item in evidence] == ["current"]
+    assert "library rev. 2" in evidence[0].citation
+
+
 def test_assemble_evidence_returns_empty_when_library_does_not_support_question(
     tmp_path, monkeypatch
 ):
@@ -79,7 +143,7 @@ def test_assemble_evidence_returns_empty_when_library_does_not_support_question(
     assert sirishydro.assemble_evidence("earthquake bridge bearings", limit=6) == []
 
 
-def test_context_text_contains_source_and_non_invention_rule(tmp_path, monkeypatch):
+def test_context_text_contains_source_strategy_and_non_invention_rule(tmp_path, monkeypatch):
     monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
     _write_document(
         tmp_path,
@@ -95,5 +159,6 @@ def test_context_text_contains_source_and_non_invention_rule(tmp_path, monkeypat
     context = sirishydro._context_text("When is buoyancy considered?", evidence)
 
     assert "DSPEC · Rev A · Sydney Water · p. 1" in context
+    assert sirishydro.RETRIEVAL_STRATEGY in context
     assert "must cite the evidence" in context
     assert "rather than inventing" in context
