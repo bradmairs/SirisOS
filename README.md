@@ -102,7 +102,7 @@ The calculation core is pure Dart and regression-tested. Inputs/units/assumption
 
 ### Private Standards Library / Search
 
-The Engineering module now has a **Calculators / Standards** hub.
+The Engineering module now has a **Calculators / Standards / SirisHydro** hub.
 
 SirisOS can store and search standards PDFs that the administrator is entitled to use:
 
@@ -111,25 +111,51 @@ SirisOS can store and search standards PDFs that the administrator is entitled t
 - Default per-file limit of 100 MB, configurable with `SIRISOS_STANDARDS_MAX_UPLOAD_MB`
 - Metadata for title, authority/publisher, reference and edition/revision
 - Page-level local text extraction using `pypdf`
-- Private full-text search with short snippets and page provenance
+- Ranked local text search with short snippets and page provenance
 - Scanned/image-only PDFs are accepted but marked **Stored · not indexed** rather than rejected
 - Authoritative source shortcuts for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
 - SirisOS does not scrape or redistribute protected standards content
 
-The library is designed as the future retrieval base for **SirisHydro**. Future AI answers should cite the exact local document/reference/edition/page wherever possible; Ollama may explain retrieved material but does not become the authority. ADR 033.
+### SirisHydro evidence retrieval v1
+
+SirisHydro now has an evidence-first retrieval workspace backed by the private standards library.
+
+Current behavior:
+
+- Authenticated `/api/v1/engineering/sirishydro/evidence` endpoint
+- Deterministic ranked evidence across uploaded/indexed standards
+- Bounded excerpts with document/reference/edition/authority/page provenance
+- Stable human-readable citations
+- Explicit `sufficient_evidence` state
+- Copyable context packet for future Ollama/SirisAI composition
+- Clear refusal boundary when the local library does not support a standards requirement
+
+This first SirisHydro slice intentionally **does not generate an AI answer**. The local standard remains the source of truth. Future Ollama integration may explain or synthesize retrieved evidence, but source-supported claims must remain traceable to the evidence packet and must not invent clauses or values. ADRs 033–034.
 
 Planned Engineering follow-ons:
 
 - OCR for scanned standards
-- Better lexical ranking and multi-page hits
-- Semantic/vector indexing
 - Document replacement/version management
+- Semantic/vector indexing for better recall while preserving page provenance
 - Traceable authority/assumption profiles for calculators
-- Citation-first SirisHydro retrieval
+- Ollama-backed SirisHydro answer composition using evidence packets
 - SirisPM integration
 - Project notes and drawing review
 - Civil 3D utilities
 - Engineering Context provider
+
+## Build validation
+
+GitHub Actions CI now runs on pull requests and `main` pushes. It validates:
+
+- Python source compilation
+- Backend pytest suite
+- Flutter dependency resolution
+- Flutter analysis
+- Flutter tests
+- Flutter release web build
+
+The goal is to prevent dependency/API regressions from reaching `main` while preserving the normal self-hosted deployment workflow.
 
 ## Planned Health Data Export REST ingestion
 
@@ -234,7 +260,8 @@ Planned automation stack:
 22. Server-control AI actions must be allow-listed/least-privilege where practical, auditable, and must not use approval bypasses.
 23. Engineering calculations expose units/assumptions and must not claim authority compliance without traceable profiles.
 24. Licensed standards remain private local content; never scrape or redistribute protected standards content.
-25. SirisHydro retrieval should cite exact document/reference/edition/page wherever possible.
+25. SirisHydro source-supported claims must cite document/reference/edition/page evidence wherever possible and must not invent missing authority requirements.
+26. Pull requests should pass backend and Flutter CI before merge unless an explicit emergency hotfix is required.
 
 ## Local endpoints
 
@@ -246,6 +273,7 @@ Planned automation stack:
 - History API: `http://192.168.0.100:8000/api/v1/history`
 - Backup Protection API: `http://192.168.0.100:8000/api/v1/history/backup-protection`
 - Engineering Standards API: `http://192.168.0.100:8000/api/v1/engineering/standards`
+- SirisHydro Evidence API: `http://192.168.0.100:8000/api/v1/engineering/sirishydro/evidence`
 
 Useful commands:
 
