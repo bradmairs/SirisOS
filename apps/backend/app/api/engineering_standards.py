@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pypdf import PdfReader
 
+from app.services.engineering_standards_search import rank_pages
+
 router = APIRouter(prefix="/api/v1/engineering/standards", tags=["engineering"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -37,6 +39,8 @@ class StandardSearchHit(BaseModel):
     document: StandardDocumentResponse
     page: int | None = None
     snippet: str | None = None
+    score: int | None = None
+    citation: str | None = None
 
 
 class StandardSearchResponse(BaseModel):
@@ -103,9 +107,13 @@ def _snippet(text: str, query: str, radius: int = 150) -> str | None:
     lowered = text.lower()
     position = lowered.find(query.lower())
     if position < 0:
+        terms = re.findall(r"[a-z0-9]+", query.lower())
+        positions = [lowered.find(term) for term in terms if lowered.find(term) >= 0]
+        position = min(positions) if positions else -1
+    if position < 0:
         return None
     start = max(0, position - radius)
-    end = min(len(text), position + len(query) + radius)
+    end = min(len(text), position + max(len(query), 1) + radius)
     excerpt = " ".join(text[start:end].split())
     return ("…" if start else "") + excerpt + ("…" if end < len(text) else "")
 
@@ -149,29 +157,32 @@ async def search_standards(
         )
         if not query_value:
             hits.append(StandardSearchHit(document=document))
-        elif query_value.lower() in searchable_metadata.lower():
-            hits.append(StandardSearchHit(document=document))
         else:
+            metadata_match = query_value.lower() in searchable_metadata.lower()
+            if metadata_match:
+                hits.append(StandardSearchHit(document=document, score=100))
             _, _, index_path = _paths(document.id)
             if index_path.exists():
                 try:
                     pages = json.loads(index_path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
                     pages = []
-                for item in pages:
-                    text = str(item.get("text") or "")
-                    excerpt = _snippet(text, query_value)
-                    if excerpt:
-                        hits.append(
-                            StandardSearchHit(
-                                document=document,
-                                page=int(item.get("page") or 0) or None,
-                                snippet=excerpt,
-                            )
+                remaining = max(0, min(5, limit - len(hits)))
+                for ranked in rank_pages(pages, query_value, limit=remaining):
+                    hits.append(
+                        StandardSearchHit(
+                            document=document,
+                            page=ranked.page or None,
+                            snippet=_snippet(ranked.text, query_value),
+                            score=ranked.score,
+                            citation=_citation(metadata, ranked.page),
                         )
+                    )
+                    if len(hits) >= limit:
                         break
         if len(hits) >= limit:
             break
+    hits.sort(key=lambda hit: -(hit.score or 0))
     return StandardSearchResponse(query=query_value, hits=hits[:limit])
 
 
