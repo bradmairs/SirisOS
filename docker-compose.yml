@@ -56,10 +56,13 @@ services:
       HEALTH_AUTO_EXPORT_MCP_URL: ${HEALTH_AUTO_EXPORT_MCP_URL:-}
       HEALTH_AUTO_EXPORT_MCP_TOKEN: ${HEALTH_AUTO_EXPORT_MCP_TOKEN:-}
       HEALTH_AUTO_EXPORT_MCP_TIMEOUT_SECONDS: ${HEALTH_AUTO_EXPORT_MCP_TIMEOUT_SECONDS:-12}
+      SIRISOS_STANDARDS_PATH: /app/data/standards
+      SIRISOS_STANDARDS_MAX_UPLOAD_MB: ${SIRISOS_STANDARDS_MAX_UPLOAD_MB:-100}
     ports:
       - "8000:8000"
     volumes:
       - ./data/logs:/app/logs
+      - ./data/standards:/app/data/standards
     depends_on:
       postgres:
         condition: service_healthy

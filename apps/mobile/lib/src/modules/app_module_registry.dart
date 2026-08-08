@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/module_registry.dart';
 import '../screens/dashboard_screen.dart';
-import '../screens/engineering_screen.dart';
+import '../screens/engineering_hub_screen.dart';
 import '../screens/gym_screen.dart';
 import '../screens/health_screen.dart';
 import '../screens/homelab_screen.dart';
@@ -100,7 +100,7 @@ class AppModuleRegistry {
           ),
         'engineering' => SirisModuleRegistration(
             definition: definition,
-            screenBuilder: (_) => const EngineeringScreen(),
+            screenBuilder: (_) => const EngineeringHubScreen(),
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
