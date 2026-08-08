@@ -270,17 +270,22 @@ Proxmox is intentionally not part of the SirisOS roadmap because this installati
 
 Personal, engineering and AI context states remain evidence-based: SirisOS will not claim states such as working, sleeping, travelling or focused until authoritative providers exist.
 
-## Sprint 0.4.5 — Engineering Module
+## Sprint 0.4.5 — Engineering Module 🚧 Foundation in progress
 
-- [ ] Engineering module scaffold
-- [ ] Manning equation calculator
-- [ ] Pipe capacity calculator
-- [ ] Rational Method calculator
-- [ ] Pipe buoyancy checker
-- [ ] Detention basin sizing helper
+- [x] Engineering module scaffold through Module Registry/App Module Registry
+- [x] Manning equation / full circular-pipe capacity calculator
+- [x] Pipe flow and velocity output with explicit SI units
+- [x] Rational Method calculator using intensity in mm/h and catchment area in hectares
+- [x] Pipe buoyancy screening checker with explicit simplified resistance assumptions
+- [x] Constant-flow detention basin sizing helper
+- [x] Input validation and numerical regression tests
+- [x] Engineering navigation and Quick Action entry
+- [x] ADR 032 calculator architecture and standards/compliance boundary
 - [ ] Standards search scaffold for WSAA, Sydney Water, Austroads, Australian Standards, and authorities
+- [ ] Traceable standards/authority assumption profiles for calculators where justified
 - [ ] SirisHydro and SirisPM integration
 - [ ] Project notes, drawing review, and Civil 3D utilities
+- [ ] Engineering context provider for active project/design mode when authoritative project state exists
 
 ## Sprint 0.5.0 — Knowledge Platform
 

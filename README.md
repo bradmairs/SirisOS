@@ -210,6 +210,23 @@ SirisOS now has a shared deterministic answer to **"what is happening right now?
 
 The initial service deliberately does not infer personal states such as working, sleeping, travelling or focused from weak signals. Those states will be contributed later by authoritative Health Data Export, Home Assistant presence, calendar/project and AI runtime providers. The runtime context timeline is currently in memory; persistent context history and a backend/Hermes context API remain follow-on work.
 
+## Sprint 0.4.5 — Engineering Module foundation
+
+Engineering is now a first-class SirisOS module registered through the standard Module Registry and application shell.
+
+- Deterministic calculation core separated from Flutter presentation
+- Full circular-pipe Manning capacity with flow and velocity output
+- Rational Method peak-flow calculator using `C`, intensity in mm/h and area in hectares
+- Buried-pipe buoyancy screening with explicit pipe/soil resistance assumptions and factor of safety
+- Constant-flow detention storage screening for inflow, allowable outflow and critical duration
+- Input validation for invalid ranges and geometry
+- Numerical regression tests for the engineering equations and civil-unit conversions
+- Engineering navigation and Quick Action entry
+- Screening tools explicitly distinguish simplified engineering checks from standards/project-specific design
+- Architecture documented in ADR 032
+
+Standards search, authority-specific defaults, SirisHydro/SirisPM, project notes/drawing review and Civil 3D utilities remain follow-on work in Sprint 0.4.5. Standards-aware outputs must cite or otherwise trace their assumptions to authoritative sources rather than silently embedding generic defaults.
+
 ## Planned SirisAI architecture — Hermes Agent + Ollama
 
 SirisOS will deliberately use **Hermes Agent and Ollama for different jobs** rather than choosing one as the entire AI stack.
@@ -244,6 +261,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Configurable Digital Twin dependency graph with declared downstream impact analysis
 - Declarative Capability Framework with live provider availability and fail-closed control semantics
 - SirisCore Context Service with prioritized operational context, Event Bus updates and context timeline
+- Engineering module with Manning/pipe-capacity, Rational Method, buoyancy and detention screening tools
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake, diagnostics and `siris.context`
@@ -283,6 +301,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 20. Server-control AI actions must be least-privilege, allow-listed where possible, auditable, and must not use approval-bypass modes.
 21. Planners, playbooks and agents should target stable capability IDs rather than connector-specific implementation details; control capabilities fail closed when providers are not healthy.
 22. Context claims must be provider-backed and expose source/provenance; do not infer personal or operational states from weak correlation when authoritative evidence is unavailable.
+23. Engineering calculations must keep equations/assumptions explicit; standards-specific defaults or compliance claims require traceable authoritative sources.
 
 ## Local endpoints
 
