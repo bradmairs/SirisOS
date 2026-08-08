@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/services/project_service.dart';
+import 'package:siris_os/src/services/project_service.dart';
 
 void main() {
   test('ProjectRecord parses project identity and lifecycle', () {
