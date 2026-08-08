@@ -65,10 +65,9 @@ class EngineeringCalculators {
 
     final area = math.pi * diameterM * diameterM / 4;
     final hydraulicRadius = diameterM / 4;
-    final flow = (1 / roughnessN) *
-        area *
-        math.pow(hydraulicRadius, 2 / 3) *
-        math.sqrt(slope);
+    final radiusTerm = math.pow(hydraulicRadius, 2 / 3).toDouble();
+    final flow =
+        (1 / roughnessN) * area * radiusTerm * math.sqrt(slope);
     return ManningResult(
       flowM3s: flow,
       velocityMs: flow / area,
@@ -118,9 +117,11 @@ class EngineeringCalculators {
       throw ArgumentError('submergedSoilUnitWeight must be non-negative');
     }
 
-    final displacedVolume = math.pi * outsideDiameterM * outsideDiameterM / 4 * lengthM;
+    final displacedVolume =
+        math.pi * outsideDiameterM * outsideDiameterM / 4 * lengthM;
     final pipeMaterialVolume = math.pi *
-        (outsideDiameterM * outsideDiameterM - insideDiameterM * insideDiameterM) /
+        (outsideDiameterM * outsideDiameterM -
+            insideDiameterM * insideDiameterM) /
         4 *
         lengthM;
     const g = 9.80665;
@@ -134,7 +135,8 @@ class EngineeringCalculators {
       pipeWeightKn: pipeWeightKn,
       soilWeightKn: soilWeightKn,
       resistingForceKn: resistingForce,
-      factorOfSafety: buoyantForceKn == 0 ? double.infinity : resistingForce / buoyantForceKn,
+      factorOfSafety:
+          buoyantForceKn == 0 ? double.infinity : resistingForce / buoyantForceKn,
     );
   }
 
@@ -148,7 +150,8 @@ class EngineeringCalculators {
       throw ArgumentError('allowableOutflow must be non-negative');
     }
     _positive(durationMinutes, 'duration');
-    final excess = math.max(0.0, inflowM3s - allowableOutflowM3s);
+    final excess =
+        math.max(0.0, inflowM3s - allowableOutflowM3s).toDouble();
     return DetentionResult(
       inflowM3s: inflowM3s,
       outflowM3s: allowableOutflowM3s,
