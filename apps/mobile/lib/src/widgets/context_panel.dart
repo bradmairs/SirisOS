@@ -1,10 +1,34 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/siris_context_service.dart';
+import '../core/siris_event_bus.dart';
 import 'siris_design_system.dart';
 
-class ContextPanel extends StatelessWidget {
+class ContextPanel extends StatefulWidget {
   const ContextPanel({super.key});
+
+  @override
+  State<ContextPanel> createState() => _ContextPanelState();
+}
+
+class _ContextPanelState extends State<ContextPanel> {
+  StreamSubscription<SirisEvent>? _events;
+
+  @override
+  void initState() {
+    super.initState();
+    _events = SirisEventBus.instance.on<ContextSnapshotChanged>().listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _events?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
