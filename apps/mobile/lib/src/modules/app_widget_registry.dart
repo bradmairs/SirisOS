@@ -9,6 +9,7 @@ import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_hero.dart';
 import '../widgets/grafana_panel.dart';
 import '../widgets/hyper_backup_panel.dart';
+import '../widgets/knowledge_panel.dart';
 import '../widgets/prometheus_panel.dart';
 import '../widgets/siris_score_panel.dart';
 import '../widgets/storage_panel.dart';
@@ -42,6 +43,7 @@ class AppWidgetRegistry {
     ..._homelabWidgets,
     ..._runningWidgets,
     ..._gymWidgets,
+    ..._knowledgeWidgets,
     ..._systemWidgets,
     ..._activityWidgets,
   ];
@@ -211,6 +213,17 @@ class AppWidgetRegistry {
         height: 190,
         child: _summaryCard(context.dashboard.gym, Icons.fitness_center_rounded),
       ),
+    ),
+  ];
+
+  static final _knowledgeWidgets = <RegisteredMissionControlWidget>[
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'knowledge.summary', moduleId: 'knowledge', label: 'Knowledge',
+        description: 'Vault size and recently updated notes.',
+        icon: Icons.menu_book_rounded, defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const KnowledgePanel(),
     ),
   ];
 
