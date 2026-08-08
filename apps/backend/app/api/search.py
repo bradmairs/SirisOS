@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.services.activity_service import ActivityService
 from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
+from app.services.knowledge_global_search import search_knowledge_notes
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -93,6 +94,15 @@ async def search(
                 target="gym",
                 reference_id=str(workout.id),
             ))
+
+    for item in search_knowledge_notes(term):
+        results.append(SearchResult(
+            module="knowledge",
+            title=item.title,
+            subtitle=item.subtitle,
+            target="knowledge",
+            reference_id=item.path,
+        ))
 
     for event in activity_service.list_events(limit=100):
         haystack = f"{event.module} {event.title} {event.message} {event.event_type}".lower()
