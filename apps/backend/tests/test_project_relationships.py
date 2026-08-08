@@ -29,7 +29,6 @@ def test_project_knowledge_relationship_lifecycle(tmp_path: Path, monkeypatch) -
     (vault / "Stormwater.md").write_text("# Stormwater design\n\n#siris/engineering\n", encoding="utf-8")
     monkeypatch.setattr(knowledge, "VAULT_ROOT", vault)
     monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
-    monkeypatch.setattr(project_relationships, "RELATIONSHIPS_PATH", tmp_path / "relationships.json")
     authorization = _token()
     project = _create_project(authorization)
 
@@ -48,6 +47,7 @@ def test_project_knowledge_relationship_lifecycle(tmp_path: Path, monkeypatch) -
     assert relationship.target_id == "Stormwater.md"
     assert relationship.target_label == "Stormwater design"
     assert relationship.provenance == "manual"
+    assert (tmp_path / "project_relationships.json").exists()
 
     listed = asyncio.run(project_relationships.list_project_relationships(project.id, authorization))
     assert [item.id for item in listed.relationships] == [relationship.id]
@@ -69,7 +69,6 @@ def test_duplicate_relationship_is_rejected(tmp_path: Path, monkeypatch) -> None
     (vault / "Server.md").write_text("# Linux Server\n", encoding="utf-8")
     monkeypatch.setattr(knowledge, "VAULT_ROOT", vault)
     monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
-    monkeypatch.setattr(project_relationships, "RELATIONSHIPS_PATH", tmp_path / "relationships.json")
     authorization = _token()
     project = _create_project(authorization)
     request = project_relationships.ProjectRelationshipCreateRequest(target_id="Server.md")
@@ -88,7 +87,6 @@ def test_relationship_requires_existing_note(tmp_path: Path, monkeypatch) -> Non
     vault.mkdir()
     monkeypatch.setattr(knowledge, "VAULT_ROOT", vault)
     monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
-    monkeypatch.setattr(project_relationships, "RELATIONSHIPS_PATH", tmp_path / "relationships.json")
     authorization = _token()
     project = _create_project(authorization)
 
