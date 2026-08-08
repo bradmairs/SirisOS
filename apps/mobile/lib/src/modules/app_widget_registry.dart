@@ -4,6 +4,7 @@ import '../core/briefing_engine.dart';
 import '../models/dashboard_summary.dart';
 import '../models/mission_control_widget.dart';
 import '../widgets/activity_feed_panel.dart';
+import '../widgets/context_panel.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_hero.dart';
 import '../widgets/grafana_panel.dart';
@@ -104,6 +105,14 @@ class AppWidgetRegistry {
         icon: Icons.insights_rounded, defaultSize: MissionControlWidgetSize.standard,
       ),
       builder: (context) => SirisScorePanel(dashboard: context.dashboard),
+    ),
+    RegisteredMissionControlWidget(
+      definition: const MissionControlWidgetDefinition(
+        id: 'siris.context', moduleId: 'siris', label: 'Current context',
+        description: 'Prioritized SirisCore context and recent context transitions.',
+        icon: Icons.psychology_alt_rounded, defaultSize: MissionControlWidgetSize.standard,
+      ),
+      builder: (_) => const ContextPanel(),
     ),
   ];
 
