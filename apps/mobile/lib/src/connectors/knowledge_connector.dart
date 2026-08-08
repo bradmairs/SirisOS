@@ -16,6 +16,9 @@ class KnowledgeConnector implements SirisConnector {
   Duration get refreshInterval => const Duration(minutes: 5);
 
   @override
+  bool get enabled => true;
+
+  @override
   Future<void> connect() async {
     await _checkVault();
   }
@@ -24,6 +27,9 @@ class KnowledgeConnector implements SirisConnector {
   Future<void> refresh() async {
     await _checkVault();
   }
+
+  @override
+  Future<void> disconnect() async {}
 
   Future<void> _checkVault() async {
     final overview = await _service.overview();
