@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
@@ -43,6 +44,35 @@ class KnowledgeOverviewResponse(BaseModel):
 class KnowledgeSearchResponse(BaseModel):
     query: str
     hits: list[KnowledgeNoteSummary]
+
+
+class KnowledgeFolderSummary(BaseModel):
+    path: str
+    name: str
+    note_count: int
+
+
+class KnowledgeTagSummary(BaseModel):
+    tag: str
+    note_count: int
+
+
+class KnowledgeBrowseResponse(BaseModel):
+    folders: list[KnowledgeFolderSummary]
+    tags: list[KnowledgeTagSummary]
+
+
+class KnowledgeBacklinksResponse(BaseModel):
+    path: str
+    backlinks: list[KnowledgeNoteSummary]
+
+
+class KnowledgeLinkResolutionResponse(BaseModel):
+    target: str
+    resolved: bool
+    ambiguous: bool
+    note: KnowledgeNoteSummary | None = None
+    candidates: list[KnowledgeNoteSummary] = []
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -114,7 +144,15 @@ def _frontmatter_tags(text: str) -> list[str]:
     simple = re.search(r"(?mi)^tags\s*:\s*([^\n\[]+)\s*$", block)
     if simple:
         tags.extend(part.strip().lstrip("#") for part in simple.group(1).split())
-    return sorted({tag for tag in tags if tag})
+    return [tag for tag in tags if tag]
+
+
+def _tags(text: str) -> list[str]:
+    values = list(_frontmatter_tags(text))
+    # Obsidian also supports inline #tags. Heading markers are excluded because a
+    # tag must begin with an alphanumeric character after '#'.
+    values.extend(re.findall(r"(?<![\w#])#([A-Za-z0-9][A-Za-z0-9_/-]*)", text))
+    return sorted({value.strip().lstrip("#") for value in values if value.strip()})[:100]
 
 
 def _wikilinks(text: str) -> list[str]:
@@ -147,10 +185,55 @@ def _summary(path: Path, text: str | None = None) -> KnowledgeNoteSummary:
         title=_title(path, content),
         modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
         size_bytes=stat.st_size,
-        tags=_frontmatter_tags(content),
+        tags=_tags(content),
         wikilinks=_wikilinks(content),
         is_daily_note=_is_daily(path.relative_to(VAULT_ROOT)),
     )
+
+
+def _all_summaries() -> list[KnowledgeNoteSummary]:
+    summaries: list[KnowledgeNoteSummary] = []
+    for path in _markdown_files():
+        try:
+            summaries.append(_summary(path))
+        except (OSError, HTTPException):
+            continue
+    return summaries
+
+
+def _normalise_target(target: str) -> str:
+    value = target.split("|", 1)[0].split("#", 1)[0].strip().replace("\\", "/")
+    if value.lower().endswith(".md"):
+        value = value[:-3]
+    return value.strip("/")
+
+
+def _resolve_link(target: str, source_path: str | None = None) -> tuple[KnowledgeNoteSummary | None, list[KnowledgeNoteSummary]]:
+    value = _normalise_target(target)
+    if not value:
+        return None, []
+    summaries = _all_summaries()
+    by_path = {item.path[:-3].lower() if item.path.lower().endswith(".md") else item.path.lower(): item for item in summaries}
+
+    direct = by_path.get(value.lower())
+    if direct is not None:
+        return direct, [direct]
+
+    if source_path:
+        parent = Path(source_path).parent.as_posix()
+        relative_key = f"{parent}/{value}".strip("/").lower()
+        relative = by_path.get(relative_key)
+        if relative is not None:
+            return relative, [relative]
+
+    stem = Path(value).name.lower()
+    matches = [
+        item
+        for item in summaries
+        if Path(item.path).stem.lower() == stem or item.title.strip().lower() == value.lower()
+    ]
+    matches.sort(key=lambda item: item.path.lower())
+    return (matches[0], matches) if len(matches) == 1 else (None, matches)
 
 
 @router.get("/overview", response_model=KnowledgeOverviewResponse)
@@ -158,13 +241,7 @@ async def knowledge_overview(
     authorization: Annotated[str | None, Header()] = None,
 ) -> KnowledgeOverviewResponse:
     _authenticate(authorization)
-    files = _markdown_files()
-    summaries = []
-    for path in files:
-        try:
-            summaries.append(_summary(path))
-        except (OSError, HTTPException):
-            continue
+    summaries = _all_summaries()
     summaries.sort(key=lambda item: item.modified_at, reverse=True)
     daily = [item for item in summaries if item.is_daily_note][:10]
     return KnowledgeOverviewResponse(
@@ -176,14 +253,43 @@ async def knowledge_overview(
     )
 
 
+@router.get("/browse", response_model=KnowledgeBrowseResponse)
+async def browse_knowledge(
+    authorization: Annotated[str | None, Header()] = None,
+) -> KnowledgeBrowseResponse:
+    _authenticate(authorization)
+    summaries = _all_summaries()
+    folder_counts: Counter[str] = Counter()
+    tag_counts: Counter[str] = Counter()
+    for item in summaries:
+        parent = Path(item.path).parent.as_posix()
+        if parent != ".":
+            folder_counts[parent] += 1
+        for tag in item.tags:
+            tag_counts[tag] += 1
+    folders = [
+        KnowledgeFolderSummary(path=path, name=Path(path).name, note_count=count)
+        for path, count in sorted(folder_counts.items(), key=lambda value: value[0].lower())
+    ]
+    tags = [
+        KnowledgeTagSummary(tag=tag, note_count=count)
+        for tag, count in sorted(tag_counts.items(), key=lambda value: (-value[1], value[0].lower()))
+    ]
+    return KnowledgeBrowseResponse(folders=folders, tags=tags)
+
+
 @router.get("/search", response_model=KnowledgeSearchResponse)
 async def search_knowledge(
-    query: Annotated[str, Query(min_length=1, max_length=200)],
+    query: Annotated[str, Query(max_length=200)] = "",
     authorization: Annotated[str | None, Header()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
+    folder: Annotated[str | None, Query(max_length=500)] = None,
+    tag: Annotated[str | None, Query(max_length=120)] = None,
 ) -> KnowledgeSearchResponse:
     _authenticate(authorization)
     needle = query.strip().lower()
+    folder_value = folder.strip("/ ").lower() if folder else None
+    tag_value = tag.strip().lstrip("#").lower() if tag else None
     scored: list[tuple[int, KnowledgeNoteSummary]] = []
     for path in _markdown_files():
         try:
@@ -191,22 +297,70 @@ async def search_knowledge(
             summary = _summary(path, text)
         except (OSError, HTTPException):
             continue
+        if folder_value and not summary.path.lower().startswith(f"{folder_value}/"):
+            continue
+        if tag_value and tag_value not in {value.lower() for value in summary.tags}:
+            continue
         title = summary.title.lower()
         relative = summary.path.lower()
         body = text.lower()
-        score = 0
-        if needle == title:
-            score += 100
-        elif needle in title:
-            score += 60
-        if needle in relative:
-            score += 30
-        occurrences = body.count(needle)
-        score += min(occurrences, 10) * 5
+        score = 1 if not needle else 0
+        if needle:
+            if needle == title:
+                score += 100
+            elif needle in title:
+                score += 60
+            if needle in relative:
+                score += 30
+            occurrences = body.count(needle)
+            score += min(occurrences, 10) * 5
         if score > 0:
             scored.append((score, summary))
     scored.sort(key=lambda item: (-item[0], item[1].title.lower()))
     return KnowledgeSearchResponse(query=query.strip(), hits=[item[1] for item in scored[:limit]])
+
+
+@router.get("/resolve", response_model=KnowledgeLinkResolutionResponse)
+async def resolve_knowledge_link(
+    target: Annotated[str, Query(min_length=1, max_length=1000)],
+    authorization: Annotated[str | None, Header()] = None,
+    source_path: Annotated[str | None, Query(max_length=1000)] = None,
+) -> KnowledgeLinkResolutionResponse:
+    _authenticate(authorization)
+    note, candidates = _resolve_link(target, source_path)
+    return KnowledgeLinkResolutionResponse(
+        target=target,
+        resolved=note is not None,
+        ambiguous=note is None and len(candidates) > 1,
+        note=note,
+        candidates=candidates[:20],
+    )
+
+
+@router.get("/backlinks", response_model=KnowledgeBacklinksResponse)
+async def knowledge_backlinks(
+    path: Annotated[str, Query(min_length=1, max_length=1000)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> KnowledgeBacklinksResponse:
+    _authenticate(authorization)
+    target_path = _safe_note_path(path)
+    target_summary = _summary(target_path)
+    backlinks: list[KnowledgeNoteSummary] = []
+    for candidate_path in _markdown_files():
+        if candidate_path == target_path:
+            continue
+        try:
+            text = _read_text(candidate_path)
+            candidate = _summary(candidate_path, text)
+        except (OSError, HTTPException):
+            continue
+        for link in candidate.wikilinks:
+            resolved, _ = _resolve_link(link, candidate.path)
+            if resolved is not None and resolved.path == target_summary.path:
+                backlinks.append(candidate)
+                break
+    backlinks.sort(key=lambda item: item.modified_at, reverse=True)
+    return KnowledgeBacklinksResponse(path=target_summary.path, backlinks=backlinks[:100])
 
 
 @router.get("/note", response_model=KnowledgeNoteResponse)
