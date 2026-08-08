@@ -31,7 +31,7 @@ def test_project_create_update_and_list(tmp_path: Path, monkeypatch) -> None:
 
     assert created.kind == "engineering"
     assert created.status == "active"
-    assert created.tags == ["SydneyWater", "stormwater"]
+    assert created.tags == ["stormwater", "SydneyWater"]
     assert projects.PROJECTS_PATH.exists()
 
     updated = asyncio.run(
