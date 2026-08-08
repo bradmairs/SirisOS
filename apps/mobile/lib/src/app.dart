@@ -10,6 +10,7 @@ import 'connectors/storage_connector.dart';
 import 'connectors/synology_connector.dart';
 import 'connectors/unifi_connector.dart';
 import 'connectors/ups_connector.dart';
+import 'core/siris_context_service.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
 import 'screens/grafana_screen.dart';
@@ -68,6 +69,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
         // unavailable external integration must never block the core app shell.
       }
     }
+    await SirisCoreContextService.instance.initializeDefaults();
   }
 
   Future<void> _onAuthenticated() async {
@@ -76,6 +78,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
   }
 
   Future<void> _logout() async {
+    await SirisCoreContextService.instance.dispose();
     await SirisIntegrationManager.instance.dispose();
     await _authService.logout();
     if (mounted) setState(() => _authenticated = false);
