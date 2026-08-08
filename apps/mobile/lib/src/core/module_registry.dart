@@ -141,6 +141,17 @@ class SirisModuleRegistry {
       primaryActionLabel: 'Open Knowledge',
     ),
     SirisModuleDefinition(
+      id: 'projects',
+      label: 'Projects',
+      description: 'Context containers linking Knowledge and future SirisOS work objects.',
+      icon: Icons.folder_outlined,
+      selectedIcon: Icons.folder_rounded,
+      capabilities: {
+        SirisModuleCapability.quickAction,
+      },
+      primaryActionLabel: 'Open Projects',
+    ),
+    SirisModuleDefinition(
       id: 'siris',
       label: 'Siris',
       description: 'AI context, recommendations and personal knowledge tools.',
