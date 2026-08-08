@@ -123,13 +123,14 @@ SirisOS can store and search standards PDFs that the administrator is entitled t
 - Page-level local text extraction using `pypdf`
 - Local OCR fallback with OCRmyPDF/Tesseract for scanned/image-only standards, while preserving original PDFs and page numbering
 - Ranked local text search with short snippets and page provenance
+- Local hybrid semantic reranking for civil/water terminology while exact wording remains the strongest ranking signal
 - Citation-bearing page retrieval
 - Citation-safe document lifecycle: archive, restore, replace-as-new-revision, immutable document IDs and supersedes/superseded-by lineage
 - Normal search returns active revisions; archived/superseded revisions can be included explicitly for historical citation review
 - Authoritative source shortcuts for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
 - SirisOS does not scrape or redistribute protected standards content
 
-ADRs 033–034 define the private/citation-first retrieval boundary, ADR 036 defines local OCR, and ADR 037 defines the immutable revision lifecycle.
+ADRs 033–034 define the private/citation-first retrieval boundary, ADR 036 defines local OCR, ADR 037 defines the immutable revision lifecycle, and ADR 038 defines local hybrid semantic retrieval.
 
 ### SirisHydro evidence retrieval v1
 
@@ -138,18 +139,21 @@ SirisHydro now has an evidence-first retrieval workspace backed by the private s
 Current behavior:
 
 - Authenticated `/api/v1/engineering/sirishydro/evidence` endpoint
-- Deterministic ranked evidence across uploaded/indexed standards
+- Deterministic hybrid lexical + civil/water semantic page ranking across uploaded/indexed standards
+- Related terminology such as grade/slope/gradient and buoyancy/flotation/uplift can improve recall without replacing exact-match priority
+- New evidence packets use active document revisions only; archived/superseded revisions remain available for historical citation review
 - Bounded excerpts with document/reference/edition/authority/page provenance
 - Stable human-readable citations
 - Explicit `sufficient_evidence` state
+- Retrieval strategy exposed in the evidence packet/context
 - Copyable context packet for future Ollama/SirisAI composition
 - Clear refusal boundary when the local library does not support a standards requirement
 
-This first SirisHydro slice intentionally **does not generate an AI answer**. The local standard remains the source of truth. Future Ollama integration may explain or synthesize retrieved evidence, but source-supported claims must remain traceable to the evidence packet and must not invent clauses or values. ADRs 033–035.
+This first SirisHydro slice intentionally **does not generate an AI answer**. The local standard remains the source of truth. Future Ollama integration may explain or synthesize retrieved evidence, but source-supported claims must remain traceable to the evidence packet and must not invent clauses or values. ADRs 033–035 and 038.
 
 Planned Engineering follow-ons:
 
-- Semantic/vector indexing for better recall while preserving page provenance
+- Optional local vector/embedding recall stage while preserving deterministic lexical fallback and page provenance
 - Traceable authority/assumption profiles for calculators
 - Ollama-backed SirisHydro answer composition using evidence packets
 - SirisPM integration
@@ -275,7 +279,8 @@ Planned automation stack:
 24. Licensed standards remain private local content; never scrape or redistribute protected standards content.
 25. SirisHydro source-supported claims must cite document/reference/edition/page evidence wherever possible and must not invent missing authority requirements.
 26. Standards document IDs are immutable evidence identities; replacements create linked new revisions rather than overwriting historical source material.
-27. Pull requests should pass backend and Flutter CI before merge unless an explicit emergency hotfix is required.
+27. Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
+28. Pull requests should pass backend and Flutter CI before merge unless an explicit emergency hotfix is required.
 
 ## Local endpoints
 
