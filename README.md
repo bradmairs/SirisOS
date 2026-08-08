@@ -1,18 +1,14 @@
 # SirisOS
 
-SirisOS is a self-hosted personal operating system that unifies personal health and fitness, homelab infrastructure, engineering tools, knowledge, automation, and AI assistance.
+SirisOS is a self-hosted personal operating system spanning personal health/fitness, homelab operations, civil engineering tools, knowledge, automation and AI assistance.
 
-Its purpose is to help the user:
+Its product rule is simple:
 
-1. Know something important.
-2. Decide what to do next.
-3. Act without leaving SirisOS.
+1. Help you know something important.
+2. Help you decide what to do next.
+3. Help you act without leaving SirisOS.
 
-This README is the authoritative project handover. `docs/roadmap.md` is the implementation checklist. Update both whenever scope or status changes.
-
-## Product architecture
-
-SirisOS is a modular platform built around **SirisCore**, **Mission Control**, and the emerging **Operations Center**. Core principles are one source of truth, event-driven updates, deterministic/explainable intelligence, context over raw data, reusable platform services, server-side external credentials, and a deployable `main` branch.
+This README is the authoritative project handover. `docs/roadmap.md` is the implementation checklist. **Update both whenever scope or sprint status changes.**
 
 ## Standard deployment workflow
 
@@ -21,299 +17,235 @@ git pull
 make up
 ```
 
-`make up` creates missing local configuration/data directories, rebuilds the Docker images, and starts the stack.
+`make up` creates missing local data/config directories, rebuilds the Docker images and starts the stack. Finished slices should keep `main` deployable through this workflow.
 
-## Sprint 0.4.1 — SirisCore complete
+## Current architecture
 
-Typed Event Bus, Module/Widget Registries, deterministic Briefing Engine and Siris Score, Scheduler, AI Context Service, persisted settings, and event-driven Notification Centre. ADRs under `docs/adr/` record significant decisions.
+SirisOS is built around reusable platform layers rather than isolated dashboards:
 
-## Sprint 0.4.2 — Mission Control complete
+```text
+Modules / Widgets
+      ↓
+Event Bus
+      ↓
+Notification Policies / Context
+      ↓
+History Engine
+      ↓
+Incident Engine
+      ↓
+Digital Twin
+      ↓
+Capability Framework
+      ↓
+Future Planner / Actions / Playbooks
+      ↓
+SirisAI / Hermes / Ollama
+```
 
-The authenticated `/mission` Situation Room provides the navigation-free full-screen shell, shared Widget Registry grid, Siris Score, briefing, activity timeline, event-driven refresh, adaptive priority, critical wake, profiles, Focus Modes, ambient mode, reduced-motion behaviour, diagnostics, and shared red/black SirisOS design system.
+Mission Control answers **“what is happening right now?”**. Operations Center answers **“what needs my attention?”**.
 
-## Sprint 0.4.3 — Live Homelab
+## Completed platform foundations
 
-### 0.4.3a — Integration Framework complete
+### Sprint 0.4.1 — SirisCore ✅
 
-External systems use `SirisConnector`, shared health states, `SirisIntegrationManager`, Scheduler-backed refresh, typed events, failure recovery, disabled/unconfigured state, and server-side credential boundaries. ADR 012.
+- Typed Event Bus
+- Module Registry
+- Widget Registry
+- Notification Centre
+- Deterministic Briefing Engine
+- Explainable Siris Score foundation
+- SirisCore Scheduler
+- AI Context Service
+- Persisted core settings
 
-### 0.4.3b — Docker Connector complete
+### Sprint 0.4.2 — Mission Control ✅
 
-Docker monitoring/actions, host metrics/history, logs, image-update availability, audit history, meaningful state events, and non-fatal registry diagnostics run through the Integration Framework. ADR 013.
+Authenticated `/mission` Situation Room with live clock/date, briefing, Siris Score, shared widget grid, activity timeline, adaptive priority, critical wake, profiles, focus modes, ambient mode, reduced motion and diagnostics.
 
-### 0.4.3c — Notification Policies complete
+### Sprint 0.4.3 — Live Homelab ✅ platform foundation
 
-Deterministic duration-based activation, escalation, stable-ID deduplication, explicit resolution, Mission Control wake, Briefing output, and Siris Score penalties. ADR 014.
+The Integration Framework now supports Docker, Home Assistant, Prometheus, Grafana, UniFi, host storage, Synology DSM/Hyper Backup and NUT UPS monitoring. External credentials remain backend-side.
 
-### 0.4.3d — Home Assistant Connector complete
+Operational platform services added during 0.4.3:
 
-Server-side HA credentials, live `/api/websocket` `state_changed` cache with REST fallback, authenticated entity browser, search/domain filters, safe allow-listed controls, and HA policies. ADRs 015–016.
+- Deterministic Notification Policies
+- `/operations` Operations Center
+- Generic PostgreSQL time-series/history engine
+- 30-day Hyper Backup protection analytics
+- Deterministic Incident Engine
+- Configurable Digital Twin dependency graph
+- Capability Framework with fail-closed control semantics
 
-### 0.4.3e — Broader infrastructure integrations complete
+Important architecture ADRs: 012–030.
 
-Prometheus, Grafana and UniFi are complete through the Integration Framework with server-side credentials, deterministic policies and Mission Control widgets. ADRs 017–019 document those integrations.
+### Sprint 0.4.4 — SirisCore Context Service ✅ foundation
 
-Storage/NAS work targets **Synology DSM**; Proxmox is intentionally not part of this installation.
+SirisOS now maintains a deterministic current context with typed facts, priorities and provenance. Initial operational contexts include power events, backup attention, network/storage/compute degradation and nominal homelab state.
 
-Current Synology/storage capabilities:
+The service publishes `ContextSnapshotChanged` through the Event Bus, keeps a bounded transition timeline, and appears in Mission Control and Operations Center. Personal states such as sleeping, working or travelling are not guessed; they remain deferred until authoritative Health Data Export, Home Assistant presence, calendar or project providers exist. ADR 031.
 
-- Vendor-neutral host filesystem monitoring through the existing node-exporter
-- `homelab.storage` Mission Control widget with volume count, used/free capacity and peak utilisation
-- Warning policy above 85% filesystem utilisation and critical policy above 95%
-- Optional `SynologyConnector` through the Integration Framework
-- DSM URL, username and password remain backend-side
-- Runtime DSM WebAPI discovery and authenticated session lifecycle
-- DSM model/version, disk and volume discovery/status
-- Synology availability and unhealthy-storage Notification Policies
-- `homelab.synology` Mission Control widget
-- Runtime discovery of `SYNO.Backup.Task`
-- Hyper Backup task list/status monitoring with task name, state, last result, last finish time, next-run time and destination when DSM exposes those fields
-- Critical Notification Policy when one or more Hyper Backup tasks last report a failure
-- Hyper Backup state changes publish standard Homelab events
-- Dedicated `homelab.backups` Mission Control widget showing task/running/failed counts and recent task states
-- Hyper Backup monitoring architecture documented in ADR 021
+## Sprint 0.4.5 — Engineering Module 🚧 in progress
 
-Hyper Backup fields are parsed defensively because DSM package/API versions differ. Unsupported optional task fields degrade to unavailable values rather than breaking Synology monitoring.
+Engineering is now a first-class SirisOS module.
 
-UPS monitoring uses **Network UPS Tools (NUT)** as the vendor-neutral interface:
+### Deterministic calculator foundation
 
-- Optional `UpsConnector`; blank `NUT_HOST` disables the integration quietly
-- Backend speaks the NUT text protocol; the browser never connects directly to the UPS/NUT server
-- Auto-discovers the first UPS, or uses `NUT_UPS_NAME` when configured
-- Monitors line/on-battery state, low-battery state, battery charge, estimated runtime, UPS load and input/output voltage when exposed by the UPS driver
-- 15-second connector refresh
-- Immediate warning policy when utility power is lost and the UPS is on battery
-- Immediate critical policy when NUT reports low battery
-- Availability policy escalates when the NUT server remains unreachable
-- Registered `homelab.ups` Mission Control widget
-- Architecture documented in ADR 022
+Current tools:
 
-### 0.4.3f — Operations Center foundation complete
+- Full circular-pipe Manning capacity and velocity
+- Rational Method peak flow using mm/h and hectares
+- Buried-pipe buoyancy screening
+- Constant-flow detention storage screening
 
-The authenticated `/operations` route provides the first operational-management layer above Mission Control.
+The calculation core is pure Dart and regression-tested. Inputs/units/assumptions remain explicit. Screening helpers do **not** claim standards compliance or replace project-specific design checks. ADR 032.
 
-It currently provides:
+### Private Standards Library / Search
 
-- Operational overview counts for attention items, critical issues and healthy integrations
-- Correlated active incidents from the deterministic Incident Engine
-- Live connector status sourced from `SirisIntegrationManager`
-- Prioritised "What needs attention" work queue retaining raw policy evidence
-- Manual integration refresh without adding a second polling system
-- Event-driven updates for policy and integration health changes
-- Desktop sidebar and Quick Actions access
-- Architecture documented in ADR 023
+The Engineering module now has a **Calculators / Standards** hub.
 
-Mission Control remains the ambient "what is happening now?" surface. Operations Center is the focused "what needs my attention?" surface.
+SirisOS can store and search standards PDFs that the administrator is entitled to use:
 
-### 0.4.3g — Generic Time-Series / History Engine foundation complete
+- Authenticated PDF upload from the Flutter web UI
+- Raw PDFs persisted privately under `data/standards`
+- Default per-file limit of 100 MB, configurable with `SIRISOS_STANDARDS_MAX_UPLOAD_MB`
+- Metadata for title, authority/publisher, reference and edition/revision
+- Page-level local text extraction using `pypdf`
+- Private full-text search with short snippets and page provenance
+- Scanned/image-only PDFs are accepted but marked **Stored · not indexed** rather than rejected
+- Authoritative source shortcuts for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
+- SirisOS does not scrape or redistribute protected standards content
 
-SirisOS now has a connector-neutral persistent history layer for low-frequency operational observations:
+The library is designed as the future retrieval base for **SirisHydro**. Future AI answers should cite the exact local document/reference/edition/page wherever possible; Ollama may explain retrieved material but does not become the authority. ADR 033.
 
-- One PostgreSQL `time_series_observations` store using source, metric and canonical dimensions
-- Numeric values and short text/status values
-- Central minimum sampling intervals and 90-day default retention
-- Authenticated bounded `GET /api/v1/history` query endpoint
-- Shared Flutter `HistoryService` and `TimeSeriesObservation` model
-- Storage peak utilisation and per-volume history
-- Synology volume utilisation history
-- Hyper Backup failed/running task-state history
-- UPS battery charge, estimated runtime, load, voltage and power-state history
-- Background persistence so history writes do not delay connector responses
-- In-memory sample guards to avoid unnecessary PostgreSQL reads between due samples
-- Architecture documented in ADR 024
+Planned Engineering follow-ons:
 
-This engine is intentionally for low-frequency SirisOS operational history. Prometheus remains the high-frequency metrics system. Existing dedicated host/Docker history will be bridged into the generic contract in a later slice rather than replaced speculatively.
+- OCR for scanned standards
+- Better lexical ranking and multi-page hits
+- Semantic/vector indexing
+- Document replacement/version management
+- Traceable authority/assumption profiles for calculators
+- Citation-first SirisHydro retrieval
+- SirisPM integration
+- Project notes and drawing review
+- Civil 3D utilities
+- Engineering Context provider
 
-### 0.4.3h — Backup protection analytics complete
+## Planned Health Data Export REST ingestion
 
-SirisOS now turns observed Hyper Backup completions into deterministic protection analytics rather than estimating success from polling state.
+The earlier MCP scaffold remains optional, but canonical Apple Health ingestion is planned to move to a dedicated REST endpoint from Health Data Export.
 
-- Each distinct Hyper Backup completion is stored once as `synology_backup/completion`
-- Repeated DSM polling is deduplicated through change-based persistence
-- Completion records retain finish timestamp, reported result and destination context
-- Authenticated `/api/v1/history/backup-protection` endpoint calculates rolling 1–90 day summaries
-- Default Operations Center view uses a 30-day window
-- Overall completion, success, failure and success-rate metrics
-- Per-task completion/success/failure/success-rate metrics
-- Last completion and last failure timestamps retained in the summary model
-- Cached and repaint-isolated Backup Protection panel in Operations Center
-- Architecture documented in ADR 025
+Planned flow:
 
-The analytics only claim runs SirisOS has actually observed. A newly deployed installation starts building trustworthy history from the latest completion DSM exposes and future completions; it does not invent older backup runs. Schedule-aware overdue detection and duration analytics remain follow-on work until those data are reliable.
+```text
+Apple Health
+   ↓
+Health Data Export
+   ↓ HTTPS POST
+SirisOS Health Ingest API
+   ↓
+Canonical Health Store / History
+   ↓
+Health module / Context / Briefing / Siris Score / SirisAI
+```
 
-### 0.4.3i — Incident Engine foundation complete
+Initial metrics will target steps, sleep, HRV, resting heart rate and workouts with idempotent imports and an unattended bearer token.
 
-Operations Center now correlates related Notification Policy outcomes into deterministic incidents instead of treating every alert as an independent incident.
+## Sprint 0.5.0 — Knowledge Platform
 
-- Stable `SirisIncident` model and `IncidentEngine`
-- UPS on-battery or low-battery conditions anchor a power-outage incident
-- Concurrent Docker, Synology, Home Assistant, UniFi, Prometheus and Grafana failures attach as possible impacts
-- Remaining outcomes group into compute, storage/backup, network, observability and Home Assistant incidents
-- Unmatched policies remain visible as standalone incidents
-- Each incident exposes severity, start time, source policy count, affected integrations and an explicit correlation reason
-- Raw source policy outcomes remain visible in the Operations Center attention queue
-- Unit coverage protects power correlation, subsystem grouping and standalone fallback
-- Architecture documented in ADR 026
+Planned Obsidian/Selkies integration:
 
-The Incident Engine is intentionally deterministic and explainable. Correlation is not treated as proof of causation.
+- Launch integration
+- Obsidian connector
+- Vault browser
+- Recent Notes / Daily Notes widgets
+- Global vault search
+- Wikilink navigation and graph exploration
+- Metadata/tags
+- Semantic search
+- Mission Control Knowledge widget
+- Context-aware related notes
+- Cross-links into Engineering, Homelab, Tasks, Calendar and Briefings
 
-### 0.4.3j — Digital Twin dependency graph and configurable topology complete
+## Sprint 0.6 — Projects and Context Graph
 
-SirisOS now has a deterministic dependency graph that is separate from incident correlation:
+Planned general project model plus relationships between notes, tasks, files, calculations, events, repositories and conversations. This is also where the richer Siris Knowledge Graph can grow above the Digital Twin.
 
-- Typed dependency nodes and directed `dependent -> dependency` relationships
-- Transitive downstream traversal with cycle/duplicate protection
-- Built-in software dependency chain `Synology -> Hyper Backup -> Backup Protection Analytics`
-- Incident Engine attaches graph-derived downstream impacts separately from correlated affected integrations
-- Operations Center labels graph evidence as `Declared downstream`
-- Editable Digital Twin topology panel in Operations Center
-- Custom relationships persist through the existing Flutter local settings store
-- Built-in relationships remain immutable while custom edges can be removed/reset
-- Self-dependencies, duplicates and cycles are rejected before persistence
-- Topology edits immediately update deterministic incident downstream impact
-- Architecture documented in ADRs 027–028
+## Sprint 0.7 — SirisAI, Intelligence and Automation
 
-Only relationships SirisOS can explicitly justify or the user explicitly declares belong in the graph. Physical relationships such as `Docker -> UPS` or `UniFi -> UPS` are never inferred merely because systems fail together. This first editable slice only links existing graph nodes and stores custom topology per browser/profile; server-side topology, arbitrary custom components, authoritative discovery and interactive graph visualization remain follow-on work.
+SirisAI deliberately separates orchestration, agent execution and inference.
 
-### 0.4.3k — Capability Framework foundation complete
+### SirisAI
 
-SirisOS now has a declarative capability layer answering **"what can SirisOS currently do?"** independently from the future Action Framework that will execute those capabilities.
+Owns identity, context assembly, policy, approvals, audit, routing and UI.
 
-- Stable `SirisCapability` IDs with provider, kind, risk and confirmation metadata
-- `SirisCapabilityRegistry` resolves current availability from `SirisIntegrationManager`
-- Healthy providers expose their declared capabilities
-- Degraded providers may retain read-only capabilities, while control/execution capabilities fail closed
-- Connecting, failed, disabled and disconnected providers expose no available capabilities
-- Initial capability catalogue covers Docker, Home Assistant, Synology, UniFi, Prometheus, Grafana, host storage and UPS
-- Operations Center includes a capability availability panel with provider/risk context
-- Unit coverage protects healthy/degraded/disabled availability semantics
-- Architecture documented in ADR 030
+### Hermes Agent
 
-This layer is discovery only. It does **not** execute commands. The future Action Framework will bind executable actions to stable capability IDs, and Hermes/Playbooks will eventually request capabilities instead of depending on connector-specific code.
+Planned optional server-side tool-using runtime for diagnostics and controlled administration. Initial integration will be read-only, later expanding to allow-listed least-privilege actions. High-impact operations require explicit approval and audit. SirisOS will never enable Hermes dangerous-command approval bypass modes.
 
-## Sprint 0.4.4 — SirisCore Context Service foundation complete
+### Ollama
 
-SirisOS now has a shared deterministic answer to **"what is happening right now?"** that future planners, playbooks, notification logic, SirisAI and presence features can consume without polling every subsystem separately.
+Reusable local inference layer for SirisHydro, SirisPM, briefings, semantic search and deterministic-output rewriting. Hermes may use Ollama as a model backend, but other SirisAI features do not depend on Hermes.
 
-- Typed `SirisContextFact` values with stable IDs, personal/homelab/engineering/AI domains, priorities, source provenance and optional detail
-- Modular `SirisContextProvider` contract
-- Prioritized `SirisContextSnapshot` with a single primary context
-- Event-driven refresh from Integration Manager and Notification Policy state changes
-- `ContextSnapshotChanged` events published through the existing Event Bus
-- Bounded context transition timeline recording entered and cleared states
-- Provider failures are isolated and cannot break the core application shell
-- Initial operational provider recognizes justified power events, backup attention, network/storage/compute degradation and nominal homelab state
-- Registered `siris.context` Mission Control widget
-- Shared Current Context surface in Operations Center
-- Unit coverage protects priority ordering and enter/clear transition semantics
-- Architecture documented in ADR 031
+ADR 029 records this boundary.
 
-The initial service deliberately does not infer personal states such as working, sleeping, travelling or focused from weak signals. Those states will be contributed later by authoritative Health Data Export, Home Assistant presence, calendar/project and AI runtime providers. The runtime context timeline is currently in memory; persistent context history and a backend/Hermes context API remain follow-on work.
+Planned automation stack:
 
-## Sprint 0.4.5 — Engineering Module foundation
-
-Engineering is now a first-class SirisOS module registered through the standard Module Registry and application shell.
-
-- Deterministic calculation core separated from Flutter presentation
-- Full circular-pipe Manning capacity with flow and velocity output
-- Rational Method peak-flow calculator using `C`, intensity in mm/h and area in hectares
-- Buried-pipe buoyancy screening with explicit pipe/soil resistance assumptions and factor of safety
-- Constant-flow detention storage screening for inflow, allowable outflow and critical duration
-- Input validation for invalid ranges and geometry
-- Numerical regression tests for the engineering equations and civil-unit conversions
-- Engineering navigation and Quick Action entry
-- Screening tools explicitly distinguish simplified engineering checks from standards/project-specific design
-- Architecture documented in ADR 032
-
-Standards search, authority-specific defaults, SirisHydro/SirisPM, project notes/drawing review and Civil 3D utilities remain follow-on work in Sprint 0.4.5. Standards-aware outputs must cite or otherwise trace their assumptions to authoritative sources rather than silently embedding generic defaults.
-
-## Planned SirisAI architecture — Hermes Agent + Ollama
-
-SirisOS will deliberately use **Hermes Agent and Ollama for different jobs** rather than choosing one as the entire AI stack.
-
-- **SirisAI** is the SirisOS orchestration and safety layer: identity, context, policy, approvals, audit, routing, UI and action governance.
-- **Hermes Agent** will be an optional server-side tool-using agent runtime for controlled server administration, diagnostics, file/configuration work and other operational tasks.
-- **Ollama** will remain the reusable local inference layer for SirisHydro, SirisPM, briefings, semantic search, deterministic-output rewriting and other domain assistants. Hermes may also use Ollama as one of its own model backends.
-
-The planned Hermes integration will not expose unrestricted agent execution directly to the browser. High-impact actions must be brokered through SirisOS, use explicit approval/confirmation where appropriate, and be audited. SirisOS will not enable Hermes dangerous-command approval bypass modes. Initial Hermes capabilities should begin read-only, then expand to allow-listed server actions with least-privilege execution. Operations Center incidents and Digital Twin dependency context will eventually feed agent tasks so Hermes can act with SirisOS context rather than as a disconnected shell agent.
-
-This separation means SirisHydro and other local AI features do not depend on Hermes being available, while SirisOS can still gain a powerful server-control agent later. The design is recorded in ADR 029 and scheduled under Sprint 0.7.
-
-The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
-
-## Current application capabilities
-
-- Responsive Flutter web application with persisted authentication
-- FastAPI backend, PostgreSQL, Docker Compose, restricted Docker socket proxy
-- Running logging/trends and Gym workouts/templates/progress/PRs
-- Health Auto Export MCP scaffold
-- Docker monitoring/actions/updates/alerts/audit/host metrics
-- Home Assistant live state/browser/safe controls/policies
-- Prometheus monitoring/PromQL/policies/widget
-- Grafana health/dashboard discovery/launch/render proxy support
-- UniFi controller/device/AP/client/WAN overview and policies
-- Host storage capacity monitoring and Synology DSM NAS monitoring
-- Synology Hyper Backup task/result monitoring and Mission Control backup status
-- 30-day Hyper Backup protection analytics in Operations Center
-- NUT UPS monitoring for power state, battery, runtime and load
-- Generic persistent operational time-series history API/client
-- Deterministic Incident Engine with explainable cross-system correlation
-- Configurable Digital Twin dependency graph with declared downstream impact analysis
-- Declarative Capability Framework with live provider availability and fail-closed control semantics
-- SirisCore Context Service with prioritized operational context, Event Bus updates and context timeline
-- Engineering module with Manning/pipe-capacity, Rational Method, buoyancy and detention screening tools
-- Reusable Integration Framework and deterministic Notification Policy engine
-- Global search and configurable workspace
-- Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake, diagnostics and `siris.context`
-- `/operations` Operations Center with correlated incidents, current context, editable topology, capability availability, declared downstream impact, integration health, operational attention queue and backup protection history
-- Web performance protections including cached integration widget futures and isolated widget repaint regions
+- Operations Planner
+- Action Framework bound to stable capability IDs
+- Playbook Engine
+- Context-aware recommendations
+- n8n integration
+- Event-driven Siris Automations
+- Shared approval/audit policy
 
 ## Long-term pillars
 
-- **Personal:** Health, recovery, running, gym, sleep, nutrition
-- **Infrastructure:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Synology NAS, backups, UPS, Plex
-- **Engineering:** SirisHydro, SirisPM, calculators, standards, Civil 3D, project tools
-- **Knowledge:** Obsidian, documents, notes, search, semantic memory
-- **Intelligence:** SirisAI orchestration, Ollama local inference, Hermes Agent server runtime, context, briefings, Siris Score, recommendations
-- **Automation:** capabilities, actions, playbooks, n8n, schedules, triggers, scripts, workflows, notifications, approval/audit policies
+- **Personal OS:** health, sleep, recovery, running, gym, calendar
+- **HomeLab OS:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Synology, backups, UPS, Plex
+- **Engineer OS:** SirisHydro, SirisPM, calculators, standards, projects, Civil 3D
+- **Knowledge OS:** Obsidian, documents, search, metadata, semantic memory
+- **Intelligence OS:** Context, Knowledge Graph, Planner, SirisAI, Hermes, Ollama
+- **Automation OS:** capabilities, actions, playbooks, schedules, triggers, workflows, approvals
 
-## Development handover checklist
+## Development rules / handover checklist
 
-1. Read this README and `docs/roadmap.md`.
+1. Read this README and `docs/roadmap.md` before continuing development.
 2. Inspect the latest commits on `main`.
-3. Follow the documented sprint order.
-4. Keep finished slices deployable with `git pull && make up`.
-5. Update README and roadmap together.
-6. Record significant architecture decisions in `docs/adr/`.
-7. Prefer reusable SirisCore services and shared design components.
-8. New external integrations implement the Integration Framework.
-9. Integration alert behaviour uses Notification Policies.
-10. External integration startup/enrichment must never block authentication or core dashboard rendering.
-11. External credentials remain server-side; Flutter consumes authenticated SirisOS APIs.
-12. UI widgets must not initiate fresh network requests from `build()`; cache futures/state at widget or connector level.
+3. Follow the documented sprint order unless the user explicitly sidesteps it.
+4. Keep completed slices deployable through `git pull && make up`.
+5. Update README and roadmap together whenever scope/status changes.
+6. Record significant architecture decisions under `docs/adr/`.
+7. Prefer reusable SirisCore services over feature-specific plumbing.
+8. External integrations use the Integration Framework.
+9. Integration alert logic uses Notification Policies.
+10. External integration startup must never block login/core dashboard rendering.
+11. Credentials stay server-side; Flutter consumes authenticated SirisOS APIs.
+12. UI widgets must not start new network requests from `build()`.
 13. Mission Control is ambient status; Operations Center is focused operational work.
-14. Low-frequency historical observations use the generic History Engine; high-frequency telemetry belongs in Prometheus.
-15. Historical analytics must be derived from observed events/samples, never inferred from polling frequency when the source data cannot support that claim.
-16. Incident correlation must remain deterministic and expose its source evidence/reason; correlation must not be presented as proven causation without dependency evidence.
-17. Digital Twin dependency claims must come from built-in explicit relationships or user-declared topology; never infer physical power/network dependencies solely from simultaneous failures.
-18. Custom Digital Twin topology must remain cycle-safe and clearly distinguish built-in from user-declared relationships.
-19. SirisAI must keep agent execution separate from inference: Hermes handles optional tool-using execution, Ollama provides reusable local inference, and SirisOS owns approvals, policy and audit.
-20. Server-control AI actions must be least-privilege, allow-listed where possible, auditable, and must not use approval-bypass modes.
-21. Planners, playbooks and agents should target stable capability IDs rather than connector-specific implementation details; control capabilities fail closed when providers are not healthy.
-22. Context claims must be provider-backed and expose source/provenance; do not infer personal or operational states from weak correlation when authoritative evidence is unavailable.
-23. Engineering calculations must keep equations/assumptions explicit; standards-specific defaults or compliance claims require traceable authoritative sources.
+14. Low-frequency operational observations use the generic History Engine; high-frequency telemetry remains Prometheus territory.
+15. Historical analytics must use actually observed events/samples, not polling-frequency assumptions.
+16. Incident correlation must expose its evidence and must not be presented as causal without dependency evidence.
+17. Digital Twin downstream claims require explicit built-in or user-declared dependencies.
+18. Context claims require provider-backed provenance.
+19. Planners/playbooks/agents target stable capability IDs rather than connector-specific implementations.
+20. Control capabilities fail closed when providers are unhealthy.
+21. SirisAI keeps Hermes execution separate from Ollama inference; SirisOS owns approvals/policy/audit.
+22. Server-control AI actions must be allow-listed/least-privilege where practical, auditable, and must not use approval bypasses.
+23. Engineering calculations expose units/assumptions and must not claim authority compliance without traceable profiles.
+24. Licensed standards remain private local content; never scrape or redistribute protected standards content.
+25. SirisHydro retrieval should cite exact document/reference/edition/page wherever possible.
 
 ## Local endpoints
 
 - Web UI: `http://192.168.0.100:6464`
 - Mission Control: `http://192.168.0.100:6464/#/mission`
 - Operations Center: `http://192.168.0.100:6464/#/operations`
-- Home Assistant browser: `http://192.168.0.100:6464/#/home-assistant`
-- Grafana browser: `http://192.168.0.100:6464/#/grafana`
 - API: `http://192.168.0.100:8000`
 - API docs: `http://192.168.0.100:8000/docs`
-- Generic history API: `http://192.168.0.100:8000/api/v1/history`
-- Backup protection API: `http://192.168.0.100:8000/api/v1/history/backup-protection`
+- History API: `http://192.168.0.100:8000/api/v1/history`
+- Backup Protection API: `http://192.168.0.100:8000/api/v1/history/backup-protection`
+- Engineering Standards API: `http://192.168.0.100:8000/api/v1/engineering/standards`
 
 Useful commands:
 
@@ -329,4 +261,4 @@ make stop
 make clean
 ```
 
-Runtime state is stored under `data/`. Back up `data/` and `.env` to preserve the installation.
+Runtime state is stored under `data/`. Back up `data/` and `.env` to preserve the installation, including uploaded private engineering standards.
