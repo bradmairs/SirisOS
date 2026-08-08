@@ -2,6 +2,7 @@ FROM ghcr.io/cirruslabs/flutter:stable AS web-build
 
 ARG SIRISOS_HOST_DISPLAY_NAME="Linux Server"
 ARG SIRISOS_UPS_DISPLAY_NAME="Server UPS"
+ARG SIRISOS_OBSIDIAN_URL=""
 
 WORKDIR /src/apps/mobile
 
@@ -16,7 +17,8 @@ RUN flutter config --enable-web \
        --pwa-strategy=none \
        --dart-define=SIRISOS_API_URL= \
        --dart-define=SIRISOS_HOST_DISPLAY_NAME="${SIRISOS_HOST_DISPLAY_NAME}" \
-       --dart-define=SIRISOS_UPS_DISPLAY_NAME="${SIRISOS_UPS_DISPLAY_NAME}"
+       --dart-define=SIRISOS_UPS_DISPLAY_NAME="${SIRISOS_UPS_DISPLAY_NAME}" \
+       --dart-define=SIRISOS_OBSIDIAN_URL="${SIRISOS_OBSIDIAN_URL}"
 
 FROM python:3.13-slim AS runtime
 

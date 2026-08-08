@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'connectors/docker_connector.dart';
 import 'connectors/grafana_connector.dart';
 import 'connectors/home_assistant_connector.dart';
+import 'connectors/knowledge_connector.dart';
 import 'connectors/prometheus_connector.dart';
 import 'connectors/storage_connector.dart';
 import 'connectors/synology_connector.dart';
@@ -61,6 +62,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
       StorageConnector(),
       SynologyConnector(),
       UpsConnector(),
+      KnowledgeConnector(),
     ]) {
       try {
         await SirisIntegrationManager.instance.register(connector);
