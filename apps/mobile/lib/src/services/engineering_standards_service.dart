@@ -15,6 +15,9 @@ class EngineeringStandardDocument {
     required this.uploadedAt,
     required this.pages,
     required this.indexed,
+    required this.extractionMethod,
+    required this.ocrAttempted,
+    this.ocrError,
     this.reference,
     this.edition,
   });
@@ -28,6 +31,11 @@ class EngineeringStandardDocument {
   final DateTime uploadedAt;
   final int pages;
   final bool indexed;
+  final String extractionMethod;
+  final bool ocrAttempted;
+  final String? ocrError;
+
+  bool get indexedByOcr => indexed && extractionMethod == 'ocr';
 
   factory EngineeringStandardDocument.fromJson(Map<String, dynamic> json) =>
       EngineeringStandardDocument(
@@ -40,6 +48,10 @@ class EngineeringStandardDocument {
         uploadedAt: DateTime.parse(json['uploaded_at'] as String),
         pages: (json['pages'] as num?)?.toInt() ?? 0,
         indexed: json['indexed'] == true,
+        extractionMethod: json['extraction_method'] as String? ??
+            (json['indexed'] == true ? 'native' : 'none'),
+        ocrAttempted: json['ocr_attempted'] == true,
+        ocrError: json['ocr_error'] as String?,
       );
 }
 
@@ -165,7 +177,7 @@ class EngineeringStandardsService {
         filename: filename,
       ),
     );
-    final streamed = await request.send().timeout(const Duration(minutes: 2));
+    final streamed = await request.send().timeout(const Duration(minutes: 6));
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 201) {
       String detail = 'Standards upload failed (${response.statusCode}).';

@@ -12,8 +12,8 @@ import jwt
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from pypdf import PdfReader
 
+from app.services.engineering_standards_ocr import extract_standard_pages
 from app.services.engineering_standards_search import rank_pages
 
 router = APIRouter(prefix="/api/v1/engineering/standards", tags=["engineering"])
@@ -33,6 +33,9 @@ class StandardDocumentResponse(BaseModel):
     uploaded_at: str
     pages: int
     indexed: bool
+    extraction_method: str = "native"
+    ocr_attempted: bool = False
+    ocr_error: str | None = None
 
 
 class StandardSearchHit(BaseModel):
@@ -95,7 +98,12 @@ def _load_pages(document_id: str) -> list[dict]:
 
 
 def _response(metadata: dict) -> StandardDocumentResponse:
-    return StandardDocumentResponse(**metadata)
+    # Backward compatibility for standards uploaded before OCR metadata existed.
+    value = dict(metadata)
+    value.setdefault("extraction_method", "native" if value.get("indexed") else "none")
+    value.setdefault("ocr_attempted", False)
+    value.setdefault("ocr_error", None)
+    return StandardDocumentResponse(**value)
 
 
 def _safe_filename(value: str) -> str:
@@ -212,18 +220,8 @@ async def upload_standard(
     pdf_path = directory / filename
     pdf_path.write_bytes(data)
 
-    pages: list[dict[str, object]] = []
-    indexed = False
-    try:
-        reader = PdfReader(str(pdf_path))
-        for number, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
-            pages.append({"page": number, "text": text})
-        index_path.write_text(json.dumps(pages, ensure_ascii=False), encoding="utf-8")
-        indexed = any(str(item["text"]).strip() for item in pages)
-    except Exception:
-        pages = []
-        indexed = False
+    extraction = extract_standard_pages(pdf_path)
+    index_path.write_text(json.dumps(extraction.pages, ensure_ascii=False), encoding="utf-8")
 
     metadata = {
         "id": document_id,
@@ -233,8 +231,11 @@ async def upload_standard(
         "edition": edition.strip() if edition else None,
         "filename": filename,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "pages": len(pages),
-        "indexed": indexed,
+        "pages": len(extraction.pages),
+        "indexed": extraction.indexed,
+        "extraction_method": extraction.extraction_method,
+        "ocr_attempted": extraction.ocr_attempted,
+        "ocr_error": extraction.ocr_error,
     }
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return _response(metadata)
