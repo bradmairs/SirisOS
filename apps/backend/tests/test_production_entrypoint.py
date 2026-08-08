@@ -19,6 +19,7 @@ def test_entrypoint_registers_modular_platform_routers() -> None:
         "knowledge_router",
         "knowledge_context_router",
         "projects_router",
+        "project_relationships_router",
         "search_router",
         "synology_router",
     )
