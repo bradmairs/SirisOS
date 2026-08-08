@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/module_registry.dart';
 import '../screens/dashboard_screen.dart';
+import '../screens/engineering_screen.dart';
 import '../screens/gym_screen.dart';
 import '../screens/health_screen.dart';
 import '../screens/homelab_screen.dart';
@@ -96,6 +97,10 @@ class AppModuleRegistry {
         'health' => SirisModuleRegistration(
             definition: definition,
             screenBuilder: (_) => const HealthScreen(),
+          ),
+        'engineering' => SirisModuleRegistration(
+            definition: definition,
+            screenBuilder: (_) => const EngineeringScreen(),
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
