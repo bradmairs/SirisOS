@@ -135,6 +135,66 @@ class KnowledgeLinkResolution {
       );
 }
 
+class KnowledgeRelatedNote {
+  const KnowledgeRelatedNote({required this.note, required this.score, required this.reasons});
+  final KnowledgeNoteSummary note;
+  final int score;
+  final List<String> reasons;
+
+  factory KnowledgeRelatedNote.fromJson(Map<String, dynamic> json) => KnowledgeRelatedNote(
+        note: KnowledgeNoteSummary.fromJson(json['note'] as Map<String, dynamic>),
+        score: (json['score'] as num?)?.toInt() ?? 0,
+        reasons: (json['reasons'] as List<dynamic>? ?? const []).whereType<String>().toList(growable: false),
+      );
+}
+
+class KnowledgeGraphNode {
+  const KnowledgeGraphNode({required this.id, required this.title, required this.center});
+  final String id;
+  final String title;
+  final bool center;
+
+  factory KnowledgeGraphNode.fromJson(Map<String, dynamic> json) => KnowledgeGraphNode(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        center: json['center'] == true,
+      );
+}
+
+class KnowledgeGraphEdge {
+  const KnowledgeGraphEdge({required this.source, required this.target, required this.kind, required this.label});
+  final String source;
+  final String target;
+  final String kind;
+  final String label;
+
+  factory KnowledgeGraphEdge.fromJson(Map<String, dynamic> json) => KnowledgeGraphEdge(
+        source: json['source'] as String,
+        target: json['target'] as String,
+        kind: json['kind'] as String,
+        label: json['label'] as String,
+      );
+}
+
+class KnowledgeGraph {
+  const KnowledgeGraph({required this.centerPath, required this.nodes, required this.edges});
+  final String centerPath;
+  final List<KnowledgeGraphNode> nodes;
+  final List<KnowledgeGraphEdge> edges;
+
+  factory KnowledgeGraph.fromJson(Map<String, dynamic> json) => KnowledgeGraph(
+        centerPath: json['center_path'] as String,
+        nodes: (json['nodes'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(KnowledgeGraphNode.fromJson)
+            .toList(growable: false),
+        edges: (json['edges'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(KnowledgeGraphEdge.fromJson)
+            .toList(growable: false),
+      );
+}
+
 class KnowledgeNote extends KnowledgeNoteSummary {
   const KnowledgeNote({
     required super.path,
@@ -181,11 +241,7 @@ class KnowledgeService {
     return KnowledgeBrowse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
-  Future<List<KnowledgeNoteSummary>> search(
-    String query, {
-    String? folder,
-    String? tag,
-  }) async {
+  Future<List<KnowledgeNoteSummary>> search(String query, {String? folder, String? tag}) async {
     final params = <String, String>{'query': query};
     if (folder != null && folder.isNotEmpty) params['folder'] = folder;
     if (tag != null && tag.isNotEmpty) params['tag'] = tag;
@@ -215,6 +271,24 @@ class KnowledgeService {
         .whereType<Map<String, dynamic>>()
         .map(KnowledgeNoteSummary.fromJson)
         .toList(growable: false);
+  }
+
+  Future<List<KnowledgeRelatedNote>> related(String path) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/related').replace(queryParameters: {'path': path});
+    final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) throw KnowledgeServiceException('Unable to load related notes (${response.statusCode}).');
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['related'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(KnowledgeRelatedNote.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<KnowledgeGraph> graph(String path) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/graph').replace(queryParameters: {'path': path});
+    final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) throw KnowledgeServiceException('Unable to load note graph (${response.statusCode}).');
+    return KnowledgeGraph.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<KnowledgeLinkResolution> resolveLink(String target, {String? sourcePath}) async {
