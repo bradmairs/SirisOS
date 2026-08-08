@@ -175,6 +175,22 @@ SirisOS now has a deterministic dependency graph that is separate from incident 
 
 Only relationships SirisOS can explicitly justify or the user explicitly declares belong in the graph. Physical relationships such as `Docker -> UPS` or `UniFi -> UPS` are never inferred merely because systems fail together. This first editable slice only links existing graph nodes and stores custom topology per browser/profile; server-side topology, arbitrary custom components, authoritative discovery and interactive graph visualization remain follow-on work.
 
+### 0.4.3k — Capability Framework foundation complete
+
+SirisOS now has a declarative capability layer answering **"what can SirisOS currently do?"** independently from the future Action Framework that will execute those capabilities.
+
+- Stable `SirisCapability` IDs with provider, kind, risk and confirmation metadata
+- `SirisCapabilityRegistry` resolves current availability from `SirisIntegrationManager`
+- Healthy providers expose their declared capabilities
+- Degraded providers may retain read-only capabilities, while control/execution capabilities fail closed
+- Connecting, failed, disabled and disconnected providers expose no available capabilities
+- Initial capability catalogue covers Docker, Home Assistant, Synology, UniFi, Prometheus, Grafana, host storage and UPS
+- Operations Center includes a capability availability panel with provider/risk context
+- Unit coverage protects healthy/degraded/disabled availability semantics
+- Architecture documented in ADR 030
+
+This layer is discovery only. It does **not** execute commands. The future Action Framework will bind executable actions to stable capability IDs, and Hermes/Playbooks will eventually request capabilities instead of depending on connector-specific code.
+
 ## Planned SirisAI architecture — Hermes Agent + Ollama
 
 SirisOS will deliberately use **Hermes Agent and Ollama for different jobs** rather than choosing one as the entire AI stack.
@@ -207,10 +223,11 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - Generic persistent operational time-series history API/client
 - Deterministic Incident Engine with explainable cross-system correlation
 - Configurable Digital Twin dependency graph with declared downstream impact analysis
+- Declarative Capability Framework with live provider availability and fail-closed control semantics
 - Reusable Integration Framework and deterministic Notification Policy engine
 - Global search and configurable workspace
 - Adaptive `/mission` Situation Room with profiles, Focus Modes, ambient display, critical wake and diagnostics
-- `/operations` Operations Center with correlated incidents, editable topology, declared downstream impact, integration health, operational attention queue and backup protection history
+- `/operations` Operations Center with correlated incidents, editable topology, capability availability, declared downstream impact, integration health, operational attention queue and backup protection history
 - Web performance protections including cached integration widget futures and isolated widget repaint regions
 
 ## Long-term pillars
@@ -220,7 +237,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - **Engineering:** SirisHydro, SirisPM, calculators, standards, Civil 3D, project tools
 - **Knowledge:** Obsidian, documents, notes, search, semantic memory
 - **Intelligence:** SirisAI orchestration, Ollama local inference, Hermes Agent server runtime, briefings, Siris Score, recommendations, context
-- **Automation:** n8n, schedules, triggers, scripts, workflows, notifications, approval/audit policies
+- **Automation:** capabilities, actions, playbooks, n8n, schedules, triggers, scripts, workflows, notifications, approval/audit policies
 
 ## Development handover checklist
 
@@ -244,6 +261,7 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 18. Custom Digital Twin topology must remain cycle-safe and clearly distinguish built-in from user-declared relationships.
 19. SirisAI must keep agent execution separate from inference: Hermes handles optional tool-using execution, Ollama provides reusable local inference, and SirisOS owns approvals, policy and audit.
 20. Server-control AI actions must be least-privilege, allow-listed where possible, auditable, and must not use approval-bypass modes.
+21. Planners, playbooks and agents should target stable capability IDs rather than connector-specific implementation details; control capabilities fail closed when providers are not healthy.
 
 ## Local endpoints
 

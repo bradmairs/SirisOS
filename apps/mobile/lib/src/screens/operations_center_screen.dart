@@ -9,6 +9,7 @@ import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
 import '../core/siris_integration_manager.dart';
 import '../widgets/backup_protection_panel.dart';
+import '../widgets/capability_panel.dart';
 import '../widgets/dependency_graph_panel.dart';
 import '../widgets/siris_design_system.dart';
 
@@ -114,6 +115,8 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
                 ],
                 const SizedBox(height: 18),
                 _AttentionPanel(policies: policies, health: health),
+                const SizedBox(height: 18),
+                RepaintBoundary(child: CapabilityPanel(health: health)),
                 const SizedBox(height: 18),
                 RepaintBoundary(
                   child: DependencyGraphPanel(
