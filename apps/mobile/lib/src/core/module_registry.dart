@@ -128,6 +128,19 @@ class SirisModuleRegistry {
       primaryActionLabel: 'Open Engineering',
     ),
     SirisModuleDefinition(
+      id: 'knowledge',
+      label: 'Knowledge',
+      description: 'Browse and search your private Markdown/Obsidian vault.',
+      icon: Icons.menu_book_outlined,
+      selectedIcon: Icons.menu_book_rounded,
+      capabilities: {
+        SirisModuleCapability.search,
+        SirisModuleCapability.quickAction,
+        SirisModuleCapability.backgroundRefresh,
+      },
+      primaryActionLabel: 'Open Knowledge',
+    ),
+    SirisModuleDefinition(
       id: 'siris',
       label: 'Siris',
       description: 'AI context, recommendations and personal knowledge tools.',

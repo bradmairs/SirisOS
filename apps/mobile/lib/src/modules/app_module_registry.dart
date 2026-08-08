@@ -6,6 +6,7 @@ import '../screens/engineering_hub_screen.dart';
 import '../screens/gym_screen.dart';
 import '../screens/health_screen.dart';
 import '../screens/homelab_screen.dart';
+import '../screens/knowledge_screen.dart';
 import '../screens/running_screen.dart';
 import '../widgets/siris_logo.dart';
 
@@ -101,6 +102,10 @@ class AppModuleRegistry {
         'engineering' => SirisModuleRegistration(
             definition: definition,
             screenBuilder: (_) => const EngineeringHubScreen(),
+          ),
+        'knowledge' => SirisModuleRegistration(
+            definition: definition,
+            screenBuilder: (_) => const KnowledgeScreen(),
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
