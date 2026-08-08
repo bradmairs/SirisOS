@@ -64,6 +64,30 @@ class EngineeringStandardSearchHit {
       );
 }
 
+class EngineeringStandardPage {
+  const EngineeringStandardPage({
+    required this.document,
+    required this.page,
+    required this.text,
+    required this.citation,
+  });
+
+  final EngineeringStandardDocument document;
+  final int page;
+  final String text;
+  final String citation;
+
+  factory EngineeringStandardPage.fromJson(Map<String, dynamic> json) =>
+      EngineeringStandardPage(
+        document: EngineeringStandardDocument.fromJson(
+          json['document'] as Map<String, dynamic>,
+        ),
+        page: (json['page'] as num).toInt(),
+        text: json['text'] as String? ?? '',
+        citation: json['citation'] as String? ?? '',
+      );
+}
+
 class EngineeringStandardsService {
   Future<List<EngineeringStandardSearchHit>> search({
     String query = '',
@@ -87,6 +111,24 @@ class EngineeringStandardsService {
         .whereType<Map<String, dynamic>>()
         .map(EngineeringStandardSearchHit.fromJson)
         .toList(growable: false);
+  }
+
+  Future<EngineeringStandardPage> page({
+    required String documentId,
+    required int page,
+  }) async {
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/v1/engineering/standards/$documentId/pages/$page',
+    );
+    final response = await http
+        .get(uri, headers: AuthService.authorizationHeaders)
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw EngineeringStandardsException('Unable to load standard page (${response.statusCode}).');
+    }
+    return EngineeringStandardPage.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<EngineeringStandardDocument> uploadPdf({
