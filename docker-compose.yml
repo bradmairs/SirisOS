@@ -10,7 +10,7 @@ services:
       - "6464:80"
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   api:
@@ -74,6 +74,16 @@ services:
         condition: service_started
       node-exporter:
         condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
     restart: unless-stopped
 
   node-exporter:
