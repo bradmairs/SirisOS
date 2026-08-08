@@ -1,4 +1,9 @@
-from app.api.engineering_standards import _citation, _safe_filename, _snippet
+from app.api.engineering_standards import (
+    _citation,
+    _normalise_metadata,
+    _safe_filename,
+    _snippet,
+)
 
 
 def test_citation_prefers_reference_and_preserves_provenance() -> None:
@@ -12,6 +17,20 @@ def test_citation_prefers_reference_and_preserves_provenance() -> None:
     assert _citation(metadata, 42) == "AS 3600 · 2018 · Standards Australia · p. 42"
 
 
+def test_citation_includes_library_revision_after_replacement() -> None:
+    metadata = {
+        "title": "Concrete structures",
+        "authority": "Standards Australia",
+        "reference": "AS 3600",
+        "edition": "2018",
+        "revision": 3,
+    }
+
+    assert _citation(metadata, 42) == (
+        "AS 3600 · 2018 · library rev. 3 · Standards Australia · p. 42"
+    )
+
+
 def test_citation_falls_back_to_title() -> None:
     metadata = {
         "title": "Technical specification",
@@ -21,6 +40,16 @@ def test_citation_falls_back_to_title() -> None:
     }
 
     assert _citation(metadata, 7) == "Technical specification · Sydney Water · p. 7"
+
+
+def test_legacy_metadata_defaults_to_active_revision_one() -> None:
+    metadata = _normalise_metadata({"id": "abc", "indexed": True})
+
+    assert metadata["active"] is True
+    assert metadata["revision"] == 1
+    assert metadata["supersedes_id"] is None
+    assert metadata["superseded_by_id"] is None
+    assert metadata["archived_at"] is None
 
 
 def test_snippet_is_compact_and_query_centred() -> None:
