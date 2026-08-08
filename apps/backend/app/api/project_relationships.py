@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.api import knowledge, projects
@@ -152,12 +152,16 @@ async def create_project_relationship(
     return item
 
 
-@router.delete("/{project_id}/relationships/{relationship_id}", status_code=204)
+@router.delete(
+    "/{project_id}/relationships/{relationship_id}",
+    status_code=204,
+    response_class=Response,
+)
 async def delete_project_relationship(
     project_id: str,
     relationship_id: str,
     authorization: Annotated[str | None, Header()] = None,
-) -> None:
+) -> Response:
     projects._authenticate(authorization)
     _require_project(project_id)
     relationships = _load()
@@ -169,3 +173,4 @@ async def delete_project_relationship(
     if len(remaining) == len(relationships):
         raise HTTPException(status_code=404, detail="Project relationship not found.")
     _save(remaining)
+    return Response(status_code=204)
