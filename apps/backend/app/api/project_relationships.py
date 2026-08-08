@@ -13,7 +13,6 @@ from pydantic import BaseModel, Field
 from app.api import knowledge, projects
 
 router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
-RELATIONSHIPS_PATH = projects.PROJECTS_PATH.with_name("project_relationships.json")
 
 RelationshipKind = Literal["contains", "references"]
 TargetType = Literal["knowledge_note"]
@@ -42,11 +41,16 @@ class ProjectRelationshipListResponse(BaseModel):
     relationships: list[ProjectRelationshipRecord]
 
 
+def _relationships_path() -> Path:
+    return projects.PROJECTS_PATH.with_name("project_relationships.json")
+
+
 def _load() -> list[ProjectRelationshipRecord]:
-    if not RELATIONSHIPS_PATH.exists():
+    path = _relationships_path()
+    if not path.exists():
         return []
     try:
-        raw = json.loads(RELATIONSHIPS_PATH.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, list):
             raise ValueError("relationship store root must be a list")
         return [ProjectRelationshipRecord.model_validate(item) for item in raw]
@@ -55,7 +59,8 @@ def _load() -> list[ProjectRelationshipRecord]:
 
 
 def _save(relationships: list[ProjectRelationshipRecord]) -> None:
-    RELATIONSHIPS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    path = _relationships_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(
         [item.model_dump() for item in relationships],
         indent=2,
@@ -65,14 +70,14 @@ def _save(relationships: list[ProjectRelationshipRecord]) -> None:
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
-            dir=RELATIONSHIPS_PATH.parent,
+            dir=path.parent,
             prefix=".project-relationships-",
             suffix=".tmp",
             delete=False,
         ) as handle:
             handle.write(payload)
             temp_path = Path(handle.name)
-        temp_path.replace(RELATIONSHIPS_PATH)
+        temp_path.replace(path)
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Unable to persist project relationships.") from exc
 
