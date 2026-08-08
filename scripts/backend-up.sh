@@ -22,7 +22,7 @@ fi
 mkdir -p data/postgres data/logs data/backups data/uploads data/standards
 
 echo "Starting SirisOS application and backend dependencies..."
-docker compose up --build -d sirisos
+docker compose up --build -d --remove-orphans sirisos
 
 echo "Waiting for SirisOS to become healthy..."
 for attempt in {1..60}; do
