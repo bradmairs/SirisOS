@@ -244,7 +244,33 @@ Proxmox is intentionally not part of the SirisOS roadmap because this installati
 - [ ] Explainable Siris Score contribution history
 - [ ] Further Flutter web performance work: isolate Mission Control clock state and throttle pointer-hover activity
 
-## Sprint 0.4.4 — Engineering Module
+## Sprint 0.4.4 — SirisCore Context Service ✅ Foundation complete
+
+- [x] Typed `SirisContextFact` model with stable IDs, domains, priorities, sources and details
+- [x] `SirisContextProvider` interface for modular context contribution
+- [x] Deterministic prioritized `SirisContextSnapshot` with primary context
+- [x] Event-driven refresh on integration-health and Notification Policy changes
+- [x] `ContextSnapshotChanged` Event Bus publishing
+- [x] Bounded in-memory context transition timeline
+- [x] Non-blocking provider failure isolation
+- [x] Initial evidence-based operational provider for power events, backup attention and degraded network/storage/compute state
+- [x] Nominal homelab fallback when no elevated context is active
+- [x] Registered `siris.context` Mission Control widget
+- [x] Current Context surface in Operations Center
+- [x] Unit coverage for priority resolution and enter/clear transitions
+- [x] ADR 031
+- [ ] Persist context timeline through the generic History Engine
+- [ ] Manual context override with expiry/provenance
+- [ ] Health Data Export context provider
+- [ ] Home Assistant presence provider
+- [ ] Calendar/work/project providers
+- [ ] Context-aware Briefing Engine and Siris Score
+- [ ] Authenticated context API for backend/Hermes consumers
+- [ ] Presence Engine layered on top of context providers
+
+Personal, engineering and AI context states remain evidence-based: SirisOS will not claim states such as working, sleeping, travelling or focused until authoritative providers exist.
+
+## Sprint 0.4.5 — Engineering Module
 
 - [ ] Engineering module scaffold
 - [ ] Manning equation calculator
