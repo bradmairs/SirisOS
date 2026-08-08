@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sirisos/src/core/engineering_calculators.dart';
+import 'package:siris_os/src/core/engineering_calculators.dart';
 
 void main() {
   group('EngineeringCalculators', () {
