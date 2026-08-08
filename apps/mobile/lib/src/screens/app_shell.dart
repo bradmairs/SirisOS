@@ -21,6 +21,15 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  static const _mobilePrimaryModuleIds = <String>[
+    'dashboard',
+    'homelab',
+    'running',
+    'gym',
+    'health',
+    'engineering',
+  ];
+
   final DashboardService _dashboardService = DashboardService();
   final List<SirisModuleRegistration> _navigationModules =
       AppModuleRegistry.registrations;
@@ -103,63 +112,145 @@ class _AppShellState extends State<AppShell> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Quick actions',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 14),
+      useSafeArea: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Quick actions', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 14),
+            _QuickActionTile(
+              icon: Icons.monitor_heart_rounded,
+              title: 'Open Mission Control',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openMissionControl();
+              },
+            ),
+            _QuickActionTile(
+              icon: Icons.radar_rounded,
+              title: 'Open Operations Center',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openOperationsCenter();
+              },
+            ),
+            _QuickActionTile(
+              icon: Icons.search_rounded,
+              title: 'Search SirisOS',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openSearch();
+              },
+            ),
+            for (final module in quickActionModules)
               _QuickActionTile(
-                icon: Icons.monitor_heart_rounded,
-                title: 'Open Mission Control',
+                icon: module.selectedIcon,
+                title: module.primaryActionLabel ?? 'Open ${module.label}',
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _openMissionControl();
+                  _performModuleAction(module);
                 },
               ),
+            const Divider(height: 28),
+            _QuickActionTile(
+              icon: Icons.logout_rounded,
+              title: 'Sign out',
+              destructive: true,
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await widget.onLogout();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showMoreMenu() async {
+    final secondaryModules = _navigationModules
+        .where(
+          (registration) =>
+              !_mobilePrimaryModuleIds.contains(registration.definition.id),
+        )
+        .toList(growable: false);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 2, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('More', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 6),
+            Text(
+              'Additional SirisOS modules and system tools.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 18),
+            for (final registration in secondaryModules)
               _QuickActionTile(
-                icon: Icons.radar_rounded,
-                title: 'Open Operations Center',
+                icon: registration.definition.selectedIcon,
+                title: registration.definition.label,
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _openOperationsCenter();
+                  _selectModule(registration.definition.id);
                 },
               ),
-              _QuickActionTile(
-                icon: Icons.search_rounded,
-                title: 'Search SirisOS',
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _openSearch();
-                },
-              ),
-              for (final module in quickActionModules)
-                _QuickActionTile(
-                  icon: module.selectedIcon,
-                  title: module.primaryActionLabel ?? 'Open ${module.label}',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _performModuleAction(module);
-                  },
-                ),
-              const Divider(height: 28),
-              _QuickActionTile(
-                icon: Icons.logout_rounded,
-                title: 'Sign out',
-                destructive: true,
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await widget.onLogout();
-                },
-              ),
-            ],
-          ),
+            const Divider(height: 28),
+            _QuickActionTile(
+              icon: Icons.monitor_heart_rounded,
+              title: 'Mission Control',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openMissionControl();
+              },
+            ),
+            _QuickActionTile(
+              icon: Icons.radar_rounded,
+              title: 'Operations Center',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openOperationsCenter();
+              },
+            ),
+            _QuickActionTile(
+              icon: Icons.search_rounded,
+              title: 'Search SirisOS',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openSearch();
+              },
+            ),
+            _QuickActionTile(
+              icon: Icons.notifications_rounded,
+              title: 'Notifications',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openSearchTarget('notifications');
+              },
+            ),
+            const Divider(height: 28),
+            _QuickActionTile(
+              icon: Icons.logout_rounded,
+              title: 'Sign out',
+              destructive: true,
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await widget.onLogout();
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -211,15 +302,11 @@ class _AppShellState extends State<AppShell> {
                                     .map(
                                       (registration) =>
                                           NavigationRailDestination(
-                                        icon: Icon(
-                                          registration.definition.icon,
-                                        ),
+                                        icon: Icon(registration.definition.icon),
                                         selectedIcon: Icon(
                                           registration.definition.selectedIcon,
                                         ),
-                                        label: Text(
-                                          registration.definition.label,
-                                        ),
+                                        label: Text(registration.definition.label),
                                       ),
                                     )
                                     .toList(growable: false),
@@ -277,19 +364,151 @@ class _AppShellState extends State<AppShell> {
           ),
           bottomNavigationBar: desktop
               ? null
-              : NavigationBar(
+              : _MobileBottomNavigation(
+                  registrations: _navigationModules,
                   selectedIndex: _selectedIndex,
-                  onDestinationSelected: _selectTab,
-                  destinations: _navigationModules
-                      .map((registration) => NavigationDestination(
-                            icon: Icon(registration.definition.icon),
-                            selectedIcon: Icon(registration.definition.selectedIcon),
-                            label: registration.definition.label,
-                          ))
-                      .toList(growable: false),
+                  primaryModuleIds: _mobilePrimaryModuleIds,
+                  onSelectModule: _selectModule,
+                  onMore: _showMoreMenu,
                 ),
         );
       },
+    );
+  }
+}
+
+class _MobileBottomNavigation extends StatelessWidget {
+  const _MobileBottomNavigation({
+    required this.registrations,
+    required this.selectedIndex,
+    required this.primaryModuleIds,
+    required this.onSelectModule,
+    required this.onMore,
+  });
+
+  final List<SirisModuleRegistration> registrations;
+  final int selectedIndex;
+  final List<String> primaryModuleIds;
+  final ValueChanged<String> onSelectModule;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = primaryModuleIds
+        .map(AppModuleRegistry.find)
+        .whereType<SirisModuleRegistration>()
+        .toList(growable: false);
+    final selectedId = selectedIndex >= 0 && selectedIndex < registrations.length
+        ? registrations[selectedIndex].definition.id
+        : null;
+    final moreSelected =
+        selectedId != null && !primaryModuleIds.contains(selectedId);
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTheme.sidebar,
+        border: Border(top: BorderSide(color: AppTheme.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 68,
+          child: Row(
+            children: [
+              for (final registration in primary)
+                Expanded(
+                  child: _MobileNavItem(
+                    icon: registration.definition.icon,
+                    selectedIcon: registration.definition.selectedIcon,
+                    label: registration.definition.label,
+                    selected: selectedId == registration.definition.id,
+                    onTap: () => onSelectModule(registration.definition.id),
+                  ),
+                ),
+              Expanded(
+                child: _MobileNavItem(
+                  icon: Icons.more_horiz_rounded,
+                  selectedIcon: Icons.more_horiz_rounded,
+                  label: 'More',
+                  selected: moreSelected,
+                  onTap: onMore,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  const _MobileNavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+
+    return InkResponse(
+      onTap: onTap,
+      radius: 32,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(2, 7, 2, 5),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              decoration: BoxDecoration(
+                color: selected
+                    ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(
+                selected ? selectedIcon : icon,
+                size: 23,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            SizedBox(
+              height: 15,
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
