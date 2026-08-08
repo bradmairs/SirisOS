@@ -7,6 +7,7 @@ import '../screens/gym_screen.dart';
 import '../screens/health_screen.dart';
 import '../screens/homelab_screen.dart';
 import '../screens/knowledge_hub_screen.dart';
+import '../screens/projects_screen.dart';
 import '../screens/running_screen.dart';
 import '../widgets/siris_logo.dart';
 
@@ -106,6 +107,10 @@ class AppModuleRegistry {
         'knowledge' => SirisModuleRegistration(
             definition: definition,
             screenBuilder: (_) => const KnowledgeHubScreen(),
+          ),
+        'projects' => SirisModuleRegistration(
+            definition: definition,
+            screenBuilder: (_) => const ProjectsScreen(),
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
