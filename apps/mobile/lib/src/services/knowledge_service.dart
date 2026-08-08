@@ -241,6 +241,21 @@ class KnowledgeService {
     return KnowledgeBrowse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  Future<List<KnowledgeNoteSummary>> contextNotes(String contextId, {int limit = 20}) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/knowledge/context').replace(
+      queryParameters: {'context_id': contextId, 'limit': '$limit'},
+    );
+    final response = await http.get(uri, headers: AuthService.authorizationHeaders).timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw KnowledgeServiceException('Knowledge context failed (${response.statusCode}).');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['notes'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(KnowledgeNoteSummary.fromJson)
+        .toList(growable: false);
+  }
+
   Future<List<KnowledgeNoteSummary>> search(String query, {String? folder, String? tag}) async {
     final params = <String, String>{'query': query};
     if (folder != null && folder.isNotEmpty) params['folder'] = folder;
