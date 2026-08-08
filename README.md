@@ -175,6 +175,18 @@ SirisOS now has a deterministic dependency graph that is separate from incident 
 
 Only relationships SirisOS can explicitly justify or the user explicitly declares belong in the graph. Physical relationships such as `Docker -> UPS` or `UniFi -> UPS` are never inferred merely because systems fail together. This first editable slice only links existing graph nodes and stores custom topology per browser/profile; server-side topology, arbitrary custom components, authoritative discovery and interactive graph visualization remain follow-on work.
 
+## Planned SirisAI architecture — Hermes Agent + Ollama
+
+SirisOS will deliberately use **Hermes Agent and Ollama for different jobs** rather than choosing one as the entire AI stack.
+
+- **SirisAI** is the SirisOS orchestration and safety layer: identity, context, policy, approvals, audit, routing, UI and action governance.
+- **Hermes Agent** will be an optional server-side tool-using agent runtime for controlled server administration, diagnostics, file/configuration work and other operational tasks.
+- **Ollama** will remain the reusable local inference layer for SirisHydro, SirisPM, briefings, semantic search, deterministic-output rewriting and other domain assistants. Hermes may also use Ollama as one of its own model backends.
+
+The planned Hermes integration will not expose unrestricted agent execution directly to the browser. High-impact actions must be brokered through SirisOS, use explicit approval/confirmation where appropriate, and be audited. SirisOS will not enable Hermes dangerous-command approval bypass modes. Initial Hermes capabilities should begin read-only, then expand to allow-listed server actions with least-privilege execution. Operations Center incidents and Digital Twin dependency context will eventually feed agent tasks so Hermes can act with SirisOS context rather than as a disconnected shell agent.
+
+This separation means SirisHydro and other local AI features do not depend on Hermes being available, while SirisOS can still gain a powerful server-control agent later. The design is recorded in ADR 029 and scheduled under Sprint 0.7.
+
 The same Integration Framework remains the foundation for the later Obsidian/Selkies Knowledge Platform.
 
 ## Current application capabilities
@@ -207,8 +219,8 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 - **Infrastructure:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Synology NAS, backups, UPS, Plex
 - **Engineering:** SirisHydro, SirisPM, calculators, standards, Civil 3D, project tools
 - **Knowledge:** Obsidian, documents, notes, search, semantic memory
-- **Intelligence:** Briefings, Siris Score, recommendations, Ollama, agents, context
-- **Automation:** n8n, schedules, triggers, scripts, workflows, notifications
+- **Intelligence:** SirisAI orchestration, Ollama local inference, Hermes Agent server runtime, briefings, Siris Score, recommendations, context
+- **Automation:** n8n, schedules, triggers, scripts, workflows, notifications, approval/audit policies
 
 ## Development handover checklist
 
@@ -230,6 +242,8 @@ The same Integration Framework remains the foundation for the later Obsidian/Sel
 16. Incident correlation must remain deterministic and expose its source evidence/reason; correlation must not be presented as proven causation without dependency evidence.
 17. Digital Twin dependency claims must come from built-in explicit relationships or user-declared topology; never infer physical power/network dependencies solely from simultaneous failures.
 18. Custom Digital Twin topology must remain cycle-safe and clearly distinguish built-in from user-declared relationships.
+19. SirisAI must keep agent execution separate from inference: Hermes handles optional tool-using execution, Ollama provides reusable local inference, and SirisOS owns approvals, policy and audit.
+20. Server-control AI actions must be least-privilege, allow-listed where possible, auditable, and must not use approval-bypass modes.
 
 ## Local endpoints
 
