@@ -18,7 +18,7 @@ help:
 
 up:
 	@test -f .env || cp .env.example .env
-	@mkdir -p data/postgres data/logs data/backups data/uploads
+	@mkdir -p data/postgres data/logs data/backups data/uploads data/standards
 	@docker compose up --build -d
 	@echo ""
 	@echo "SirisOS Web: http://192.168.0.100:6464"
