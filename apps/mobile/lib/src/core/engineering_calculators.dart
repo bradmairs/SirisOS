@@ -287,6 +287,24 @@ class EngineeringCalculators {
     );
   }
 
+  /// Minor (fitting/valve/bend) headloss using an entered sum of K coefficients:
+  /// h_L = K * V^2 / (2g). K values remain a user input rather than a hidden
+  /// default tied to a specific fitting catalogue or standard.
+  static HeadlossResult minorLoss({
+    required double flowM3s,
+    required double diameterM,
+    required double sumKValues,
+  }) {
+    _positive(flowM3s, 'flow');
+    _positive(diameterM, 'diameter');
+    if (sumKValues < 0) throw ArgumentError('sumKValues must be non-negative');
+    const g = 9.80665;
+    final area = math.pi * diameterM * diameterM / 4;
+    final velocity = flowM3s / area;
+    final headloss = sumKValues * velocity * velocity / (2 * g);
+    return HeadlossResult(headlossM: headloss, velocityMs: velocity);
+  }
+
   static PumpPowerResult pumpPower({
     required double flowM3s,
     required double totalHeadM,

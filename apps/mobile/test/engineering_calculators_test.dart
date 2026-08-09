@@ -107,6 +107,27 @@ void main() {
       expect(result.headlossM, closeTo(1.0598, 0.001));
     });
 
+    test('minor loss sums K values into headloss', () {
+      final result = EngineeringCalculators.minorLoss(
+        flowM3s: 0.05,
+        diameterM: 0.20,
+        sumKValues: 1.5,
+      );
+      expect(result.velocityMs, closeTo(1.5915, 0.001));
+      expect(result.headlossM, closeTo(0.19372, 0.0005));
+    });
+
+    test('minor loss rejects a negative K value', () {
+      expect(
+        () => EngineeringCalculators.minorLoss(
+          flowM3s: 0.05,
+          diameterM: 0.20,
+          sumKValues: -0.5,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('pump power accounts for efficiency', () {
       final result = EngineeringCalculators.pumpPower(
         flowM3s: 0.05,
