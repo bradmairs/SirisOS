@@ -7,7 +7,7 @@ import '../screens/gym_screen.dart';
 import '../screens/health_screen.dart';
 import '../screens/homelab_screen.dart';
 import '../screens/knowledge_hub_screen.dart';
-import '../screens/projects_screen.dart';
+import '../screens/projects_hub_screen.dart';
 import '../screens/running_screen.dart';
 import '../widgets/siris_logo.dart';
 
@@ -110,7 +110,7 @@ class AppModuleRegistry {
           ),
         'projects' => SirisModuleRegistration(
             definition: definition,
-            screenBuilder: (_) => const ProjectsScreen(),
+            screenBuilder: (_) => const ProjectsHubScreen(),
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
