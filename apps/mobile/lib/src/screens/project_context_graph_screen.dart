@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/engineering_standards_service.dart';
+import '../services/project_engineering_standard_relationships.dart';
 import '../services/project_service.dart';
 
 class ProjectContextGraphScreen extends StatefulWidget {
@@ -13,7 +15,9 @@ class ProjectContextGraphScreen extends StatefulWidget {
 
 class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
   final _service = ProjectService();
+  final _standardsService = EngineeringStandardsService();
   late Future<_ProjectGraphData> _data;
+  bool _attaching = false;
 
   @override
   void initState() {
@@ -30,6 +34,34 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
   }
 
   void _refresh() => setState(() => _data = _load());
+
+  Future<void> _attachStandard(ProjectRecord project) async {
+    if (_attaching) return;
+    final document = await showDialog<EngineeringStandardDocument>(
+      context: context,
+      builder: (_) => _StandardPickerDialog(service: _standardsService),
+    );
+    if (document == null || !mounted) return;
+
+    setState(() => _attaching = true);
+    try {
+      await _service.attachEngineeringStandard(project.id, document.id);
+      if (!mounted) return;
+      setState(() {
+        _attaching = false;
+        _data = _load();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_standardIdentity(document)} attached as an exact revision reference.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _attaching = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to attach standard: $error')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +127,20 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  onPressed: _attaching ? null : () => _attachStandard(project),
+                  icon: _attaching
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.library_books_rounded),
+                  label: Text(_attaching ? 'Attaching…' : 'Attach Engineering standard'),
+                ),
+              ),
               const SizedBox(height: 18),
               Card(
                 child: SizedBox(
@@ -104,7 +150,7 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: Text(
-                              'This project has no attached Knowledge notes yet. Attach notes from the Projects tab to grow the graph.',
+                              'This project has no attached context yet. Attach Knowledge notes from Projects or add an Engineering standard here to grow the graph.',
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -128,6 +174,7 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                 children: const [
                   _LegendChip(icon: Icons.folder_rounded, label: 'Project'),
                   _LegendChip(icon: Icons.menu_book_rounded, label: 'Knowledge note'),
+                  _LegendChip(icon: Icons.library_books_rounded, label: 'Engineering standard'),
                   _LegendChip(icon: Icons.inventory_2_outlined, label: 'Part of project'),
                   _LegendChip(icon: Icons.link_rounded, label: 'Reference'),
                 ],
@@ -144,7 +191,7 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                 for (final edge in graph.edges)
                   Card(
                     child: ListTile(
-                      leading: Icon(edge.kind == 'contains' ? Icons.inventory_2_outlined : Icons.link_rounded),
+                      leading: Icon(_targetIcon(graph, edge.target, edge.kind)),
                       title: Text(_targetLabel(graph, edge.target)),
                       subtitle: Text('${edge.label} · ${edge.provenance}'),
                     ),
@@ -156,12 +203,134 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
     );
   }
 
-  String _targetLabel(ProjectGraph graph, String targetId) {
+  ProjectGraphNode? _targetNode(ProjectGraph graph, String targetId) {
     for (final node in graph.nodes) {
-      if (node.id == targetId) return node.label;
+      if (node.id == targetId) return node;
     }
-    return targetId;
+    return null;
   }
+
+  String _targetLabel(ProjectGraph graph, String targetId) =>
+      _targetNode(graph, targetId)?.label ?? targetId;
+
+  IconData _targetIcon(ProjectGraph graph, String targetId, String kind) {
+    final node = _targetNode(graph, targetId);
+    if (node?.nodeType == 'engineering_standard') return Icons.library_books_rounded;
+    if (node?.nodeType == 'knowledge_note') return Icons.menu_book_rounded;
+    return kind == 'contains' ? Icons.inventory_2_outlined : Icons.link_rounded;
+  }
+}
+
+class _StandardPickerDialog extends StatefulWidget {
+  const _StandardPickerDialog({required this.service});
+  final EngineeringStandardsService service;
+
+  @override
+  State<_StandardPickerDialog> createState() => _StandardPickerDialogState();
+}
+
+class _StandardPickerDialogState extends State<_StandardPickerDialog> {
+  final _search = TextEditingController();
+  late Future<List<EngineeringStandardSearchHit>> _results;
+
+  @override
+  void initState() {
+    super.initState();
+    _results = widget.service.search();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _runSearch() => setState(
+        () => _results = widget.service.search(query: _search.text.trim()),
+      );
+
+  List<EngineeringStandardDocument> _uniqueDocuments(
+    List<EngineeringStandardSearchHit> hits,
+  ) {
+    final byId = <String, EngineeringStandardDocument>{};
+    for (final hit in hits) {
+      if (hit.document.active) byId.putIfAbsent(hit.document.id, () => hit.document);
+    }
+    return byId.values.toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Attach Engineering standard'),
+      content: SizedBox(
+        width: 620,
+        height: 500,
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              onSubmitted: (_) => _runSearch(),
+              decoration: InputDecoration(
+                labelText: 'Search standards',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: IconButton(
+                  onPressed: _runSearch,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                ),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: FutureBuilder<List<EngineeringStandardSearchHit>>(
+                future: _results,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Standards unavailable: ${snapshot.error}'));
+                  }
+                  final documents = _uniqueDocuments(snapshot.data ?? const []);
+                  if (documents.isEmpty) {
+                    return const Center(child: Text('No active matching standards found.'));
+                  }
+                  return ListView.separated(
+                    itemCount: documents.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final document = documents[index];
+                      return ListTile(
+                        leading: const Icon(Icons.library_books_rounded),
+                        title: Text(_standardIdentity(document)),
+                        subtitle: Text(
+                          '${document.authority} · exact document revision ${document.revision}',
+                        ),
+                        onTap: () => Navigator.pop(context, document),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      ],
+    );
+  }
+}
+
+String _standardIdentity(EngineeringStandardDocument document) {
+  final parts = <String>[
+    if (document.reference?.trim().isNotEmpty == true) document.reference!.trim() else document.title,
+    if (document.edition?.trim().isNotEmpty == true) document.edition!.trim(),
+    if (document.revision > 1) 'library rev. ${document.revision}',
+  ];
+  return parts.join(' · ');
 }
 
 class _ProjectGraphData {
