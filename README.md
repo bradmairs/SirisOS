@@ -203,7 +203,7 @@ Knowledge is now a first-class SirisOS module backed by a read-only Obsidian-com
 
 Current foundation:
 
-- Authenticated `/api/v1/knowledge` overview/search/note APIs
+- Authenticated `/api/v1/knowledge` overview/search/note/graph APIs
 - Read-only host vault mount with Markdown remaining the source of truth
 - Recent Notes and Daily Notes surfaces
 - Vault content/title/path search
@@ -215,19 +215,19 @@ Current foundation:
 - Hidden `.obsidian` internals excluded from scanning
 - Path traversal blocked and note reads bounded by configuration
 - One bounded in-memory link index per relationship request; no database/indexing daemon yet
+- Global SirisOS search across vault content, blended into `/api/v1/search`
+- Deterministic, explainable related notes (outgoing links, backlinks, shared tags, folder proximity) surfaced in the note viewer
+- Optional Ollama semantic search, transparently blended into search ranking alongside deterministic lexical matching
+- Mission Control Knowledge widget
+- Optional `SIRISOS_OBSIDIAN_URL` launcher for a self-hosted Obsidian/Selkies front end, registered as a Knowledge connector in the Integration Framework
+- Contextual cross-links surfacing Knowledge notes from the Engineering and Homelab modules via explicit `siris:` frontmatter/tag relationships
 
-ADRs 040–041 define the read-only vault and relationship-resolution boundaries.
+ADRs 040–043 and 045–048 define the vault, relationship-resolution, global search, Obsidian launch, semantic search and typed context boundaries.
 
 Planned Knowledge follow-ons:
 
-- Obsidian/Selkies launch integration
-- Integration Framework connector/health surface
-- Global SirisOS search across vault content
-- Graph visualization above wikilinks/backlinks
-- Mission Control Knowledge widget
-- Context-aware related notes
-- Optional local semantic/vector search
-- Cross-links into Engineering, Homelab, Tasks, Calendar and Briefings
+- Flutter UI for the local Knowledge Graph (backend graph API and contract already exist per ADR 043; no view renders it yet)
+- Cross-links into Tasks, Calendar and Briefings once those modules have authoritative object models
 
 ## Sprint 0.6 — Projects and Context Graph 🚧 in progress
 
