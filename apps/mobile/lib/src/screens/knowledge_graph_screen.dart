@@ -24,7 +24,9 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
     _graph = _service.graph(widget.centerPath);
   }
 
-  void _refresh() => setState(() => _graph = _service.graph(widget.centerPath));
+  void _refresh() => setState(() {
+        _graph = _service.graph(widget.centerPath);
+      });
 
   Future<void> _openTarget(KnowledgeGraphNode node) async {
     Navigator.pop(context);
