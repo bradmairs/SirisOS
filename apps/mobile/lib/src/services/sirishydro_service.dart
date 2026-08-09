@@ -49,6 +49,7 @@ class SirisHydroEvidencePacket {
     required this.evidence,
     required this.contextText,
     required this.guidance,
+    this.synthesizedAnswer,
   });
 
   final String question;
@@ -56,6 +57,7 @@ class SirisHydroEvidencePacket {
   final List<SirisHydroEvidenceItem> evidence;
   final String contextText;
   final String guidance;
+  final String? synthesizedAnswer;
 
   factory SirisHydroEvidencePacket.fromJson(Map<String, dynamic> json) {
     final rawEvidence = json['evidence'] as List<dynamic>? ?? const [];
@@ -68,6 +70,7 @@ class SirisHydroEvidencePacket {
           .toList(growable: false),
       contextText: json['context_text'] as String? ?? '',
       guidance: json['guidance'] as String? ?? '',
+      synthesizedAnswer: json['synthesized_answer'] as String?,
     );
   }
 }

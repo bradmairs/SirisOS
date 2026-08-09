@@ -11,12 +11,19 @@ from pydantic import BaseModel
 
 from app.services.engineering_standards_evidence import EngineeringEvidence, evidence_from_hit
 from app.services.engineering_standards_search import rank_pages
+from app.services.ollama_service import chat_client
 
 router = APIRouter(prefix="/api/v1/engineering/sirishydro", tags=["engineering"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 LIBRARY_ROOT = Path(os.getenv("SIRISOS_STANDARDS_PATH", "/app/data/standards"))
 RETRIEVAL_STRATEGY = "hybrid-lexical-civil-water-semantic-v1"
+SYNTHESIS_SYSTEM_PROMPT = (
+    "You are SirisHydro, a civil/water engineering assistant. Answer only using the "
+    "numbered evidence excerpts in the user's message, citing each claim with its "
+    "[n] reference. If the evidence does not establish an answer, say so explicitly "
+    "instead of inventing a clause, value or standard."
+)
 
 
 class SirisHydroEvidenceItem(BaseModel):
@@ -38,6 +45,7 @@ class SirisHydroEvidenceResponse(BaseModel):
     context_text: str
     guidance: str
     retrieval_strategy: str = RETRIEVAL_STRATEGY
+    synthesized_answer: str | None = None
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -168,11 +176,18 @@ async def sirishydro_evidence(
         if sufficient
         else "The private standards library did not establish this question. Upload or index the relevant source rather than relying on an invented standards answer."
     )
+    context_text = _context_text(question_value, evidence)
+    synthesized_answer = (
+        await chat_client.complete(system=SYNTHESIS_SYSTEM_PROMPT, prompt=context_text)
+        if sufficient
+        else None
+    )
     return SirisHydroEvidenceResponse(
         question=question_value,
         sufficient_evidence=sufficient,
         evidence=[SirisHydroEvidenceItem(**item.as_dict()) for item in evidence],
-        context_text=_context_text(question_value, evidence),
+        context_text=context_text,
         guidance=guidance,
         retrieval_strategy=RETRIEVAL_STRATEGY,
+        synthesized_answer=synthesized_answer,
     )
