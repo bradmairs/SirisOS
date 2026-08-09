@@ -12,6 +12,8 @@ COPY apps/mobile/assets ./assets
 
 RUN flutter config --enable-web \
     && flutter create --platforms=web . \
+    && cp assets/branding/siris_os_favicon.svg web/siris-os-favicon.svg \
+    && sed -i 's#href="favicon.png"#href="siris-os-favicon.svg" type="image/svg+xml"#' web/index.html \
     && flutter pub get \
     && flutter build web --release \
        --pwa-strategy=none \
