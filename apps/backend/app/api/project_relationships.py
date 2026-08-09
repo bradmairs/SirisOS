@@ -10,12 +10,12 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from app.api import knowledge, projects
+from app.api import engineering_standards, knowledge, projects
 
 router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
 
 RelationshipKind = Literal["contains", "references"]
-TargetType = Literal["knowledge_note"]
+TargetType = Literal["knowledge_note", "engineering_standard"]
 RelationshipProvenance = Literal["manual"]
 MAX_GRAPH_RELATIONSHIPS = 100
 
@@ -45,7 +45,7 @@ class ProjectRelationshipListResponse(BaseModel):
 class ProjectGraphNode(BaseModel):
     id: str
     label: str
-    node_type: Literal["project", "knowledge_note"]
+    node_type: Literal["project", "knowledge_note", "engineering_standard"]
     detail: str = ""
     center: bool = False
 
@@ -117,9 +117,36 @@ def _canonical_knowledge_target(target_id: str) -> tuple[str, str]:
     return summary.path, summary.title
 
 
+def _standard_label(metadata: dict) -> str:
+    normalised = engineering_standards._normalise_metadata(metadata)
+    reference = str(normalised.get("reference") or "").strip()
+    title = str(normalised.get("title") or "Engineering standard").strip()
+    edition = str(normalised.get("edition") or "").strip()
+    revision = int(normalised.get("revision") or 1)
+    identity = reference or title
+    parts = [identity]
+    if edition:
+        parts.append(edition)
+    if revision > 1:
+        parts.append(f"library rev. {revision}")
+    return " · ".join(parts)
+
+
+def _canonical_standard_target(target_id: str) -> tuple[str, str]:
+    document_id = target_id.strip()
+    metadata = engineering_standards._load_metadata(document_id)
+    return document_id, _standard_label(metadata)
+
+
+def _canonical_target(target_type: TargetType, target_id: str) -> tuple[str, str]:
+    if target_type == "knowledge_note":
+        return _canonical_knowledge_target(target_id)
+    return _canonical_standard_target(target_id)
+
+
 def _refresh_target_label(item: ProjectRelationshipRecord) -> ProjectRelationshipRecord:
     try:
-        target_id, label = _canonical_knowledge_target(item.target_id)
+        target_id, label = _canonical_target(item.target_type, item.target_id)
     except HTTPException:
         return item
     return item.model_copy(update={"target_id": target_id, "target_label": label})
@@ -204,7 +231,13 @@ async def create_project_relationship(
     projects._authenticate(authorization)
     _require_project(project_id)
 
-    target_id, target_label = _canonical_knowledge_target(request.target_id)
+    if request.target_type == "engineering_standard" and request.kind != "references":
+        raise HTTPException(
+            status_code=422,
+            detail="Engineering standards can only be attached as references.",
+        )
+
+    target_id, target_label = _canonical_target(request.target_type, request.target_id)
     relationships = _load()
     duplicate = next(
         (
