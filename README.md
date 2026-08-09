@@ -114,6 +114,8 @@ The calculation core is pure Dart and regression-tested. Inputs, units and assum
 
 Any calculation result can be saved via an authenticated `/api/v1/engineering/calculations` record — exactly the inputs and outputs shown on screen, nothing hidden or recomputed later — and attached to a Project from the Project Context Graph, alongside Knowledge notes and Engineering Standards. ADR 055.
 
+A saved calculation can optionally cite the exact standard document/edition it was designed to, picked from the private Standards library; the citation label is resolved fresh on every read and survives the cited standard later being archived or removed. ADR 056.
+
 ### Private Standards Library / Search
 
 The Engineering module now has a **Calculators / Standards / SirisHydro** hub.
@@ -244,8 +246,9 @@ Current foundation:
 - Bounded `GET /api/v1/projects/{project_id}/graph` projection and a Flutter Projects → Graph view centered on the current project
 - Typed Project ↔ Engineering Standard relationships addressed by immutable standards-library document ID, restricted to `references` (a project does not "contain" a standard) and attachable directly from the Project Context Graph view
 - Typed Project ↔ Engineering Calculation relationships (`contains`/`references`), attachable directly from the Project Context Graph view alongside Knowledge notes and Engineering Standards
+- A saved calculation can cite the exact standard document/edition it was designed to, resolved fresh on every read
 
-ADRs 049–053 and 055 define the project model, Knowledge relationship contract, current project context, graph projection, Engineering Standard relationships and saved Engineering Calculation relationships.
+ADRs 049–053, 055 and 056 define the project model, Knowledge relationship contract, current project context, graph projection, Engineering Standard relationships, saved Engineering Calculation relationships and standard citation on a saved calculation.
 
 Planned Sprint 0.6 follow-ons:
 
