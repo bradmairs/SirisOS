@@ -1,9 +1,10 @@
 import asyncio
+import json
 from pathlib import Path
 
 import jwt
 
-from app.api import knowledge, project_relationships, projects
+from app.api import engineering_standards, knowledge, project_relationships, projects
 
 
 def _token() -> str:
@@ -20,6 +21,27 @@ def _create_project(authorization: str) -> projects.ProjectRecord:
             projects.ProjectCreateRequest(name="Tank site drainage", kind="engineering"),
             authorization,
         )
+    )
+
+
+def _create_standard(library_root: Path, document_id: str = "std-1") -> None:
+    directory = library_root / document_id
+    directory.mkdir(parents=True)
+    (directory / "metadata.json").write_text(
+        json.dumps(
+            {
+                "id": document_id,
+                "title": "Concrete structures",
+                "authority": "Standards Australia",
+                "reference": "AS 3600",
+                "edition": "2018",
+                "filename": "as3600.pdf",
+                "uploaded_at": "2026-01-01T00:00:00+00:00",
+                "pages": 10,
+                "indexed": True,
+            }
+        ),
+        encoding="utf-8",
     )
 
 
@@ -114,3 +136,85 @@ def test_relationship_requires_existing_note(tmp_path: Path, monkeypatch) -> Non
         assert getattr(exc, "status_code", None) == 404
     else:
         raise AssertionError("Expected missing note rejection")
+
+
+def test_project_engineering_standard_relationship_lifecycle(tmp_path: Path, monkeypatch) -> None:
+    library = tmp_path / "standards"
+    _create_standard(library)
+    monkeypatch.setattr(engineering_standards, "LIBRARY_ROOT", library)
+    monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
+    authorization = _token()
+    project = _create_project(authorization)
+
+    relationship = asyncio.run(
+        project_relationships.create_project_relationship(
+            project.id,
+            project_relationships.ProjectRelationshipCreateRequest(
+                target_type="engineering_standard",
+                target_id="std-1",
+                kind="references",
+            ),
+            authorization,
+        )
+    )
+    assert relationship.target_type == "engineering_standard"
+    assert relationship.target_id == "std-1"
+    assert relationship.target_label == "AS 3600 · 2018"
+
+    graph = asyncio.run(project_relationships.get_project_graph(project.id, authorization))
+    assert len(graph.nodes) == 2
+    assert graph.nodes[1].id == "engineering_standard:std-1"
+    assert graph.nodes[1].node_type == "engineering_standard"
+    assert graph.edges[0].kind == "references"
+
+
+def test_engineering_standard_relationship_rejects_contains_kind(tmp_path: Path, monkeypatch) -> None:
+    library = tmp_path / "standards"
+    _create_standard(library)
+    monkeypatch.setattr(engineering_standards, "LIBRARY_ROOT", library)
+    monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
+    authorization = _token()
+    project = _create_project(authorization)
+
+    try:
+        asyncio.run(
+            project_relationships.create_project_relationship(
+                project.id,
+                project_relationships.ProjectRelationshipCreateRequest(
+                    target_type="engineering_standard",
+                    target_id="std-1",
+                    kind="contains",
+                ),
+                authorization,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 422
+    else:
+        raise AssertionError("Expected engineering standard 'contains' rejection")
+
+
+def test_engineering_standard_relationship_requires_existing_document(tmp_path: Path, monkeypatch) -> None:
+    library = tmp_path / "standards"
+    library.mkdir()
+    monkeypatch.setattr(engineering_standards, "LIBRARY_ROOT", library)
+    monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
+    authorization = _token()
+    project = _create_project(authorization)
+
+    try:
+        asyncio.run(
+            project_relationships.create_project_relationship(
+                project.id,
+                project_relationships.ProjectRelationshipCreateRequest(
+                    target_type="engineering_standard",
+                    target_id="missing-doc",
+                    kind="references",
+                ),
+                authorization,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 404
+    else:
+        raise AssertionError("Expected missing standard rejection")

@@ -240,8 +240,9 @@ Current foundation:
 - Typed Project ↔ Knowledge note relationships (`contains`/`references`) with manual provenance, addressed by canonical vault-relative path
 - Explicit, manually-selected current project exposed through `GET/PUT /api/v1/projects/current`, contributing project context to SirisCore with `projects.manual_selection` provenance
 - Bounded `GET /api/v1/projects/{project_id}/graph` projection and a Flutter Projects → Graph view centered on the current project
+- Typed Project ↔ Engineering Standard relationships addressed by immutable standards-library document ID, restricted to `references` (a project does not "contain" a standard) and attachable directly from the Project Context Graph view
 
-ADRs 049–052 define the project model, Knowledge relationship contract, current project context and graph projection.
+ADRs 049–053 define the project model, Knowledge relationship contract, current project context, graph projection and Engineering Standard relationships.
 
 Planned Sprint 0.6 follow-ons:
 

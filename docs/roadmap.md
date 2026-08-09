@@ -322,10 +322,12 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Typed Project ↔ Knowledge note relationships (`contains`/`references`)
 - [x] Explicit manually-selected current project context with SirisCore integration
 - [x] Bounded Project Context Graph projection and Flutter Projects → Graph view
+- [x] Typed Project ↔ Engineering Standard relationships (`references` only), attachable from the Project Context Graph
 - [x] ADR 049 project model foundation
 - [x] ADR 050 project-knowledge relationship contract
 - [x] ADR 051 current project context
 - [x] ADR 052 project context graph projection
+- [x] ADR 053 project-engineering standard relationships
 - [ ] Relationships between tasks, files, calculations, events, repositories and conversations
 - [ ] Context containers for engineering, homelab, travel, fitness and personal projects
 - [ ] Siris Knowledge Graph semantic layer
