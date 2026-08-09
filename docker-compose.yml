@@ -65,6 +65,7 @@ services:
       - "6464:6464"
     volumes:
       - ./data/logs:/app/logs
+      - ./data/app:/app/data
       - ./data/standards:/app/data/standards
       - ${SIRISOS_KNOWLEDGE_HOST_PATH:-./data/knowledge}:/app/data/knowledge:ro
     depends_on:

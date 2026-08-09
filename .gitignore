@@ -30,6 +30,8 @@ build/
 !/data/backups/.gitkeep
 !/data/uploads/
 !/data/uploads/.gitkeep
+!/data/app/
+!/data/app/.gitkeep
 
 # IDE
 .vscode/
