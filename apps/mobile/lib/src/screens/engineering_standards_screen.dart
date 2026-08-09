@@ -1,9 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/engineering_standards_service.dart';
+import '../widgets/standard_page_dialog.dart';
 
 class EngineeringStandardsScreen extends StatefulWidget {
   const EngineeringStandardsScreen({super.key});
@@ -42,95 +42,11 @@ class _EngineeringStandardsScreenState extends State<EngineeringStandardsScreen>
   Future<void> _showPage(EngineeringStandardSearchHit hit) async {
     final pageNumber = hit.page;
     if (pageNumber == null) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        child: SizedBox(
-          width: 760,
-          height: 640,
-          child: FutureBuilder<EngineeringStandardPage>(
-            future: _service.page(documentId: hit.document.id, page: pageNumber),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('Unable to load page: ${snapshot.error}'),
-                );
-              }
-              final page = snapshot.requireData;
-              return Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(page.document.title, style: Theme.of(context).textTheme.titleLarge),
-                              const SizedBox(height: 4),
-                              Text(page.citation, style: Theme.of(context).textTheme.labelLarge),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Close',
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: page.citation));
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Citation copied.')),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.copy_rounded),
-                          label: const Text('Copy citation'),
-                        ),
-                        Chip(label: Text('Page ${page.page}')),
-                        Chip(label: Text('Library rev. ${page.document.revision}')),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: SelectionArea(
-                        child: SingleChildScrollView(
-                          child: Text(
-                            page.text.trim().isEmpty
-                                ? 'No extractable text is available for this page.'
-                                : page.text,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Historical revisions remain directly retrievable so old citations keep pointing to the exact source they originally referenced.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    await showStandardPageDialog(
+      context,
+      service: _service,
+      documentId: hit.document.id,
+      page: pageNumber,
     );
   }
 
