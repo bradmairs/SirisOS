@@ -250,7 +250,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Retrieval strategy included in evidence context
 - [ ] Ollama-backed answer composition over retrieved evidence
 - [ ] Answer UI with source-supported vs general-reasoning distinction
-- [ ] Source-page deep links from SirisHydro results
+- [x] Source-page deep links from SirisHydro results, sharing the Standards Library's page viewer
 - [ ] Conversation/session context
 - [ ] Optional vector/embedding reranking while retaining deterministic lexical fallback
 

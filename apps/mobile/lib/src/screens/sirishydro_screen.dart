@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/engineering_standards_service.dart';
 import '../services/sirishydro_service.dart';
+import '../widgets/standard_page_dialog.dart';
 
 class SirisHydroScreen extends StatefulWidget {
   const SirisHydroScreen({super.key});
@@ -222,6 +224,16 @@ class _EvidencePacketView extends StatelessWidget {
                           },
                           icon: const Icon(Icons.copy_rounded),
                           label: const Text('Copy citation'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => showStandardPageDialog(
+                            context,
+                            service: EngineeringStandardsService(),
+                            documentId: item.documentId,
+                            page: item.page,
+                          ),
+                          icon: const Icon(Icons.description_outlined),
+                          label: const Text('View source page'),
                         ),
                       ],
                     ),

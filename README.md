@@ -155,6 +155,7 @@ Current behavior:
 - Retrieval strategy exposed in the evidence packet/context
 - Copyable context packet for future Ollama/SirisAI composition
 - Clear refusal boundary when the local library does not support a standards requirement
+- "View source page" deep link from each evidence item, opening the exact cited page through the same page-viewer dialog the Standards Library uses
 
 This first SirisHydro slice intentionally **does not generate an AI answer**. The local standard remains the source of truth. Future Ollama integration may explain or synthesize retrieved evidence, but source-supported claims must remain traceable to the evidence packet and must not invent clauses or values. ADRs 033–035 and 038.
 
