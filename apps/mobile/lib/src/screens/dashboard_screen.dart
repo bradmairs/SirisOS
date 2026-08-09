@@ -85,7 +85,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted || _refreshInProgress) return;
     _refreshInProgress = true;
     final next = _service.fetchDashboard();
-    setState(() => _dashboardFuture = next);
+    setState(() {
+      _dashboardFuture = next;
+    });
     try {
       await Future.wait([next, _loadUnreadCount()]);
     } catch (_) {

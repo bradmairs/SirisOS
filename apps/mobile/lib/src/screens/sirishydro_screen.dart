@@ -24,7 +24,9 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
   void _retrieve() {
     final value = _question.text.trim();
     if (value.length < 2) return;
-    setState(() => _result = _service.retrieveEvidence(value));
+    setState(() {
+      _result = _service.retrieveEvidence(value);
+    });
   }
 
   @override

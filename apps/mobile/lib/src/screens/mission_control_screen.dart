@@ -220,7 +220,9 @@ class _MissionControlScreenState extends State<MissionControlScreen> {
   Future<void> _refresh() async {
     if (!mounted) return;
     final next = _fetchDashboard();
-    setState(() => _dashboardFuture = next);
+    setState(() {
+      _dashboardFuture = next;
+    });
     try {
       await next;
     } catch (_) {}

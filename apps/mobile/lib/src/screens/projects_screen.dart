@@ -524,9 +524,9 @@ class _KnowledgePickerDialogState extends State<_KnowledgePickerDialog> {
     super.dispose();
   }
 
-  void _search() => setState(
-        () => _results = widget.service.search(_controller.text.trim()),
-      );
+  void _search() => setState(() {
+        _results = widget.service.search(_controller.text.trim());
+      });
 
   @override
   Widget build(BuildContext context) {

@@ -19,7 +19,9 @@ class _KnowledgePanelState extends State<KnowledgePanel> {
     _overview = _service.overview();
   }
 
-  void _refresh() => setState(() => _overview = _service.overview());
+  void _refresh() => setState(() {
+        _overview = _service.overview();
+      });
 
   @override
   Widget build(BuildContext context) {

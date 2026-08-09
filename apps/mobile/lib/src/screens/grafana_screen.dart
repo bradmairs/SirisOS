@@ -34,7 +34,9 @@ class _GrafanaScreenState extends State<GrafanaScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchSnapshot();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 

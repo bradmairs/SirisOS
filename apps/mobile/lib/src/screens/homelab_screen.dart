@@ -27,7 +27,9 @@ class _HomelabScreenState extends State<HomelabScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchDockerSummary();
-    setState(() => _summaryFuture = next);
+    setState(() {
+      _summaryFuture = next;
+    });
     await next;
   }
 

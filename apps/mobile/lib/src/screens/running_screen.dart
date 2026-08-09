@@ -33,7 +33,9 @@ class _RunningScreenState extends State<RunningScreen> {
     }
   }
 
-  void _reload() => setState(() => _runsFuture = _service.fetchRuns());
+  void _reload() => setState(() {
+        _runsFuture = _service.fetchRuns();
+      });
 
   Future<void> _addRun() async {
     final saved = await showDialog<bool>(

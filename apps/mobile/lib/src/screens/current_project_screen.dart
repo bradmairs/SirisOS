@@ -32,7 +32,9 @@ class _CurrentProjectScreenState extends State<CurrentProjectScreen> {
     );
   }
 
-  void _refresh() => setState(() => _data = _load());
+  void _refresh() => setState(() {
+        _data = _load();
+      });
 
   Future<void> _select(String? projectId) async {
     if (_saving) return;

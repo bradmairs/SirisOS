@@ -22,7 +22,9 @@ class _HomelabActivityScreenState extends State<HomelabActivityScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchAuditHistory();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 
