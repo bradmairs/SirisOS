@@ -248,9 +248,10 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Hybrid semantic retrieval reranking while retaining deterministic provenance
 - [x] Active-revision-only evidence assembly for new answers
 - [x] Retrieval strategy included in evidence context
-- [ ] Ollama-backed answer composition over retrieved evidence
-- [ ] Answer UI with source-supported vs general-reasoning distinction
+- [x] Ollama-backed answer composition over retrieved evidence (ADR 057)
+- [x] Answer UI with source-supported vs general-reasoning distinction
 - [x] Source-page deep links from SirisHydro results, sharing the Standards Library's page viewer
+- [x] Persistent query history — question, evidence citations, synthesized answer (ADR 059)
 - [ ] Conversation/session context
 - [ ] Optional vector/embedding reranking while retaining deterministic lexical fallback
 

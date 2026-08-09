@@ -159,6 +159,8 @@ Current behavior:
 
 When a directly-connected Ollama server is configured (`OLLAMA_URL` + `SIRISOS_OLLAMA_CHAT_MODEL`), SirisHydro also returns a `synthesized_answer`: a grounded, cited answer generated from the same evidence packet and non-invention rule the context packet already exposed. The local standard remains the source of truth — synthesis is fail-open, so an unconfigured or unreachable Ollama server leaves the evidence-only experience unchanged, and the model is never allowed to answer beyond what the retrieved evidence supports. ADRs 033–035, 038 and 057.
 
+Every question is now recorded to a persistent history — question, evidence citations, synthesized answer — reachable from a "Past questions" sheet on the SirisHydro screen, with re-ask and delete actions. This is the first concrete step toward SirisHydro as an agent with memory, not yet conversational context: history isn't (yet) read back into future answers. ADR 059.
+
 Planned Engineering follow-ons:
 
 - Optional local vector/embedding recall stage while preserving deterministic lexical fallback and page provenance
