@@ -320,7 +320,8 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] ADR 046 optional Ollama semantic search
 - [x] ADR 047 contextual Knowledge cross-links
 - [x] ADR 048 typed Knowledge context and API entrypoint
-- [ ] Flutter UI for the local Knowledge Graph (backend graph API and contract exist per ADR 043; no view renders it yet)
+- [x] Flutter UI for the local Knowledge Graph
+- [x] ADR 054 Knowledge Graph UI
 - [ ] Cross-link Tasks, Calendar and Briefings once those modules have authoritative object models
 
 ## Sprint 0.6 — Projects and Context Graph 🚧 In progress

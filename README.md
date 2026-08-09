@@ -221,12 +221,12 @@ Current foundation:
 - Mission Control Knowledge widget
 - Optional `SIRISOS_OBSIDIAN_URL` launcher for a self-hosted Obsidian/Selkies front end, registered as a Knowledge connector in the Integration Framework
 - Contextual cross-links surfacing Knowledge notes from the Engineering and Homelab modules via explicit `siris:` frontmatter/tag relationships
+- A Knowledge Graph view centered on the open note, reachable from the note viewer, sharing the same radial visualization pattern as the Project Context Graph
 
-ADRs 040–043 and 045–048 define the vault, relationship-resolution, global search, Obsidian launch, semantic search and typed context boundaries.
+ADRs 040–043, 045–048 and 054 define the vault, relationship-resolution, global search, Obsidian launch, semantic search, typed context and graph UI boundaries.
 
 Planned Knowledge follow-ons:
 
-- Flutter UI for the local Knowledge Graph (backend graph API and contract already exist per ADR 043; no view renders it yet)
 - Cross-links into Tasks, Calendar and Briefings once those modules have authoritative object models
 
 ## Sprint 0.6 — Projects and Context Graph 🚧 in progress
