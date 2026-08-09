@@ -44,6 +44,8 @@ services:
       PLEX_URL: ${PLEX_URL:-}
       PLEX_TOKEN: ${PLEX_TOKEN:-}
       OLLAMA_URL: ${OLLAMA_URL:-}
+      SIRISOS_OLLAMA_CHAT_MODEL: ${SIRISOS_OLLAMA_CHAT_MODEL:-}
+      SIRISOS_OLLAMA_CHAT_TIMEOUT_SECONDS: ${SIRISOS_OLLAMA_CHAT_TIMEOUT_SECONDS:-30}
       SIRISOS_KNOWLEDGE_EMBEDDING_MODEL: ${SIRISOS_KNOWLEDGE_EMBEDDING_MODEL:-}
       SIRISOS_KNOWLEDGE_SEMANTIC_TIMEOUT_SECONDS: ${SIRISOS_KNOWLEDGE_SEMANTIC_TIMEOUT_SECONDS:-20}
       SIRISOS_KNOWLEDGE_SEMANTIC_MAX_NOTES: ${SIRISOS_KNOWLEDGE_SEMANTIC_MAX_NOTES:-500}
@@ -63,6 +65,7 @@ services:
       - "6464:6464"
     volumes:
       - ./data/logs:/app/logs
+      - ./data/app:/app/data
       - ./data/standards:/app/data/standards
       - ${SIRISOS_KNOWLEDGE_HOST_PATH:-./data/knowledge}:/app/data/knowledge:ro
     depends_on:
