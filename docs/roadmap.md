@@ -198,12 +198,12 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Pump hydraulic/input power estimate
 - [x] Buried-pipe buoyancy screening helper
 - [x] Constant-flow detention screening helper
+- [x] Minor-loss (K-value) fitting/valve/bend headloss, entered K coefficients rather than a hidden fitting catalogue
 - [x] Input validation and numerical regression tests
 - [x] Engineering navigation and Quick Action
 - [x] ADR 032
 - [ ] Traceable standards/authority assumption profiles per calculator
 - [ ] Save/share calculation records into future project context
-- [ ] Minor-loss/K-value and fitting-loss calculator
 - [ ] Multi-stage detention routing / stage-storage-discharge helper
 - [ ] Pit/inlet capture and gutter-flow helpers once authority assumptions are profile-driven
 

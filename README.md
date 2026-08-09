@@ -106,6 +106,7 @@ The calculator surface now uses a mobile-friendly category/selector model rather
 - Circular orifice discharge
 - Hazen–Williams pressure-pipe headloss
 - Darcy–Weisbach headloss with Reynolds number and friction factor
+- Minor-loss (K-value) fitting/valve/bend headloss from an entered sum of K coefficients
 - Pump hydraulic/input power estimate
 - Buried-pipe buoyancy screening
 - Constant-flow detention storage screening
