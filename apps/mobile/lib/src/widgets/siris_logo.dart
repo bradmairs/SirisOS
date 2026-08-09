@@ -2,6 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+/// SirisOS hero branding.
+///
+/// Drawn in Flutter rather than relying on a cropped raster asset so the
+/// angular, beveled Siris S remains crisp at every screen size.
 class SirisLogo extends StatefulWidget {
   const SirisLogo({this.size = 56, this.showWordmark = true, super.key});
 
@@ -14,8 +18,6 @@ class SirisLogo extends StatefulWidget {
 
 class _SirisLogoState extends State<SirisLogo>
     with SingleTickerProviderStateMixin {
-  static const _assetPath = 'assets/branding/siris_logo_red.webp';
-
   late final AnimationController _controller;
 
   @override
@@ -23,7 +25,7 @@ class _SirisLogoState extends State<SirisLogo>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 7),
     )..repeat();
   }
 
@@ -35,350 +37,225 @@ class _SirisLogoState extends State<SirisLogo>
 
   @override
   Widget build(BuildContext context) {
-    final markWidth = widget.showWordmark ? widget.size * 2.05 : widget.size;
-    final markHeight = markWidth * 1.04;
+    final width = widget.showWordmark ? widget.size * 2.25 : widget.size;
 
-    final mark = RepaintBoundary(
-      child: SizedBox(
-        width: markWidth,
-        height: markHeight,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final progress = _controller.value;
-            final breathingScale =
-                1 + 0.012 * math.sin(progress * math.pi * 2);
-
-            return Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
+    return Semantics(
+      label: 'SirisOS',
+      image: true,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final pulse = 0.5 + 0.5 * math.sin(_controller.value * math.pi * 2);
+          return SizedBox(
+            width: width,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Positioned.fill(
+                SizedBox(
+                  width: width,
+                  height: width * 1.10,
                   child: CustomPaint(
-                    painter: _LogoAtmospherePainter(progress: progress),
-                  ),
-                ),
-                Transform.scale(
-                  scale: breathingScale,
-                  child: ClipRect(
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: markWidth,
-                        height: markWidth * (667 / 468),
-                        child: Image.asset(
-                          _assetPath,
-                          alignment: Alignment.topCenter,
-                          fit: BoxFit.fill,
-                          filterQuality: FilterQuality.high,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _FallbackMark(size: markWidth),
-                        ),
-                      ),
+                    painter: _SirisHeroPainter(
+                      progress: _controller.value,
+                      pulse: pulse,
                     ),
                   ),
                 ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _LogoHighlightPainter(progress: progress),
-                    ),
-                  ),
-                ),
+                if (widget.showWordmark) ...[
+                  SizedBox(height: widget.size * 0.04),
+                  _SirisOsWordmark(baseSize: widget.size),
+                ],
               ],
-            );
-          },
-        ),
-      ),
-    );
-
-    if (!widget.showWordmark) return mark;
-
-    return SizedBox(
-      width: markWidth * 1.08,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          mark,
-          SizedBox(height: widget.size * 0.10),
-          _SirisWordmark(baseSize: widget.size),
-          SizedBox(height: widget.size * 0.10),
-          _OsWordmark(baseSize: widget.size),
-        ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _SirisWordmark extends StatelessWidget {
-  const _SirisWordmark({required this.baseSize});
+class _SirisHeroPainter extends CustomPainter {
+  const _SirisHeroPainter({required this.progress, required this.pulse});
 
-  final double baseSize;
+  final double progress;
+  final double pulse;
+
+  Path _sPath(Size s) {
+    final w = s.width;
+    final h = s.height;
+    return Path()
+      ..moveTo(w * .73, h * .18)
+      ..lineTo(w * .43, h * .18)
+      ..cubicTo(w * .27, h * .18, w * .19, h * .25, w * .19, h * .34)
+      ..cubicTo(w * .19, h * .42, w * .27, h * .46, w * .40, h * .50)
+      ..lineTo(w * .57, h * .56)
+      ..cubicTo(w * .66, h * .59, w * .70, h * .64, w * .70, h * .70)
+      ..cubicTo(w * .70, h * .78, w * .62, h * .82, w * .49, h * .82)
+      ..lineTo(w * .22, h * .82)
+      ..lineTo(w * .32, h * .72)
+      ..lineTo(w * .50, h * .72)
+      ..cubicTo(w * .55, h * .72, w * .58, h * .70, w * .58, h * .67)
+      ..cubicTo(w * .58, h * .64, w * .55, h * .62, w * .49, h * .60)
+      ..lineTo(w * .31, h * .54)
+      ..cubicTo(w * .14, h * .48, w * .08, h * .40, w * .08, h * .31)
+      ..cubicTo(w * .08, h * .16, w * .23, h * .08, w * .43, h * .08)
+      ..lineTo(w * .83, h * .08)
+      ..close();
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final fontSize = math.max(16.0, baseSize * 0.43);
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+  void paint(Canvas canvas, Size size) {
+    final centre = Offset(size.width * .5, size.height * .47);
+    final ringRadius = size.width * .46;
+
+    final aura = Paint()
+      ..shader = RadialGradient(
         colors: [
-          Color(0xFFFFFFFF),
-          Color(0xFFF2F2F3),
-          Color(0xFF92949A),
-          Color(0xFFF3F3F4),
+          const Color(0xFFFF1027).withValues(alpha: .17 + .08 * pulse),
+          const Color(0xFF6F000A).withValues(alpha: .08),
+          Colors.transparent,
         ],
-        stops: [0, 0.28, 0.68, 1],
-      ).createShader(bounds),
-      child: Text(
-        'SIRIS',
-        maxLines: 1,
+      ).createShader(Rect.fromCircle(center: centre, radius: ringRadius * 1.18));
+    canvas.drawCircle(centre, ringRadius * 1.16, aura);
+
+    final ringGlow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * .018
+      ..color = const Color(0xFFFF1D32).withValues(alpha: .24 + .12 * pulse)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .025);
+    canvas.drawCircle(centre, ringRadius, ringGlow);
+
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * .006
+      ..color = const Color(0xFFFF3141).withValues(alpha: .90);
+    canvas.drawCircle(centre, ringRadius, ring);
+
+    final sPath = _sPath(size);
+    canvas.drawPath(
+      sPath,
+      Paint()
+        ..color = const Color(0xFFFF1027).withValues(alpha: .40)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .035),
+    );
+
+    final bounds = sPath.getBounds();
+    final fill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFFF4A58),
+          Color(0xFFFF1027),
+          Color(0xFFB50012),
+          Color(0xFF6D0008),
+        ],
+        stops: [0, .28, .67, 1],
+      ).createShader(bounds);
+    canvas.drawPath(sPath, fill);
+
+    canvas.drawPath(
+      sPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * .007
+        ..color = const Color(0xFFFF6975),
+    );
+
+    final lowerShade = Path()
+      ..moveTo(size.width * .22, size.height * .82)
+      ..lineTo(size.width * .49, size.height * .82)
+      ..cubicTo(size.width * .62, size.height * .82, size.width * .70, size.height * .78, size.width * .70, size.height * .70)
+      ..lineTo(size.width * .58, size.height * .67)
+      ..cubicTo(size.width * .58, size.height * .70, size.width * .55, size.height * .72, size.width * .50, size.height * .72)
+      ..lineTo(size.width * .32, size.height * .72)
+      ..close();
+    canvas.drawPath(
+      lowerShade,
+      Paint()..color = const Color(0xFF720008).withValues(alpha: .55),
+    );
+
+    final separatorY = size.height * .87;
+    final separator = Rect.fromLTWH(
+      size.width * .20,
+      separatorY,
+      size.width * .60,
+      size.width * .008,
+    );
+    canvas.drawRect(
+      separator.inflate(size.width * .018),
+      Paint()
+        ..color = const Color(0xFFFF1027).withValues(alpha: .38)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .022),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(separator, const Radius.circular(20)),
+      Paint()..color = const Color(0xFFFF4050),
+    );
+
+    final osPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      text: TextSpan(
+        text: 'OS',
         style: TextStyle(
-          color: Colors.white,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w800,
-          letterSpacing: baseSize * 0.14,
-          height: 1,
+          fontSize: size.width * .19,
+          fontWeight: FontWeight.w700,
+          letterSpacing: size.width * .025,
+          foreground: Paint()
+            ..shader = const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFFFFF), Color(0xFFBFC1C6), Color(0xFF5E6065), Color(0xFFE6E6E8)],
+              stops: [0, .32, .70, 1],
+            ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
           shadows: const [
-            Shadow(color: Color(0xAAFF1D31), blurRadius: 5),
-            Shadow(color: Color(0xFF000000), blurRadius: 10, offset: Offset(0, 3)),
+            Shadow(color: Color(0xCC000000), blurRadius: 8, offset: Offset(0, 4)),
           ],
         ),
       ),
+    )..layout();
+    osPainter.paint(
+      canvas,
+      Offset((size.width - osPainter.width) / 2, size.height * .895),
     );
+
+    final sparklePaint = Paint()..color = const Color(0xFFFF2638);
+    for (var i = 0; i < 20; i++) {
+      final angle = progress * math.pi * 2 + i * .91;
+      final radius = ringRadius * (.92 + .08 * math.sin(i * 1.7));
+      final p = centre + Offset(math.cos(angle), math.sin(angle)) * radius;
+      sparklePaint.color = const Color(0xFFFF2638).withValues(
+        alpha: .12 + .38 * (0.5 + 0.5 * math.sin(angle * 2.3)),
+      );
+      canvas.drawCircle(p, size.width * .004, sparklePaint);
+    }
   }
+
+  @override
+  bool shouldRepaint(covariant _SirisHeroPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.pulse != pulse;
 }
 
-class _OsWordmark extends StatelessWidget {
-  const _OsWordmark({required this.baseSize});
+class _SirisOsWordmark extends StatelessWidget {
+  const _SirisOsWordmark({required this.baseSize});
 
   final double baseSize;
 
   @override
-  Widget build(BuildContext context) {
-    final fontSize = math.max(13.0, baseSize * 0.31);
-    return Row(
-      children: [
-        const Expanded(child: _WordmarkLine(reverse: false)),
-        SizedBox(width: baseSize * 0.14),
-        Text(
-          'OS',
+  Widget build(BuildContext context) => RichText(
+        text: TextSpan(
           style: TextStyle(
-            color: const Color(0xFFFF283A),
-            fontSize: fontSize,
+            fontSize: math.max(14.0, baseSize * .30),
             fontWeight: FontWeight.w700,
-            letterSpacing: baseSize * 0.12,
-            height: 1,
+            letterSpacing: baseSize * .13,
             shadows: const [
-              Shadow(color: Color(0xFFFF1027), blurRadius: 12),
-              Shadow(color: Color(0xFF000000), blurRadius: 8, offset: Offset(0, 2)),
+              Shadow(color: Color(0x66000000), blurRadius: 5, offset: Offset(0, 2)),
             ],
           ),
-        ),
-        SizedBox(width: baseSize * 0.14),
-        const Expanded(child: _WordmarkLine(reverse: true)),
-      ],
-    );
-  }
-}
-
-class _WordmarkLine extends StatelessWidget {
-  const _WordmarkLine({required this.reverse});
-
-  final bool reverse;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = reverse
-        ? const [Color(0xFFFF2638), Colors.transparent]
-        : const [Colors.transparent, Color(0xFFFF2638)];
-    return Container(
-      height: 2,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
-        boxShadow: const [
-          BoxShadow(color: Color(0xCCFF182D), blurRadius: 7),
-        ],
-      ),
-    );
-  }
-}
-
-class _FallbackMark extends StatelessWidget {
-  const _FallbackMark({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Text(
-          'S',
-          style: TextStyle(
-            color: const Color(0xFFFF2638),
-            fontSize: size * 0.72,
-            fontWeight: FontWeight.w900,
-            fontStyle: FontStyle.italic,
-            height: 1,
-            shadows: const [
-              Shadow(color: Color(0xFFFF1027), blurRadius: 20),
-            ],
-          ),
+          children: const [
+            TextSpan(text: 'SIRIS', style: TextStyle(color: Color(0xFFE3E3E6))),
+            TextSpan(text: 'OS', style: TextStyle(color: Color(0xFFFF2638))),
+          ],
         ),
       );
-}
-
-class _LogoAtmospherePainter extends CustomPainter {
-  const _LogoAtmospherePainter({required this.progress});
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centre = Offset(size.width * 0.5, size.height * 0.48);
-    final pulse = 0.5 + 0.5 * math.sin(progress * math.pi * 2);
-
-    final glow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFFFF142B).withValues(alpha: 0.20 + 0.10 * pulse),
-          const Color(0xFF79030B).withValues(alpha: 0.10),
-          Colors.transparent,
-        ],
-        stops: const [0, 0.55, 1],
-      ).createShader(
-        Rect.fromCircle(center: centre, radius: size.width * 0.62),
-      )
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * 0.08);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: centre,
-        width: size.width * 1.12,
-        height: size.height * 0.94,
-      ),
-      glow,
-    );
-
-    final particlePaint = Paint()..blendMode = BlendMode.screen;
-    for (var index = 0; index < 16; index++) {
-      final phase = progress * math.pi * 2 + index * 1.37;
-      final upperCluster = index.isEven;
-      final anchor = upperCluster
-          ? Offset(size.width * 0.80, size.height * 0.15)
-          : Offset(size.width * 0.19, size.height * 0.82);
-      final radius = size.width * (0.035 + (index % 5) * 0.012);
-      final point = Offset(
-        anchor.dx + math.cos(phase * 1.15) * radius,
-        anchor.dy + math.sin(phase * 0.86) * radius * 0.72,
-      );
-      final particlePulse =
-          0.25 + 0.75 * (0.5 + 0.5 * math.sin(phase * 2.1));
-      particlePaint
-        ..color = const Color(0xFFFF2638).withValues(alpha: particlePulse)
-        ..maskFilter = MaskFilter.blur(
-          BlurStyle.normal,
-          size.width * (0.004 + particlePulse * 0.005),
-        );
-      canvas.drawCircle(
-        point,
-        size.width * (0.0035 + particlePulse * 0.004),
-        particlePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _LogoAtmospherePainter oldDelegate) =>
-      oldDelegate.progress != progress;
-}
-
-class _LogoHighlightPainter extends CustomPainter {
-  const _LogoHighlightPainter({required this.progress});
-
-  final double progress;
-
-  Path _highlightPath(Size size) => Path()
-    ..moveTo(size.width * 0.79, size.height * 0.08)
-    ..cubicTo(
-      size.width * 0.58,
-      size.height * 0.04,
-      size.width * 0.26,
-      size.height * 0.12,
-      size.width * 0.16,
-      size.height * 0.31,
-    )
-    ..cubicTo(
-      size.width * 0.08,
-      size.height * 0.47,
-      size.width * 0.31,
-      size.height * 0.55,
-      size.width * 0.59,
-      size.height * 0.60,
-    )
-    ..cubicTo(
-      size.width * 0.82,
-      size.height * 0.65,
-      size.width * 0.78,
-      size.height * 0.80,
-      size.width * 0.55,
-      size.height * 0.90,
-    )
-    ..cubicTo(
-      size.width * 0.39,
-      size.height * 0.97,
-      size.width * 0.20,
-      size.height * 0.91,
-      size.width * 0.12,
-      size.height * 0.83,
-    );
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = _highlightPath(size);
-    final metrics = path.computeMetrics().toList(growable: false);
-    if (metrics.isEmpty) return;
-
-    final metric = metrics.first;
-    final segmentLength = metric.length * 0.12;
-    final start = (progress * metric.length) % metric.length;
-    final end = start + segmentLength;
-    final segment = Path();
-
-    if (end <= metric.length) {
-      segment.addPath(metric.extractPath(start, end), Offset.zero);
-    } else {
-      segment.addPath(metric.extractPath(start, metric.length), Offset.zero);
-      segment.addPath(metric.extractPath(0, end - metric.length), Offset.zero);
-    }
-
-    final glow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = size.width * 0.048
-      ..color = const Color(0xFFFFE8EA).withValues(alpha: 0.34)
-      ..blendMode = BlendMode.screen
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * 0.030);
-    canvas.drawPath(segment, glow);
-
-    final shine = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = size.width * 0.009
-      ..color = Colors.white.withValues(alpha: 0.88)
-      ..blendMode = BlendMode.screen;
-    canvas.drawPath(segment, shine);
-
-    final tangent = metric.getTangentForOffset(start);
-    if (tangent != null) {
-      final flareGlow = Paint()
-        ..color = const Color(0xFFFFEEF0).withValues(alpha: 0.72)
-        ..blendMode = BlendMode.screen
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * 0.025);
-      canvas.drawCircle(tangent.position, size.width * 0.017, flareGlow);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _LogoHighlightPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }
