@@ -2,10 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// SirisOS hero branding.
-///
-/// Drawn in Flutter rather than relying on a cropped raster asset so the
-/// angular, beveled Siris S remains crisp at every screen size.
+/// SirisOS hero branding matching the approved red angular S / silver OS lockup.
 class SirisLogo extends StatefulWidget {
   const SirisLogo({this.size = 56, this.showWordmark = true, super.key});
 
@@ -23,10 +20,7 @@ class _SirisLogoState extends State<SirisLogo>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 7),
-    )..repeat();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
   }
 
   @override
@@ -38,14 +32,13 @@ class _SirisLogoState extends State<SirisLogo>
   @override
   Widget build(BuildContext context) {
     final width = widget.showWordmark ? widget.size * 2.25 : widget.size;
-
     return Semantics(
       label: 'SirisOS',
       image: true,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
-          final pulse = 0.5 + 0.5 * math.sin(_controller.value * math.pi * 2);
+          final pulse = .5 + .5 * math.sin(_controller.value * math.pi * 2);
           return SizedBox(
             width: width,
             child: Column(
@@ -53,17 +46,14 @@ class _SirisLogoState extends State<SirisLogo>
               children: [
                 SizedBox(
                   width: width,
-                  height: width * 1.10,
+                  height: width * .94,
                   child: CustomPaint(
-                    painter: _SirisHeroPainter(
-                      progress: _controller.value,
-                      pulse: pulse,
-                    ),
+                    painter: _HeroPainter(progress: _controller.value, pulse: pulse),
                   ),
                 ),
                 if (widget.showWordmark) ...[
-                  SizedBox(height: widget.size * 0.04),
-                  _SirisOsWordmark(baseSize: widget.size),
+                  SizedBox(height: widget.size * .12),
+                  _Wordmark(baseSize: widget.size),
                 ],
               ],
             ),
@@ -74,188 +64,170 @@ class _SirisLogoState extends State<SirisLogo>
   }
 }
 
-class _SirisHeroPainter extends CustomPainter {
-  const _SirisHeroPainter({required this.progress, required this.pulse});
-
+class _HeroPainter extends CustomPainter {
+  const _HeroPainter({required this.progress, required this.pulse});
   final double progress;
   final double pulse;
 
   Path _sPath(Size s) {
-    final w = s.width;
-    final h = s.height;
+    final w = s.width, h = s.height;
+    // Deliberately angular double-ribbon S: broad horizontal caps and a sharp
+    // centre crossover, matching the approved SirisOS artwork rather than a
+    // conventional rounded letter S.
     return Path()
-      ..moveTo(w * .73, h * .18)
-      ..lineTo(w * .43, h * .18)
-      ..cubicTo(w * .27, h * .18, w * .19, h * .25, w * .19, h * .34)
-      ..cubicTo(w * .19, h * .42, w * .27, h * .46, w * .40, h * .50)
-      ..lineTo(w * .57, h * .56)
-      ..cubicTo(w * .66, h * .59, w * .70, h * .64, w * .70, h * .70)
-      ..cubicTo(w * .70, h * .78, w * .62, h * .82, w * .49, h * .82)
-      ..lineTo(w * .22, h * .82)
-      ..lineTo(w * .32, h * .72)
-      ..lineTo(w * .50, h * .72)
-      ..cubicTo(w * .55, h * .72, w * .58, h * .70, w * .58, h * .67)
-      ..cubicTo(w * .58, h * .64, w * .55, h * .62, w * .49, h * .60)
-      ..lineTo(w * .31, h * .54)
-      ..cubicTo(w * .14, h * .48, w * .08, h * .40, w * .08, h * .31)
-      ..cubicTo(w * .08, h * .16, w * .23, h * .08, w * .43, h * .08)
-      ..lineTo(w * .83, h * .08)
+      ..moveTo(w * .80, h * .16)
+      ..lineTo(w * .43, h * .16)
+      ..cubicTo(w * .27, h * .16, w * .18, h * .23, w * .18, h * .34)
+      ..cubicTo(w * .18, h * .43, w * .25, h * .48, w * .39, h * .53)
+      ..lineTo(w * .58, h * .60)
+      ..cubicTo(w * .65, h * .63, w * .68, h * .67, w * .68, h * .72)
+      ..cubicTo(w * .68, h * .80, w * .60, h * .84, w * .47, h * .84)
+      ..lineTo(w * .20, h * .84)
+      ..lineTo(w * .31, h * .73)
+      ..lineTo(w * .49, h * .73)
+      ..cubicTo(w * .54, h * .73, w * .56, h * .71, w * .56, h * .68)
+      ..cubicTo(w * .56, h * .65, w * .53, h * .63, w * .47, h * .61)
+      ..lineTo(w * .30, h * .55)
+      ..cubicTo(w * .13, h * .49, w * .07, h * .41, w * .07, h * .31)
+      ..cubicTo(w * .07, h * .15, w * .23, h * .06, w * .43, h * .06)
+      ..lineTo(w * .91, h * .06)
       ..close();
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centre = Offset(size.width * .5, size.height * .47);
-    final ringRadius = size.width * .46;
+    // Keep the ring behind the S only. Reserve the lower 20% for separator+OS.
+    final centre = Offset(size.width * .5, size.height * .40);
+    final ringRadius = size.width * .405;
 
     final aura = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFFFF1027).withValues(alpha: .17 + .08 * pulse),
-          const Color(0xFF6F000A).withValues(alpha: .08),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(center: centre, radius: ringRadius * 1.18));
-    canvas.drawCircle(centre, ringRadius * 1.16, aura);
+      ..shader = RadialGradient(colors: [
+        const Color(0xFFFF1027).withValues(alpha: .16 + .07 * pulse),
+        const Color(0xFF700008).withValues(alpha: .07),
+        Colors.transparent,
+      ], stops: const [0, .58, 1]).createShader(
+        Rect.fromCircle(center: centre, radius: ringRadius * 1.25),
+      );
+    canvas.drawCircle(centre, ringRadius * 1.18, aura);
 
-    final ringGlow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * .018
-      ..color = const Color(0xFFFF1D32).withValues(alpha: .24 + .12 * pulse)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .025);
-    canvas.drawCircle(centre, ringRadius, ringGlow);
-
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * .006
-      ..color = const Color(0xFFFF3141).withValues(alpha: .90);
-    canvas.drawCircle(centre, ringRadius, ring);
-
-    final sPath = _sPath(size);
-    canvas.drawPath(
-      sPath,
-      Paint()
-        ..color = const Color(0xFFFF1027).withValues(alpha: .40)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .035),
-    );
-
-    final bounds = sPath.getBounds();
-    final fill = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFFF4A58),
-          Color(0xFFFF1027),
-          Color(0xFFB50012),
-          Color(0xFF6D0008),
-        ],
-        stops: [0, .28, .67, 1],
-      ).createShader(bounds);
-    canvas.drawPath(sPath, fill);
-
-    canvas.drawPath(
-      sPath,
+    canvas.drawCircle(
+      centre,
+      ringRadius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * .007
-        ..color = const Color(0xFFFF6975),
-    );
-
-    final lowerShade = Path()
-      ..moveTo(size.width * .22, size.height * .82)
-      ..lineTo(size.width * .49, size.height * .82)
-      ..cubicTo(size.width * .62, size.height * .82, size.width * .70, size.height * .78, size.width * .70, size.height * .70)
-      ..lineTo(size.width * .58, size.height * .67)
-      ..cubicTo(size.width * .58, size.height * .70, size.width * .55, size.height * .72, size.width * .50, size.height * .72)
-      ..lineTo(size.width * .32, size.height * .72)
-      ..close();
-    canvas.drawPath(
-      lowerShade,
-      Paint()..color = const Color(0xFF720008).withValues(alpha: .55),
-    );
-
-    final separatorY = size.height * .87;
-    final separator = Rect.fromLTWH(
-      size.width * .20,
-      separatorY,
-      size.width * .60,
-      size.width * .008,
-    );
-    canvas.drawRect(
-      separator.inflate(size.width * .018),
-      Paint()
-        ..color = const Color(0xFFFF1027).withValues(alpha: .38)
+        ..strokeWidth = size.width * .020
+        ..color = const Color(0xFFFF172C).withValues(alpha: .25 + .10 * pulse)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .022),
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(separator, const Radius.circular(20)),
-      Paint()..color = const Color(0xFFFF4050),
+    canvas.drawCircle(
+      centre,
+      ringRadius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * .006
+        ..color = const Color(0xFFFF3445).withValues(alpha: .92),
     );
 
-    final osPainter = TextPainter(
+    // Draw the S in a clipped upper region so it never collides with OS.
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height * .76));
+    final path = _sPath(Size(size.width, size.height * .76));
+    final bounds = path.getBounds();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFFFF1027).withValues(alpha: .38)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .032),
+    );
+    canvas.drawPath(
+      path,
+      Paint()..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFF5260), Color(0xFFFF132A), Color(0xFFC40016), Color(0xFF690008)],
+        stops: [0, .27, .68, 1],
+      ).createShader(bounds),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * .006
+        ..color = const Color(0xFFFF7380),
+    );
+    canvas.restore();
+
+    // Separator is visually isolated from both S and OS.
+    final sepY = size.height * .755;
+    final sepRect = Rect.fromLTWH(size.width * .20, sepY, size.width * .60, size.width * .008);
+    canvas.drawRect(
+      sepRect.inflate(size.width * .020),
+      Paint()
+        ..color = const Color(0xFFFF1027).withValues(alpha: .35)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .020),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(sepRect, const Radius.circular(20)),
+      Paint()..color = const Color(0xFFFF4656),
+    );
+
+    final os = TextPainter(
       textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
       text: TextSpan(
         text: 'OS',
         style: TextStyle(
-          fontSize: size.width * .19,
-          fontWeight: FontWeight.w700,
-          letterSpacing: size.width * .025,
-          foreground: Paint()
-            ..shader = const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFBFC1C6), Color(0xFF5E6065), Color(0xFFE6E6E8)],
-              stops: [0, .32, .70, 1],
-            ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
-          shadows: const [
-            Shadow(color: Color(0xCC000000), blurRadius: 8, offset: Offset(0, 4)),
-          ],
+          fontSize: size.width * .185,
+          fontWeight: FontWeight.w800,
+          letterSpacing: size.width * .020,
+          foreground: Paint()..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFFFF), Color(0xFFE9E9EB), Color(0xFF85878D), Color(0xFFF1F1F2)],
+            stops: [0, .32, .72, 1],
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+          shadows: const [Shadow(color: Color(0xDD000000), blurRadius: 7, offset: Offset(0, 3))],
         ),
       ),
     )..layout();
-    osPainter.paint(
-      canvas,
-      Offset((size.width - osPainter.width) / 2, size.height * .895),
-    );
+    os.paint(canvas, Offset((size.width - os.width) / 2, size.height * .785));
 
-    final sparklePaint = Paint()..color = const Color(0xFFFF2638);
-    for (var i = 0; i < 20; i++) {
-      final angle = progress * math.pi * 2 + i * .91;
-      final radius = ringRadius * (.92 + .08 * math.sin(i * 1.7));
-      final p = centre + Offset(math.cos(angle), math.sin(angle)) * radius;
-      sparklePaint.color = const Color(0xFFFF2638).withValues(
-        alpha: .12 + .38 * (0.5 + 0.5 * math.sin(angle * 2.3)),
-      );
-      canvas.drawCircle(p, size.width * .004, sparklePaint);
+    // Sparse particles remain outside the main silhouette.
+    final sparkle = Paint();
+    for (var i = 0; i < 16; i++) {
+      final a = progress * math.pi * 2 + i * 1.31;
+      final r = ringRadius * (.97 + .06 * math.sin(i * 1.9));
+      final p = centre + Offset(math.cos(a), math.sin(a)) * r;
+      sparkle
+        ..color = const Color(0xFFFF2638).withValues(alpha: .10 + .32 * (.5 + .5 * math.sin(a * 2.2)))
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .003);
+      canvas.drawCircle(p, size.width * .0035, sparkle);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _SirisHeroPainter oldDelegate) =>
+  bool shouldRepaint(covariant _HeroPainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.pulse != pulse;
 }
 
-class _SirisOsWordmark extends StatelessWidget {
-  const _SirisOsWordmark({required this.baseSize});
-
+class _Wordmark extends StatelessWidget {
+  const _Wordmark({required this.baseSize});
   final double baseSize;
 
   @override
   Widget build(BuildContext context) => RichText(
-        text: TextSpan(
-          style: TextStyle(
-            fontSize: math.max(14.0, baseSize * .30),
-            fontWeight: FontWeight.w700,
-            letterSpacing: baseSize * .13,
-            shadows: const [
-              Shadow(color: Color(0x66000000), blurRadius: 5, offset: Offset(0, 2)),
-            ],
-          ),
-          children: const [
-            TextSpan(text: 'SIRIS', style: TextStyle(color: Color(0xFFE3E3E6))),
-            TextSpan(text: 'OS', style: TextStyle(color: Color(0xFFFF2638))),
-          ],
-        ),
-      );
+    textAlign: TextAlign.center,
+    text: TextSpan(
+      style: TextStyle(
+        fontSize: math.max(14, baseSize * .30),
+        fontWeight: FontWeight.w700,
+        letterSpacing: baseSize * .13,
+        height: 1,
+      ),
+      children: const [
+        TextSpan(text: 'SIRIS', style: TextStyle(color: Color(0xFFE4E4E7))),
+        TextSpan(text: 'OS', style: TextStyle(color: Color(0xFFFF2638))),
+      ],
+    ),
+  );
 }
