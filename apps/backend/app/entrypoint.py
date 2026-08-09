@@ -1,6 +1,7 @@
 from app.main import app
 
 from app.api.activity import router as activity_router
+from app.api.engineering_calculations import router as engineering_calculations_router
 from app.api.health import router as health_router
 from app.api.history import router as history_router
 from app.api.infrastructure import router as infrastructure_router
@@ -17,6 +18,7 @@ from app.api.synology import router as synology_router
 # CI can guard against silently shipping an unregistered API module.
 for router in (
     activity_router,
+    engineering_calculations_router,
     health_router,
     history_router,
     infrastructure_router,
