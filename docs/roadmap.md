@@ -316,12 +316,20 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [ ] AI semantic search
 - [ ] Cross-link Engineering, Homelab, Tasks, Calendar and Briefings
 
-## Sprint 0.6 — Projects and Context Graph
+## Sprint 0.6 — Projects and Context Graph 🚧 In progress
 
-- [ ] General project model
-- [ ] Relationships between notes, tasks, files, calculations, events, repositories and conversations
+- [x] General project model with stable UUID identities, kind and lifecycle status
+- [x] Typed Project ↔ Knowledge note relationships (`contains`/`references`)
+- [x] Explicit manually-selected current project context with SirisCore integration
+- [x] Bounded Project Context Graph projection and Flutter Projects → Graph view
+- [x] ADR 049 project model foundation
+- [x] ADR 050 project-knowledge relationship contract
+- [x] ADR 051 current project context
+- [x] ADR 052 project context graph projection
+- [ ] Relationships between tasks, files, calculations, events, repositories and conversations
 - [ ] Context containers for engineering, homelab, travel, fitness and personal projects
 - [ ] Siris Knowledge Graph semantic layer
+- [ ] Migrate project/relationship persistence from atomic JSON store to PostgreSQL behind the same API contract
 
 ## Sprint 0.7 — SirisAI, Intelligence and Automation
 

@@ -229,9 +229,25 @@ Planned Knowledge follow-ons:
 - Optional local semantic/vector search
 - Cross-links into Engineering, Homelab, Tasks, Calendar and Briefings
 
-## Sprint 0.6 — Projects and Context Graph
+## Sprint 0.6 — Projects and Context Graph 🚧 in progress
 
-Planned general project model plus relationships between notes, tasks, files, calculations, events, repositories and conversations. This is also where the richer Siris Knowledge Graph can grow above the Digital Twin.
+SirisOS now has a first-class Projects module.
+
+Current foundation:
+
+- Authenticated `/api/v1/projects` API with stable UUID project identities, kind (`engineering`, `homelab`, `travel`, `fitness`, `personal`, `other`) and lifecycle status (`active`, `paused`, `completed`, `archived`)
+- Atomic JSON persistence boundary, ready to migrate behind the same API contract later
+- Typed Project ↔ Knowledge note relationships (`contains`/`references`) with manual provenance, addressed by canonical vault-relative path
+- Explicit, manually-selected current project exposed through `GET/PUT /api/v1/projects/current`, contributing project context to SirisCore with `projects.manual_selection` provenance
+- Bounded `GET /api/v1/projects/{project_id}/graph` projection and a Flutter Projects → Graph view centered on the current project
+
+ADRs 049–052 define the project model, Knowledge relationship contract, current project context and graph projection.
+
+Planned Sprint 0.6 follow-ons:
+
+- Relationships to tasks, files, calculations, events, repositories and conversations
+- Context containers for engineering, homelab, travel, fitness and personal projects
+- Siris Knowledge Graph semantic layer above the Digital Twin
 
 ## Sprint 0.7 — SirisAI, Intelligence and Automation
 
