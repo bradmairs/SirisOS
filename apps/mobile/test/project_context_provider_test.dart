@@ -4,13 +4,13 @@ import 'package:siris_os/src/core/siris_context_service.dart';
 import 'package:siris_os/src/services/project_service.dart';
 
 void main() {
-  const base = ProjectRecord(
+  final base = ProjectRecord(
     id: 'project-1',
     name: 'Tank site drainage',
     description: 'Stormwater design',
     kind: 'engineering',
     status: 'active',
-    tags: ['stormwater'],
+    tags: const ['stormwater'],
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
   );
