@@ -352,7 +352,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] SirisHydro answer synthesis grounded in retrieved evidence, fail-open when Ollama is unavailable (ADR 057)
 - [ ] Shared model routing for SirisHydro, SirisPM, briefings and semantic search
 - [ ] Per-module model/profile selection and context budgets
-- [ ] Model availability monitoring
+- [x] Model availability monitoring (ADR 058)
 - [ ] Preserve deterministic outputs beneath optional LLM rewriting
 
 ### Hermes Agent / server runtime
