@@ -293,8 +293,8 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 
 ## Sprint 0.5.0 — Knowledge Platform 🚧 In progress
 
-- [ ] Obsidian/Selkies launch integration
-- [ ] Obsidian connector through Integration Framework
+- [x] Obsidian/Selkies launch integration
+- [x] Obsidian connector through Integration Framework
 - [x] First-class Knowledge module
 - [x] Read-only Obsidian-compatible Markdown vault mount
 - [x] Authenticated overview/search/note APIs
@@ -307,14 +307,21 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Clickable wikilink navigation in note viewer
 - [x] Backlink discovery and navigation
 - [x] Bounded per-request in-memory link index
+- [x] Global SirisOS search across vault content
+- [x] Mission Control Knowledge widget
+- [x] Context-aware related notes with explainable ranking
+- [x] Optional Ollama AI semantic search, blended transparently into ranking
+- [x] Cross-link Engineering and Homelab Knowledge context
 - [x] ADR 040 read-only Knowledge vault foundation
 - [x] ADR 041 knowledge relationship resolution
-- [ ] Global SirisOS search across vault content
-- [ ] Graph visualization
-- [ ] Mission Control Knowledge widget
-- [ ] Context-aware related notes
-- [ ] AI semantic search
-- [ ] Cross-link Engineering, Homelab, Tasks, Calendar and Briefings
+- [x] ADR 042 global search and Mission Control widget
+- [x] ADR 043 related notes and local graph contract
+- [x] ADR 045 Obsidian launch integration
+- [x] ADR 046 optional Ollama semantic search
+- [x] ADR 047 contextual Knowledge cross-links
+- [x] ADR 048 typed Knowledge context and API entrypoint
+- [ ] Flutter UI for the local Knowledge Graph (backend graph API and contract exist per ADR 043; no view renders it yet)
+- [ ] Cross-link Tasks, Calendar and Briefings once those modules have authoritative object models
 
 ## Sprint 0.6 — Projects and Context Graph 🚧 In progress
 
