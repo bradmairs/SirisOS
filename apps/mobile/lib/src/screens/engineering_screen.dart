@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/engineering_calculators.dart';
+import '../services/engineering_calculations_service.dart';
 
 enum _CalculatorId {
   fullPipe,
@@ -54,8 +55,11 @@ class EngineeringScreen extends StatefulWidget {
 class _EngineeringScreenState extends State<EngineeringScreen> {
   _CalculatorId _selected = _CalculatorId.fullPipe;
   final Map<String, TextEditingController> _controllers = {};
+  final Map<String, String> _currentFieldLabels = {};
   List<_EngineeringResult>? _results;
   String? _error;
+  final _calculationsService = EngineeringCalculationsService();
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -70,20 +74,25 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
 
   double _value(String key) => double.parse(_controllers[key]!.text.trim());
 
-  Widget _field(String key, String label, String unit, String initial) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(
-          controller: _controller(key, initial),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            labelText: label,
-            suffixText: unit.isEmpty ? null : unit,
-            border: const OutlineInputBorder(),
-          ),
+  Widget _field(String key, String label, String unit, String initial) {
+    _currentFieldLabels[key] = unit.isEmpty ? label : '$label ($unit)';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: _controller(key, initial),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: label,
+          suffixText: unit.isEmpty ? null : unit,
+          border: const OutlineInputBorder(),
         ),
-      );
+      ),
+    );
+  }
 
-  List<Widget> _fields() => switch (_selected) {
+  List<Widget> _fields() {
+    _currentFieldLabels.clear();
+    return switch (_selected) {
         _CalculatorId.fullPipe => [
             _field('fp_d', 'Internal diameter', 'm', '0.45'),
             _field('fp_n', 'Manning n', '', '0.013'),
@@ -163,6 +172,7 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
             _field('dt_t', 'Critical duration', 'min', '30'),
           ],
       };
+  }
 
   List<_EngineeringResult> _calculateValues() {
     switch (_selected) {
@@ -252,6 +262,43 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
         _error = 'Check the entered values, geometry and units.';
       }
     });
+  }
+
+  Future<void> _saveCalculation() async {
+    if (_saving || _results == null) return;
+    final info = _calculatorInfo[_selected]!;
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => _SaveCalculationDialog(defaultTitle: info.title),
+    );
+    if (title == null || title.trim().isEmpty || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      final inputs = <String, double>{
+        for (final entry in _currentFieldLabels.entries) entry.value: _value(entry.key),
+      };
+      final results = [
+        for (final result in _results!) CalculationResultItem(label: result.label, value: result.value),
+      ];
+      await _calculationsService.save(
+        calculatorId: _selected.name,
+        title: title.trim(),
+        inputs: inputs,
+        results: results,
+      );
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Calculation saved. Attach it to a project from Projects → Graph.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to save calculation: $error')),
+      );
+    }
   }
 
   @override
@@ -361,6 +408,20 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
                               ],
                             ),
                           ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            onPressed: _saving ? null : _saveCalculation,
+                            icon: _saving
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.save_outlined),
+                            label: Text(_saving ? 'Saving…' : 'Save calculation'),
+                          ),
+                        ),
                       ],
                     ],
                   ),
@@ -383,4 +444,42 @@ class _EngineeringResult {
   const _EngineeringResult(this.label, this.value);
   final String label;
   final String value;
+}
+
+class _SaveCalculationDialog extends StatefulWidget {
+  const _SaveCalculationDialog({required this.defaultTitle});
+  final String defaultTitle;
+
+  @override
+  State<_SaveCalculationDialog> createState() => _SaveCalculationDialogState();
+}
+
+class _SaveCalculationDialogState extends State<_SaveCalculationDialog> {
+  late final TextEditingController _title = TextEditingController(text: widget.defaultTitle);
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Save calculation'),
+      content: SizedBox(
+        width: 420,
+        child: TextField(
+          controller: _title,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, _title.text), child: const Text('Save')),
+      ],
+    );
+  }
 }

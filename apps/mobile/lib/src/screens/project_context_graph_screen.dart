@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/engineering_calculations_service.dart';
 import '../services/engineering_standards_service.dart';
+import '../services/project_calculation_relationships.dart';
 import '../services/project_engineering_standard_relationships.dart';
 import '../services/project_service.dart';
 
@@ -16,6 +18,7 @@ class ProjectContextGraphScreen extends StatefulWidget {
 class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
   final _service = ProjectService();
   final _standardsService = EngineeringStandardsService();
+  final _calculationsService = EngineeringCalculationsService();
   late Future<_ProjectGraphData> _data;
   bool _attaching = false;
 
@@ -61,6 +64,34 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
       setState(() => _attaching = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to attach standard: $error')),
+      );
+    }
+  }
+
+  Future<void> _attachCalculation(ProjectRecord project) async {
+    if (_attaching) return;
+    final calculation = await showDialog<SavedCalculation>(
+      context: context,
+      builder: (_) => _CalculationPickerDialog(service: _calculationsService),
+    );
+    if (calculation == null || !mounted) return;
+
+    setState(() => _attaching = true);
+    try {
+      await _service.attachCalculation(project.id, calculation.id);
+      if (!mounted) return;
+      setState(() {
+        _attaching = false;
+        _data = _load();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${calculation.title}" attached to this project.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _attaching = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to attach calculation: $error')),
       );
     }
   }
@@ -130,18 +161,31 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                     ),
               ),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.tonalIcon(
-                  onPressed: _attaching ? null : () => _attachStandard(project),
-                  icon: _attaching
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.library_books_rounded),
-                  label: Text(_attaching ? 'Attaching…' : 'Attach Engineering standard'),
-                ),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _attaching ? null : () => _attachStandard(project),
+                    icon: _attaching
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.library_books_rounded),
+                    label: Text(_attaching ? 'Attaching…' : 'Attach Engineering standard'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _attaching ? null : () => _attachCalculation(project),
+                    icon: _attaching
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.calculate_rounded),
+                    label: Text(_attaching ? 'Attaching…' : 'Attach calculation'),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
               Card(
@@ -152,7 +196,7 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: Text(
-                              'This project has no attached context yet. Attach Knowledge notes from Projects or add an Engineering standard here to grow the graph.',
+                              'This project has no attached context yet. Attach Knowledge notes from Projects, or an Engineering standard or calculation here, to grow the graph.',
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -177,6 +221,7 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
                   _LegendChip(icon: Icons.folder_rounded, label: 'Project'),
                   _LegendChip(icon: Icons.menu_book_rounded, label: 'Knowledge note'),
                   _LegendChip(icon: Icons.library_books_rounded, label: 'Engineering standard'),
+                  _LegendChip(icon: Icons.calculate_rounded, label: 'Calculation'),
                   _LegendChip(icon: Icons.inventory_2_outlined, label: 'Part of project'),
                   _LegendChip(icon: Icons.link_rounded, label: 'Reference'),
                 ],
@@ -219,6 +264,7 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
     final node = _targetNode(graph, targetId);
     if (node?.nodeType == 'engineering_standard') return Icons.library_books_rounded;
     if (node?.nodeType == 'knowledge_note') return Icons.menu_book_rounded;
+    if (node?.nodeType == 'calculation') return Icons.calculate_rounded;
     return kind == 'contains' ? Icons.inventory_2_outlined : Icons.link_rounded;
   }
 }
@@ -310,6 +356,97 @@ class _StandardPickerDialogState extends State<_StandardPickerDialog> {
                           '${document.authority} · exact document revision ${document.revision}',
                         ),
                         onTap: () => Navigator.pop(context, document),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      ],
+    );
+  }
+}
+
+class _CalculationPickerDialog extends StatefulWidget {
+  const _CalculationPickerDialog({required this.service});
+  final EngineeringCalculationsService service;
+
+  @override
+  State<_CalculationPickerDialog> createState() => _CalculationPickerDialogState();
+}
+
+class _CalculationPickerDialogState extends State<_CalculationPickerDialog> {
+  final _search = TextEditingController();
+  late Future<List<SavedCalculation>> _calculations;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculations = widget.service.list();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<SavedCalculation> _filtered(List<SavedCalculation> calculations) {
+    final query = _search.text.trim().toLowerCase();
+    if (query.isEmpty) return calculations;
+    return calculations
+        .where((item) => item.title.toLowerCase().contains(query) || item.calculatorId.toLowerCase().contains(query))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Attach calculation'),
+      content: SizedBox(
+        width: 620,
+        height: 500,
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Filter saved calculations',
+                prefixIcon: Icon(Icons.search_rounded),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: FutureBuilder<List<SavedCalculation>>(
+                future: _calculations,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Calculations unavailable: ${snapshot.error}'));
+                  }
+                  final calculations = _filtered(snapshot.data ?? const []);
+                  if (calculations.isEmpty) {
+                    return const Center(child: Text('No saved calculations found.'));
+                  }
+                  return ListView.separated(
+                    itemCount: calculations.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final calculation = calculations[index];
+                      return ListTile(
+                        leading: const Icon(Icons.calculate_rounded),
+                        title: Text(calculation.title),
+                        subtitle: Text('${calculation.calculatorId} · ${calculation.createdAt.toLocal()}'.split('.').first),
+                        onTap: () => Navigator.pop(context, calculation),
                       );
                     },
                   );
