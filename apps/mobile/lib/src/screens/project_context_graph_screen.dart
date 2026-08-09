@@ -33,7 +33,9 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
     return _ProjectGraphData(current: current, graph: graph);
   }
 
-  void _refresh() => setState(() => _data = _load());
+  void _refresh() => setState(() {
+        _data = _load();
+      });
 
   Future<void> _attachStandard(ProjectRecord project) async {
     if (_attaching) return;
@@ -245,9 +247,9 @@ class _StandardPickerDialogState extends State<_StandardPickerDialog> {
     super.dispose();
   }
 
-  void _runSearch() => setState(
-        () => _results = widget.service.search(query: _search.text.trim()),
-      );
+  void _runSearch() => setState(() {
+        _results = widget.service.search(query: _search.text.trim());
+      });
 
   List<EngineeringStandardDocument> _uniqueDocuments(
     List<EngineeringStandardSearchHit> hits,
