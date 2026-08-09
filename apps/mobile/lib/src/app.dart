@@ -11,6 +11,7 @@ import 'connectors/storage_connector.dart';
 import 'connectors/synology_connector.dart';
 import 'connectors/unifi_connector.dart';
 import 'connectors/ups_connector.dart';
+import 'core/project_context_provider.dart';
 import 'core/siris_context_service.dart';
 import 'core/siris_integration_manager.dart';
 import 'screens/app_shell.dart';
@@ -71,6 +72,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
         // unavailable external integration must never block the core app shell.
       }
     }
+    SirisCoreContextService.instance.register(ProjectContextProvider());
     await SirisCoreContextService.instance.initializeDefaults();
   }
 
