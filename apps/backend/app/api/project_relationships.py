@@ -10,12 +10,12 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from app.api import engineering_standards, knowledge, projects
+from app.api import engineering_calculations, engineering_standards, knowledge, projects
 
 router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
 
 RelationshipKind = Literal["contains", "references"]
-TargetType = Literal["knowledge_note", "engineering_standard"]
+TargetType = Literal["knowledge_note", "engineering_standard", "calculation"]
 RelationshipProvenance = Literal["manual"]
 MAX_GRAPH_RELATIONSHIPS = 100
 
@@ -45,7 +45,7 @@ class ProjectRelationshipListResponse(BaseModel):
 class ProjectGraphNode(BaseModel):
     id: str
     label: str
-    node_type: Literal["project", "knowledge_note", "engineering_standard"]
+    node_type: Literal["project", "knowledge_note", "engineering_standard", "calculation"]
     detail: str = ""
     center: bool = False
 
@@ -138,9 +138,17 @@ def _canonical_standard_target(target_id: str) -> tuple[str, str]:
     return document_id, _standard_label(metadata)
 
 
+def _canonical_calculation_target(target_id: str) -> tuple[str, str]:
+    calculation_id = target_id.strip()
+    _, record = engineering_calculations._find(engineering_calculations._load(), calculation_id)
+    return record.id, record.title
+
+
 def _canonical_target(target_type: TargetType, target_id: str) -> tuple[str, str]:
     if target_type == "knowledge_note":
         return _canonical_knowledge_target(target_id)
+    if target_type == "calculation":
+        return _canonical_calculation_target(target_id)
     return _canonical_standard_target(target_id)
 
 

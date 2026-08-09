@@ -4,7 +4,7 @@ from pathlib import Path
 
 import jwt
 
-from app.api import engineering_standards, knowledge, project_relationships, projects
+from app.api import engineering_calculations, engineering_standards, knowledge, project_relationships, projects
 
 
 def _token() -> str:
@@ -43,6 +43,26 @@ def _create_standard(library_root: Path, document_id: str = "std-1") -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _create_calculation(calculations_path: Path) -> engineering_calculations.CalculationRecord:
+    calculations_path.parent.mkdir(parents=True, exist_ok=True)
+    record = engineering_calculations.CalculationRecord(
+        id="calc-1",
+        calculator_id="minorLoss",
+        title="Pump station discharge manifold",
+        inputs={"flowM3s": 0.05, "diameterM": 0.20, "sumKValues": 1.5},
+        results=[
+            engineering_calculations.CalculationResultItem(label="Minor headloss", value="0.194 m"),
+        ],
+        notes="",
+        created_at="2026-01-01T00:00:00+00:00",
+    )
+    calculations_path.write_text(
+        json.dumps([record.model_dump()], indent=2),
+        encoding="utf-8",
+    )
+    return record
 
 
 def test_project_knowledge_relationship_lifecycle(tmp_path: Path, monkeypatch) -> None:
@@ -218,3 +238,57 @@ def test_engineering_standard_relationship_requires_existing_document(tmp_path: 
         assert getattr(exc, "status_code", None) == 404
     else:
         raise AssertionError("Expected missing standard rejection")
+
+
+def test_project_calculation_relationship_lifecycle(tmp_path: Path, monkeypatch) -> None:
+    calculations_path = tmp_path / "engineering-calculations.json"
+    _create_calculation(calculations_path)
+    monkeypatch.setattr(engineering_calculations, "CALCULATIONS_PATH", calculations_path)
+    monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
+    authorization = _token()
+    project = _create_project(authorization)
+
+    relationship = asyncio.run(
+        project_relationships.create_project_relationship(
+            project.id,
+            project_relationships.ProjectRelationshipCreateRequest(
+                target_type="calculation",
+                target_id="calc-1",
+                kind="contains",
+            ),
+            authorization,
+        )
+    )
+    assert relationship.target_type == "calculation"
+    assert relationship.target_id == "calc-1"
+    assert relationship.target_label == "Pump station discharge manifold"
+
+    graph = asyncio.run(project_relationships.get_project_graph(project.id, authorization))
+    assert len(graph.nodes) == 2
+    assert graph.nodes[1].id == "calculation:calc-1"
+    assert graph.nodes[1].node_type == "calculation"
+    assert graph.edges[0].kind == "contains"
+
+
+def test_calculation_relationship_requires_existing_record(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(engineering_calculations, "CALCULATIONS_PATH", tmp_path / "engineering-calculations.json")
+    monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
+    authorization = _token()
+    project = _create_project(authorization)
+
+    try:
+        asyncio.run(
+            project_relationships.create_project_relationship(
+                project.id,
+                project_relationships.ProjectRelationshipCreateRequest(
+                    target_type="calculation",
+                    target_id="missing-calc",
+                    kind="contains",
+                ),
+                authorization,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 404
+    else:
+        raise AssertionError("Expected missing calculation rejection")
