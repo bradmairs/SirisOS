@@ -31,13 +31,40 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
     });
   }
 
+  void _askAgain(String question) {
+    _question.text = question;
+    _retrieve();
+  }
+
+  Future<void> _openHistory() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _HistorySheet(service: _service),
+    );
+    if (selected != null) _askAgain(selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('SirisHydro', style: Theme.of(context).textTheme.headlineSmall),
+          Row(
+            children: [
+              Expanded(
+                child: Text('SirisHydro', style: Theme.of(context).textTheme.headlineSmall),
+              ),
+              IconButton(
+                tooltip: 'Past questions',
+                onPressed: _openHistory,
+                icon: const Icon(Icons.history_rounded),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Text(
             'Evidence-first engineering retrieval from your private standards library. When a local Ollama model is configured, SirisHydro also synthesizes a grounded, cited answer from the retrieved evidence.',
@@ -104,6 +131,117 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
               },
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _HistorySheet extends StatefulWidget {
+  const _HistorySheet({required this.service});
+
+  final SirisHydroService service;
+
+  @override
+  State<_HistorySheet> createState() => _HistorySheetState();
+}
+
+class _HistorySheetState extends State<_HistorySheet> {
+  late Future<List<SirisHydroHistoryRecord>> _history;
+
+  @override
+  void initState() {
+    super.initState();
+    _history = widget.service.history();
+  }
+
+  void _refresh() => setState(() {
+        _history = widget.service.history();
+      });
+
+  Future<void> _delete(SirisHydroHistoryRecord record) async {
+    try {
+      await widget.service.deleteHistoryRecord(record.id);
+      _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to delete record: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      heightFactor: 0.85,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Past questions', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'SirisHydro remembers what you asked, what it found, and any synthesized answer.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: FutureBuilder<List<SirisHydroHistoryRecord>>(
+                future: _history,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Unable to load history: ${snapshot.error}'));
+                  }
+                  final records = snapshot.requireData;
+                  if (records.isEmpty) {
+                    return const Center(child: Text('No questions asked yet.'));
+                  }
+                  return ListView.separated(
+                    itemCount: records.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final record = records[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          record.sufficientEvidence ? Icons.verified_rounded : Icons.warning_amber_rounded,
+                        ),
+                        title: Text(record.question),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(record.createdAt.toLocal().toString().split('.').first),
+                            if (record.synthesizedAnswer != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  record.synthesizedAnswer!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                        ),
+                        isThreeLine: record.synthesizedAnswer != null,
+                        trailing: IconButton(
+                          tooltip: 'Delete',
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          onPressed: () => _delete(record),
+                        ),
+                        onTap: () => Navigator.pop(context, record.question),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
