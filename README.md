@@ -112,6 +112,8 @@ The calculator surface now uses a mobile-friendly category/selector model rather
 
 The calculation core is pure Dart and regression-tested. Inputs, units and assumptions remain explicit. Empirical coefficients remain user inputs rather than hidden defaults tied to a standard. Screening helpers do **not** claim standards compliance or replace project-specific criteria, detailed hydraulic modelling or manufacturer data. ADR 032.
 
+Any calculation result can be saved via an authenticated `/api/v1/engineering/calculations` record — exactly the inputs and outputs shown on screen, nothing hidden or recomputed later — and attached to a Project from the Project Context Graph, alongside Knowledge notes and Engineering Standards. ADR 055.
+
 ### Private Standards Library / Search
 
 The Engineering module now has a **Calculators / Standards / SirisHydro** hub.
@@ -241,12 +243,13 @@ Current foundation:
 - Explicit, manually-selected current project exposed through `GET/PUT /api/v1/projects/current`, contributing project context to SirisCore with `projects.manual_selection` provenance
 - Bounded `GET /api/v1/projects/{project_id}/graph` projection and a Flutter Projects → Graph view centered on the current project
 - Typed Project ↔ Engineering Standard relationships addressed by immutable standards-library document ID, restricted to `references` (a project does not "contain" a standard) and attachable directly from the Project Context Graph view
+- Typed Project ↔ Engineering Calculation relationships (`contains`/`references`), attachable directly from the Project Context Graph view alongside Knowledge notes and Engineering Standards
 
-ADRs 049–053 define the project model, Knowledge relationship contract, current project context, graph projection and Engineering Standard relationships.
+ADRs 049–053 and 055 define the project model, Knowledge relationship contract, current project context, graph projection, Engineering Standard relationships and saved Engineering Calculation relationships.
 
 Planned Sprint 0.6 follow-ons:
 
-- Relationships to tasks, files, calculations, events, repositories and conversations
+- Relationships to tasks, files, events, repositories and conversations
 - Context containers for engineering, homelab, travel, fitness and personal projects
 - Siris Knowledge Graph semantic layer above the Digital Twin
 
