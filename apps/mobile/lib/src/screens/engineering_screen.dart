@@ -14,6 +14,7 @@ enum _CalculatorId {
   orifice,
   hazenWilliams,
   darcyWeisbach,
+  minorLoss,
   pumpPower,
   buoyancy,
   detention,
@@ -39,6 +40,7 @@ const _calculatorInfo = <_CalculatorId, _CalculatorInfo>{
   _CalculatorId.orifice: _CalculatorInfo('Circular orifice', 'Structures & controls', 'Free discharge through a circular orifice under a specified head.', Icons.blur_circular_rounded),
   _CalculatorId.hazenWilliams: _CalculatorInfo('Hazen–Williams headloss', 'Pressure pipes', 'SI Hazen–Williams friction headloss. Use an appropriate C value for the pipe material and condition.', Icons.waterfall_chart_rounded),
   _CalculatorId.darcyWeisbach: _CalculatorInfo('Darcy–Weisbach headloss', 'Pressure pipes', 'Pipe friction using Reynolds number and Swamee–Jain for turbulent flow; water viscosity defaults near 20 °C.', Icons.show_chart_rounded),
+  _CalculatorId.minorLoss: _CalculatorInfo('Minor loss (K-value)', 'Pressure pipes', 'Fitting/valve/bend headloss from an entered sum of K coefficients. Enter K values from your governing standard or manufacturer data — none are assumed.', Icons.hub_outlined),
   _CalculatorId.pumpPower: _CalculatorInfo('Pump power', 'Pressure pipes', 'Hydraulic and estimated input power from flow, total dynamic head and pump efficiency.', Icons.bolt_rounded),
   _CalculatorId.buoyancy: _CalculatorInfo('Buried pipe buoyancy', 'Pipe design checks', 'Screening check for full submergence. Excludes side shear, anchors, slabs and project-specific load factors.', Icons.vertical_align_top_rounded),
   _CalculatorId.detention: _CalculatorInfo('Detention storage', 'Hydrology', 'Screening storage from constant inflow minus allowable outflow over a selected duration.', Icons.inventory_2_outlined),
@@ -144,6 +146,11 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
             _field('dw_l', 'Pipe length', 'm', '100'),
             _field('dw_e', 'Absolute roughness', 'mm', '0.045'),
           ],
+        _CalculatorId.minorLoss => [
+            _field('ml_q', 'Flow', 'm³/s', '0.05'),
+            _field('ml_d', 'Internal diameter', 'm', '0.20'),
+            _field('ml_k', 'Sum of K values', '', '1.5'),
+          ],
         _CalculatorId.pumpPower => [
             _field('pp_q', 'Flow', 'm³/s', '0.05'),
             _field('pp_h', 'Total dynamic head', 'm', '20'),
@@ -213,6 +220,9 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
           _EngineeringResult('Reynolds number', r.reynoldsNumber!.toStringAsFixed(0)),
           _EngineeringResult('Darcy friction factor', r.frictionFactor!.toStringAsFixed(4)),
         ];
+      case _CalculatorId.minorLoss:
+        final r = EngineeringCalculators.minorLoss(flowM3s: _value('ml_q'), diameterM: _value('ml_d'), sumKValues: _value('ml_k'));
+        return [_EngineeringResult('Minor headloss', '${r.headlossM.toStringAsFixed(3)} m'), _EngineeringResult('Velocity', '${r.velocityMs.toStringAsFixed(2)} m/s')];
       case _CalculatorId.pumpPower:
         final r = EngineeringCalculators.pumpPower(flowM3s: _value('pp_q'), totalHeadM: _value('pp_h'), efficiencyPercent: _value('pp_e'));
         return [_EngineeringResult('Hydraulic power', '${r.hydraulicPowerKw.toStringAsFixed(2)} kW'), _EngineeringResult('Estimated input power', '${r.inputPowerKw.toStringAsFixed(2)} kW')];
