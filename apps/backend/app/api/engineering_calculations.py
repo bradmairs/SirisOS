@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from app.api import projects
+from app.api import engineering_standards, projects
 
 router = APIRouter(prefix="/api/v1/engineering/calculations", tags=["engineering"])
 
@@ -32,6 +32,8 @@ class CalculationRecord(BaseModel):
     inputs: dict[str, float]
     results: list[CalculationResultItem]
     notes: str = ""
+    cited_standard_id: str | None = None
+    cited_standard_label: str | None = None
     created_at: str
 
 
@@ -41,6 +43,32 @@ class CalculationCreateRequest(BaseModel):
     inputs: dict[str, float] = Field(default_factory=dict)
     results: list[CalculationResultItem] = Field(default_factory=list)
     notes: str = Field(default="", max_length=2000)
+    cited_standard_id: str | None = None
+
+
+def _standard_label(metadata: dict) -> str:
+    normalised = engineering_standards._normalise_metadata(metadata)
+    reference = str(normalised.get("reference") or "").strip()
+    title = str(normalised.get("title") or "Engineering standard").strip()
+    edition = str(normalised.get("edition") or "").strip()
+    revision = int(normalised.get("revision") or 1)
+    identity = reference or title
+    parts = [identity]
+    if edition:
+        parts.append(edition)
+    if revision > 1:
+        parts.append(f"library rev. {revision}")
+    return " · ".join(parts)
+
+
+def _resolve_citation(record: CalculationRecord) -> CalculationRecord:
+    if record.cited_standard_id is None:
+        return record
+    try:
+        metadata = engineering_standards._load_metadata(record.cited_standard_id)
+    except HTTPException:
+        return record
+    return record.model_copy(update={"cited_standard_label": _standard_label(metadata)})
 
 
 class CalculationListResponse(BaseModel):
@@ -95,7 +123,7 @@ def _find(calculations: list[CalculationRecord], calculation_id: str) -> tuple[i
 @router.get("", response_model=CalculationListResponse)
 async def list_calculations(authorization: Annotated[str | None, Header()] = None) -> CalculationListResponse:
     projects._authenticate(authorization)
-    calculations = _load()
+    calculations = [_resolve_citation(item) for item in _load()]
     calculations.sort(key=lambda item: item.created_at, reverse=True)
     return CalculationListResponse(calculations=calculations)
 
@@ -106,6 +134,10 @@ async def create_calculation(
     authorization: Annotated[str | None, Header()] = None,
 ) -> CalculationRecord:
     projects._authenticate(authorization)
+    cited_standard_label = None
+    if request.cited_standard_id is not None:
+        metadata = engineering_standards._load_metadata(request.cited_standard_id)
+        cited_standard_label = _standard_label(metadata)
     calculations = _load()
     record = CalculationRecord(
         id=str(uuid.uuid4()),
@@ -114,6 +146,8 @@ async def create_calculation(
         inputs=request.inputs,
         results=request.results,
         notes=request.notes.strip(),
+        cited_standard_id=request.cited_standard_id,
+        cited_standard_label=cited_standard_label,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
     calculations.append(record)
@@ -128,7 +162,7 @@ async def get_calculation(
 ) -> CalculationRecord:
     projects._authenticate(authorization)
     _, record = _find(_load(), calculation_id)
-    return record
+    return _resolve_citation(record)
 
 
 @router.delete("/{calculation_id}", status_code=204, response_class=Response)
