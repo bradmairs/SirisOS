@@ -326,7 +326,8 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 ## Sprint 0.7 — SirisAI, Intelligence and Automation
 
 ### Ollama / local inference
-- [ ] Ollama connector/provider with server-side configuration
+- [x] Ollama connector/provider with server-side configuration (ADR 057)
+- [x] SirisHydro answer synthesis grounded in retrieved evidence, fail-open when Ollama is unavailable (ADR 057)
 - [ ] Shared model routing for SirisHydro, SirisPM, briefings and semantic search
 - [ ] Per-module model/profile selection and context budgets
 - [ ] Model availability monitoring

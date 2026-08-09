@@ -148,16 +148,16 @@ Current behavior:
 - Stable human-readable citations
 - Explicit `sufficient_evidence` state
 - Retrieval strategy exposed in the evidence packet/context
-- Copyable context packet for future Ollama/SirisAI composition
+- Copyable context packet for Ollama/SirisAI composition
 - Clear refusal boundary when the local library does not support a standards requirement
 
-This first SirisHydro slice intentionally **does not generate an AI answer**. The local standard remains the source of truth. Future Ollama integration may explain or synthesize retrieved evidence, but source-supported claims must remain traceable to the evidence packet and must not invent clauses or values. ADRs 033–035 and 038.
+When a directly-connected Ollama server is configured (`OLLAMA_URL` + `SIRISOS_OLLAMA_CHAT_MODEL`), SirisHydro also returns a `synthesized_answer`: a grounded, cited answer generated from the same evidence packet and non-invention rule the context packet already exposed. The local standard remains the source of truth — synthesis is fail-open, so an unconfigured or unreachable Ollama server leaves the evidence-only experience unchanged, and the model is never allowed to answer beyond what the retrieved evidence supports. ADRs 033–035, 038 and 057.
 
 Planned Engineering follow-ons:
 
 - Optional local vector/embedding recall stage while preserving deterministic lexical fallback and page provenance
 - Traceable authority/assumption profiles for calculators
-- Ollama-backed SirisHydro answer composition using evidence packets
+- Shared model routing so SirisPM, briefings and semantic search reuse the same Ollama connector
 - SirisPM integration
 - Project notes and drawing review
 - Civil 3D utilities
@@ -249,7 +249,9 @@ Planned optional server-side tool-using runtime for diagnostics and controlled a
 
 Reusable local inference layer for SirisHydro, SirisPM, briefings, semantic search and deterministic-output rewriting. Hermes may use Ollama as a model backend, but other SirisAI features do not depend on Hermes.
 
-ADR 029 records this boundary.
+SirisOS connects directly to a user-run Ollama server (`OLLAMA_URL`), not through Open WebUI or another intermediary. A general-purpose, fail-open chat connector (`app/services/ollama_service.py`) is the first shared piece of this layer; SirisHydro answer synthesis (ADR 057) is its first caller, alongside the existing optional Knowledge semantic-search embeddings client (ADR 046).
+
+ADR 029 records this boundary; ADR 057 records the chat connector.
 
 Planned automation stack:
 
