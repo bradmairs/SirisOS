@@ -40,6 +40,29 @@ class ProjectRecord {
       );
 }
 
+class CurrentProjectState {
+  const CurrentProjectState({
+    required this.project,
+    this.selectedAt,
+    this.provenance,
+  });
+
+  final ProjectRecord? project;
+  final DateTime? selectedAt;
+  final String? provenance;
+
+  factory CurrentProjectState.fromJson(Map<String, dynamic> json) =>
+      CurrentProjectState(
+        project: json['project'] is Map<String, dynamic>
+            ? ProjectRecord.fromJson(json['project'] as Map<String, dynamic>)
+            : null,
+        selectedAt: json['selected_at'] is String
+            ? DateTime.tryParse(json['selected_at'] as String)
+            : null,
+        provenance: json['provenance'] as String?,
+      );
+}
+
 class ProjectRelationship {
   const ProjectRelationship({
     required this.id,
@@ -94,6 +117,37 @@ class ProjectService {
         .whereType<Map<String, dynamic>>()
         .map(ProjectRecord.fromJson)
         .toList(growable: false);
+  }
+
+  Future<CurrentProjectState> currentProject() async {
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/projects/current'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw ProjectServiceException('Unable to load current project (${response.statusCode}).');
+    }
+    return CurrentProjectState.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<CurrentProjectState> setCurrentProject(String? projectId) async {
+    final response = await http
+        .put(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/projects/current'),
+          headers: _jsonHeaders,
+          body: jsonEncode({'project_id': projectId}),
+        )
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw ProjectServiceException('Unable to set current project (${response.statusCode}).');
+    }
+    return CurrentProjectState.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<ProjectRecord> createProject({
