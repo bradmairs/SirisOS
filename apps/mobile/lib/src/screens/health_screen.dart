@@ -23,7 +23,9 @@ class _HealthScreenState extends State<HealthScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchSnapshot();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 

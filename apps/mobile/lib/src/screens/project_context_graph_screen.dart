@@ -29,7 +29,9 @@ class _ProjectContextGraphScreenState extends State<ProjectContextGraphScreen> {
     return _ProjectGraphData(current: current, graph: graph);
   }
 
-  void _refresh() => setState(() => _data = _load());
+  void _refresh() => setState(() {
+        _data = _load();
+      });
 
   @override
   Widget build(BuildContext context) {

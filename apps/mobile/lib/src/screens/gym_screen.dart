@@ -36,7 +36,9 @@ class _GymScreenState extends State<GymScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchWorkouts();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 

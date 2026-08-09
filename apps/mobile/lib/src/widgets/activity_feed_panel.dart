@@ -22,7 +22,9 @@ class _ActivityFeedPanelState extends State<ActivityFeedPanel> {
 
   Future<void> _refresh() async {
     final next = _service.fetchEvents(limit: 8);
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 

@@ -30,7 +30,9 @@ class _ContextualKnowledgePanelState extends State<ContextualKnowledgePanel> {
 
   Future<List<KnowledgeNoteSummary>> _load() => _service.contextNotes(widget.contextId, limit: widget.maxNotes);
 
-  void _refresh() => setState(() => _notes = _load());
+  void _refresh() => setState(() {
+        _notes = _load();
+      });
 
   Future<void> _openNote(KnowledgeNoteSummary summary) async {
     try {

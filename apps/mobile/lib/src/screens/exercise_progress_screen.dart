@@ -23,7 +23,9 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchExercises();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 

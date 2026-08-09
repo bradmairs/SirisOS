@@ -20,7 +20,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     _projects = _service.listProjects();
   }
 
-  void _refresh() => setState(() => _projects = _service.listProjects());
+  void _refresh() => setState(() {
+        _projects = _service.listProjects();
+      });
 
   Future<void> _createProject() async {
     final draft = await showDialog<_ProjectDraft>(
@@ -243,9 +245,9 @@ class _ProjectDetailSheetState extends State<_ProjectDetailSheet> {
     _relationships = _projectService.relationships(_project.id);
   }
 
-  void _refreshRelationships() => setState(
-        () => _relationships = _projectService.relationships(_project.id),
-      );
+  void _refreshRelationships() => setState(() {
+        _relationships = _projectService.relationships(_project.id);
+      });
 
   Future<void> _setStatus(String status) async {
     if (_updatingStatus || status == _project.status) return;
@@ -522,9 +524,9 @@ class _KnowledgePickerDialogState extends State<_KnowledgePickerDialog> {
     super.dispose();
   }
 
-  void _search() => setState(
-        () => _results = widget.service.search(_controller.text.trim()),
-      );
+  void _search() => setState(() {
+        _results = widget.service.search(_controller.text.trim());
+      });
 
   @override
   Widget build(BuildContext context) {

@@ -22,7 +22,9 @@ class _WorkoutTemplatesScreenState extends State<WorkoutTemplatesScreen> {
 
   Future<void> _refresh() async {
     final next = _service.fetchTemplates();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 

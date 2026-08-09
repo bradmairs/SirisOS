@@ -44,12 +44,16 @@ class _HomeAssistantScreenState extends State<HomeAssistantScreen> {
     if (!mounted) return;
     final next = _service.fetchSnapshot();
     if (showLoading) {
-      setState(() => _snapshotFuture = next);
+      setState(() {
+        _snapshotFuture = next;
+      });
     } else {
       try {
         final snapshot = await next;
         if (mounted) {
-          setState(() => _snapshotFuture = Future.value(snapshot));
+          setState(() {
+            _snapshotFuture = Future.value(snapshot);
+          });
         }
       } catch (_) {
         // Keep the last useful snapshot during transient integration failures.

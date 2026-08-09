@@ -21,7 +21,9 @@ class _BackupProtectionPanelState extends State<BackupProtectionPanel> {
     _future = _service.fetchBackupProtection();
   }
 
-  void _refresh() => setState(() => _future = _service.fetchBackupProtection());
+  void _refresh() => setState(() {
+        _future = _service.fetchBackupProtection();
+      });
 
   @override
   Widget build(BuildContext context) => SirisPanel(
