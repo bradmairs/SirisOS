@@ -52,6 +52,18 @@ def test_project_knowledge_relationship_lifecycle(tmp_path: Path, monkeypatch) -
     listed = asyncio.run(project_relationships.list_project_relationships(project.id, authorization))
     assert [item.id for item in listed.relationships] == [relationship.id]
 
+    graph = asyncio.run(project_relationships.get_project_graph(project.id, authorization))
+    assert graph.project_id == project.id
+    assert graph.nodes[0].id == f"project:{project.id}"
+    assert graph.nodes[0].center is True
+    assert graph.nodes[0].node_type == "project"
+    assert len(graph.nodes) == 2
+    assert graph.nodes[1].id == "knowledge_note:Stormwater.md"
+    assert graph.nodes[1].label == "Stormwater design"
+    assert len(graph.edges) == 1
+    assert graph.edges[0].kind == "contains"
+    assert graph.edges[0].provenance == "manual"
+
     asyncio.run(
         project_relationships.delete_project_relationship(
             project.id,
