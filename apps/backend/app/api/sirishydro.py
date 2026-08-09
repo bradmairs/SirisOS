@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from app.services.engineering_standards_evidence import EngineeringEvidence, evidence_from_hit
@@ -17,6 +20,8 @@ router = APIRouter(prefix="/api/v1/engineering/sirishydro", tags=["engineering"]
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 LIBRARY_ROOT = Path(os.getenv("SIRISOS_STANDARDS_PATH", "/app/data/standards"))
+HISTORY_PATH = Path(os.getenv("SIRISOS_SIRISHYDRO_HISTORY_PATH", "/app/data/sirishydro-history.json"))
+MAX_HISTORY_RECORDS = 200
 RETRIEVAL_STRATEGY = "hybrid-lexical-civil-water-semantic-v1"
 SYNTHESIS_SYSTEM_PROMPT = (
     "You are SirisHydro, a civil/water engineering assistant. Answer only using the "
@@ -46,6 +51,19 @@ class SirisHydroEvidenceResponse(BaseModel):
     guidance: str
     retrieval_strategy: str = RETRIEVAL_STRATEGY
     synthesized_answer: str | None = None
+
+
+class SirisHydroHistoryRecord(BaseModel):
+    id: str
+    question: str
+    sufficient_evidence: bool
+    citations: list[str]
+    synthesized_answer: str | None = None
+    created_at: str
+
+
+class SirisHydroHistoryListResponse(BaseModel):
+    history: list[SirisHydroHistoryRecord]
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -158,6 +176,64 @@ def _context_text(question: str, evidence: list[EngineeringEvidence]) -> str:
     return "\n".join(blocks)
 
 
+def _load_history() -> list[SirisHydroHistoryRecord]:
+    if not HISTORY_PATH.exists():
+        return []
+    try:
+        raw = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            raise ValueError("SirisHydro history store root must be a list")
+        return [SirisHydroHistoryRecord.model_validate(item) for item in raw]
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="SirisHydro history store is unavailable.") from exc
+
+
+def _save_history(records: list[SirisHydroHistoryRecord]) -> None:
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = (
+        json.dumps([item.model_dump() for item in records], indent=2, ensure_ascii=False) + "\n"
+    )
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=HISTORY_PATH.parent,
+            prefix=".sirishydro-history-",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            handle.write(payload)
+            temp_path = Path(handle.name)
+        temp_path.replace(HISTORY_PATH)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="Unable to persist SirisHydro history.") from exc
+
+
+def _record_history(
+    question: str,
+    sufficient: bool,
+    evidence: list[EngineeringEvidence],
+    synthesized_answer: str | None,
+) -> None:
+    try:
+        records = _load_history()
+        records.append(
+            SirisHydroHistoryRecord(
+                id=str(uuid.uuid4()),
+                question=question,
+                sufficient_evidence=sufficient,
+                citations=[item.citation for item in evidence],
+                synthesized_answer=synthesized_answer,
+                created_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+        _save_history(records[-MAX_HISTORY_RECORDS:])
+    except (HTTPException, OSError):
+        # Memory is best-effort: a broken history store must never block
+        # answering the question that's actually in front of the user.
+        pass
+
+
 @router.get("/evidence", response_model=SirisHydroEvidenceResponse)
 async def sirishydro_evidence(
     authorization: Annotated[str | None, Header()] = None,
@@ -182,6 +258,7 @@ async def sirishydro_evidence(
         if sufficient
         else None
     )
+    _record_history(question_value, sufficient, evidence, synthesized_answer)
     return SirisHydroEvidenceResponse(
         question=question_value,
         sufficient_evidence=sufficient,
@@ -191,3 +268,27 @@ async def sirishydro_evidence(
         retrieval_strategy=RETRIEVAL_STRATEGY,
         synthesized_answer=synthesized_answer,
     )
+
+
+@router.get("/history", response_model=SirisHydroHistoryListResponse)
+async def sirishydro_history(
+    authorization: Annotated[str | None, Header()] = None,
+) -> SirisHydroHistoryListResponse:
+    _authenticate(authorization)
+    records = _load_history()
+    records.sort(key=lambda item: item.created_at, reverse=True)
+    return SirisHydroHistoryListResponse(history=records)
+
+
+@router.delete("/history/{record_id}", status_code=204, response_class=Response)
+async def delete_sirishydro_history(
+    record_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+) -> Response:
+    _authenticate(authorization)
+    records = _load_history()
+    remaining = [item for item in records if item.id != record_id]
+    if len(remaining) == len(records):
+        raise HTTPException(status_code=404, detail="History record not found.")
+    _save_history(remaining)
+    return Response(status_code=204)
