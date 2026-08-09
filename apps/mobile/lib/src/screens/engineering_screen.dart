@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/engineering_calculators.dart';
 import '../services/engineering_calculations_service.dart';
+import '../services/engineering_standards_service.dart';
+import '../widgets/standard_picker_dialog.dart';
 
 enum _CalculatorId {
   fullPipe,
@@ -267,11 +269,11 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
   Future<void> _saveCalculation() async {
     if (_saving || _results == null) return;
     final info = _calculatorInfo[_selected]!;
-    final title = await showDialog<String>(
+    final saveResult = await showDialog<_SaveCalculationResult>(
       context: context,
       builder: (context) => _SaveCalculationDialog(defaultTitle: info.title),
     );
-    if (title == null || title.trim().isEmpty || !mounted) return;
+    if (saveResult == null || saveResult.title.trim().isEmpty || !mounted) return;
 
     setState(() => _saving = true);
     try {
@@ -283,9 +285,10 @@ class _EngineeringScreenState extends State<EngineeringScreen> {
       ];
       await _calculationsService.save(
         calculatorId: _selected.name,
-        title: title.trim(),
+        title: saveResult.title.trim(),
         inputs: inputs,
         results: results,
+        citedStandardId: saveResult.citedStandard?.id,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -446,6 +449,12 @@ class _EngineeringResult {
   final String value;
 }
 
+class _SaveCalculationResult {
+  const _SaveCalculationResult({required this.title, this.citedStandard});
+  final String title;
+  final EngineeringStandardDocument? citedStandard;
+}
+
 class _SaveCalculationDialog extends StatefulWidget {
   const _SaveCalculationDialog({required this.defaultTitle});
   final String defaultTitle;
@@ -456,6 +465,8 @@ class _SaveCalculationDialog extends StatefulWidget {
 
 class _SaveCalculationDialogState extends State<_SaveCalculationDialog> {
   late final TextEditingController _title = TextEditingController(text: widget.defaultTitle);
+  final _standardsService = EngineeringStandardsService();
+  EngineeringStandardDocument? _citedStandard;
 
   @override
   void dispose() {
@@ -463,22 +474,57 @@ class _SaveCalculationDialogState extends State<_SaveCalculationDialog> {
     super.dispose();
   }
 
+  Future<void> _pickStandard() async {
+    final document = await showStandardPickerDialog(
+      context,
+      service: _standardsService,
+      title: 'Cite a standard',
+    );
+    if (document != null && mounted) setState(() => _citedStandard = document);
+  }
+
+  void _submit() => Navigator.pop(
+        context,
+        _SaveCalculationResult(title: _title.text, citedStandard: _citedStandard),
+      );
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Save calculation'),
       content: SizedBox(
         width: 420,
-        child: TextField(
-          controller: _title,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-          onSubmitted: (value) => Navigator.pop(context, value),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _title,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+              onSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 16),
+            Text('Cited standard (optional)', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 6),
+            if (_citedStandard == null)
+              OutlinedButton.icon(
+                onPressed: _pickStandard,
+                icon: const Icon(Icons.library_books_rounded),
+                label: const Text('Cite a standard'),
+              )
+            else
+              Chip(
+                avatar: const Icon(Icons.library_books_rounded, size: 18),
+                label: Text(standardIdentity(_citedStandard!)),
+                onDeleted: () => setState(() => _citedStandard = null),
+              ),
+          ],
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, _title.text), child: const Text('Save')),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
       ],
     );
   }

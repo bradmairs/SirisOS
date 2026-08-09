@@ -203,6 +203,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] ADR 032
 - [ ] Traceable standards/authority assumption profiles per calculator
 - [x] Save/share calculation records into project context (ADR 055)
+- [x] Cite an exact standard revision on a saved calculation (ADR 056)
 - [ ] Minor-loss/K-value and fitting-loss calculator
 - [ ] Multi-stage detention routing / stage-storage-discharge helper
 - [ ] Pit/inlet capture and gutter-flow helpers once authority assumptions are profile-driven
@@ -338,6 +339,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] ADR 053 project-engineering standard relationships
 - [x] Typed Project ↔ Engineering Calculation relationships (`contains`/`references`), attachable from the Project Context Graph
 - [x] ADR 055 saved calculation records and project relationships
+- [x] ADR 056 cite an exact standard revision on a saved calculation
 - [ ] Relationships between tasks, files, events, repositories and conversations
 - [ ] Context containers for engineering, homelab, travel, fitness and personal projects
 - [ ] Siris Knowledge Graph semantic layer
