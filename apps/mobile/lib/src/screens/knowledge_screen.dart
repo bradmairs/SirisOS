@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/knowledge_service.dart';
 import '../widgets/knowledge_relationships_panel.dart';
+import 'knowledge_graph_screen.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({super.key});
@@ -140,6 +141,23 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                     Row(
                       children: [
                         Expanded(child: Text(note.title, style: Theme.of(context).textTheme.headlineSmall)),
+                        IconButton(
+                          tooltip: 'View Knowledge Graph',
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            Future<void>.delayed(
+                              Duration.zero,
+                              () => showDialog<void>(
+                                context: context,
+                                builder: (_) => KnowledgeGraphScreen(
+                                  centerPath: note.path,
+                                  onOpenNote: _openNote,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.hub_outlined),
+                        ),
                         IconButton(
                           tooltip: 'Close',
                           onPressed: () => Navigator.pop(dialogContext),
