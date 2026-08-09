@@ -122,10 +122,10 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
+                  const Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: const [
+                    children: [
                       _LegendChip(icon: Icons.arrow_outward_rounded, label: 'Outgoing link'),
                       _LegendChip(icon: Icons.subdirectory_arrow_left_rounded, label: 'Backlink'),
                       _LegendChip(icon: Icons.sell_outlined, label: 'Shared tag'),
