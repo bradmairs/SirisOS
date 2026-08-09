@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
 RelationshipKind = Literal["contains", "references"]
 TargetType = Literal["knowledge_note"]
 RelationshipProvenance = Literal["manual"]
+MAX_GRAPH_RELATIONSHIPS = 100
 
 
 class ProjectRelationshipRecord(BaseModel):
@@ -39,6 +40,28 @@ class ProjectRelationshipCreateRequest(BaseModel):
 class ProjectRelationshipListResponse(BaseModel):
     project_id: str
     relationships: list[ProjectRelationshipRecord]
+
+
+class ProjectGraphNode(BaseModel):
+    id: str
+    label: str
+    node_type: Literal["project", "knowledge_note"]
+    detail: str = ""
+    center: bool = False
+
+
+class ProjectGraphEdge(BaseModel):
+    source: str
+    target: str
+    kind: RelationshipKind
+    label: str
+    provenance: RelationshipProvenance
+
+
+class ProjectGraphResponse(BaseModel):
+    project_id: str
+    nodes: list[ProjectGraphNode]
+    edges: list[ProjectGraphEdge]
 
 
 def _relationships_path() -> Path:
@@ -102,6 +125,16 @@ def _refresh_target_label(item: ProjectRelationshipRecord) -> ProjectRelationshi
     return item.model_copy(update={"target_id": target_id, "target_label": label})
 
 
+def _project_relationships(project_id: str) -> list[ProjectRelationshipRecord]:
+    values = [
+        _refresh_target_label(item)
+        for item in _load()
+        if item.project_id == project_id
+    ]
+    values.sort(key=lambda item: (item.target_type, item.target_label.lower(), item.created_at))
+    return values
+
+
 @router.get("/{project_id}/relationships", response_model=ProjectRelationshipListResponse)
 async def list_project_relationships(
     project_id: str,
@@ -109,13 +142,57 @@ async def list_project_relationships(
 ) -> ProjectRelationshipListResponse:
     projects._authenticate(authorization)
     _require_project(project_id)
-    values = [
-        _refresh_target_label(item)
-        for item in _load()
-        if item.project_id == project_id
+    return ProjectRelationshipListResponse(
+        project_id=project_id,
+        relationships=_project_relationships(project_id),
+    )
+
+
+@router.get("/{project_id}/graph", response_model=ProjectGraphResponse)
+async def get_project_graph(
+    project_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+) -> ProjectGraphResponse:
+    projects._authenticate(authorization)
+    project = _require_project(project_id)
+    relationships = _project_relationships(project_id)[:MAX_GRAPH_RELATIONSHIPS]
+
+    project_node_id = f"project:{project.id}"
+    nodes = [
+        ProjectGraphNode(
+            id=project_node_id,
+            label=project.name,
+            node_type="project",
+            detail=f"{project.kind} · {project.status}",
+            center=True,
+        )
     ]
-    values.sort(key=lambda item: (item.target_type, item.target_label.lower(), item.created_at))
-    return ProjectRelationshipListResponse(project_id=project_id, relationships=values)
+    edges: list[ProjectGraphEdge] = []
+    seen_targets: set[str] = set()
+
+    for relationship in relationships:
+        target_node_id = f"{relationship.target_type}:{relationship.target_id}"
+        if target_node_id not in seen_targets:
+            seen_targets.add(target_node_id)
+            nodes.append(
+                ProjectGraphNode(
+                    id=target_node_id,
+                    label=relationship.target_label,
+                    node_type=relationship.target_type,
+                    detail=relationship.target_id,
+                )
+            )
+        edges.append(
+            ProjectGraphEdge(
+                source=project_node_id,
+                target=target_node_id,
+                kind=relationship.kind,
+                label="Part of project" if relationship.kind == "contains" else "Reference",
+                provenance=relationship.provenance,
+            )
+        )
+
+    return ProjectGraphResponse(project_id=project.id, nodes=nodes, edges=edges)
 
 
 @router.post("/{project_id}/relationships", response_model=ProjectRelationshipRecord, status_code=201)

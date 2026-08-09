@@ -96,6 +96,78 @@ class ProjectRelationship {
       );
 }
 
+class ProjectGraphNode {
+  const ProjectGraphNode({
+    required this.id,
+    required this.label,
+    required this.nodeType,
+    required this.detail,
+    required this.center,
+  });
+
+  final String id;
+  final String label;
+  final String nodeType;
+  final String detail;
+  final bool center;
+
+  factory ProjectGraphNode.fromJson(Map<String, dynamic> json) => ProjectGraphNode(
+        id: json['id'] as String,
+        label: json['label'] as String,
+        nodeType: json['node_type'] as String,
+        detail: json['detail'] as String? ?? '',
+        center: json['center'] as bool? ?? false,
+      );
+}
+
+class ProjectGraphEdge {
+  const ProjectGraphEdge({
+    required this.source,
+    required this.target,
+    required this.kind,
+    required this.label,
+    required this.provenance,
+  });
+
+  final String source;
+  final String target;
+  final String kind;
+  final String label;
+  final String provenance;
+
+  factory ProjectGraphEdge.fromJson(Map<String, dynamic> json) => ProjectGraphEdge(
+        source: json['source'] as String,
+        target: json['target'] as String,
+        kind: json['kind'] as String,
+        label: json['label'] as String? ?? '',
+        provenance: json['provenance'] as String? ?? 'manual',
+      );
+}
+
+class ProjectGraph {
+  const ProjectGraph({
+    required this.projectId,
+    required this.nodes,
+    required this.edges,
+  });
+
+  final String projectId;
+  final List<ProjectGraphNode> nodes;
+  final List<ProjectGraphEdge> edges;
+
+  factory ProjectGraph.fromJson(Map<String, dynamic> json) => ProjectGraph(
+        projectId: json['project_id'] as String,
+        nodes: (json['nodes'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ProjectGraphNode.fromJson)
+            .toList(growable: false),
+        edges: (json['edges'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ProjectGraphEdge.fromJson)
+            .toList(growable: false),
+      );
+}
+
 class ProjectService {
   Map<String, String> get _jsonHeaders => {
         ...AuthService.authorizationHeaders,
@@ -148,6 +220,19 @@ class ProjectService {
     return CurrentProjectState.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<ProjectGraph> graph(String projectId) async {
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/projects/$projectId/graph'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw ProjectServiceException('Unable to load project graph (${response.statusCode}).');
+    }
+    return ProjectGraph.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<ProjectRecord> createProject({

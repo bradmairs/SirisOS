@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'current_project_screen.dart';
+import 'project_context_graph_screen.dart';
 import 'projects_screen.dart';
 
 class ProjectsHubScreen extends StatelessWidget {
@@ -9,7 +10,7 @@ class ProjectsHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           Material(
@@ -19,6 +20,7 @@ class ProjectsHubScreen extends StatelessWidget {
                 tabs: [
                   Tab(icon: Icon(Icons.folder_rounded), text: 'Projects'),
                   Tab(icon: Icon(Icons.adjust_rounded), text: 'Current'),
+                  Tab(icon: Icon(Icons.hub_rounded), text: 'Graph'),
                 ],
               ),
             ),
@@ -28,6 +30,7 @@ class ProjectsHubScreen extends StatelessWidget {
               children: [
                 ProjectsScreen(),
                 CurrentProjectScreen(),
+                ProjectContextGraphScreen(),
               ],
             ),
           ),
