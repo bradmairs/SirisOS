@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 
 import httpx
+
+
+@dataclass(frozen=True)
+class OllamaStatus:
+    configured: bool
+    reachable: bool
+    model: str | None
+    model_available: bool
 
 
 class OllamaChatClient:
@@ -52,6 +61,29 @@ class OllamaChatClient:
         if not isinstance(content, str) or not content.strip():
             return None
         return content.strip()
+
+    async def status(self) -> OllamaStatus:
+        model = self.model or None
+        if not self.enabled:
+            return OllamaStatus(configured=False, reachable=False, model=model, model_available=False)
+        try:
+            available = await self._list_models()
+        except (httpx.HTTPError, ValueError, KeyError):
+            return OllamaStatus(configured=True, reachable=False, model=model, model_available=False)
+        model_available = any(
+            candidate == self.model or candidate.split(":")[0] == self.model for candidate in available
+        )
+        return OllamaStatus(configured=True, reachable=True, model=model, model_available=model_available)
+
+    async def _list_models(self) -> list[str]:
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            response = await client.get(f"{self.ollama_url}/api/tags")
+            response.raise_for_status()
+            payload = response.json()
+        models = payload.get("models")
+        if not isinstance(models, list):
+            raise ValueError("Ollama returned an invalid tags response.")
+        return [str(item["name"]) for item in models if isinstance(item, dict) and item.get("name")]
 
 
 chat_client = OllamaChatClient()
