@@ -177,6 +177,7 @@ def test_context_text_contains_source_strategy_and_non_invention_rule(tmp_path, 
 
 def test_evidence_endpoint_has_no_synthesized_answer_when_ollama_disabled(tmp_path, monkeypatch):
     monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
     _write_document(
         tmp_path,
         "spec",
@@ -197,6 +198,7 @@ def test_evidence_endpoint_has_no_synthesized_answer_when_ollama_disabled(tmp_pa
 
 def test_evidence_endpoint_includes_synthesized_answer_when_ollama_configured(tmp_path, monkeypatch):
     monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
     _write_document(
         tmp_path,
         "spec",
@@ -223,6 +225,7 @@ def test_evidence_endpoint_includes_synthesized_answer_when_ollama_configured(tm
 
 def test_evidence_endpoint_skips_synthesis_when_evidence_insufficient(tmp_path, monkeypatch):
     monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
 
     async def fail_if_called(*, system: str, prompt: str) -> str | None:
         raise AssertionError("Synthesis must not be attempted without evidence.")
@@ -235,3 +238,98 @@ def test_evidence_endpoint_skips_synthesis_when_evidence_insufficient(tmp_path, 
 
     assert response.sufficient_evidence is False
     assert response.synthesized_answer is None
+
+
+def test_evidence_queries_are_recorded_to_history(tmp_path, monkeypatch):
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
+    _write_document(
+        tmp_path,
+        "spec",
+        title="Drainage specification",
+        authority="Sydney Water",
+        reference="DSPEC",
+        edition="Rev A",
+        pages=["Buoyancy shall be considered where groundwater can submerge the structure."],
+    )
+
+    async def fake_complete(*, system: str, prompt: str) -> str | None:
+        return "Buoyancy must be considered [1]."
+
+    monkeypatch.setattr(sirishydro.chat_client, "complete", fake_complete)
+
+    asyncio.run(sirishydro.sirishydro_evidence(authorization=_token(), question="buoyancy groundwater", limit=6))
+    asyncio.run(sirishydro.sirishydro_evidence(authorization=_token(), question="earthquake bridge bearings", limit=6))
+
+    listed = asyncio.run(sirishydro.sirishydro_history(authorization=_token()))
+
+    assert [item.question for item in listed.history] == [
+        "earthquake bridge bearings",
+        "buoyancy groundwater",
+    ]
+    buoyancy_record = listed.history[1]
+    assert buoyancy_record.sufficient_evidence is True
+    assert buoyancy_record.citations == ["DSPEC · Rev A · Sydney Water · p. 1"]
+    assert buoyancy_record.synthesized_answer == "Buoyancy must be considered [1]."
+
+    earthquake_record = listed.history[0]
+    assert earthquake_record.sufficient_evidence is False
+    assert earthquake_record.citations == []
+    assert earthquake_record.synthesized_answer is None
+
+
+def test_sirishydro_history_requires_authentication(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
+    try:
+        asyncio.run(sirishydro.sirishydro_history(None))
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 401
+    else:
+        raise AssertionError("Expected authentication failure")
+
+
+def test_delete_sirishydro_history_record(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
+    _write_document(
+        tmp_path,
+        "spec",
+        title="Drainage specification",
+        authority="Sydney Water",
+        reference="DSPEC",
+        edition="Rev A",
+        pages=["Buoyancy shall be considered where groundwater can submerge the structure."],
+    )
+
+    asyncio.run(sirishydro.sirishydro_evidence(authorization=_token(), question="buoyancy groundwater", limit=6))
+    listed = asyncio.run(sirishydro.sirishydro_history(authorization=_token()))
+    record_id = listed.history[0].id
+
+    asyncio.run(sirishydro.delete_sirishydro_history(record_id, authorization=_token()))
+
+    remaining = asyncio.run(sirishydro.sirishydro_history(authorization=_token()))
+    assert remaining.history == []
+
+
+def test_delete_missing_sirishydro_history_record_returns_404(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", tmp_path / "history.json")
+    try:
+        asyncio.run(sirishydro.delete_sirishydro_history("missing-id", authorization=_token()))
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 404
+    else:
+        raise AssertionError("Expected missing history record rejection")
+
+
+def test_history_recording_never_blocks_the_evidence_response(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    # Point history at a path that can never be written (its parent is a file, not a directory).
+    blocked_parent = tmp_path / "blocked"
+    blocked_parent.write_text("not a directory", encoding="utf-8")
+    monkeypatch.setattr(sirishydro, "HISTORY_PATH", blocked_parent / "history.json")
+
+    response = asyncio.run(
+        sirishydro.sirishydro_evidence(authorization=_token(), question="earthquake bridge bearings", limit=6)
+    )
+
+    assert response.sufficient_evidence is False

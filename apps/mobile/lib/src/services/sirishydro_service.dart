@@ -75,6 +75,35 @@ class SirisHydroEvidencePacket {
   }
 }
 
+class SirisHydroHistoryRecord {
+  const SirisHydroHistoryRecord({
+    required this.id,
+    required this.question,
+    required this.sufficientEvidence,
+    required this.citations,
+    required this.createdAt,
+    this.synthesizedAnswer,
+  });
+
+  final String id;
+  final String question;
+  final bool sufficientEvidence;
+  final List<String> citations;
+  final String? synthesizedAnswer;
+  final DateTime createdAt;
+
+  factory SirisHydroHistoryRecord.fromJson(Map<String, dynamic> json) => SirisHydroHistoryRecord(
+        id: json['id'] as String,
+        question: json['question'] as String,
+        sufficientEvidence: json['sufficient_evidence'] == true,
+        citations: (json['citations'] as List<dynamic>? ?? const [])
+            .whereType<String>()
+            .toList(growable: false),
+        synthesizedAnswer: json['synthesized_answer'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+      );
+}
+
 class SirisHydroService {
   Future<SirisHydroEvidencePacket> retrieveEvidence(String question) async {
     final uri = Uri.parse(
@@ -94,6 +123,35 @@ class SirisHydroService {
     return SirisHydroEvidencePacket.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<List<SirisHydroHistoryRecord>> history() async {
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/engineering/sirishydro/history'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw SirisHydroException('Unable to load SirisHydro history (${response.statusCode}).');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['history'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(SirisHydroHistoryRecord.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<void> deleteHistoryRecord(String id) async {
+    final response = await http
+        .delete(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/engineering/sirishydro/history/$id'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 204) {
+      throw SirisHydroException('Unable to delete history record (${response.statusCode}).');
+    }
   }
 }
 
