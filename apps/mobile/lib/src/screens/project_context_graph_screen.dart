@@ -442,10 +442,30 @@ class _CalculationPickerDialogState extends State<_CalculationPickerDialog> {
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final calculation = calculations[index];
+                      final citedStandardLabel = calculation.citedStandardLabel;
                       return ListTile(
                         leading: const Icon(Icons.calculate_rounded),
                         title: Text(calculation.title),
-                        subtitle: Text('${calculation.calculatorId} · ${calculation.createdAt.toLocal()}'.split('.').first),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${calculation.calculatorId} · ${calculation.createdAt.toLocal()}'.split('.').first),
+                            if (citedStandardLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.library_books_rounded, size: 14),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(citedStandardLabel, overflow: TextOverflow.ellipsis)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        isThreeLine: citedStandardLabel != null,
                         onTap: () => Navigator.pop(context, calculation),
                       );
                     },

@@ -27,6 +27,8 @@ class SavedCalculation {
     required this.results,
     required this.notes,
     required this.createdAt,
+    this.citedStandardId,
+    this.citedStandardLabel,
   });
 
   final String id;
@@ -36,6 +38,8 @@ class SavedCalculation {
   final List<CalculationResultItem> results;
   final String notes;
   final DateTime createdAt;
+  final String? citedStandardId;
+  final String? citedStandardLabel;
 
   factory SavedCalculation.fromJson(Map<String, dynamic> json) => SavedCalculation(
         id: json['id'] as String,
@@ -49,6 +53,8 @@ class SavedCalculation {
             .toList(growable: false),
         notes: json['notes'] as String? ?? '',
         createdAt: DateTime.parse(json['created_at'] as String),
+        citedStandardId: json['cited_standard_id'] as String?,
+        citedStandardLabel: json['cited_standard_label'] as String?,
       );
 }
 
@@ -76,6 +82,7 @@ class EngineeringCalculationsService {
     required Map<String, double> inputs,
     required List<CalculationResultItem> results,
     String notes = '',
+    String? citedStandardId,
   }) async {
     final response = await http
         .post(
@@ -90,6 +97,7 @@ class EngineeringCalculationsService {
             'inputs': inputs,
             'results': results.map((item) => item.toJson()).toList(growable: false),
             'notes': notes,
+            if (citedStandardId != null) 'cited_standard_id': citedStandardId,
           }),
         )
         .timeout(const Duration(seconds: 12));
