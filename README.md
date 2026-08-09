@@ -276,7 +276,9 @@ Reusable local inference layer for SirisHydro, SirisPM, briefings, semantic sear
 
 SirisOS connects directly to a user-run Ollama server (`OLLAMA_URL`), not through Open WebUI or another intermediary. A general-purpose, fail-open chat connector (`app/services/ollama_service.py`) is the first shared piece of this layer; SirisHydro answer synthesis (ADR 057) is its first caller, alongside the existing optional Knowledge semantic-search embeddings client (ADR 046).
 
-ADR 029 records this boundary; ADR 057 records the chat connector.
+`GET /api/v1/intelligence/ollama-status` reports whether Ollama is configured, reachable, and whether the configured model is actually installed on the server — surfaced as a status chip on the SirisHydro screen so a silent fail-open fallback (no `OLLAMA_URL`, wrong model name, unreachable server) is visible rather than indistinguishable from "not configured." ADR 058.
+
+ADR 029 records this boundary; ADR 057 records the chat connector; ADR 058 records availability status.
 
 Planned automation stack:
 

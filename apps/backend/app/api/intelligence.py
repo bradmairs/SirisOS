@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.services.gym_service import GymService
+from app.services.ollama_service import chat_client
 from app.services.rules_engine import RulesEngine
 from app.services.running_service import RunningService
 
@@ -28,6 +29,13 @@ class RecommendationResponse(BaseModel):
     message: str
     severity: Literal["info", "success", "warning", "critical"]
     priority: int
+
+
+class OllamaStatusResponse(BaseModel):
+    configured: bool
+    reachable: bool
+    model: str | None
+    model_available: bool
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -57,3 +65,12 @@ async def recommendations(
         recent_workouts=gym_service.list_workouts(),
     )
     return [RecommendationResponse(**item.__dict__) for item in items]
+
+
+@router.get("/ollama-status", response_model=OllamaStatusResponse)
+async def ollama_status(
+    authorization: Annotated[str | None, Header()] = None,
+) -> OllamaStatusResponse:
+    _authenticate(authorization)
+    status = await chat_client.status()
+    return OllamaStatusResponse(**status.__dict__)
