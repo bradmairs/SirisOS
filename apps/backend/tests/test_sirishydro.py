@@ -1,6 +1,17 @@
+import asyncio
 import json
 
+import jwt
+
 from app.api import sirishydro
+
+
+def _token() -> str:
+    return "Bearer " + jwt.encode(
+        {"sub": sirishydro.AUTH_USERNAME, "iss": "sirisos-api"},
+        sirishydro.JWT_SECRET,
+        algorithm="HS256",
+    )
 
 
 def _write_document(
@@ -162,3 +173,65 @@ def test_context_text_contains_source_strategy_and_non_invention_rule(tmp_path, 
     assert sirishydro.RETRIEVAL_STRATEGY in context
     assert "must cite the evidence" in context
     assert "rather than inventing" in context
+
+
+def test_evidence_endpoint_has_no_synthesized_answer_when_ollama_disabled(tmp_path, monkeypatch):
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    _write_document(
+        tmp_path,
+        "spec",
+        title="Drainage specification",
+        authority="Sydney Water",
+        reference="DSPEC",
+        edition="Rev A",
+        pages=["Buoyancy shall be considered where groundwater can submerge the structure."],
+    )
+
+    response = asyncio.run(
+        sirishydro.sirishydro_evidence(authorization=_token(), question="buoyancy groundwater", limit=6)
+    )
+
+    assert response.sufficient_evidence is True
+    assert response.synthesized_answer is None
+
+
+def test_evidence_endpoint_includes_synthesized_answer_when_ollama_configured(tmp_path, monkeypatch):
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+    _write_document(
+        tmp_path,
+        "spec",
+        title="Drainage specification",
+        authority="Sydney Water",
+        reference="DSPEC",
+        edition="Rev A",
+        pages=["Buoyancy shall be considered where groundwater can submerge the structure."],
+    )
+
+    async def fake_complete(*, system: str, prompt: str) -> str | None:
+        assert system == sirishydro.SYNTHESIS_SYSTEM_PROMPT
+        assert "DSPEC" in prompt
+        return "Buoyancy must be considered [1]."
+
+    monkeypatch.setattr(sirishydro.chat_client, "complete", fake_complete)
+
+    response = asyncio.run(
+        sirishydro.sirishydro_evidence(authorization=_token(), question="buoyancy groundwater", limit=6)
+    )
+
+    assert response.synthesized_answer == "Buoyancy must be considered [1]."
+
+
+def test_evidence_endpoint_skips_synthesis_when_evidence_insufficient(tmp_path, monkeypatch):
+    monkeypatch.setattr(sirishydro, "LIBRARY_ROOT", tmp_path)
+
+    async def fail_if_called(*, system: str, prompt: str) -> str | None:
+        raise AssertionError("Synthesis must not be attempted without evidence.")
+
+    monkeypatch.setattr(sirishydro.chat_client, "complete", fail_if_called)
+
+    response = asyncio.run(
+        sirishydro.sirishydro_evidence(authorization=_token(), question="earthquake bridge bearings", limit=6)
+    )
+
+    assert response.sufficient_evidence is False
+    assert response.synthesized_answer is None

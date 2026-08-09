@@ -24,7 +24,9 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
   void _retrieve() {
     final value = _question.text.trim();
     if (value.length < 2) return;
-    setState(() => _result = _service.retrieveEvidence(value));
+    setState(() {
+      _result = _service.retrieveEvidence(value);
+    });
   }
 
   @override
@@ -36,7 +38,7 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
           Text('SirisHydro', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
           Text(
-            'Evidence-first engineering retrieval from your private standards library. AI answer generation comes later.',
+            'Evidence-first engineering retrieval from your private standards library. When a local Ollama model is configured, SirisHydro also synthesizes a grounded, cited answer from the retrieved evidence.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
@@ -150,6 +152,38 @@ class _EvidencePacketView extends StatelessWidget {
             ),
           ),
         ),
+        if (packet.synthesizedAnswer != null) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: scheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome_rounded, color: scheme.onPrimaryContainer, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Synthesized answer',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    packet.synthesizedAnswer!,
+                    style: TextStyle(color: scheme.onPrimaryContainer),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         if (packet.evidence.isEmpty)
           const Card(
