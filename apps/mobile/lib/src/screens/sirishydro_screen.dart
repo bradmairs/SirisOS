@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/engineering_standards_service.dart';
+import '../services/ollama_status_service.dart';
 import '../services/sirishydro_service.dart';
 import '../widgets/standard_page_dialog.dart';
 
@@ -14,8 +15,16 @@ class SirisHydroScreen extends StatefulWidget {
 
 class _SirisHydroScreenState extends State<SirisHydroScreen> {
   final _service = SirisHydroService();
+  final _ollamaStatusService = OllamaStatusService();
   final _question = TextEditingController();
   Future<SirisHydroEvidencePacket>? _result;
+  late Future<OllamaStatus> _ollamaStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _ollamaStatus = _ollamaStatusService.status();
+  }
 
   @override
   void dispose() {
@@ -42,6 +51,14 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
           Text(
             'Evidence-first engineering retrieval from your private standards library. When a local Ollama model is configured, SirisHydro also synthesizes a grounded, cited answer from the retrieved evidence.',
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 10),
+          FutureBuilder<OllamaStatus>(
+            future: _ollamaStatus,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox.shrink();
+              return _OllamaStatusChip(status: snapshot.requireData);
+            },
           ),
           const SizedBox(height: 20),
           TextField(
@@ -105,6 +122,42 @@ class _SirisHydroScreenState extends State<SirisHydroScreen> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _OllamaStatusChip extends StatelessWidget {
+  const _OllamaStatusChip({required this.status});
+
+  final OllamaStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final IconData icon;
+    final String label;
+    final Color color;
+    if (!status.configured) {
+      icon = Icons.settings_outlined;
+      label = 'Answer synthesis off — Ollama not configured';
+      color = scheme.onSurfaceVariant;
+    } else if (!status.reachable) {
+      icon = Icons.cloud_off_rounded;
+      label = 'Answer synthesis unavailable — Ollama unreachable';
+      color = scheme.error;
+    } else if (!status.modelAvailable) {
+      icon = Icons.warning_amber_rounded;
+      label = 'Model "${status.model}" not found on the Ollama server';
+      color = scheme.error;
+    } else {
+      icon = Icons.check_circle_rounded;
+      label = 'Answer synthesis on · ${status.model}';
+      color = scheme.primary;
+    }
+    return Chip(
+      avatar: Icon(icon, size: 16, color: color),
+      label: Text(label, style: TextStyle(color: color)),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
