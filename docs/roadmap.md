@@ -105,6 +105,7 @@ UPS / NUT:
 - [x] ADR 024
 - [ ] Bridge legacy Docker/host history into generic contract
 - [ ] UniFi client/outage history
+- [ ] "What changed?" queries per object (since yesterday / this week / since I last looked) backed by the History Engine, generalizing beyond storage/backup metrics
 
 ### 0.4.3h — Backup Protection Analytics ✅
 - [x] Discrete Hyper Backup completion events
@@ -174,6 +175,7 @@ UPS / NUT:
 - [ ] Home Assistant presence provider
 - [ ] Calendar/work/project context providers
 - [ ] Context-aware Briefing Engine and Siris Score
+- [ ] Context-aware UI: reprioritize (never hide) module/screen prominence by current context — work, home, gym, morning, evening — so Mission Control reflects the user's actual current context
 - [ ] Authenticated context API for backend/Hermes consumers
 - [ ] Presence Engine
 
@@ -343,10 +345,13 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] ADR 056 cite an exact standard revision on a saved calculation
 - [ ] Relationships between tasks, files, events, repositories and conversations
 - [ ] Context containers for engineering, homelab, travel, fitness and personal projects
-- [ ] Siris Knowledge Graph semantic layer
+- [ ] Siris Knowledge Graph semantic layer unifying the Digital Twin (operational infrastructure relationships) and the Project Context Graph (information/work-object relationships) into one traversable graph spanning Projects (Notes/Standards/Calculations/Decisions), Homelab (Servers/Services/Incidents), Knowledge, Health, Calendar and Conversations — so SirisAI traverses known relationships before retrieving supporting information, rather than performing generic RAG
+- [ ] `siris://` deep link URI scheme (project, knowledge note, engineering calculation, homelab service, incident, action) so notifications, Knowledge notes, Siris responses, Briefings and automation outputs can all point to real SirisOS objects
 - [ ] Migrate project/relationship persistence from atomic JSON store to PostgreSQL behind the same API contract
 
 ## Sprint 0.7 — SirisAI, Intelligence and Automation
+
+Suggested internal sequencing: Ollama connector → Siris Memory → recommendation engine → Action Framework → Playbooks → Siris Inbox. Hermes should not receive meaningful write/control capability until the deterministic layers ahead of it (Planner, Action Framework, approvals) are solid — automation must stay explainable and approved, not just fast.
 
 ### Ollama / local inference
 - [x] Ollama connector/provider with server-side configuration (ADR 057)
@@ -355,6 +360,23 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [ ] Per-module model/profile selection and context budgets
 - [x] Model availability monitoring (ADR 058)
 - [ ] Preserve deterministic outputs beneath optional LLM rewriting
+
+### Siris Memory
+- [ ] Siris Memory Service with distinct classes: Facts (stable information), Preferences (choices Siris has learned), Episodes (things that happened), Decisions (choices made and why), Observations (automatically detected), Conversation memories (learned through SirisAI)
+- [ ] Provenance per memory record — source object, timestamp, confidence — matching the citation standard already set by SirisHydro and Context
+- [ ] Cross-object traversal (e.g. Project → calculation → standard → SirisHydro question → meeting note → decision) so SirisAI can answer "why did I decide X?", not just "what does X say?"
+- [ ] Distinct from, and complementary to, Knowledge (documents), Projects (structured relationships) and SirisHydro history (evidence-grounded Q&A) — Memory is Siris's own accumulated understanding, not a fourth copy of the same content
+
+### Universal Command Palette & contextual "Ask Siris"
+- [ ] Cmd+K / Ctrl+K command palette searching status, Knowledge, Projects, calculators and available actions from one entry point, before per-module navigation becomes cumbersome
+- [ ] Palette results blend live state, related Knowledge notes/projects and available actions for a single query (e.g. "plex" → status + notes + project + restart/logs actions)
+- [ ] Contextual "Ask Siris" / "Explain this" affordance on individual objects — server, project, calculation, standard, incident, Knowledge note — not only inside one dedicated chat screen
+- [ ] Keep a global Siris chat alongside contextual entry points, not instead of them
+
+### Siris Inbox
+- [ ] Unified attention queue distinct from Operations Center (investigate) and Notification Policies (alert) — Inbox is where Siris surfaces things it thinks deserve a human decision
+- [ ] Each item exposes why Siris noticed it → evidence → suggested action → dismiss/snooze/act
+- [ ] Sits between Notification Policies, the Incident Engine and the Operations Planner/recommendation engine below
 
 ### Hermes Agent / server runtime
 - [ ] Optional Hermes Agent connector/runtime adapter
@@ -371,9 +393,9 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [ ] Agent task/status/history surface
 
 ### Broader intelligence / automation
-- [ ] Operations Planner and recommendation engine
+- [ ] Operations Planner and recommendation engine — deterministic pipeline first: Observation → Rule/Policy → Recommendation → Evidence → Capability → Action. Ollama's role is explaining a recommendation in natural language, not inventing it
 - [ ] Action Framework bound to capabilities
-- [ ] Playbook Engine
+- [ ] Playbook Engine — multi-step diagnostic/operational workflows (e.g. internet-outage or service-down triage). Siris walks the user through steps first; Hermes performs approved diagnostic steps later; full automation ("Siris, fix Plex") only once capabilities and approvals are proven — observability → recommendations → assisted operations → automation
 - [ ] Context Engine consumers
 - [ ] n8n integration
 - [ ] Event-driven Siris Automations
@@ -390,6 +412,11 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 
 Stable daily platform spanning Mission Control, Operations Center, Personal, Infrastructure, Engineering, Knowledge, Intelligence and Automation.
 
+- [ ] Richer Morning Briefing synthesizing Siris Score, homelab health/projections, calendar and active-project status into a natural-language summary — every sentence must remain traceable to evidence, matching the SirisHydro/Context provenance standard rather than becoming free-form generation
+- [ ] Health, Calendar and Tasks as first-class context providers and Briefing inputs
+
+The direction: observe → understand → remember → recommend → act. SirisOS should not become twenty dashboards bolted together; it should become the intelligence and control layer connecting them.
+
 ## Explicit exclusions / rules
 
 - Proxmox is intentionally not part of this installation.
@@ -403,6 +430,7 @@ Stable daily platform spanning Mission Control, Operations Center, Personal, Inf
 - Engineering calculations must expose assumptions/units and must not claim standards compliance unless traceable authority profiles justify it.
 - Licensed standards remain private local documents; SirisOS does not scrape or redistribute protected standards content.
 - SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
+- Provenance is a SirisOS-wide UX standard, not one feature's behavior: any AI-adjacent claim (recommendation, projection, Briefing sentence, Memory-derived answer) should expose a "Why?" affordance to its underlying evidence/data/confidence, matching the standard already set by SirisHydro and Context.
 - Standards document IDs are immutable evidence identities; replacement creates a linked new revision rather than overwriting historical source material.
 - Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
 - Knowledge vault access remains read-only until a write/editing design is explicitly approved; ambiguous wikilinks must not be silently resolved.
