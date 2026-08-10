@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../widgets/siris_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.onAuthenticated, super.key});
@@ -66,15 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor: scheme.primary.withValues(alpha: 0.16),
-                          child: Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 34,
-                            color: scheme.primary,
-                          ),
-                        ),
+                        const Center(child: SirisLogo(size: 72)),
                         const SizedBox(height: 22),
                         Text(
                           'Welcome to SirisOS',
