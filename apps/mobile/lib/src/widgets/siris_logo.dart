@@ -10,7 +10,7 @@ class SirisLogo extends StatelessWidget {
   final double size;
   final bool showWordmark;
 
-  static const _logoAsset = 'assets/branding/siris_logo_red.webp';
+  static const _logoAsset = 'assets/branding/siris_logo_red.png';
 
   @override
   Widget build(BuildContext context) {

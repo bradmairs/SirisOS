@@ -22,5 +22,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/branding/siris_logo_red.webp
-    - assets/branding/siris_os_favicon.svg
+    - assets/branding/siris_logo_red.png
+    - assets/branding/siris_os_favicon.png
