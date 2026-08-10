@@ -27,12 +27,13 @@ class SirisLogo extends StatefulWidget {
   /// exact space for it (needed to position the ring shimmer overlay).
   static const _assetAspectRatio = 310 / 385;
 
-  // Ring geometry, measured directly off the source asset as fractions of
-  // its own width/height so the shimmer overlay tracks the ring at any size.
-  static const _ringCenterXFraction = 0.49;
-  static const _ringCenterYFraction = 0.35;
-  static const _ringRadiusXFraction = 0.47;
-  static const _ringRadiusYFraction = 0.29;
+  // Ring geometry, fitted to the ring pixels in the source asset (robust
+  // circle fit with outlier rejection against stray glow/spark pixels, not
+  // eyeballed) so the shimmer overlay actually traces the printed ring.
+  static const _ringCenterXFraction = 0.5028;
+  static const _ringCenterYFraction = 0.4465;
+  static const _ringRadiusXFraction = 0.4872;
+  static const _ringRadiusYFraction = 0.3923;
 
   @override
   State<SirisLogo> createState() => _SirisLogoState();
