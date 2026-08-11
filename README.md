@@ -223,7 +223,7 @@ Current foundation:
 - Hidden `.obsidian` internals excluded from scanning
 - Path traversal blocked and note reads bounded by configuration
 - One bounded in-memory link index per relationship request; no database/indexing daemon yet
-- Global SirisOS search across vault content, blended into `/api/v1/search`
+- Global SirisOS search across vault content, blended into `/api/v1/search` alongside Docker/running/gym/activity, Projects, saved Engineering calculations, the Standards library and Siris Memory — each source degrades gracefully on its own, so one corrupted store can't take down search entirely. ADR 062.
 - Deterministic, explainable related notes (outgoing links, backlinks, shared tags, folder proximity) surfaced in the note viewer
 - Optional Ollama semantic search, transparently blended into search ranking alongside deterministic lexical matching
 - Mission Control Knowledge widget

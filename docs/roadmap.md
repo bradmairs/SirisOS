@@ -312,6 +312,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Backlink discovery and navigation
 - [x] Bounded per-request in-memory link index
 - [x] Global SirisOS search across vault content
+- [x] Global search coverage extended to Projects, saved Engineering calculations, the Standards library and Siris Memory, with per-source graceful degradation so one corrupted store can't take down search for everything else (ADR 062)
 - [x] Mission Control Knowledge widget
 - [x] Context-aware related notes with explainable ranking
 - [x] Optional Ollama AI semantic search, blended transparently into ranking
