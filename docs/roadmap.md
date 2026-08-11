@@ -362,9 +362,11 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] Preserve deterministic outputs beneath optional LLM rewriting
 
 ### Siris Memory
-- [ ] Siris Memory Service with distinct classes: Facts (stable information), Preferences (choices Siris has learned), Episodes (things that happened), Decisions (choices made and why), Observations (automatically detected), Conversation memories (learned through SirisAI)
-- [ ] Provenance per memory record — source object, timestamp, confidence — matching the citation standard already set by SirisHydro and Context
+- [x] Siris Memory Service v1 — Facts, Preferences, Episodes, Decisions, Observations and Conversation memory classes; manual entry with free-text content + optional source, atomic JSON persistence, CRUD API filterable by class (ADR 061)
+- [x] Wired into the `Siris` module (previously a "planned for later" placeholder), reachable from More → Siris
+- [ ] Structured (not free-text) provenance per memory record — typed source object reference, confidence — matching the citation standard already set by SirisHydro and Context
 - [ ] Cross-object traversal (e.g. Project → calculation → standard → SirisHydro question → meeting note → decision) so SirisAI can answer "why did I decide X?", not just "what does X say?"
+- [ ] Automatic capture from SirisAI conversations, once a conversational surface exists
 - [ ] Distinct from, and complementary to, Knowledge (documents), Projects (structured relationships) and SirisHydro history (evidence-grounded Q&A) — Memory is Siris's own accumulated understanding, not a fourth copy of the same content
 
 ### Universal Command Palette & contextual "Ask Siris"
