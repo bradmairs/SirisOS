@@ -76,6 +76,9 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         'gym' => Icons.fitness_center_rounded,
         'activity' => Icons.notifications_rounded,
         'knowledge' => Icons.menu_book_rounded,
+        'projects' => Icons.folder_rounded,
+        'engineering' => Icons.engineering_rounded,
+        'siris' => Icons.auto_awesome_rounded,
         _ => Icons.search_rounded,
       };
 
@@ -159,7 +162,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: SearchBar(
                 controller: _controller,
-                hintText: 'Notes, containers, runs, exercises, activity…',
+                hintText: 'Notes, projects, calculations, standards, memory, containers…',
                 leading: const Icon(Icons.search_rounded),
                 trailing: [
                   if (_controller.text.isNotEmpty)
@@ -255,7 +258,8 @@ class _SearchHint extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Search Knowledge notes, Docker containers, running history, gym workouts and recent SirisOS activity.',
+              'Search Knowledge notes, Projects, saved Engineering calculations, Standards, Siris Memory, Docker '
+              'containers, running history, gym workouts and recent SirisOS activity.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,

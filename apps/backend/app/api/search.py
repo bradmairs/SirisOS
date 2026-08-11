@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 import os
 
@@ -5,6 +6,7 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
+from app.api import engineering_calculations, engineering_standards, projects, siris_memory
 from app.services.activity_service import ActivityService
 from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
@@ -113,6 +115,75 @@ async def search(
                 subtitle=f"{event.module.title()} · {event.message}",
                 target="notifications",
                 reference_id=str(event.id),
+            ))
+
+    try:
+        project_records = projects._load()
+    except HTTPException:
+        # Search degrades gracefully per-source: a corrupted store must not
+        # take down search for everything else.
+        project_records = []
+    for project in project_records:
+        haystack = f"{project.name} {project.description} {project.kind} {' '.join(project.tags)}".lower()
+        if term in haystack:
+            results.append(SearchResult(
+                module="projects",
+                title=project.name,
+                subtitle=f"{project.kind.title()} · {project.status.title()}",
+                target="projects",
+                reference_id=project.id,
+            ))
+
+    try:
+        calculation_records = engineering_calculations._load()
+    except HTTPException:
+        calculation_records = []
+    for calculation in calculation_records:
+        haystack = f"{calculation.title} {calculation.calculator_id} {calculation.notes}".lower()
+        if term in haystack:
+            results.append(SearchResult(
+                module="engineering",
+                title=calculation.title,
+                subtitle=f"Saved calculation · {calculation.calculator_id}",
+                target="engineering",
+                reference_id=calculation.id,
+            ))
+
+    engineering_standards.LIBRARY_ROOT.mkdir(parents=True, exist_ok=True)
+    for metadata_path in sorted(engineering_standards.LIBRARY_ROOT.glob("*/metadata.json")):
+        try:
+            metadata = engineering_standards._normalise_metadata(
+                json.loads(metadata_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not metadata["active"]:
+            continue
+        haystack = " ".join(
+            str(metadata.get(key) or "") for key in ("title", "authority", "reference", "edition")
+        ).lower()
+        if term in haystack:
+            results.append(SearchResult(
+                module="engineering",
+                title=str(metadata.get("reference") or metadata.get("title")),
+                subtitle=f"Standard · {metadata.get('authority') or 'Unknown authority'}",
+                target="engineering",
+                reference_id=str(metadata.get("id")),
+            ))
+
+    try:
+        memory_records = siris_memory._load()
+    except HTTPException:
+        memory_records = []
+    for memory in memory_records:
+        haystack = f"{memory.memory_class} {memory.content} {memory.source or ''}".lower()
+        if term in haystack:
+            results.append(SearchResult(
+                module="siris",
+                title=memory.content[:80],
+                subtitle=f"Siris Memory · {memory.memory_class.title()}",
+                target="siris",
+                reference_id=memory.id,
             ))
 
     return results[:50]
