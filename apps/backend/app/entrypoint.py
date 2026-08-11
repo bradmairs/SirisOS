@@ -11,6 +11,7 @@ from app.api.knowledge_context import router as knowledge_context_router
 from app.api.project_relationships import router as project_relationships_router
 from app.api.projects import router as projects_router
 from app.api.search import router as search_router
+from app.api.siris_memory import router as siris_memory_router
 from app.api.synology import router as synology_router
 
 # The legacy app.main owns core auth/dashboard/homelab routes. Newer feature
@@ -28,6 +29,7 @@ for router in (
     projects_router,
     project_relationships_router,
     search_router,
+    siris_memory_router,
     synology_router,
 ):
     app.include_router(router)
