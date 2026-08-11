@@ -9,6 +9,7 @@ import '../screens/homelab_screen.dart';
 import '../screens/knowledge_hub_screen.dart';
 import '../screens/projects_hub_screen.dart';
 import '../screens/running_screen.dart';
+import '../screens/siris_memory_screen.dart';
 import '../widgets/siris_logo.dart';
 
 enum SirisModuleAvailability { available, preview, unavailable }
@@ -114,10 +115,7 @@ class AppModuleRegistry {
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
-            availability: SirisModuleAvailability.preview,
-            unavailableReason:
-                'The Siris AI command centre is planned for a later sprint.',
-            screenBuilder: (_) => const SizedBox.shrink(),
+            screenBuilder: (_) => const SirisMemoryScreen(),
           ),
         _ => SirisModuleRegistration(
             definition: definition,
