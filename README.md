@@ -284,7 +284,10 @@ ADR 029 records this boundary; ADR 057 records the chat connector; ADR 058 recor
 
 Planned automation stack:
 
-- Operations Planner
+- Siris Memory Service (Facts/Preferences/Episodes/Decisions/Observations/Conversation memories, cross-object traversal) — see `docs/roadmap.md`
+- Universal Command Palette and contextual "Ask Siris" on individual objects
+- Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
+- Operations Planner and deterministic recommendation engine
 - Action Framework bound to stable capability IDs
 - Playbook Engine
 - Context-aware recommendations
@@ -298,8 +301,8 @@ Planned automation stack:
 - **HomeLab OS:** Docker, Home Assistant, Prometheus/Grafana, UniFi, Synology, backups, UPS, Plex
 - **Engineer OS:** SirisHydro, SirisPM, calculators, standards, projects, Civil 3D
 - **Knowledge OS:** Obsidian, documents, search, metadata, semantic memory
-- **Intelligence OS:** Context, Knowledge Graph, Planner, SirisAI, Hermes, Ollama
-- **Automation OS:** capabilities, actions, playbooks, schedules, triggers, workflows, approvals
+- **Intelligence OS:** Context, Memory, Knowledge Graph, Planner, SirisAI, Hermes, Ollama
+- **Automation OS:** capabilities, actions, playbooks, schedules, triggers, workflows, approvals, Inbox
 
 ## Development rules / handover checklist
 
@@ -333,6 +336,7 @@ Planned automation stack:
 28. Pull requests should pass backend, Flutter and production-container CI before merge unless an explicit emergency hotfix is required.
 29. Production Flutter uses same-origin API routing through the unified `sirisos` container; do not reintroduce a host-specific compiled API URL without an explicit deployment reason.
 30. Knowledge vault access remains read-only until an explicit write/editing design is approved; ambiguous wikilinks must not be silently resolved.
+31. Provenance is a SirisOS-wide UX standard, not one feature's behavior: any AI-adjacent claim (recommendation, projection, Briefing sentence, Memory-derived answer) should expose a "Why?" affordance to its underlying evidence/data/confidence.
 
 ## Local endpoints
 
