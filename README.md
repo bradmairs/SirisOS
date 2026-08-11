@@ -282,9 +282,15 @@ SirisOS connects directly to a user-run Ollama server (`OLLAMA_URL`), not throug
 
 ADR 029 records this boundary; ADR 057 records the chat connector; ADR 058 records availability status.
 
+### Siris Memory
+
+Siris's own accumulated understanding — distinct from Knowledge (documents), Projects (structured relationships) and SirisHydro history (evidence-grounded Q&A). v1 ships six memory classes (Fact, Preference, Episode, Decision, Observation, Conversation), manually entered with free-text content and an optional free-text source, backed by the same atomic-JSON persistence pattern as every other SirisOS record store. Reachable from More → Siris, which previously showed only a "planned for later" placeholder.
+
+Cross-object traversal (e.g. Project → calculation → standard → SirisHydro question → decision) and automatic capture from SirisAI conversations remain future work — v1 is deliberately just the record store and manual-entry UI. ADR 061.
+
 Planned automation stack:
 
-- Siris Memory Service (Facts/Preferences/Episodes/Decisions/Observations/Conversation memories, cross-object traversal) — see `docs/roadmap.md`
+- Structured provenance (typed source object reference, confidence) and cross-object traversal for Siris Memory
 - Universal Command Palette and contextual "Ask Siris" on individual objects
 - Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
 - Operations Planner and deterministic recommendation engine
