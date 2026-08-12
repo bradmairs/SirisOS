@@ -54,7 +54,8 @@ class _GymScreenState extends State<GymScreen> {
 
   Future<void> _openTemplates() async {
     final template = await Navigator.of(context).push<WorkoutTemplate>(
-      MaterialPageRoute<WorkoutTemplate>(builder: (_) => const WorkoutTemplatesScreen()),
+      MaterialPageRoute<WorkoutTemplate>(
+          builder: (_) => const WorkoutTemplatesScreen()),
     );
     if (template != null && mounted) await _addWorkout(template);
   }
@@ -70,9 +71,11 @@ class _GymScreenState extends State<GymScreen> {
           }
           final workouts = snapshot.data ?? const <GymWorkout>[];
           final chart = workouts.reversed
-              .map((item) => MetricSample(time: item.date, value: item.totalVolumeKg))
+              .map((item) =>
+                  MetricSample(time: item.date, value: item.totalVolumeKg))
               .toList(growable: false);
-          final totalVolume = workouts.fold<double>(0, (sum, item) => sum + item.totalVolumeKg);
+          final totalVolume =
+              workouts.fold<double>(0, (sum, item) => sum + item.totalVolumeKg);
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -86,11 +89,16 @@ class _GymScreenState extends State<GymScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Gym', style: Theme.of(context).textTheme.headlineMedium),
+                          Text('Gym',
+                              style:
+                                  Theme.of(context).textTheme.headlineMedium),
                           const SizedBox(height: 6),
                           Text(
                             'Workout logging and progressive overload tracking.',
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -104,7 +112,8 @@ class _GymScreenState extends State<GymScreen> {
                     IconButton.filledTonal(
                       tooltip: 'Exercise progress',
                       onPressed: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(builder: (_) => const ExerciseProgressScreen()),
+                        MaterialPageRoute<void>(
+                            builder: (_) => const ExerciseProgressScreen()),
                       ),
                       icon: const Icon(Icons.trending_up_rounded),
                     ),
@@ -124,23 +133,35 @@ class _GymScreenState extends State<GymScreen> {
                       spacing: 32,
                       runSpacing: 16,
                       children: [
-                        _Summary(label: 'Workouts', value: '${workouts.length}'),
-                        _Summary(label: 'Total volume', value: '${totalVolume.toStringAsFixed(0)} kg'),
-                        _Summary(label: 'Latest', value: workouts.isEmpty ? '—' : '${workouts.first.totalVolumeKg.toStringAsFixed(0)} kg'),
+                        _Summary(
+                            label: 'Workouts', value: '${workouts.length}'),
+                        _Summary(
+                            label: 'Total volume',
+                            value: '${totalVolume.toStringAsFixed(0)} kg'),
+                        _Summary(
+                            label: 'Latest',
+                            value: workouts.isEmpty
+                                ? '—'
+                                : '${workouts.first.totalVolumeKg.toStringAsFixed(0)} kg'),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                MetricLineChart(title: 'Workout volume', samples: chart, valueSuffix: ' kg'),
+                MetricLineChart(
+                    title: 'Workout volume',
+                    samples: chart,
+                    valueSuffix: ' kg'),
                 const SizedBox(height: 24),
-                Text('Workout history', style: Theme.of(context).textTheme.titleLarge),
+                Text('Workout history',
+                    style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
                 if (workouts.isEmpty)
                   const Card(
                     child: Padding(
                       padding: EdgeInsets.all(28),
-                      child: Text('No workouts logged yet. Add your first session to begin tracking progress.'),
+                      child: Text(
+                          'No workouts logged yet. Add your first session to begin tracking progress.'),
                     ),
                   )
                 else
@@ -150,14 +171,17 @@ class _GymScreenState extends State<GymScreen> {
                       child: Card(
                         child: ExpansionTile(
                           title: Text(workout.name),
-                          subtitle: Text('${_dateLabel(workout.date)} · ${workout.sets.length} sets · ${workout.totalVolumeKg.toStringAsFixed(0)} kg'),
+                          subtitle: Text(
+                              '${_dateLabel(workout.date)} · ${workout.sets.length} sets · ${workout.totalVolumeKg.toStringAsFixed(0)} kg'),
                           children: workout.sets
                               .map(
                                 (set) => ListTile(
                                   dense: true,
                                   title: Text(set.exercise),
-                                  subtitle: Text('${set.weightKg.toStringAsFixed(1)} kg × ${set.reps}${set.rir == null ? '' : ' · ${set.rir} RIR'}'),
-                                  trailing: Text('${set.volumeKg.toStringAsFixed(0)} kg'),
+                                  subtitle: Text(
+                                      '${set.weightKg.toStringAsFixed(1)} kg × ${set.reps}${set.rir == null ? '' : ' · ${set.rir} RIR'}'),
+                                  trailing: Text(
+                                      '${set.volumeKg.toStringAsFixed(0)} kg'),
                                 ),
                               )
                               .toList(),
@@ -173,7 +197,8 @@ class _GymScreenState extends State<GymScreen> {
     );
   }
 
-  static String _dateLabel(DateTime value) => '${value.day}/${value.month}/${value.year}';
+  static String _dateLabel(DateTime value) =>
+      '${value.day}/${value.month}/${value.year}';
 }
 
 class _Summary extends StatelessWidget {
@@ -239,30 +264,30 @@ class _WorkoutFormState extends State<_WorkoutForm> {
     if (template == null) return;
     setState(() => _loadingSuggestions = true);
     try {
-      final progress = await _service.fetchExercises();
-      final byName = <String, ExerciseProgress>{
-        for (final item in progress) item.exercise.trim().toLowerCase(): item,
-      };
       var populated = 0;
       for (final templateExercise in template.exercises) {
-        final history = byName[templateExercise.exercise.trim().toLowerCase()];
-        if (history == null || history.history.isEmpty) continue;
-        final latest = history.history.last;
-        var suggestedWeight = latest.weightKg;
-        if (latest.reps >= templateExercise.targetReps &&
-            latest.rir != null &&
-            latest.rir! >= 2) {
-          suggestedWeight += 2.5;
+        final ProgressiveOverloadSuggestion suggestion;
+        try {
+          suggestion =
+              await _service.fetchSuggestion(templateExercise.exercise);
+        } catch (_) {
+          continue;
         }
-        final label = _weightLabel(suggestedWeight);
+        if (suggestion.status == ProgressiveOverloadStatus.noData ||
+            suggestion.suggestedWeightKg == null) {
+          continue;
+        }
+        final label = _weightLabel(suggestion.suggestedWeightKg!);
         for (final set in _sets.where(
-          (item) => item.exercise.text.trim().toLowerCase() ==
+          (item) =>
+              item.exercise.text.trim().toLowerCase() ==
               templateExercise.exercise.trim().toLowerCase(),
         )) {
           set.weight.text = label;
-          set.suggestion = suggestedWeight > latest.weightKg
-              ? 'Suggested +2.5 kg from ${_weightLabel(latest.weightKg)} kg'
-              : 'Suggested from last ${_weightLabel(latest.weightKg)} kg set';
+          if (suggestion.suggestedReps != null) {
+            set.reps.text = '${suggestion.suggestedReps}';
+          }
+          set.suggestion = suggestion.rationale;
           populated++;
         }
       }
@@ -277,13 +302,15 @@ class _WorkoutFormState extends State<_WorkoutForm> {
       if (!mounted) return;
       setState(() {
         _loadingSuggestions = false;
-        _suggestionMessage = 'Could not load previous exercise history. Enter today’s weights manually.';
+        _suggestionMessage =
+            'Could not load previous exercise history. Enter today’s weights manually.';
       });
     }
   }
 
-  static String _weightLabel(double value) =>
-      value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
+  static String _weightLabel(double value) => value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(1);
 
   @override
   void dispose() {
@@ -301,11 +328,16 @@ class _WorkoutFormState extends State<_WorkoutForm> {
       final rir = item.rir.text.isEmpty ? null : int.tryParse(item.rir.text);
       if (item.exercise.text.trim().isEmpty || weight == null || reps == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Complete every exercise, weight and reps field.')),
+          const SnackBar(
+              content: Text('Complete every exercise, weight and reps field.')),
         );
         return;
       }
-      sets.add(GymSet(exercise: item.exercise.text.trim(), weightKg: weight, reps: reps, rir: rir));
+      sets.add(GymSet(
+          exercise: item.exercise.text.trim(),
+          weightKg: weight,
+          reps: reps,
+          rir: rir));
     }
     if (_name.text.trim().isEmpty) return;
     setState(() => _saving = true);
@@ -318,7 +350,9 @@ class _WorkoutFormState extends State<_WorkoutForm> {
       );
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -327,15 +361,21 @@ class _WorkoutFormState extends State<_WorkoutForm> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
       child: ListView(
         children: [
-          Text(widget.template == null ? 'Log workout' : 'Start ${widget.template!.name}', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+              widget.template == null
+                  ? 'Log workout'
+                  : 'Start ${widget.template!.name}',
+              style: Theme.of(context).textTheme.headlineSmall),
           if (widget.template != null) ...[
             const SizedBox(height: 6),
             Text(
               'Targets are pre-filled. SirisOS uses your latest matching exercise history to suggest a starting weight.',
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 10),
             if (_loadingSuggestions) const LinearProgressIndicator(),
@@ -350,9 +390,15 @@ class _WorkoutFormState extends State<_WorkoutForm> {
             ],
           ],
           const SizedBox(height: 16),
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Workout name', hintText: 'Upper body, Push, Legs…')),
+          TextField(
+              controller: _name,
+              decoration: const InputDecoration(
+                  labelText: 'Workout name',
+                  hintText: 'Upper body, Push, Legs…')),
           const SizedBox(height: 12),
-          TextField(controller: _notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+          TextField(
+              controller: _notes,
+              decoration: const InputDecoration(labelText: 'Notes (optional)')),
           const SizedBox(height: 20),
           ...List.generate(
             _sets.length,
@@ -364,22 +410,45 @@ class _WorkoutFormState extends State<_WorkoutForm> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(controller: _sets[index].exercise, decoration: InputDecoration(labelText: 'Exercise ${index + 1}')),
+                      TextField(
+                          controller: _sets[index].exercise,
+                          decoration: InputDecoration(
+                              labelText: 'Exercise ${index + 1}')),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Expanded(child: TextField(controller: _sets[index].weight, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Weight kg'))),
+                          Expanded(
+                              child: TextField(
+                                  controller: _sets[index].weight,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  decoration: const InputDecoration(
+                                      labelText: 'Weight kg'))),
                           const SizedBox(width: 8),
-                          Expanded(child: TextField(controller: _sets[index].reps, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps'))),
+                          Expanded(
+                              child: TextField(
+                                  controller: _sets[index].reps,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Reps'))),
                           const SizedBox(width: 8),
-                          Expanded(child: TextField(controller: _sets[index].rir, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'RIR'))),
+                          Expanded(
+                              child: TextField(
+                                  controller: _sets[index].rir,
+                                  keyboardType: TextInputType.number,
+                                  decoration:
+                                      const InputDecoration(labelText: 'RIR'))),
                         ],
                       ),
                       if (_sets[index].suggestion != null) ...[
                         const SizedBox(height: 8),
                         Text(
                           _sets[index].suggestion!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                         ),
@@ -396,7 +465,9 @@ class _WorkoutFormState extends State<_WorkoutForm> {
             label: const Text('Add set'),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving…' : 'Save workout')),
+          FilledButton(
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Saving…' : 'Save workout')),
         ],
       ),
     );
@@ -404,7 +475,11 @@ class _WorkoutFormState extends State<_WorkoutForm> {
 }
 
 class _SetDraft {
-  _SetDraft({String exercise = '', String weight = '', String reps = '', String rir = ''}) {
+  _SetDraft(
+      {String exercise = '',
+      String weight = '',
+      String reps = '',
+      String rir = ''}) {
     this.exercise.text = exercise;
     this.weight.text = weight;
     this.reps.text = reps;

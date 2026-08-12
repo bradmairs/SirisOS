@@ -53,7 +53,8 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(28),
-                child: Text('Log workouts to begin building exercise progression data.'),
+                child: Text(
+                    'Log workouts to begin building exercise progression data.'),
               ),
             );
           }
@@ -67,7 +68,8 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
                 final item = exercises[index];
                 return Card(
                   child: ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.trending_up_rounded)),
+                    leading: const CircleAvatar(
+                        child: Icon(Icons.trending_up_rounded)),
                     title: Text(item.exercise),
                     subtitle: Text(
                       '${item.workoutCount} workouts · ${item.setCount} sets · latest ${item.latestWeightKg.toStringAsFixed(1)} kg × ${item.latestReps}',
@@ -76,7 +78,8 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('${item.bestEstimatedOneRepMaxKg.toStringAsFixed(1)} kg'),
+                        Text(
+                            '${item.bestEstimatedOneRepMaxKg.toStringAsFixed(1)} kg'),
                         const Text('best e1RM'),
                       ],
                     ),
@@ -96,13 +99,28 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
   }
 }
 
-class _ExerciseDetailScreen extends StatelessWidget {
+class _ExerciseDetailScreen extends StatefulWidget {
   const _ExerciseDetailScreen({required this.progress});
 
   final ExerciseProgress progress;
 
   @override
+  State<_ExerciseDetailScreen> createState() => _ExerciseDetailScreenState();
+}
+
+class _ExerciseDetailScreenState extends State<_ExerciseDetailScreen> {
+  final GymService _service = GymService();
+  late Future<ProgressiveOverloadSuggestion> _suggestion;
+
+  @override
+  void initState() {
+    super.initState();
+    _suggestion = _service.fetchSuggestion(widget.progress.exercise);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final progress = widget.progress;
     final chartSamples = progress.history
         .map((point) => MetricSample(
               time: point.date,
@@ -119,12 +137,62 @@ class _ExerciseDetailScreen extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _RecordCard(label: 'Heaviest weight', value: '${progress.bestWeightKg.toStringAsFixed(1)} kg'),
-              _RecordCard(label: 'Best estimated 1RM', value: '${progress.bestEstimatedOneRepMaxKg.toStringAsFixed(1)} kg'),
-              _RecordCard(label: 'Best set volume', value: '${progress.bestSetVolumeKg.toStringAsFixed(0)} kg'),
+              _RecordCard(
+                  label: 'Heaviest weight',
+                  value: '${progress.bestWeightKg.toStringAsFixed(1)} kg'),
+              _RecordCard(
+                  label: 'Best estimated 1RM',
+                  value:
+                      '${progress.bestEstimatedOneRepMaxKg.toStringAsFixed(1)} kg'),
+              _RecordCard(
+                  label: 'Best set volume',
+                  value: '${progress.bestSetVolumeKg.toStringAsFixed(0)} kg'),
             ],
           ),
           const SizedBox(height: 18),
+          FutureBuilder<ProgressiveOverloadSuggestion>(
+            future: _suggestion,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox.shrink();
+              final suggestion = snapshot.data!;
+              if (suggestion.status == ProgressiveOverloadStatus.noData) {
+                return const SizedBox.shrink();
+              }
+              final icon =
+                  suggestion.status == ProgressiveOverloadStatus.progress
+                      ? Icons.trending_up_rounded
+                      : Icons.replay_rounded;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(icon,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Next session suggestion',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(suggestion.rationale),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           MetricLineChart(
             title: 'Estimated 1RM trend',
             samples: chartSamples,
@@ -136,11 +204,13 @@ class _ExerciseDetailScreen extends StatelessWidget {
           ...progress.history.reversed.map(
             (point) => Card(
               child: ListTile(
-                title: Text('${point.weightKg.toStringAsFixed(1)} kg × ${point.reps}'),
+                title: Text(
+                    '${point.weightKg.toStringAsFixed(1)} kg × ${point.reps}'),
                 subtitle: Text(
                   '${point.workoutName} · ${point.date.day}/${point.date.month}/${point.date.year}${point.rir == null ? '' : ' · ${point.rir} RIR'}',
                 ),
-                trailing: Text('${point.estimatedOneRepMaxKg.toStringAsFixed(1)} kg e1RM'),
+                trailing: Text(
+                    '${point.estimatedOneRepMaxKg.toStringAsFixed(1)} kg e1RM'),
               ),
             ),
           ),

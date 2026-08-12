@@ -1,6 +1,6 @@
 from datetime import date, datetime
 import os
-from typing import Annotated
+from typing import Annotated, Literal
 
 import jwt
 from fastapi import APIRouter, Header, HTTPException, status
@@ -94,6 +94,15 @@ class ExerciseSummaryResponse(BaseModel):
     best_estimated_one_rep_max_kg: float
     best_set_volume_kg: float
     history: list[ExerciseHistoryPointResponse]
+
+
+class ProgressiveOverloadSuggestionResponse(BaseModel):
+    exercise: str
+    status: Literal["progress", "repeat", "no_data"]
+    suggested_weight_kg: float | None
+    suggested_reps: int | None
+    rationale: str
+    based_on_workout_date: date | None
 
 
 class WorkoutTemplateExerciseCreate(BaseModel):
@@ -208,6 +217,15 @@ async def exercise_detail(exercise_name: str, authorization: Annotated[str | Non
     if item is None:
         raise HTTPException(status_code=404, detail="Exercise not found.")
     return _exercise_response(item)
+
+
+@router.get("/exercises/{exercise_name}/suggestion", response_model=ProgressiveOverloadSuggestionResponse)
+async def exercise_suggestion(
+    exercise_name: str, authorization: Annotated[str | None, Header()] = None
+) -> ProgressiveOverloadSuggestionResponse:
+    _authenticate(authorization)
+    suggestion = service.suggest_progressive_overload(exercise_name)
+    return ProgressiveOverloadSuggestionResponse(**suggestion.__dict__)
 
 
 @router.get("/templates", response_model=list[WorkoutTemplateResponse])

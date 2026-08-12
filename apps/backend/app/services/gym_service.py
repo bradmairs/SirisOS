@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import os
+from typing import Literal
+
+PROGRESSIVE_OVERLOAD_INCREMENT_KG = 2.5
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
@@ -70,6 +73,7 @@ class Workout:
 
 @dataclass(frozen=True)
 class ExerciseHistoryPoint:
+    workout_id: int
     workout_date: date
     workout_name: str
     weight_kg: float
@@ -91,6 +95,16 @@ class ExerciseSummary:
     best_estimated_one_rep_max_kg: float
     best_set_volume_kg: float
     history: list[ExerciseHistoryPoint]
+
+
+@dataclass(frozen=True)
+class ProgressiveOverloadSuggestion:
+    exercise: str
+    status: Literal["progress", "repeat", "no_data"]
+    suggested_weight_kg: float | None
+    suggested_reps: int | None
+    rationale: str
+    based_on_workout_date: date | None
 
 
 class GymService:
@@ -142,6 +156,7 @@ class GymService:
                 workout_ids.setdefault(key, set()).add(workout.id)
                 grouped.setdefault(key, []).append(
                     ExerciseHistoryPoint(
+                        workout_id=workout.id,
                         workout_date=workout.workout_date,
                         workout_name=workout.name,
                         weight_kg=item.weight_kg,
@@ -174,6 +189,83 @@ class GymService:
     def get_exercise(self, exercise: str) -> ExerciseSummary | None:
         target = exercise.strip().casefold()
         return next((item for item in self.list_exercises() if item.exercise.casefold() == target), None)
+
+    def suggest_progressive_overload(self, exercise: str) -> ProgressiveOverloadSuggestion:
+        # Deterministic v1: reasons only from the exercise's own most recent
+        # session (straight-set training assumed -- pyramid/varied-weight
+        # sessions aren't distinguished from a struggled session yet). No
+        # Ollama involvement: this is exactly the kind of numeric judgement
+        # the roadmap says should stay deterministic.
+        summary = self.get_exercise(exercise)
+        if summary is None or not summary.history:
+            return ProgressiveOverloadSuggestion(
+                exercise=exercise,
+                status="no_data",
+                suggested_weight_kg=None,
+                suggested_reps=None,
+                rationale=f"No prior sets logged for {exercise} yet.",
+                based_on_workout_date=None,
+            )
+
+        last_workout_id = summary.history[-1].workout_id
+        last_session = [point for point in summary.history if point.workout_id == last_workout_id]
+        last_date = last_session[-1].workout_date
+        weight = last_session[-1].weight_kg
+        first_reps = last_session[0].reps
+        last_reps = last_session[-1].reps
+        rir_values = [point.rir for point in last_session if point.rir is not None]
+        min_rir = min(rir_values) if rir_values else None
+
+        reps_dropped = last_reps < first_reps
+        near_failure = min_rir is not None and min_rir <= 1
+        held_or_grew = last_reps >= first_reps
+        comfortable = min_rir is None or min_rir >= 2
+
+        rep_summary = ", ".join(
+            f"{point.reps}@RIR{point.rir if point.rir is not None else '?'}" for point in last_session
+        )
+
+        if reps_dropped or near_failure:
+            return ProgressiveOverloadSuggestion(
+                exercise=summary.exercise,
+                status="repeat",
+                suggested_weight_kg=weight,
+                suggested_reps=first_reps,
+                rationale=(
+                    f"On {last_date.isoformat()} your sets were {rep_summary} at {weight:g} kg -- "
+                    f"repeat this weight before increasing."
+                ),
+                based_on_workout_date=last_date,
+            )
+
+        if held_or_grew and comfortable:
+            suggested_weight = round(weight + PROGRESSIVE_OVERLOAD_INCREMENT_KG, 1)
+            suggested_reps = min(point.reps for point in last_session)
+            rir_label = "not recorded" if min_rir is None else f"RIR {min_rir}+"
+            return ProgressiveOverloadSuggestion(
+                exercise=summary.exercise,
+                status="progress",
+                suggested_weight_kg=suggested_weight,
+                suggested_reps=suggested_reps,
+                rationale=(
+                    f"On {last_date.isoformat()} you held {suggested_reps}+ reps across "
+                    f"{len(last_session)} set{'s' if len(last_session) != 1 else ''} at {weight:g} kg "
+                    f"({rir_label}) -- try {suggested_weight:g} kg."
+                ),
+                based_on_workout_date=last_date,
+            )
+
+        return ProgressiveOverloadSuggestion(
+            exercise=summary.exercise,
+            status="repeat",
+            suggested_weight_kg=weight,
+            suggested_reps=last_reps,
+            rationale=(
+                f"Your last {exercise} session on {last_date.isoformat()} was mixed ({rep_summary}) -- "
+                f"repeat {weight:g} kg and aim to hold reps across all sets."
+            ),
+            based_on_workout_date=last_date,
+        )
 
     @staticmethod
     def _to_record(row: WorkoutModel) -> Workout:
