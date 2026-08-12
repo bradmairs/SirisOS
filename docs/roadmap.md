@@ -431,7 +431,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 
 ### SirisGym
 - [x] Automatic Progressive Overload v1 — deterministic backend suggestion (`GET /gym/exercises/{name}/suggestion`) reasoning from the exercise's own most recent session, with a stated reason and correct handling of the "struggled" case (dropping reps / RIR ≤ 1 → repeat the load, not increase it). Surfaced in the workout form's template prefill and a new "Next session suggestion" card on the Exercise Intelligence page (ADR 066)
-- [ ] Personal records beyond live-computed rollups — a real PR-achieved event (with timestamp, matching the ActivityService pattern already used for workout/run logging) so a session can say "new record" at the moment it happens, not just show a best-ever number buried in a chart
+- [x] Personal Records v1 — a real PR-achieved event (heaviest weight, best estimated 1RM, best set volume, each checked independently per exercise) fires the moment a workout beats a prior best, with an ActivityService event and an understated in-app callout (ADR 067). Running PR tracking (fastest splits, longest run, best negative split) remains separate future work — `RunRecord` doesn't capture splits today
 - [ ] Automatic deload detection — falling reps, rising RIR-implied effort and a declining e1RM trend across several sessions suggests a lighter week; depends on nothing but existing set history, no Health data required
 - [ ] Strength score — aggregate + per-muscle-group breakdown from historical performance, explicitly framed as personal/relative rather than a universal absolute number
 - [ ] Muscle map / weekly workload by muscle group — requires exercise → muscle-group tagging that doesn't exist yet

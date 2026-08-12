@@ -62,6 +62,14 @@ class WorkoutSetResponse(BaseModel):
     volume_kg: float
 
 
+class PersonalRecordResponse(BaseModel):
+    exercise: str
+    record_type: Literal["weight", "estimated_one_rep_max", "set_volume"]
+    value: float
+    previous_value: float | None
+    workout_date: date
+
+
 class WorkoutResponse(BaseModel):
     id: int
     workout_date: date
@@ -71,6 +79,7 @@ class WorkoutResponse(BaseModel):
     set_count: int
     created_at: datetime
     sets: list[WorkoutSetResponse]
+    new_records: list[PersonalRecordResponse] = []
 
 
 class ExerciseHistoryPointResponse(BaseModel):
@@ -131,7 +140,7 @@ class WorkoutTemplateResponse(BaseModel):
     exercises: list[WorkoutTemplateExerciseResponse]
 
 
-def _response(workout) -> WorkoutResponse:
+def _response(workout, new_records=()) -> WorkoutResponse:
     return WorkoutResponse(
         id=workout.id,
         workout_date=workout.workout_date,
@@ -151,7 +160,23 @@ def _response(workout) -> WorkoutResponse:
             )
             for item in workout.sets
         ],
+        new_records=[PersonalRecordResponse(**record.__dict__) for record in new_records],
     )
+
+
+_RECORD_LABELS = {
+    "weight": "heaviest weight",
+    "estimated_one_rep_max": "best estimated 1RM",
+    "set_volume": "best set volume",
+}
+
+
+def _record_message(record) -> str:
+    label = _RECORD_LABELS[record.record_type]
+    unit = "kg"
+    if record.previous_value is None:
+        return f"New {label} for {record.exercise}: {record.value:g} {unit}."
+    return f"New {label} for {record.exercise}: {record.value:g} {unit} (previous {record.previous_value:g} {unit})."
 
 
 def _exercise_response(item) -> ExerciseSummaryResponse:
@@ -187,7 +212,7 @@ async def list_workouts(authorization: Annotated[str | None, Header()] = None) -
 @router.post("/workouts", response_model=WorkoutResponse, status_code=status.HTTP_201_CREATED)
 async def create_workout(payload: WorkoutCreate, authorization: Annotated[str | None, Header()] = None) -> WorkoutResponse:
     username = _authenticate(authorization)
-    workout = service.create_workout(
+    workout, new_records = service.create_workout(
         workout_date=payload.workout_date,
         name=payload.name,
         notes=payload.notes,
@@ -201,7 +226,16 @@ async def create_workout(payload: WorkoutCreate, authorization: Annotated[str | 
         severity="success",
         user=username,
     )
-    return _response(workout)
+    for record in new_records:
+        activity_service.record(
+            module="gym",
+            event_type="personal_record",
+            title=f"New record: {record.exercise}",
+            message=_record_message(record),
+            severity="success",
+            user=username,
+        )
+    return _response(workout, new_records)
 
 
 @router.get("/exercises", response_model=list[ExerciseSummaryResponse])

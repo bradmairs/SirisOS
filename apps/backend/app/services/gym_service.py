@@ -98,6 +98,15 @@ class ExerciseSummary:
 
 
 @dataclass(frozen=True)
+class PersonalRecord:
+    exercise: str
+    record_type: Literal["weight", "estimated_one_rep_max", "set_volume"]
+    value: float
+    previous_value: float | None
+    workout_date: date
+
+
+@dataclass(frozen=True)
 class ProgressiveOverloadSuggestion:
     exercise: str
     status: Literal["progress", "repeat", "no_data"]
@@ -121,7 +130,14 @@ class GymService:
             rows = list(session.scalars(select(WorkoutModel).order_by(WorkoutModel.workout_date.desc(), WorkoutModel.id.desc())))
             return [self._to_record(row) for row in rows]
 
-    def create_workout(self, *, workout_date: date, name: str, notes: str | None, sets: list[dict]) -> Workout:
+    def create_workout(
+        self, *, workout_date: date, name: str, notes: str | None, sets: list[dict]
+    ) -> tuple[Workout, list[PersonalRecord]]:
+        # Snapshot each exercise's bests before inserting, so the new sets are
+        # never compared against themselves.
+        exercise_names = {str(item["exercise"]).strip() for item in sets}
+        prior_bests = {exercise: self.get_exercise(exercise) for exercise in exercise_names}
+
         with self._sessions() as session:
             row = WorkoutModel(
                 workout_date=workout_date,
@@ -141,7 +157,54 @@ class GymService:
             session.add(row)
             session.commit()
             session.refresh(row)
-            return self._to_record(row)
+            workout = self._to_record(row)
+
+        session_bests: dict[str, dict[str, float]] = {}
+        for item in workout.sets:
+            bucket = session_bests.setdefault(item.exercise, {"weight": 0.0, "e1rm": 0.0, "volume": 0.0})
+            bucket["weight"] = max(bucket["weight"], item.weight_kg)
+            bucket["e1rm"] = max(bucket["e1rm"], item.estimated_one_rep_max_kg)
+            bucket["volume"] = max(bucket["volume"], item.volume_kg)
+
+        records: list[PersonalRecord] = []
+        for exercise, bests in session_bests.items():
+            prior = prior_bests.get(exercise)
+            if prior is None:
+                # First time this exercise has ever been logged -- a new
+                # entry, not a "record" over a prior best.
+                continue
+            if bests["weight"] > prior.best_weight_kg:
+                records.append(
+                    PersonalRecord(
+                        exercise=exercise,
+                        record_type="weight",
+                        value=bests["weight"],
+                        previous_value=prior.best_weight_kg,
+                        workout_date=workout_date,
+                    )
+                )
+            if bests["e1rm"] > prior.best_estimated_one_rep_max_kg:
+                records.append(
+                    PersonalRecord(
+                        exercise=exercise,
+                        record_type="estimated_one_rep_max",
+                        value=bests["e1rm"],
+                        previous_value=prior.best_estimated_one_rep_max_kg,
+                        workout_date=workout_date,
+                    )
+                )
+            if bests["volume"] > prior.best_set_volume_kg:
+                records.append(
+                    PersonalRecord(
+                        exercise=exercise,
+                        record_type="set_volume",
+                        value=bests["volume"],
+                        previous_value=prior.best_set_volume_kg,
+                        workout_date=workout_date,
+                    )
+                )
+
+        return workout, records
 
     def list_exercises(self) -> list[ExerciseSummary]:
         workouts = list(reversed(self.list_workouts()))

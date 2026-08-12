@@ -105,7 +105,7 @@ class GymService {
     );
   }
 
-  Future<void> createWorkout(
+  Future<GymWorkout> createWorkout(
       {required DateTime date,
       required String name,
       String? notes,
@@ -142,5 +142,7 @@ class GymService {
     SirisEventBus.instance.publish(
       NotificationStateChanged(source: 'gym'),
     );
+    return GymWorkout.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 }

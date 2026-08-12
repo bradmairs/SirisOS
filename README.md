@@ -323,6 +323,10 @@ One real gap found while auditing the existing modules before starting: the work
 
 `GET /api/v1/gym/exercises/{exercise_name}/suggestion` reasons deterministically from an exercise's own most recent session (reps trend + minimum RIR, grouped by workout) to suggest either `+2.5 kg` after a comfortable session or repeating the same weight after a struggled one, with the evidence stated in the response. Replaces the client-only heuristic in the workout form's template prefill, and adds a "Next session suggestion" card to the Exercise Intelligence detail page so ad-hoc (non-template) workouts get the same suggestion. Known v1 limitation, stated rather than engineered around: it assumes straight-set training at a consistent weight per session — a pyramid session would read as "struggled" today. ADR 066.
 
+### Personal Records v1
+
+`POST /api/v1/gym/workouts` now detects, at the moment a workout is saved, whether it beat a prior best for any exercise — heaviest weight, best estimated 1RM and best set volume are checked independently, snapshotted before insertion so a set is never compared against itself and multiple sets of one exercise only report the session's single best per record type. Each new record fires an `ActivityService` event and an understated in-app callout, closing the same "the data already knows this, nothing ever says it" gap found and fixed twice already this sprint. Running PR tracking is explicitly separate future work. ADR 067.
+
 ## Long-term pillars
 
 - **Personal OS:** health, sleep, recovery, running, gym, calendar
