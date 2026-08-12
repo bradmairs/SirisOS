@@ -288,10 +288,14 @@ Siris's own accumulated understanding — distinct from Knowledge (documents), P
 
 Cross-object traversal (e.g. Project → calculation → standard → SirisHydro question → decision) and automatic capture from SirisAI conversations remain future work — v1 is deliberately just the record store and manual-entry UI. ADR 061.
 
+### Universal Command Palette
+
+Cmd+K / Ctrl+K opens a lightweight dialog overlay from any screen, reusing the global search endpoint (ADR 062) rather than a new search implementation — arrow-key highlight navigation, Enter to open the highlighted result, Escape to close, click/tap to navigate. The desktop sidebar's "Search" entry opens the palette directly (with a `⌘K` hint); the full-screen `GlobalSearchScreen` remains the mobile Quick Actions entry point, where a dialog is a worse fit than dedicated touch targets. ADR 063.
+
 Planned automation stack:
 
 - Structured provenance (typed source object reference, confidence) and cross-object traversal for Siris Memory
-- Universal Command Palette and contextual "Ask Siris" on individual objects
+- Palette results blending live state, related Knowledge/Projects and available actions per query; contextual "Ask Siris" on individual objects
 - Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
 - Operations Planner and deterministic recommendation engine
 - Action Framework bound to stable capability IDs
@@ -343,6 +347,7 @@ Planned automation stack:
 29. Production Flutter uses same-origin API routing through the unified `sirisos` container; do not reintroduce a host-specific compiled API URL without an explicit deployment reason.
 30. Knowledge vault access remains read-only until an explicit write/editing design is approved; ambiguous wikilinks must not be silently resolved.
 31. Provenance is a SirisOS-wide UX standard, not one feature's behavior: any AI-adjacent claim (recommendation, projection, Briefing sentence, Memory-derived answer) should expose a "Why?" affordance to its underlying evidence/data/confidence.
+32. App-wide keyboard shortcuts must use `HardwareKeyboard.instance.addHandler`, not `CallbackShortcuts`/`Focus.onKeyEvent` — the latter only fires when a subtree descendant holds focus and silently does nothing otherwise (ADR 063).
 
 ## Local endpoints
 
