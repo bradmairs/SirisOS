@@ -296,13 +296,17 @@ Cmd+K / Ctrl+K opens a lightweight dialog overlay from any screen, reusing the g
 
 Deterministic Observation → Recommendation → Evidence pipeline: `GET /api/v1/recommendations` maps the existing `GET /api/v1/homelab/alerts` output 1:1 into Recommendation records (title, rationale, severity, evidence source/id, a free-text suggested next step), reconciled against an atomic-JSON store so a pending/dismissed/acted status survives across polls, and self-pruning — a recommendation disappears once its underlying alert clears rather than lingering forever. Surfaced as a new panel in Operations Center. The original plan was to evaluate the client-side Incident Engine/Notification Policy engine, but neither has any backend representation to read from; v1 deliberately scopes to the real, already-deterministic `homelab_alerts` endpoint instead. ADR 064.
 
+### Action Framework v1
+
+Server-side capability registry (`GET /api/v1/actions`, `POST /api/v1/actions/{capability_id}/execute`) binding stable capability IDs — `docker.start`/`stop`/`restart` — to the execution primitives that already existed and were already audited (`DockerMonitor.action()`). Medium-risk capabilities require the caller to explicitly set `confirm: true`; the server rejects execution without it rather than trusting a client-side dialog alone. The Flutter `SirisCapabilityRegistry` (ADR 030) stays discovery-only and unconnected to this for now — wiring a Recommendation's suggested action to a real capability, and bringing Home Assistant control into the registry, are both deliberately deferred rather than guessed at under time pressure. Also fixed along the way: Home Assistant device-control actions previously executed with zero audit trail; they now record an activity event on every outcome, matching the pattern Docker actions already had. ADR 065.
+
 Planned automation stack:
 
 - Structured provenance (typed source object reference, confidence) and cross-object traversal for Siris Memory
 - Palette results blending live state, related Knowledge/Projects and available actions per query; contextual "Ask Siris" on individual objects
 - Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
 - Extend Recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation
-- Action Framework bound to stable capability IDs — turn v1's free-text suggested action into an executable capability
+- Wire a Recommendation's suggested action to a specific capability ID; bring Home Assistant control into the capability registry
 - Playbook Engine
 - Context-aware recommendations
 - n8n integration

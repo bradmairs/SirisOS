@@ -7,6 +7,7 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
+from app.services.activity_service import ActivityService
 from app.services.docker_service import DockerMonitor
 from app.services.home_assistant_service import HomeAssistantService
 from app.services.homelab_audit_service import HomelabAuditService
@@ -30,6 +31,8 @@ home_assistant_service = HomeAssistantService()
 prometheus_service = PrometheusService()
 audit_service = HomelabAuditService()
 audit_service.initialise()
+activity_service = ActivityService()
+activity_service.initialise()
 
 
 class AlertResponse(BaseModel):
@@ -307,6 +310,7 @@ async def home_assistant_action(
     authorization: Annotated[str | None, Header()] = None,
 ) -> HomeAssistantActionResponse:
     _authenticate(authorization)
+    service = f"{request.domain}.{request.service}"
     try:
         await home_assistant_service.call_service(
             request.domain,
@@ -314,9 +318,33 @@ async def home_assistant_action(
             request.entity_id,
         )
     except ValueError as exc:
+        activity_service.record(
+            module="homelab",
+            event_type="home_assistant_action",
+            title=f"{service} rejected",
+            message=f"{service} on {request.entity_id} was rejected: {exc}",
+            severity="warning",
+            user=AUTH_USERNAME,
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
+        activity_service.record(
+            module="homelab",
+            event_type="home_assistant_action",
+            title=f"{service} failed",
+            message=f"{service} on {request.entity_id} failed: {exc}",
+            severity="critical",
+            user=AUTH_USERNAME,
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    activity_service.record(
+        module="homelab",
+        event_type="home_assistant_action",
+        title=service,
+        message=f"{service} executed on {request.entity_id}.",
+        severity="info",
+        user=AUTH_USERNAME,
+    )
     return HomeAssistantActionResponse(
         accepted=True,
         entity_id=request.entity_id,
