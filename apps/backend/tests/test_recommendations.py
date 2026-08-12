@@ -87,6 +87,44 @@ def test_unhealthy_container_produces_a_pending_recommendation(monkeypatch, tmp_
     assert item.status == "pending"
     assert item.evidence_source == "homelab_alerts"
     assert "restart" in item.suggested_action.lower()
+    assert item.capability_id == "docker.restart"
+    assert item.capability_params == {"container_id": "abc123"}
+
+
+def test_stopped_container_binds_to_docker_start(monkeypatch, tmp_path) -> None:
+    _patch_alert_sources(
+        monkeypatch,
+        tmp_path,
+        containers=[
+            _FakeDockerContainer(
+                container_id="xyz789", name="plex", image="plexinc/pms", state="stopped", health=None
+            )
+        ],
+    )
+
+    results = asyncio.run(recommendations.list_recommendations(status=None, authorization=_token()))
+
+    assert len(results) == 1
+    assert results[0].capability_id == "docker.start"
+    assert results[0].capability_params == {"container_id": "xyz789"}
+
+
+class _FakeUnavailableDockerMonitor:
+    def collect(self) -> _FakeDockerSummary:
+        return _FakeDockerSummary(available=False, error="Docker socket unreachable.")
+
+
+def test_docker_unavailable_has_no_capability_binding(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(homelab_alerts, "collector", _FakeCollector())
+    monkeypatch.setattr(homelab_alerts, "docker_monitor", _FakeUnavailableDockerMonitor())
+    monkeypatch.setattr(recommendations, "RECOMMENDATIONS_PATH", tmp_path / "recommendations.json")
+
+    results = asyncio.run(recommendations.list_recommendations(status=None, authorization=_token()))
+
+    assert len(results) == 1
+    assert results[0].evidence_id == "docker-unavailable"
+    assert results[0].capability_id is None
+    assert results[0].capability_params is None
 
 
 def test_dismiss_status_persists_across_recompute(monkeypatch, tmp_path) -> None:

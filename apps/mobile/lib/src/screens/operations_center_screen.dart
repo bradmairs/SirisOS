@@ -8,6 +8,7 @@ import '../core/notification_policy.dart';
 import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
 import '../core/siris_integration_manager.dart';
+import '../services/action_service.dart';
 import '../services/recommendation_service.dart';
 import '../widgets/backup_protection_panel.dart';
 import '../widgets/capability_panel.dart';
@@ -382,6 +383,7 @@ class _RecommendationsPanel extends StatefulWidget {
 
 class _RecommendationsPanelState extends State<_RecommendationsPanel> {
   final _service = RecommendationService();
+  final _actionService = ActionService();
   late Future<List<RecommendationRecord>> _future;
   final Set<String> _busy = {};
 
@@ -413,6 +415,59 @@ class _RecommendationsPanelState extends State<_RecommendationsPanel> {
       if (mounted) setState(() => _busy.remove(item.id));
     }
   }
+
+  Future<void> _run(RecommendationRecord item) async {
+    final capabilityId = item.capabilityId;
+    if (capabilityId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Run this action?'),
+        content: Text(
+          '${_capabilityLabel(capabilityId)} for ${item.title}. This runs immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Run'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _busy.add(item.id));
+    try {
+      final result = await _actionService.execute(
+        capabilityId,
+        item.capabilityParams ?? const {},
+      );
+      await _service.updateStatus(item.id, RecommendationStatus.acted);
+      _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(result)));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(item.id));
+    }
+  }
+
+  static String _capabilityLabel(String capabilityId) => switch (capabilityId) {
+        'docker.start' => 'Start container',
+        'docker.stop' => 'Stop container',
+        'docker.restart' => 'Restart container',
+        _ => capabilityId,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -454,6 +509,7 @@ class _RecommendationsPanelState extends State<_RecommendationsPanel> {
                         _updateStatus(item, RecommendationStatus.dismissed),
                     onAct: () =>
                         _updateStatus(item, RecommendationStatus.acted),
+                    onRun: item.capabilityId == null ? null : () => _run(item),
                   ),
                 )
                 .toList(growable: false),
@@ -470,12 +526,14 @@ class _RecommendationRow extends StatelessWidget {
     required this.busy,
     required this.onDismiss,
     required this.onAct,
+    required this.onRun,
   });
 
   final RecommendationRecord item;
   final bool busy;
   final VoidCallback onDismiss;
   final VoidCallback onAct;
+  final VoidCallback? onRun;
 
   @override
   Widget build(BuildContext context) {
@@ -530,8 +588,15 @@ class _RecommendationRow extends StatelessWidget {
                       TextButton(
                           onPressed: onDismiss, child: const Text('Dismiss')),
                       const SizedBox(width: 6),
-                      FilledButton.tonal(
-                          onPressed: onAct, child: const Text('Mark acted')),
+                      if (onRun != null)
+                        FilledButton.icon(
+                          onPressed: onRun,
+                          icon: const Icon(Icons.bolt_rounded, size: 16),
+                          label: const Text('Run'),
+                        )
+                      else
+                        FilledButton.tonal(
+                            onPressed: onAct, child: const Text('Mark acted')),
                     ],
                   ),
               ],

@@ -34,6 +34,8 @@ class Recommendation(BaseModel):
     evidence_source: str
     evidence_id: str
     suggested_action: str
+    capability_id: str | None = None
+    capability_params: dict[str, str] | None = None
     status: RecommendationStatus
     created_at: str
     updated_at: str
@@ -92,9 +94,7 @@ def _save(records: list[Recommendation]) -> None:
 
 def _suggested_action(alert_id: str) -> str:
     # v1's only rule: a small deterministic mapping from alert id shape to a
-    # generic, human-actionable next step. No LLM involvement, no execution —
-    # the Action Framework (roadmap Sprint 0.7) is what turns this into a
-    # real capability later.
+    # generic, human-actionable next step. No LLM involvement.
     if alert_id.startswith("host-"):
         return "Review host resource usage in Homelab."
     if alert_id == "docker-unavailable":
@@ -108,25 +108,46 @@ def _suggested_action(alert_id: str) -> str:
     return "Review in Homelab."
 
 
+def _capability_binding(alert_id: str) -> tuple[str, dict[str, str]] | None:
+    # Only bind alert shapes to a capability that the Action Framework
+    # (app/api/actions.py) actually has a registered, already-audited
+    # handler for -- host/docker-unavailable/image-update alerts stay
+    # descriptive-only rather than pretending a capability exists.
+    if not alert_id.startswith("container-"):
+        return None
+    if alert_id.endswith("-stopped"):
+        container_id = alert_id.removeprefix("container-").removesuffix("-stopped")
+        return "docker.start", {"container_id": container_id}
+    if alert_id.endswith("-unhealthy"):
+        container_id = alert_id.removeprefix("container-").removesuffix("-unhealthy")
+        return "docker.restart", {"container_id": container_id}
+    return None
+
+
 async def _candidates(authorization: str | None) -> list[Recommendation]:
     summary = await homelab_alerts.alerts(authorization=authorization)
     now = _now_iso()
-    return [
-        Recommendation(
-            id=f"rec-{alert.id}",
-            rule_id="alert_to_recommendation",
-            title=alert.title,
-            rationale=alert.message,
-            severity=alert.severity,
-            evidence_source="homelab_alerts",
-            evidence_id=alert.id,
-            suggested_action=_suggested_action(alert.id),
-            status="pending",
-            created_at=now,
-            updated_at=now,
+    candidates = []
+    for alert in summary.alerts:
+        binding = _capability_binding(alert.id)
+        candidates.append(
+            Recommendation(
+                id=f"rec-{alert.id}",
+                rule_id="alert_to_recommendation",
+                title=alert.title,
+                rationale=alert.message,
+                severity=alert.severity,
+                evidence_source="homelab_alerts",
+                evidence_id=alert.id,
+                suggested_action=_suggested_action(alert.id),
+                capability_id=binding[0] if binding else None,
+                capability_params=binding[1] if binding else None,
+                status="pending",
+                created_at=now,
+                updated_at=now,
+            )
         )
-        for alert in summary.alerts
-    ]
+    return candidates
 
 
 def _now_iso() -> str:
