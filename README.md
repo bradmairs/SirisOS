@@ -313,6 +313,12 @@ Planned automation stack:
 - Event-driven Siris Automations
 - Shared approval/audit policy
 
+## Sprint 0.9 — SirisRun & SirisGym Intelligence
+
+Running and Gym have been fully shipped, DB-backed modules (session logging, per-exercise PR rollups, workout templates, an EWMA running fitness trend) since early in the project, but never had a roadmap section — see `docs/roadmap.md` for the full incorporated brainstorm and sequencing. The signature goal is running, lifting, recovery and schedule informing each other rather than living in silos: general fitness apps already have great loggers; the differentiator is something like "your last five interval sessions performed best when they were at least 48 hours after legs, so I've moved Thursday's run to Friday."
+
+One real gap found while auditing the existing modules before starting: the workout form's progressive-overload suggestion (+2.5 kg when the last session hit target reps at RIR ≥ 2) is a **client-side-only** Dart heuristic with no backend representation, no persistence, and no handling for a struggled previous session — the same category of gap already found and fixed twice this sprint (Recommendation Engine, Action Framework). Sequencing starts there.
+
 ## Long-term pillars
 
 - **Personal OS:** health, sleep, recovery, running, gym, calendar
