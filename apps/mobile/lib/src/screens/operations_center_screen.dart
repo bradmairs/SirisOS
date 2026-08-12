@@ -8,6 +8,7 @@ import '../core/notification_policy.dart';
 import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
 import '../core/siris_integration_manager.dart';
+import '../services/recommendation_service.dart';
 import '../widgets/backup_protection_panel.dart';
 import '../widgets/capability_panel.dart';
 import '../widgets/dependency_graph_panel.dart';
@@ -51,7 +52,8 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
   @override
   Widget build(BuildContext context) {
     final policies = NotificationPolicyEngine.instance.activeOutcomes.toList()
-      ..sort((a, b) => _severityRank(b.severity).compareTo(_severityRank(a.severity)));
+      ..sort((a, b) =>
+          _severityRank(b.severity).compareTo(_severityRank(a.severity)));
     final manager = SirisIntegrationManager.instance;
     final connectors = manager.connectors.toList(growable: false);
     final health = manager.health;
@@ -62,7 +64,9 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
     final attentionCount = incidents.length +
         health.values.where((value) => value.hasError).length;
     final criticalCount = incidents.where((item) => item.isCritical).length +
-        health.values.where((value) => value.state == SirisConnectorState.failed).length;
+        health.values
+            .where((value) => value.state == SirisConnectorState.failed)
+            .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -90,7 +94,8 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
                 _Overview(
                   attentionCount: attentionCount,
                   criticalCount: criticalCount,
-                  healthyCount: health.values.where((value) => value.isHealthy).length,
+                  healthyCount:
+                      health.values.where((value) => value.isHealthy).length,
                   integrationCount: connectors.length,
                 ),
                 const SizedBox(height: 18),
@@ -114,6 +119,8 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
                   _IntegrationPanel(connectors: connectors, health: health),
                 ],
                 const SizedBox(height: 18),
+                const RepaintBoundary(child: _RecommendationsPanel()),
+                const SizedBox(height: 18),
                 _AttentionPanel(policies: policies, health: health),
                 const SizedBox(height: 18),
                 RepaintBoundary(child: CapabilityPanel(health: health)),
@@ -135,7 +142,8 @@ class _OperationsCenterScreenState extends State<OperationsCenterScreen> {
     );
   }
 
-  static int _severityRank(NotificationPolicySeverity severity) => switch (severity) {
+  static int _severityRank(NotificationPolicySeverity severity) =>
+      switch (severity) {
         NotificationPolicySeverity.info => 1,
         NotificationPolicySeverity.warning => 2,
         NotificationPolicySeverity.critical => 3,
@@ -232,7 +240,9 @@ class _IncidentRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Icon(
-              incident.isCritical ? Icons.error_rounded : Icons.warning_amber_rounded,
+              incident.isCritical
+                  ? Icons.error_rounded
+                  : Icons.warning_amber_rounded,
               size: 19,
             ),
           ),
@@ -241,11 +251,13 @@ class _IncidentRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(incident.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(incident.title,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
                 Text(
                   incident.summary,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 if (incident.affectedIntegrations.isNotEmpty) ...[
                   const SizedBox(height: 5),
@@ -279,7 +291,8 @@ class _IncidentRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          SirisStatusChip(label: incident.severity.name.toUpperCase(), status: status),
+          SirisStatusChip(
+              label: incident.severity.name.toUpperCase(), status: status),
         ],
       ),
     );
@@ -326,7 +339,9 @@ class _IntegrationRow extends StatelessWidget {
       SirisConnectorState.connecting => SirisStatus.info,
       SirisConnectorState.degraded => SirisStatus.warning,
       SirisConnectorState.failed => SirisStatus.critical,
-      SirisConnectorState.disabled || SirisConnectorState.disconnected => SirisStatus.neutral,
+      SirisConnectorState.disabled ||
+      SirisConnectorState.disconnected =>
+        SirisStatus.neutral,
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -336,7 +351,8 @@ class _IntegrationRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(connector.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(connector.label,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(
                   health?.message ?? 'Disconnected',
@@ -357,6 +373,178 @@ class _IntegrationRow extends StatelessWidget {
   }
 }
 
+class _RecommendationsPanel extends StatefulWidget {
+  const _RecommendationsPanel();
+
+  @override
+  State<_RecommendationsPanel> createState() => _RecommendationsPanelState();
+}
+
+class _RecommendationsPanelState extends State<_RecommendationsPanel> {
+  final _service = RecommendationService();
+  late Future<List<RecommendationRecord>> _future;
+  final Set<String> _busy = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _service.list(status: RecommendationStatus.pending);
+  }
+
+  void _refresh() {
+    setState(() {
+      _future = _service.list(status: RecommendationStatus.pending);
+    });
+  }
+
+  Future<void> _updateStatus(
+      RecommendationRecord item, RecommendationStatus status) async {
+    setState(() => _busy.add(item.id));
+    try {
+      await _service.updateStatus(item.id, status);
+      _refresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to update recommendation.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(item.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SirisPanel(
+      title: 'Recommendations',
+      subtitle: 'Deterministic suggestions from current alert evidence',
+      icon: Icons.lightbulb_outline_rounded,
+      child: FutureBuilder<List<RecommendationRecord>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: LinearProgressIndicator(),
+            );
+          }
+          if (snapshot.hasError) {
+            return _EmptyState(
+              icon: Icons.error_outline_rounded,
+              title: 'Unable to load recommendations',
+              message: '${snapshot.error}',
+            );
+          }
+          final items = snapshot.data ?? const [];
+          if (items.isEmpty) {
+            return const _EmptyState(
+              icon: Icons.task_alt_rounded,
+              title: 'No open recommendations',
+              message: 'SirisOS has no evidence-based suggestions right now.',
+            );
+          }
+          return Column(
+            children: items
+                .map(
+                  (item) => _RecommendationRow(
+                    item: item,
+                    busy: _busy.contains(item.id),
+                    onDismiss: () =>
+                        _updateStatus(item, RecommendationStatus.dismissed),
+                    onAct: () =>
+                        _updateStatus(item, RecommendationStatus.acted),
+                  ),
+                )
+                .toList(growable: false),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RecommendationRow extends StatelessWidget {
+  const _RecommendationRow({
+    required this.item,
+    required this.busy,
+    required this.onDismiss,
+    required this.onAct,
+  });
+
+  final RecommendationRecord item;
+  final bool busy;
+  final VoidCallback onDismiss;
+  final VoidCallback onAct;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = item.severity == 'critical'
+        ? SirisStatus.critical
+        : SirisStatus.warning;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              item.severity == 'critical'
+                  ? Icons.error_rounded
+                  : Icons.warning_amber_rounded,
+              size: 19,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.title,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(
+                  item.rationale,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  item.suggestedAction,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                if (busy)
+                  const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Row(
+                    children: [
+                      TextButton(
+                          onPressed: onDismiss, child: const Text('Dismiss')),
+                      const SizedBox(width: 6),
+                      FilledButton.tonal(
+                          onPressed: onAct, child: const Text('Mark acted')),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SirisStatusChip(label: item.severity.toUpperCase(), status: status),
+        ],
+      ),
+    );
+  }
+}
+
 class _AttentionPanel extends StatelessWidget {
   const _AttentionPanel({required this.policies, required this.health});
 
@@ -365,7 +553,9 @@ class _AttentionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final failed = health.entries.where((entry) => entry.value.hasError).toList(growable: false);
+    final failed = health.entries
+        .where((entry) => entry.value.hasError)
+        .toList(growable: false);
     return SirisPanel(
       title: 'What needs attention',
       subtitle: 'Prioritised operational work queue',
@@ -381,7 +571,9 @@ class _AttentionPanel extends StatelessWidget {
               children: [
                 for (final policy in policies)
                   _AttentionRow(
-                    icon: policy.isCritical ? Icons.priority_high_rounded : Icons.warning_rounded,
+                    icon: policy.isCritical
+                        ? Icons.priority_high_rounded
+                        : Icons.warning_rounded,
                     title: policy.rule.title,
                     detail: policy.rule.message,
                   ),
@@ -398,7 +590,8 @@ class _AttentionPanel extends StatelessWidget {
 }
 
 class _AttentionRow extends StatelessWidget {
-  const _AttentionRow({required this.icon, required this.title, required this.detail});
+  const _AttentionRow(
+      {required this.icon, required this.title, required this.detail});
 
   final IconData icon;
   final String title;
@@ -416,7 +609,8 @@ class _AttentionRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text(
                     detail,
@@ -433,7 +627,8 @@ class _AttentionRow extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.icon, required this.title, required this.message});
+  const _EmptyState(
+      {required this.icon, required this.title, required this.message});
 
   final IconData icon;
   final String title;
@@ -450,11 +645,13 @@ class _EmptyState extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text(
                     message,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),

@@ -396,8 +396,9 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] Agent task/status/history surface
 
 ### Broader intelligence / automation
-- [ ] Operations Planner and recommendation engine — deterministic pipeline first: Observation → Rule/Policy → Recommendation → Evidence → Capability → Action. Ollama's role is explaining a recommendation in natural language, not inventing it
-- [ ] Action Framework bound to capabilities
+- [x] Recommendation Engine v1 — deterministic Observation → Recommendation → Evidence pipeline over `GET /api/v1/homelab/alerts`, with a pending/dismissed/acted lifecycle and an Operations Center panel (ADR 064). Cross-source correlation (the full Incident Engine's capabilities) and escalation-duration-aware rules remain future work — see ADR 064's Consequences
+- [ ] Extend recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation to evaluate
+- [ ] Action Framework bound to capabilities — turn v1's free-text `suggested_action` into an executable capability. Ollama's role is explaining a recommendation in natural language, not inventing it
 - [ ] Playbook Engine — multi-step diagnostic/operational workflows (e.g. internet-outage or service-down triage). Siris walks the user through steps first; Hermes performs approved diagnostic steps later; full automation ("Siris, fix Plex") only once capabilities and approvals are proven — observability → recommendations → assisted operations → automation
 - [ ] Context Engine consumers
 - [ ] n8n integration
