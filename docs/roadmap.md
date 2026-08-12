@@ -415,6 +415,66 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] Plugin routes/widgets/notifications/briefing/search/actions/context providers
 - [ ] Versioned public APIs and compatibility policy
 
+## Sprint 0.9 — SirisRun & SirisGym Intelligence
+
+Running and Gym have been fully shipped, DB-backed modules since early in the project but never had a roadmap section of their own — this sprint gives them one, incorporating a dedicated brainstorm into a single training-intelligence direction rather than two apps that happen to live in the same shell. The signature goal (per the brainstorm's own framing): general fitness apps have great loggers; a self-hosted system's edge is saying *"your last five interval sessions performed best when they were at least 48 hours after legs, so I've moved Thursday's run to Friday"* — running, lifting, recovery and schedule informing each other, not living in silos.
+
+Suggested internal sequencing, adapted from the brainstorm's own recommended order to reflect what's already real: Progressive overload → PR/record tracking → weekly training load → Siris Coach summaries → Ask Siris training queries → conflict detection → adaptive planning → correlation/predictive features. Apple Health recovery data (HRV, sleep, resting HR) is a hard dependency for readiness-aware features (Run Readiness, deload detection, conflict detection) and doesn't exist yet — see the existing "Health Data Export REST sidestep" section above, which this sprint depends on rather than duplicates.
+
+### Baseline (already shipped, not part of this brainstorm)
+- [x] Gym session logging — exercise/weight/reps/RIR sets, workout notes, volume and Epley-estimated 1RM computed per set
+- [x] Workout templates with target sets/reps/RIR, prefilling a new workout
+- [x] Per-exercise rollups (`GET /gym/exercises`) — best weight, best e1RM, best set volume, full history, computed live each call
+- [x] Client-side-only progressive overload heuristic in the workout form (+2.5 kg if last session met target reps at RIR ≥ 2) — not backend-computed, not persisted, doesn't handle the "struggled last time" case
+- [x] Running session logging — distance, pace, heart rate, outdoor/treadmill, a per-run effort score and an EWMA fitness-score trend
+- [x] Live Apple Health snapshot (steps, resting HR, sleep, body mass, active energy, VO₂ max) via on-iPhone MCP pull — ephemeral only, nothing persisted or historized (see Health Data Export REST sidestep)
+
+### SirisGym
+- [ ] Automatic Progressive Overload v1 — move the client-only heuristic to a deterministic backend suggestion with a stated reason, and handle the "struggled" case (dropping reps / high RIR-implied effort → suggest repeating the load, not increasing it) rather than only ever suggesting up
+- [ ] Personal records beyond live-computed rollups — a real PR-achieved event (with timestamp, matching the ActivityService pattern already used for workout/run logging) so a session can say "new record" at the moment it happens, not just show a best-ever number buried in a chart
+- [ ] Automatic deload detection — falling reps, rising RIR-implied effort and a declining e1RM trend across several sessions suggests a lighter week; depends on nothing but existing set history, no Health data required
+- [ ] Strength score — aggregate + per-muscle-group breakdown from historical performance, explicitly framed as personal/relative rather than a universal absolute number
+- [ ] Muscle map / weekly workload by muscle group — requires exercise → muscle-group tagging that doesn't exist yet
+- [ ] Training volume heatmap (sessions/sets/tonnage/muscle group over time)
+- [ ] Smart rest timer that learns per-exercise-category rest duration from observed set-to-set performance dropoff
+- [ ] Set-by-set live coaching during a workout (next-set suggestion, rest-length nudge) — natural extension once Progressive Overload v1's reasoning is real
+- [ ] AI workout generator grounded in actual recent training (deterministic candidate selection first; Ollama's role, if any, is explaining the choice, not inventing the program — matching the SirisHydro/ADR 057 pattern)
+
+### SirisRun
+- [ ] Personal running records beyond simple PRs — fastest splits at multiple distances, longest run, best negative split, lowest HR at a given pace, highest-elevation week
+- [ ] Race predictor from actual run history rather than a generic VO₂max formula, with an explainable "you're relatively stronger over X than Y" comparison
+- [ ] Run readiness — distinct from general recovery because someone can be HRV-recovered while their legs are wrecked from squats; needs both Health recovery data and recent gym leg volume as inputs, so depends on both the Health import pipeline and the training-load work below
+- [ ] Post-run AI analysis grounded in pace/HR-drift/splits versus the runner's own recent history (second instance of the SirisHydro/ADR 057 deterministic-evidence-plus-optional-Ollama-synthesis pattern)
+- [ ] Running fitness score breakdown (aerobic/speed/endurance/consistency), replacing the single EWMA effort trend with an explainable multi-factor score
+- [ ] Live pace strategy for a goal time, and planned-vs-actual pacing comparison afterward
+- [ ] Route generator and shoe tracking/correlation — both depend on data SirisOS doesn't capture today (GPS/elevation, shoe per run) and need a capture-side decision before they're buildable
+
+### Unified training
+- [ ] Combined weekly training load (running + strength) as one number, not two apps' worth of numbers
+- [ ] Training conflict detection (e.g. heavy-leg-day-before-intervals) — the brainstorm's own pick for "signature feature"; depends on the combined training load above
+- [ ] Smart weekly planner balancing recovery, running load and historical performance, with drag-to-rearrange
+- [ ] "Can I train today?" / "Should I run tonight?" — a natural-language front end over the same deterministic training-load and readiness data everything above already computes
+
+### Siris Coach and Ask Siris
+- [ ] Siris Coach as a first-class section (today/this-week/recommendation) — explicit design principle from the brainstorm: it should say "no changes needed" when nothing needs changing, not manufacture advice to fill space
+- [ ] Weekly coach report — deterministic week-over-week deltas (volume, key lifts, running distance, recovery trend) plus optional Ollama narrative synthesis, same fallback-to-deterministic pattern as SirisHydro
+- [ ] Ask Siris natural-language training queries ("What's my best 5K this year?", "Does poor sleep affect my bench?") — a third instance of the grounded-evidence-plus-synthesis pattern, scoped to structured training data rather than open-ended chat
+
+### Gamification (kept understated per the brainstorm's own instinct)
+- [ ] Achievements for concrete, evidence-backed milestones (e.g. bench ≥100 kg, sub-25 5K, N consecutive weeks trained) rather than arbitrary point totals
+- [ ] A training level derived from historical strength/endurance/consistency/recovery data, not a game-style XP grind
+
+### Apple Watch / iPhone
+- [ ] Focused watch-face-style views (current set/target/rest during a workout; pace/target/HR/distance during a run) once a native or watchOS-companion surface exists — no watch app exists in this repo today, so this is gated on that decision, not just a screen redesign
+
+### Experimental (explicitly speculative, not scheduled)
+- [ ] Training Digital Twin — model the user over time to project outcomes of a proposed training change before they make it
+- [ ] Correlation Explorer — surface observed correlations between sleep/recovery/training variables and performance, always as correlation with its evidence shown, never presented as causation (matching the Digital Twin/incident-correlation rule already in force elsewhere in this document)
+- [ ] What-If Planner — simulate a proposed training-load change against current recovery data
+- [ ] Plateau Detective — when an exercise stalls, examine frequency/volume/intensity/sleep/bodyweight for likely explanations
+- [ ] Personal Fatigue Model — learn the user's own recovery timeline per training stimulus rather than applying a generic recovery window
+- [ ] Auto Periodisation — build concurrent training blocks toward a stated dual goal (e.g. a strength number and a race time)
+
 ## Sprint 1.0 — Personal Operating System
 
 Stable daily platform spanning Mission Control, Operations Center, Personal, Infrastructure, Engineering, Knowledge, Intelligence and Automation.
