@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/module_registry.dart';
 import '../models/dashboard_summary.dart';
 import '../modules/app_module_registry.dart';
 import '../services/dashboard_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/command_palette_dialog.dart';
 import '../widgets/siris_logo.dart';
 import 'global_search_screen.dart';
 import 'mission_control_screen.dart';
@@ -43,6 +45,24 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _sidebarFuture = _dashboardService.fetchDashboard();
+    HardwareKeyboard.instance.addHandler(_handleGlobalKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
+    super.dispose();
+  }
+
+  bool _handleGlobalKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.keyK) return false;
+    if (!HardwareKeyboard.instance.isControlPressed &&
+        !HardwareKeyboard.instance.isMetaPressed) {
+      return false;
+    }
+    _openCommandPalette();
+    return true;
   }
 
   void _selectTab(int index) => setState(() => _selectedIndex = index);
@@ -86,6 +106,10 @@ class _AppShellState extends State<AppShell> {
         ),
       );
 
+  void _openCommandPalette() {
+    showCommandPalette(context: context, onOpenTarget: _openSearchTarget);
+  }
+
   void _performModuleAction(SirisModuleDefinition module) {
     switch (module.primaryAction) {
       case SirisModuleAction.logRun:
@@ -119,7 +143,8 @@ class _AppShellState extends State<AppShell> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Quick actions', style: Theme.of(context).textTheme.titleLarge),
+            Text('Quick actions',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 14),
             _QuickActionTile(
               icon: Icons.monitor_heart_rounded,
@@ -302,11 +327,13 @@ class _AppShellState extends State<AppShell> {
                                     .map(
                                       (registration) =>
                                           NavigationRailDestination(
-                                        icon: Icon(registration.definition.icon),
+                                        icon:
+                                            Icon(registration.definition.icon),
                                         selectedIcon: Icon(
                                           registration.definition.selectedIcon,
                                         ),
-                                        label: Text(registration.definition.label),
+                                        label:
+                                            Text(registration.definition.label),
                                       ),
                                     )
                                     .toList(growable: false),
@@ -339,7 +366,18 @@ class _AppShellState extends State<AppShell> {
                                   ListTile(
                                     leading: const Icon(Icons.search_rounded),
                                     title: const Text('Search'),
-                                    onTap: _openSearch,
+                                    trailing: Text(
+                                      '⌘K',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                    onTap: _openCommandPalette,
                                   ),
                                   ListTile(
                                     leading: const Icon(Icons.logout_rounded),
@@ -398,9 +436,10 @@ class _MobileBottomNavigation extends StatelessWidget {
         .map(AppModuleRegistry.find)
         .whereType<SirisModuleRegistration>()
         .toList(growable: false);
-    final selectedId = selectedIndex >= 0 && selectedIndex < registrations.length
-        ? registrations[selectedIndex].definition.id
-        : null;
+    final selectedId =
+        selectedIndex >= 0 && selectedIndex < registrations.length
+            ? registrations[selectedIndex].definition.id
+            : null;
     final moreSelected =
         selectedId != null && !primaryModuleIds.contains(selectedId);
 

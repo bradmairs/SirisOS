@@ -371,7 +371,7 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] Distinct from, and complementary to, Knowledge (documents), Projects (structured relationships) and SirisHydro history (evidence-grounded Q&A) — Memory is Siris's own accumulated understanding, not a fourth copy of the same content
 
 ### Universal Command Palette & contextual "Ask Siris"
-- [ ] Cmd+K / Ctrl+K command palette searching status, Knowledge, Projects, calculators and available actions from one entry point, before per-module navigation becomes cumbersome
+- [x] Cmd+K / Ctrl+K command palette reusing the global search endpoint (ADR 062) — arrow-key navigation, Enter to open, Escape to close, reachable from any screen, with a `⌘K`-hinted entry point in the desktop sidebar
 - [ ] Palette results blend live state, related Knowledge notes/projects and available actions for a single query (e.g. "plex" → status + notes + project + restart/logs actions)
 - [ ] Contextual "Ask Siris" / "Explain this" affordance on individual objects — server, project, calculation, standard, incident, Knowledge note — not only inside one dedicated chat screen
 - [ ] Keep a global Siris chat alongside contextual entry points, not instead of them
