@@ -1,5 +1,6 @@
 from app.main import app
 
+from app.api.actions import router as actions_router
 from app.api.activity import router as activity_router
 from app.api.engineering_calculations import router as engineering_calculations_router
 from app.api.health import router as health_router
@@ -19,6 +20,7 @@ from app.api.synology import router as synology_router
 # modules are mounted here so production startup has one explicit registry and
 # CI can guard against silently shipping an unregistered API module.
 for router in (
+    actions_router,
     activity_router,
     engineering_calculations_router,
     health_router,

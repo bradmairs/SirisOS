@@ -398,7 +398,10 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 ### Broader intelligence / automation
 - [x] Recommendation Engine v1 — deterministic Observation → Recommendation → Evidence pipeline over `GET /api/v1/homelab/alerts`, with a pending/dismissed/acted lifecycle and an Operations Center panel (ADR 064). Cross-source correlation (the full Incident Engine's capabilities) and escalation-duration-aware rules remain future work — see ADR 064's Consequences
 - [ ] Extend recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation to evaluate
-- [ ] Action Framework bound to capabilities — turn v1's free-text `suggested_action` into an executable capability. Ollama's role is explaining a recommendation in natural language, not inventing it
+- [x] Action Framework v1 — server-side capability registry (`docker.start`/`stop`/`restart`) bound to already-audited execution primitives, with server-enforced confirmation for medium-risk actions (ADR 065). Home Assistant device-control actions are now audited too, though not yet onboarded as capabilities
+- [ ] Wire a Recommendation's `suggested_action` to a specific capability ID so a recommendation can get a "Run this" button, not just descriptive text
+- [ ] Bring Home Assistant device control into the capability registry
+- [ ] Ollama's role is explaining a recommendation in natural language, not inventing it
 - [ ] Playbook Engine — multi-step diagnostic/operational workflows (e.g. internet-outage or service-down triage). Siris walks the user through steps first; Hermes performs approved diagnostic steps later; full automation ("Siris, fix Plex") only once capabilities and approvals are proven — observability → recommendations → assisted operations → automation
 - [ ] Context Engine consumers
 - [ ] n8n integration
