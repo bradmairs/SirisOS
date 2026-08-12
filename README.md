@@ -292,13 +292,17 @@ Cross-object traversal (e.g. Project → calculation → standard → SirisHydro
 
 Cmd+K / Ctrl+K opens a lightweight dialog overlay from any screen, reusing the global search endpoint (ADR 062) rather than a new search implementation — arrow-key highlight navigation, Enter to open the highlighted result, Escape to close, click/tap to navigate. The desktop sidebar's "Search" entry opens the palette directly (with a `⌘K` hint); the full-screen `GlobalSearchScreen` remains the mobile Quick Actions entry point, where a dialog is a worse fit than dedicated touch targets. ADR 063.
 
+### Recommendation Engine v1
+
+Deterministic Observation → Recommendation → Evidence pipeline: `GET /api/v1/recommendations` maps the existing `GET /api/v1/homelab/alerts` output 1:1 into Recommendation records (title, rationale, severity, evidence source/id, a free-text suggested next step), reconciled against an atomic-JSON store so a pending/dismissed/acted status survives across polls, and self-pruning — a recommendation disappears once its underlying alert clears rather than lingering forever. Surfaced as a new panel in Operations Center. The original plan was to evaluate the client-side Incident Engine/Notification Policy engine, but neither has any backend representation to read from; v1 deliberately scopes to the real, already-deterministic `homelab_alerts` endpoint instead. ADR 064.
+
 Planned automation stack:
 
 - Structured provenance (typed source object reference, confidence) and cross-object traversal for Siris Memory
 - Palette results blending live state, related Knowledge/Projects and available actions per query; contextual "Ask Siris" on individual objects
 - Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
-- Operations Planner and deterministic recommendation engine
-- Action Framework bound to stable capability IDs
+- Extend Recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation
+- Action Framework bound to stable capability IDs — turn v1's free-text suggested action into an executable capability
 - Playbook Engine
 - Context-aware recommendations
 - n8n integration
