@@ -298,7 +298,11 @@ Deterministic Observation → Recommendation → Evidence pipeline: `GET /api/v1
 
 ### Action Framework v1
 
-Server-side capability registry (`GET /api/v1/actions`, `POST /api/v1/actions/{capability_id}/execute`) binding stable capability IDs — `docker.start`/`stop`/`restart` — to the execution primitives that already existed and were already audited (`DockerMonitor.action()`). Medium-risk capabilities require the caller to explicitly set `confirm: true`; the server rejects execution without it rather than trusting a client-side dialog alone. The Flutter `SirisCapabilityRegistry` (ADR 030) stays discovery-only and unconnected to this for now — wiring a Recommendation's suggested action to a real capability, and bringing Home Assistant control into the registry, are both deliberately deferred rather than guessed at under time pressure. Also fixed along the way: Home Assistant device-control actions previously executed with zero audit trail; they now record an activity event on every outcome, matching the pattern Docker actions already had. ADR 065.
+Server-side capability registry (`GET /api/v1/actions`, `POST /api/v1/actions/{capability_id}/execute`) binding stable capability IDs — `docker.start`/`stop`/`restart` — to the execution primitives that already existed and were already audited (`DockerMonitor.action()`). Medium-risk capabilities require the caller to explicitly set `confirm: true`; the server rejects execution without it rather than trusting a client-side dialog alone. Also fixed along the way: Home Assistant device-control actions previously executed with zero audit trail; they now record an activity event on every outcome, matching the pattern Docker actions already had. ADR 065.
+
+### Recommendation → Action wiring
+
+A Recommendation's `capability_id`/`capability_params` are now populated for the alert shapes that have a real registered capability behind them — `container-*-stopped` → `docker.start`, `container-*-unhealthy` → `docker.restart` — giving those recommendations a "Run" button in Operations Center instead of just descriptive text. Running it calls the same audited `/api/v1/actions/{id}/execute` endpoint Action Framework v1 already built, then auto-marks the recommendation acted on success. Every other recommendation (host resource alerts, `docker-unavailable`, image updates) stays descriptive-only, since no capability exists for them — nothing is force-fit. The Flutter `SirisCapabilityRegistry` (ADR 030) is still separate/discovery-only; this wiring goes through the backend registry directly. ADR 068.
 
 Planned automation stack:
 
@@ -306,7 +310,7 @@ Planned automation stack:
 - Palette results blending live state, related Knowledge/Projects and available actions per query; contextual "Ask Siris" on individual objects
 - Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
 - Extend Recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation
-- Wire a Recommendation's suggested action to a specific capability ID; bring Home Assistant control into the capability registry
+- Bring Home Assistant control into the capability registry
 - Playbook Engine
 - Context-aware recommendations
 - n8n integration

@@ -26,6 +26,8 @@ class RecommendationRecord {
     required this.evidenceSource,
     required this.evidenceId,
     required this.suggestedAction,
+    required this.capabilityId,
+    required this.capabilityParams,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
@@ -38,6 +40,8 @@ class RecommendationRecord {
   final String evidenceSource;
   final String evidenceId;
   final String suggestedAction;
+  final String? capabilityId;
+  final Map<String, String>? capabilityParams;
   final RecommendationStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -51,6 +55,9 @@ class RecommendationRecord {
         evidenceSource: json['evidence_source'] as String,
         evidenceId: json['evidence_id'] as String,
         suggestedAction: json['suggested_action'] as String,
+        capabilityId: json['capability_id'] as String?,
+        capabilityParams: (json['capability_params'] as Map<String, dynamic>?)
+            ?.map((key, value) => MapEntry(key, value as String)),
         status:
             RecommendationStatusValue.fromApiValue(json['status'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),
