@@ -43,13 +43,22 @@ class _GymScreenState extends State<GymScreen> {
   }
 
   Future<void> _addWorkout([WorkoutTemplate? template]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final newRecords = await showModalBottomSheet<List<PersonalRecord>>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _WorkoutForm(template: template),
     );
-    if (saved == true) await _refresh();
+    if (newRecords == null) return;
+    await _refresh();
+    if (newRecords.isNotEmpty && mounted) {
+      final summary = newRecords
+          .map((item) => '${item.exercise} · ${item.recordType.label}')
+          .join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('🏆 New record: $summary')),
+      );
+    }
   }
 
   Future<void> _openTemplates() async {
@@ -342,13 +351,13 @@ class _WorkoutFormState extends State<_WorkoutForm> {
     if (_name.text.trim().isEmpty) return;
     setState(() => _saving = true);
     try {
-      await _service.createWorkout(
+      final workout = await _service.createWorkout(
         date: DateTime.now(),
         name: _name.text.trim(),
         notes: _notes.text.trim(),
         sets: sets,
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, workout.newRecords);
     } catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context)
