@@ -284,16 +284,17 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Full unified production `sirisos` Docker image build
 - [ ] Require CI status checks in branch protection once repository policy is configured
 
-## Health Data Export REST sidestep — planned
+## Health Data Export REST ingestion
 
-- [ ] `POST /api/v1/health/import` ingestion endpoint
-- [ ] Dedicated unattended bearer token
-- [ ] Idempotent daily metric imports
-- [ ] Steps, sleep, HRV, resting HR and workouts first
-- [ ] Canonical Health Store / History integration
+- [x] `POST /api/v1/health/ingest` ingestion endpoint
+- [x] Dedicated unattended bearer token (`SIRISOS_HEALTH_INGEST_TOKEN`)
+- [x] Idempotent metric imports, keyed on metric/timestamp/source/value/unit
+- [x] Steps, sleep, HRV, resting HR and workouts first (any Health Auto Export metric is accepted)
+- [x] Canonical `health_metric_samples` / `health_workouts` store, workouts upserted by id
+- [x] `GET /api/v1/health/status` sync summary (`last_sync`, `records_received`, `last_error`)
 - [ ] Event Bus refresh and Health summary API
 - [ ] Health Data Export context provider
-- [ ] Keep MCP as an optional future query/interface layer rather than canonical ingestion
+- [x] Keep MCP as an optional interactive/debug query layer rather than canonical ingestion
 
 ## Sprint 0.5.0 — Knowledge Platform 🚧 In progress
 

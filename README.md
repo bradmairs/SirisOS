@@ -185,25 +185,44 @@ GitHub Actions CI now runs on pull requests and `main` pushes. It validates:
 
 The goal is to prevent dependency/API/deployment regressions from reaching `main` while preserving the normal self-hosted deployment workflow.
 
-## Planned Health Data Export REST ingestion
+## Health Data Export REST ingestion
 
-The earlier MCP scaffold remains optional, but canonical Apple Health ingestion is planned to move to a dedicated REST endpoint from Health Data Export.
+Canonical Apple Health ingestion is a dedicated REST endpoint pushed to by the
+[Health Auto Export](https://www.healthyapps.dev/) iPhone app. The earlier MCP
+scaffold (`HEALTH_AUTO_EXPORT_MCP_URL`/`HEALTH_AUTO_EXPORT_MCP_TOKEN`) remains
+available for interactive/debug queries, but it depends on Health Auto Export
+staying foregrounded and is not the source of truth.
 
-Planned flow:
+Flow:
 
 ```text
 Apple Health
    ↓
-Health Data Export
-   ↓ HTTPS POST
-SirisOS Health Ingest API
+Health Auto Export
+   ↓ HTTPS POST, bearer token
+POST /api/v1/health/ingest
    ↓
-Canonical Health Store / History
+health_metric_samples / health_workouts (Postgres)
    ↓
 Health module / Context / Briefing / Siris Score / SirisAI
 ```
 
-Initial metrics will target steps, sleep, HRV, resting heart rate and workouts with idempotent imports and an unattended bearer token.
+- `POST /api/v1/health/ingest` — authenticated with `SIRISOS_HEALTH_INGEST_TOKEN`
+  (not the SirisOS admin login), accepts Health Auto Export's JSON export v2
+  body for both the Health Metrics and Workouts automation types, and reads
+  Health Auto Export's `automation-id`/`automation-name`/`session-id` headers
+  for provenance. Fails closed with 401 when the token is missing, wrong, or
+  not configured.
+- Metric samples are deduplicated on a deterministic key
+  (`metric + timestamp + source + value + unit`), so re-sending the same
+  rolling window is a no-op; a revised value lands as a new sample rather than
+  silently overwriting history.
+- Workouts are upserted by Health Auto Export's workout id, so an amended
+  workout (e.g. heart-rate data finishing processing) replaces the earlier row.
+- `GET /api/v1/health/status` (SirisOS admin session) reports `last_sync`,
+  `records_received` and `last_error` for a quick health check of the pipeline.
+- Generate the ingest token with `openssl rand -hex 32` and set it as
+  `SIRISOS_HEALTH_INGEST_TOKEN` — see `.env.example`.
 
 ## Sprint 0.5.0 — Knowledge Platform 🚧 in progress
 
