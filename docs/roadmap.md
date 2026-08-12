@@ -425,12 +425,12 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [x] Gym session logging — exercise/weight/reps/RIR sets, workout notes, volume and Epley-estimated 1RM computed per set
 - [x] Workout templates with target sets/reps/RIR, prefilling a new workout
 - [x] Per-exercise rollups (`GET /gym/exercises`) — best weight, best e1RM, best set volume, full history, computed live each call
-- [x] Client-side-only progressive overload heuristic in the workout form (+2.5 kg if last session met target reps at RIR ≥ 2) — not backend-computed, not persisted, doesn't handle the "struggled last time" case
+- [x] ~~Client-side-only progressive overload heuristic~~ — replaced by Automatic Progressive Overload v1 below (ADR 066); noted here as the gap that motivated it
 - [x] Running session logging — distance, pace, heart rate, outdoor/treadmill, a per-run effort score and an EWMA fitness-score trend
 - [x] Live Apple Health snapshot (steps, resting HR, sleep, body mass, active energy, VO₂ max) via on-iPhone MCP pull — ephemeral only, nothing persisted or historized (see Health Data Export REST sidestep)
 
 ### SirisGym
-- [ ] Automatic Progressive Overload v1 — move the client-only heuristic to a deterministic backend suggestion with a stated reason, and handle the "struggled" case (dropping reps / high RIR-implied effort → suggest repeating the load, not increasing it) rather than only ever suggesting up
+- [x] Automatic Progressive Overload v1 — deterministic backend suggestion (`GET /gym/exercises/{name}/suggestion`) reasoning from the exercise's own most recent session, with a stated reason and correct handling of the "struggled" case (dropping reps / RIR ≤ 1 → repeat the load, not increase it). Surfaced in the workout form's template prefill and a new "Next session suggestion" card on the Exercise Intelligence page (ADR 066)
 - [ ] Personal records beyond live-computed rollups — a real PR-achieved event (with timestamp, matching the ActivityService pattern already used for workout/run logging) so a session can say "new record" at the moment it happens, not just show a best-ever number buried in a chart
 - [ ] Automatic deload detection — falling reps, rising RIR-implied effort and a declining e1RM trend across several sessions suggests a lighter week; depends on nothing but existing set history, no Health data required
 - [ ] Strength score — aggregate + per-muscle-group breakdown from historical performance, explicitly framed as personal/relative rather than a universal absolute number

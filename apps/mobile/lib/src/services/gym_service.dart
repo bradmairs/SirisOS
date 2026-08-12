@@ -18,7 +18,10 @@ class GymService {
     if (response.statusCode != 200) throw Exception('Could not load workouts.');
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
-    return decoded.whereType<Map<String, dynamic>>().map(GymWorkout.fromJson).toList();
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GymWorkout.fromJson)
+        .toList();
   }
 
   Future<List<ExerciseProgress>> fetchExercises() async {
@@ -26,10 +29,26 @@ class GymService {
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/exercises'),
       headers: AuthService.authorizationHeaders,
     );
-    if (response.statusCode != 200) throw Exception('Could not load exercise progress.');
+    if (response.statusCode != 200)
+      throw Exception('Could not load exercise progress.');
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
-    return decoded.whereType<Map<String, dynamic>>().map(ExerciseProgress.fromJson).toList(growable: false);
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ExerciseProgress.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<ProgressiveOverloadSuggestion> fetchSuggestion(String exercise) async {
+    final response = await http.get(
+      Uri.parse(
+          '${ApiConfig.baseUrl}/api/v1/gym/exercises/${Uri.encodeComponent(exercise)}/suggestion'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load a suggestion for $exercise.');
+    return ProgressiveOverloadSuggestion.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<List<WorkoutTemplate>> fetchTemplates() async {
@@ -37,10 +56,14 @@ class GymService {
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates'),
       headers: AuthService.authorizationHeaders,
     );
-    if (response.statusCode != 200) throw Exception('Could not load workout templates.');
+    if (response.statusCode != 200)
+      throw Exception('Could not load workout templates.');
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return const [];
-    return decoded.whereType<Map<String, dynamic>>().map(WorkoutTemplate.fromJson).toList(growable: false);
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(WorkoutTemplate.fromJson)
+        .toList(growable: false);
   }
 
   Future<WorkoutTemplate> createTemplate({
@@ -49,7 +72,10 @@ class GymService {
   }) async {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates'),
-      headers: {...AuthService.authorizationHeaders, 'Content-Type': 'application/json'},
+      headers: {
+        ...AuthService.authorizationHeaders,
+        'Content-Type': 'application/json'
+      },
       body: jsonEncode({
         'name': name,
         'exercises': exercises.map((item) => item.toJson()).toList(),
@@ -57,7 +83,9 @@ class GymService {
     );
     final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
     if (response.statusCode != 201) {
-      throw Exception(decoded is Map<String, dynamic> ? decoded['detail'] ?? 'Could not save template.' : 'Could not save template.');
+      throw Exception(decoded is Map<String, dynamic>
+          ? decoded['detail'] ?? 'Could not save template.'
+          : 'Could not save template.');
     }
     SirisEventBus.instance.publish(
       ModuleDataChanged(moduleId: 'gym', reason: 'template_created'),
@@ -70,31 +98,43 @@ class GymService {
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates/$templateId'),
       headers: AuthService.authorizationHeaders,
     );
-    if (response.statusCode != 204) throw Exception('Could not delete template.');
+    if (response.statusCode != 204)
+      throw Exception('Could not delete template.');
     SirisEventBus.instance.publish(
       ModuleDataChanged(moduleId: 'gym', reason: 'template_deleted'),
     );
   }
 
-  Future<void> createWorkout({required DateTime date, required String name, String? notes, required List<GymSet> sets}) async {
+  Future<void> createWorkout(
+      {required DateTime date,
+      required String name,
+      String? notes,
+      required List<GymSet> sets}) async {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/workouts'),
-      headers: {...AuthService.authorizationHeaders, 'Content-Type': 'application/json'},
+      headers: {
+        ...AuthService.authorizationHeaders,
+        'Content-Type': 'application/json'
+      },
       body: jsonEncode({
         'workout_date': date.toIso8601String().split('T').first,
         'name': name,
         'notes': notes,
-        'sets': sets.map((item) => {
-          'exercise': item.exercise,
-          'weight_kg': item.weightKg,
-          'reps': item.reps,
-          'rir': item.rir,
-        }).toList(),
+        'sets': sets
+            .map((item) => {
+                  'exercise': item.exercise,
+                  'weight_kg': item.weightKg,
+                  'reps': item.reps,
+                  'rir': item.rir,
+                })
+            .toList(),
       }),
     );
     if (response.statusCode != 201) {
       final decoded = jsonDecode(response.body);
-      throw Exception(decoded is Map<String, dynamic> ? decoded['detail'] ?? 'Could not save workout.' : 'Could not save workout.');
+      throw Exception(decoded is Map<String, dynamic>
+          ? decoded['detail'] ?? 'Could not save workout.'
+          : 'Could not save workout.');
     }
     SirisEventBus.instance.publish(
       ModuleDataChanged(moduleId: 'gym', reason: 'workout_logged'),

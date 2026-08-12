@@ -73,3 +73,45 @@ class ExerciseProgress {
   final double bestSetVolumeKg;
   final List<ExerciseHistoryPoint> history;
 }
+
+enum ProgressiveOverloadStatus { progress, repeat, noData }
+
+extension ProgressiveOverloadStatusValue on ProgressiveOverloadStatus {
+  static ProgressiveOverloadStatus fromApiValue(String value) =>
+      switch (value) {
+        'progress' => ProgressiveOverloadStatus.progress,
+        'repeat' => ProgressiveOverloadStatus.repeat,
+        _ => ProgressiveOverloadStatus.noData,
+      };
+}
+
+class ProgressiveOverloadSuggestion {
+  const ProgressiveOverloadSuggestion({
+    required this.exercise,
+    required this.status,
+    required this.suggestedWeightKg,
+    required this.suggestedReps,
+    required this.rationale,
+    required this.basedOnWorkoutDate,
+  });
+
+  factory ProgressiveOverloadSuggestion.fromJson(Map<String, dynamic> json) =>
+      ProgressiveOverloadSuggestion(
+        exercise: json['exercise'] as String,
+        status: ProgressiveOverloadStatusValue.fromApiValue(
+            json['status'] as String),
+        suggestedWeightKg: (json['suggested_weight_kg'] as num?)?.toDouble(),
+        suggestedReps: json['suggested_reps'] as int?,
+        rationale: json['rationale'] as String,
+        basedOnWorkoutDate: json['based_on_workout_date'] == null
+            ? null
+            : DateTime.parse(json['based_on_workout_date'] as String),
+      );
+
+  final String exercise;
+  final ProgressiveOverloadStatus status;
+  final double? suggestedWeightKg;
+  final int? suggestedReps;
+  final String rationale;
+  final DateTime? basedOnWorkoutDate;
+}
