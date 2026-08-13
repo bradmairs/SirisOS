@@ -457,8 +457,8 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [ ] "Can I train today?" / "Should I run tonight?" — a natural-language front end over the same deterministic training-load and readiness data everything above already computes
 
 ### Siris Coach and Ask Siris
-- [ ] Siris Coach as a first-class section (today/this-week/recommendation) — explicit design principle from the brainstorm: it should say "no changes needed" when nothing needs changing, not manufacture advice to fill space
-- [ ] Weekly coach report — deterministic week-over-week deltas (volume, key lifts, running distance, recovery trend) plus optional Ollama narrative synthesis, same fallback-to-deterministic pattern as SirisHydro
+- [x] Siris Coach as a first-class section — "this week" shipped as a new `Coach` navigation destination (deterministic report; ADR 070). "Today" (readiness/recommendation) explicitly deferred — needs the still-unbuilt Health summary API (see the Health Data Export section above) and a planned/scheduled session to react to, neither of which exist yet
+- [x] Weekly coach report v1 — deterministic week-over-week deltas (running distance/count, gym volume/session count), new-bests-this-week, and the existing weekly training load assessment, composed into one headline sentence. Optional Ollama narrative synthesis on top is deliberately deferred to a follow-up slice (ADR 070) rather than built alongside v1
 - [ ] Ask Siris natural-language training queries ("What's my best 5K this year?", "Does poor sleep affect my bench?") — a third instance of the grounded-evidence-plus-synthesis pattern, scoped to structured training data rather than open-ended chat
 
 ### Gamification (kept understated per the brainstorm's own instinct)

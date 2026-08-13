@@ -103,6 +103,18 @@ class SirisModuleRegistry {
       primaryActionLabel: 'Log a workout',
     ),
     SirisModuleDefinition(
+      id: 'coach',
+      label: 'Coach',
+      description: 'Weekly training report combining running and gym.',
+      icon: Icons.auto_awesome_outlined,
+      selectedIcon: Icons.auto_awesome_rounded,
+      capabilities: {
+        SirisModuleCapability.search,
+        SirisModuleCapability.backgroundRefresh,
+      },
+      primaryActionLabel: 'Open Coach',
+    ),
+    SirisModuleDefinition(
       id: 'health',
       label: 'Health',
       description: 'Health snapshots, recovery and imported Apple Health data.',
