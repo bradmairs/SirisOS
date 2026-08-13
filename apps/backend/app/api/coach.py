@@ -3,14 +3,24 @@ import os
 from typing import Annotated, Literal
 
 import jwt
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from pydantic import BaseModel
 
+from app.services.ask_siris_service import AskSirisService
 from app.services.coach_service import CoachService
+from app.services.ollama_service import chat_client
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 service = CoachService()
+ask_siris_service = AskSirisService()
+
+ASK_SIRIS_SYSTEM_PROMPT = (
+    "You are Siris, a personal training coach assistant. Rephrase the given "
+    "deterministic answer as one or two natural, conversational sentences. Use "
+    "only the facts already stated in the answer -- do not add numbers, dates, "
+    "exercises or claims that are not already there."
+)
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -93,3 +103,34 @@ async def weekly_report(
 ) -> WeeklyCoachReportResponse:
     _authenticate(authorization)
     return _response(service.weekly_report())
+
+
+class AskSirisResponse(BaseModel):
+    question: str
+    understood: bool
+    answer: str
+    facts: dict
+    synthesized_answer: str | None
+    suggestions: list[str]
+
+
+@router.get("/ask", response_model=AskSirisResponse)
+async def ask_siris(
+    question: Annotated[str, Query(min_length=2, max_length=500)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> AskSirisResponse:
+    _authenticate(authorization)
+    result = ask_siris_service.answer(question)
+    synthesized_answer = (
+        await chat_client.complete(system=ASK_SIRIS_SYSTEM_PROMPT, prompt=f"Question: {result.question}\n\nDeterministic answer: {result.answer}")
+        if result.understood
+        else None
+    )
+    return AskSirisResponse(
+        question=result.question,
+        understood=result.understood,
+        answer=result.answer,
+        facts=result.facts,
+        synthesized_answer=synthesized_answer,
+        suggestions=result.suggestions,
+    )

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/ask_siris_answer.dart';
 import '../models/coach_report.dart';
 import '../services/coach_service.dart';
 import '../theme/app_theme.dart';
@@ -141,6 +142,8 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
                       const SizedBox(height: 20),
                       _ImprovementsCard(improvements: report.improvements),
                     ],
+                    const SizedBox(height: 20),
+                    const _AskSirisCard(),
                   ],
                 );
               },
@@ -148,6 +151,150 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _AskSirisCard extends StatefulWidget {
+  const _AskSirisCard();
+
+  @override
+  State<_AskSirisCard> createState() => _AskSirisCardState();
+}
+
+class _AskSirisCardState extends State<_AskSirisCard> {
+  final CoachService _service = CoachService();
+  final TextEditingController _controller = TextEditingController();
+  Future<AskSirisAnswer>? _future;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit([String? question]) {
+    final value = (question ?? _controller.text).trim();
+    if (value.isEmpty) return;
+    _controller.text = value;
+    setState(() {
+      _future = _service.ask(value);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Ask Siris', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              'Ask a question about your running and gym data.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(
+                      hintText: "e.g. What's my best 5K this year?",
+                      isDense: true,
+                    ),
+                    onSubmitted: _submit,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton.filledTonal(
+                  onPressed: () => _submit(),
+                  icon: const Icon(Icons.send_rounded),
+                  tooltip: 'Ask',
+                ),
+              ],
+            ),
+            if (_future != null) ...[
+              const SizedBox(height: 16),
+              FutureBuilder<AskSirisAnswer>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Text(
+                      'Could not get an answer.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    );
+                  }
+                  final result = snapshot.data!;
+                  return _AskSirisResult(result: result, onSuggestionTap: _submit);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AskSirisResult extends StatelessWidget {
+  const _AskSirisResult({required this.result, required this.onSuggestionTap});
+
+  final AskSirisAnswer result;
+  final ValueChanged<String> onSuggestionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!result.understood) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(result.answer),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: result.suggestions
+                .map(
+                  (suggestion) => ActionChip(
+                    label: Text(suggestion),
+                    onPressed: () => onSuggestionTap(suggestion),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (result.synthesizedAnswer != null)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(result.synthesizedAnswer!),
+          )
+        else
+          Text(result.answer),
+      ],
     );
   }
 }
