@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 
 from pydantic import BaseModel
 
+from app.services.achievement_service import AchievementService
 from app.services.ask_siris_service import AskSirisService
 from app.services.coach_service import CoachService
 from app.services.ollama_service import chat_client
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 service = CoachService()
 ask_siris_service = AskSirisService()
 conflict_service = TrainingConflictService()
+achievement_service = AchievementService()
 
 ASK_SIRIS_SYSTEM_PROMPT = (
     "You are Siris, a personal training coach assistant. Rephrase the given "
@@ -154,3 +156,20 @@ async def conflict_check(
     _authenticate(authorization)
     result = conflict_service.check()
     return TrainingConflictResponse(**result.__dict__)
+
+
+class AchievementResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    unlocked: bool
+    achieved_date: date | None
+    progress_label: str
+
+
+@router.get("/achievements", response_model=list[AchievementResponse])
+async def achievements(
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[AchievementResponse]:
+    _authenticate(authorization)
+    return [AchievementResponse(**item.__dict__) for item in achievement_service.list_achievements()]

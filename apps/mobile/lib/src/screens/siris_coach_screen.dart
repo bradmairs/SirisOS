@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/achievement.dart';
 import '../models/ask_siris_answer.dart';
 import '../models/coach_report.dart';
 import '../models/training_conflict_check.dart';
@@ -17,20 +18,24 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
   final CoachService _service = CoachService();
   late Future<WeeklyCoachReport> _future;
   late Future<TrainingConflictCheck> _conflictFuture;
+  late Future<List<Achievement>> _achievementsFuture;
 
   @override
   void initState() {
     super.initState();
     _future = _service.fetchWeeklyReport();
     _conflictFuture = _service.fetchConflictCheck();
+    _achievementsFuture = _service.fetchAchievements();
   }
 
   Future<void> _refresh() async {
     final next = _service.fetchWeeklyReport();
     final nextConflict = _service.fetchConflictCheck();
+    final nextAchievements = _service.fetchAchievements();
     setState(() {
       _future = next;
       _conflictFuture = nextConflict;
+      _achievementsFuture = nextAchievements;
     });
     await next;
   }
@@ -149,6 +154,8 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
                       const SizedBox(height: 20),
                       _ImprovementsCard(improvements: report.improvements),
                     ],
+                    const SizedBox(height: 20),
+                    _AchievementsCard(future: _achievementsFuture),
                     const SizedBox(height: 20),
                     const _AskSirisCard(),
                   ],
@@ -521,6 +528,112 @@ class _MetricTile extends StatelessWidget {
         ? '$sign${delta!.round()}'
         : '$sign${delta!.toStringAsFixed(1)} $deltaUnit';
     return '$formatted vs last week';
+  }
+}
+
+class _AchievementsCard extends StatelessWidget {
+  const _AchievementsCard({required this.future});
+
+  final Future<List<Achievement>> future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Achievement>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: SizedBox(
+                height: 24,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
+          );
+        }
+        final achievements = snapshot.data ?? const <Achievement>[];
+        if (snapshot.hasError || achievements.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final unlockedCount = achievements.where((item) => item.unlocked).length;
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Achievements', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$unlockedCount / ${achievements.length}',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...achievements.map((item) => _AchievementRow(achievement: item)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AchievementRow extends StatelessWidget {
+  const _AchievementRow({required this.achievement});
+
+  final Achievement achievement;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        achievement.unlocked ? AppTheme.success : Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            achievement.unlocked ? Icons.emoji_events_rounded : Icons.lock_outline_rounded,
+            color: color,
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  achievement.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: achievement.unlocked
+                        ? null
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  achievement.description,
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            achievement.progressLabel,
+            style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 12),
+          ),
+        ],
+      ),
+    );
   }
 }
 

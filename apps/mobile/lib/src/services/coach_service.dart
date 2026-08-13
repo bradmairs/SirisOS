@@ -3,12 +3,29 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/achievement.dart';
 import '../models/ask_siris_answer.dart';
 import '../models/coach_report.dart';
 import '../models/training_conflict_check.dart';
 import 'auth_service.dart';
 
 class CoachService {
+  Future<List<Achievement>> fetchAchievements() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/coach/achievements'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Could not load achievements.');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(Achievement.fromJson)
+        .toList(growable: false);
+  }
+
   Future<TrainingConflictCheck> fetchConflictCheck() async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/api/v1/coach/conflict-check'),

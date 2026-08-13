@@ -1,21 +1,16 @@
 from datetime import date, timedelta
-import random
+from pathlib import Path
 
 from app.services.gym_service import GymService
 from app.services.running_service import RunningService
 from app.services.training_load_service import TrainingLoadService
 
-# Each test anchors its dates to a randomly chosen far-future year so it can't
-# collide with data left behind by other tests -- or by earlier runs of this
-# same test file -- sharing the same dev/test database (matching the
-# "_unique_exercise" isolation pattern used by the gym tests, but per-date
-# rather than per-name since load is aggregated across all records in a date
-# range, not filtered by exercise; a fixed literal year would accumulate
-# stale baseline data across repeated local test runs).
-
-
-def _random_year() -> int:
-    return random.randint(1000, 3299)
+# Weekly load aggregates across all records in a date range rather than
+# filtering by exercise name, so per-test isolation needs a genuinely
+# separate database (not just unique names/dates within a shared one) --
+# otherwise another test's baseline-window data can silently pad these
+# results. Matches the tmp_path/monkeypatch pattern used by the
+# health/conflict/achievement test suites.
 
 
 def _monday(year: int, week_offset: int) -> date:
@@ -24,7 +19,8 @@ def _monday(year: int, week_offset: int) -> date:
     return anchor + timedelta(weeks=week_offset)
 
 
-def _services() -> tuple[RunningService, GymService, TrainingLoadService]:
+def _services(tmp_path: Path, monkeypatch) -> tuple[RunningService, GymService, TrainingLoadService]:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/training_load.db")
     running = RunningService()
     running.initialise()
     gym = GymService()
@@ -32,9 +28,9 @@ def _services() -> tuple[RunningService, GymService, TrainingLoadService]:
     return running, gym, TrainingLoadService(running_service=running, gym_service=gym)
 
 
-def test_no_data_returns_zero_loads_and_no_ratio() -> None:
-    _, _, training = _services()
-    current_week = _monday(_random_year(), 0)
+def test_no_data_returns_zero_loads_and_no_ratio(tmp_path: Path, monkeypatch) -> None:
+    _, _, training = _services(tmp_path, monkeypatch)
+    current_week = _monday(2026, 0)
 
     result = training.weekly_load(reference_date=current_week)
 
@@ -46,19 +42,9 @@ def test_no_data_returns_zero_loads_and_no_ratio() -> None:
     assert "Not enough" in result.assessment
 
 
-def test_single_baseline_week_is_insufficient(tmp_path, monkeypatch) -> None:
-    # This scenario needs a genuinely empty history (not just a fresh date
-    # range) so that "one prior week" really is the modality's entire
-    # history -- the shared dev/test database already has old records from
-    # other test files, which would otherwise count as legitimate pre-dating
-    # "rest weeks" and pad the baseline out past MIN_BASELINE_WEEKS.
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/isolated.sqlite3")
-    gym = GymService()
-    gym.initialise()
-    running = RunningService()
-    running.initialise()
-    training = TrainingLoadService(running_service=running, gym_service=gym)
-    current_week = _monday(_random_year(), 0)
+def test_single_baseline_week_is_insufficient(tmp_path: Path, monkeypatch) -> None:
+    _, gym, training = _services(tmp_path, monkeypatch)
+    current_week = _monday(2026, 0)
     one_week_back = current_week - timedelta(weeks=1)
 
     gym.create_workout(
@@ -80,9 +66,9 @@ def test_single_baseline_week_is_insufficient(tmp_path, monkeypatch) -> None:
     assert result.gym_ratio is None
 
 
-def test_heavier_gym_week_flagged_against_full_baseline() -> None:
-    _, gym, training = _services()
-    current_week = _monday(_random_year(), 0)
+def test_heavier_gym_week_flagged_against_full_baseline(tmp_path: Path, monkeypatch) -> None:
+    _, gym, training = _services(tmp_path, monkeypatch)
+    current_week = _monday(2026, 0)
 
     for offset in range(1, 9):
         gym.create_workout(
@@ -106,9 +92,9 @@ def test_heavier_gym_week_flagged_against_full_baseline() -> None:
     assert "Heavier" in result.assessment
 
 
-def test_lighter_running_week_flagged_against_full_baseline() -> None:
-    running, _, training = _services()
-    current_week = _monday(_random_year(), 0)
+def test_lighter_running_week_flagged_against_full_baseline(tmp_path: Path, monkeypatch) -> None:
+    running, _, training = _services(tmp_path, monkeypatch)
+    current_week = _monday(2026, 0)
 
     for offset in range(1, 9):
         running.create_run(
@@ -134,9 +120,9 @@ def test_lighter_running_week_flagged_against_full_baseline() -> None:
     assert "Lighter" in result.assessment
 
 
-def test_combined_index_sums_both_modalities() -> None:
-    running, gym, training = _services()
-    current_week = _monday(_random_year(), 0)
+def test_combined_index_sums_both_modalities(tmp_path: Path, monkeypatch) -> None:
+    running, gym, training = _services(tmp_path, monkeypatch)
+    current_week = _monday(2026, 0)
 
     for offset in range(1, 9):
         running.create_run(
@@ -174,9 +160,9 @@ def test_combined_index_sums_both_modalities() -> None:
     assert "typical" in result.assessment.lower()
 
 
-def test_recent_weekly_loads_returns_consecutive_weeks_in_order() -> None:
-    _, _, training = _services()
-    current_week = _monday(_random_year(), 0)
+def test_recent_weekly_loads_returns_consecutive_weeks_in_order(tmp_path: Path, monkeypatch) -> None:
+    _, _, training = _services(tmp_path, monkeypatch)
+    current_week = _monday(2026, 0)
 
     results = training.recent_weekly_loads(weeks=3, reference_date=current_week)
 
