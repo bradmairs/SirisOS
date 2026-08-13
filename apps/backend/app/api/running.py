@@ -11,6 +11,7 @@ from app.api.gym import router as gym_router
 from app.api.health import router as health_router
 from app.api.intelligence import router as intelligence_router
 from app.api.search import router as search_router
+from app.api.training import router as training_router
 from app.services.activity_service import ActivityService
 from app.services.running_service import RunningService
 
@@ -20,6 +21,7 @@ router.include_router(activity_router)
 router.include_router(search_router)
 router.include_router(intelligence_router)
 router.include_router(health_router)
+router.include_router(training_router)
 service = RunningService()
 service.initialise()
 activity_service = ActivityService()

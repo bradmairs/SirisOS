@@ -450,7 +450,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [ ] Route generator and shoe tracking/correlation — both depend on data SirisOS doesn't capture today (GPS/elevation, shoe per run) and need a capture-side decision before they're buildable
 
 ### Unified training
-- [ ] Combined weekly training load (running + strength) as one number, not two apps' worth of numbers
+- [x] Weekly training load v1 — running (`effort_score`) and gym (`total_volume_kg`) weekly totals each expressed as a percentage of the athlete's own trailing 8-week baseline, summed into one `combined_index` (100 = a typical week). Requires at least 2 qualifying baseline weeks per modality before showing a ratio, so a new user correctly sees "not enough history yet" rather than a distorted number. Surfaced as a shared `TrainingLoadCard` on both the Gym and Running screens (ADR 069)
 - [ ] Training conflict detection (e.g. heavy-leg-day-before-intervals) — the brainstorm's own pick for "signature feature"; depends on the combined training load above
 - [ ] Smart weekly planner balancing recovery, running load and historical performance, with drag-to-rearrange
 - [ ] "Can I train today?" / "Should I run tonight?" — a natural-language front end over the same deterministic training-load and readiness data everything above already computes

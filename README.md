@@ -331,6 +331,10 @@ One real gap found while auditing the existing modules before starting: the work
 
 `POST /api/v1/gym/workouts` now detects, at the moment a workout is saved, whether it beat a prior best for any exercise — heaviest weight, best estimated 1RM and best set volume are checked independently, snapshotted before insertion so a set is never compared against itself and multiple sets of one exercise only report the session's single best per record type. Each new record fires an `ActivityService` event and an understated in-app callout, closing the same "the data already knows this, nothing ever says it" gap found and fixed twice already this sprint. Running PR tracking is explicitly separate future work. ADR 067.
 
+### Weekly Training Load v1
+
+`GET /api/v1/training/weekly-load` combines running and gym into one weekly number for the first time — each modality's weekly total (running `effort_score` sum, gym `total_volume_kg` sum) is expressed as a percentage of the athlete's own trailing 8-week baseline, then summed into a `combined_index` where 100 means "a typical week." No arbitrary unit-conversion constant was needed: percentages of your own history are inherently comparable across modalities. Baseline weeks that predate a modality's first-ever logged record don't count (they're not real "zero" weeks), and at least 2 qualifying baseline weeks are required before a ratio is shown at all — a new user sees an honest "not enough training history yet" rather than a distorted number. Shown as a shared `TrainingLoadCard` on both the Gym and Running screens. ADR 069.
+
 ## Long-term pillars
 
 - **Personal OS:** health, sleep, recovery, running, gym, calendar
