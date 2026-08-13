@@ -320,6 +320,7 @@ class _AppShellState extends State<AppShell> {
                               child: NavigationRail(
                                 extended: true,
                                 minExtendedWidth: 248,
+                                scrollable: true,
                                 selectedIndex: _selectedIndex,
                                 onDestinationSelected: _selectTab,
                                 labelType: NavigationRailLabelType.none,
@@ -602,13 +603,17 @@ class _SidebarStatus extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                dashboard == null
-                    ? 'Loading status'
-                    : healthy
-                        ? 'Healthy'
-                        : 'Needs attention',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              Expanded(
+                child: Text(
+                  dashboard == null
+                      ? 'Loading status'
+                      : healthy
+                          ? 'Healthy'
+                          : 'Needs attention',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
