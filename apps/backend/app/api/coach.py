@@ -10,10 +10,12 @@ from pydantic import BaseModel
 from app.services.ask_siris_service import AskSirisService
 from app.services.coach_service import CoachService
 from app.services.ollama_service import chat_client
+from app.services.training_conflict_service import TrainingConflictService
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 service = CoachService()
 ask_siris_service = AskSirisService()
+conflict_service = TrainingConflictService()
 
 ASK_SIRIS_SYSTEM_PROMPT = (
     "You are Siris, a personal training coach assistant. Rephrase the given "
@@ -134,3 +136,21 @@ async def ask_siris(
         synthesized_answer=synthesized_answer,
         suggestions=result.suggestions,
     )
+
+
+class TrainingConflictResponse(BaseModel):
+    reference_date: date
+    status: Literal["insufficient_data", "clear", "reduced_recovery", "conflict"]
+    reasons: list[str]
+    trained: bool
+    session_summary: str | None
+    guidance: str
+
+
+@router.get("/conflict-check", response_model=TrainingConflictResponse)
+async def conflict_check(
+    authorization: Annotated[str | None, Header()] = None,
+) -> TrainingConflictResponse:
+    _authenticate(authorization)
+    result = conflict_service.check()
+    return TrainingConflictResponse(**result.__dict__)

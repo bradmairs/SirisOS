@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/ask_siris_answer.dart';
 import '../models/coach_report.dart';
+import '../models/training_conflict_check.dart';
 import '../services/coach_service.dart';
 import '../theme/app_theme.dart';
 
@@ -15,17 +16,21 @@ class SirisCoachScreen extends StatefulWidget {
 class _SirisCoachScreenState extends State<SirisCoachScreen> {
   final CoachService _service = CoachService();
   late Future<WeeklyCoachReport> _future;
+  late Future<TrainingConflictCheck> _conflictFuture;
 
   @override
   void initState() {
     super.initState();
     _future = _service.fetchWeeklyReport();
+    _conflictFuture = _service.fetchConflictCheck();
   }
 
   Future<void> _refresh() async {
     final next = _service.fetchWeeklyReport();
+    final nextConflict = _service.fetchConflictCheck();
     setState(() {
       _future = next;
+      _conflictFuture = nextConflict;
     });
     await next;
   }
@@ -85,6 +90,8 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 20),
+                    _TodayCard(future: _conflictFuture),
                     const SizedBox(height: 20),
                     _HeadlineCard(report: report),
                     const SizedBox(height: 20),
@@ -297,6 +304,84 @@ class _AskSirisResult extends StatelessWidget {
       ],
     );
   }
+}
+
+class _TodayCard extends StatelessWidget {
+  const _TodayCard({required this.future});
+
+  final Future<TrainingConflictCheck> future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<TrainingConflictCheck>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: SizedBox(
+                height: 24,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        final check = snapshot.data!;
+        final style = _styleFor(context, check.status);
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: style.color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(style.icon, color: style.color),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Today', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        check.guidance,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  ({IconData icon, Color color}) _styleFor(BuildContext context, TrainingConflictStatus status) =>
+      switch (status) {
+        TrainingConflictStatus.conflict => (icon: Icons.warning_amber_rounded, color: AppTheme.warning),
+        TrainingConflictStatus.reducedRecovery => (
+            icon: Icons.battery_2_bar_rounded,
+            color: AppTheme.warning
+          ),
+        TrainingConflictStatus.clear => (icon: Icons.check_circle_outline_rounded, color: AppTheme.success),
+        TrainingConflictStatus.insufficientData => (
+            icon: Icons.info_outline_rounded,
+            color: Theme.of(context).colorScheme.onSurfaceVariant
+          ),
+      };
 }
 
 class _HeadlineCard extends StatelessWidget {

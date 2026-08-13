@@ -15,7 +15,7 @@ from app.services.training_load_service import TrainingLoadService
 
 
 def _random_year() -> int:
-    return random.randint(6000, 9999)
+    return random.randint(5600, 9999)
 
 
 def _unique_exercise(label: str) -> str:
