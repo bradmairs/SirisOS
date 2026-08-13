@@ -3,11 +3,14 @@ from __future__ import annotations
 import hashlib
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+HEALTH_SUMMARY_BASELINE_DAYS = 14
+MIN_BASELINE_SAMPLES = 3
 
 
 class Base(DeclarativeBase):
@@ -77,6 +80,17 @@ class HealthIngestStatus:
     last_sync: datetime | None
     records_received: int
     last_error: str | None
+
+
+@dataclass(frozen=True)
+class HealthMetricSummary:
+    metric_type: str
+    unit: str | None
+    latest_value: float
+    latest_timestamp: datetime
+    baseline_average: float | None
+    baseline_ratio: float | None
+    baseline_sample_count: int
 
 
 def _as_float(value: Any) -> float | None:
@@ -209,6 +223,61 @@ class HealthIngestService:
             records_received=records_received,
             last_error=latest.error if latest else None,
         )
+
+    def summary(self, *, baseline_days: int = HEALTH_SUMMARY_BASELINE_DAYS) -> list[HealthMetricSummary]:
+        # One row per metric_type: the latest reading, plus a trailing baseline
+        # average computed from samples strictly *before* the latest reading's
+        # own day -- so a metric is never compared against itself, matching the
+        # same principle ADR 066/067/069 already apply to gym/running data.
+        # Requires MIN_BASELINE_SAMPLES before showing a ratio, same reasoning
+        # as TrainingLoadService's MIN_BASELINE_WEEKS: too little history to
+        # call anything "typical" yet.
+        with self._sessions() as session:
+            metric_types = session.scalars(
+                select(HealthMetricSampleModel.metric_type).distinct()
+            ).all()
+
+            summaries: list[HealthMetricSummary] = []
+            for metric_type in metric_types:
+                latest = session.scalar(
+                    select(HealthMetricSampleModel)
+                    .where(HealthMetricSampleModel.metric_type == metric_type)
+                    .order_by(HealthMetricSampleModel.timestamp.desc())
+                    .limit(1)
+                )
+                if latest is None:
+                    continue
+
+                latest_day_start = latest.timestamp.replace(hour=0, minute=0, second=0, microsecond=0)
+                baseline_window_start = latest_day_start - timedelta(days=baseline_days)
+                baseline_rows = session.scalars(
+                    select(HealthMetricSampleModel.value).where(
+                        HealthMetricSampleModel.metric_type == metric_type,
+                        HealthMetricSampleModel.timestamp >= baseline_window_start,
+                        HealthMetricSampleModel.timestamp < latest_day_start,
+                    )
+                ).all()
+
+                baseline_average: float | None = None
+                baseline_ratio: float | None = None
+                if len(baseline_rows) >= MIN_BASELINE_SAMPLES:
+                    baseline_average = round(sum(baseline_rows) / len(baseline_rows), 2)
+                    if baseline_average != 0:
+                        baseline_ratio = round((latest.value / baseline_average) * 100, 1)
+
+                summaries.append(
+                    HealthMetricSummary(
+                        metric_type=metric_type,
+                        unit=latest.unit,
+                        latest_value=latest.value,
+                        latest_timestamp=latest.timestamp,
+                        baseline_average=baseline_average,
+                        baseline_ratio=baseline_ratio,
+                        baseline_sample_count=len(baseline_rows),
+                    )
+                )
+
+        return sorted(summaries, key=lambda item: item.metric_type)
 
     def _record_receipt(
         self,

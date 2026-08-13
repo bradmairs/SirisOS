@@ -292,7 +292,8 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Steps, sleep, HRV, resting HR and workouts first (any Health Auto Export metric is accepted)
 - [x] Canonical `health_metric_samples` / `health_workouts` store, workouts upserted by id
 - [x] `GET /api/v1/health/status` sync summary (`last_sync`, `records_received`, `last_error`)
-- [ ] Event Bus refresh and Health summary API
+- [x] Health summary API — `GET /api/v1/health/summary` reads back the ingested HRV/resting-HR/sleep (any metric type present) with a trailing 14-day baseline ratio, mirroring the same "vs your own history" pattern as weekly training load. Generic over metric type, not hardcoded to specific metrics. Surfaced as a "Recovery vs your baseline" section on the Health screen (ADR 072). This is the prerequisite that was blocking Training Conflict Detection, Run Readiness and the Smart Weekly Planner
+- [ ] Event Bus refresh on new sync (live push notification, split out from the item above)
 - [ ] Health Data Export context provider
 - [x] Keep MCP as an optional interactive/debug query layer rather than canonical ingestion
 

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 import jwt
-from fastapi import APIRouter, Body, Header, HTTPException
+from fastapi import APIRouter, Body, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.health_ingest_service import HealthIngestService
@@ -47,6 +47,16 @@ class HealthIngestStatusResponse(BaseModel):
     last_sync: datetime | None
     records_received: int
     last_error: str | None = None
+
+
+class HealthMetricSummaryResponse(BaseModel):
+    metric_type: str
+    unit: str | None
+    latest_value: float
+    latest_timestamp: datetime
+    baseline_average: float | None
+    baseline_ratio: float | None
+    baseline_sample_count: int
 
 
 def _authenticate_ingest(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -126,3 +136,15 @@ async def health_ingest_status(
         records_received=status.records_received,
         last_error=status.last_error,
     )
+
+
+@router.get("/summary", response_model=list[HealthMetricSummaryResponse])
+async def health_summary(
+    baseline_days: Annotated[int, Query(ge=1, le=90)] = 14,
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[HealthMetricSummaryResponse]:
+    _authenticate(authorization)
+    return [
+        HealthMetricSummaryResponse(**item.__dict__)
+        for item in ingest_service.summary(baseline_days=baseline_days)
+    ]
