@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/health_metric_summary.dart';
 import '../models/health_snapshot.dart';
 import 'auth_service.dart';
 
@@ -10,6 +11,28 @@ class HealthService {
   HealthService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+
+  Future<List<HealthMetricSummary>> fetchSummary() async {
+    final response = await _client
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/health/summary'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 8));
+
+    if (response.statusCode != 200) {
+      throw HealthServiceException(
+        'Health summary request failed with status ${response.statusCode}.',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(HealthMetricSummary.fromJson)
+        .toList(growable: false);
+  }
 
   Future<HealthSnapshot> fetchSnapshot() async {
     final response = await _client

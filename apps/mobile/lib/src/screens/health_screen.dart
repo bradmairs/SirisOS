@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/health_metric_summary.dart';
 import '../models/health_snapshot.dart';
 import '../services/health_service.dart';
 import '../theme/app_theme.dart';
@@ -14,17 +15,21 @@ class HealthScreen extends StatefulWidget {
 class _HealthScreenState extends State<HealthScreen> {
   final HealthService _service = HealthService();
   late Future<HealthSnapshot> _future;
+  late Future<List<HealthMetricSummary>> _summaryFuture;
 
   @override
   void initState() {
     super.initState();
     _future = _service.fetchSnapshot();
+    _summaryFuture = _service.fetchSummary();
   }
 
   Future<void> _refresh() async {
     final next = _service.fetchSnapshot();
+    final nextSummary = _service.fetchSummary();
     setState(() {
       _future = next;
+      _summaryFuture = nextSummary;
     });
     await next;
   }
@@ -98,6 +103,8 @@ class _HealthScreenState extends State<HealthScreen> {
                     ] else if (data.available)
                       const _EmptyMetrics(),
                     const SizedBox(height: 20),
+                    _RecoveryBaselineSection(future: _summaryFuture),
+                    const SizedBox(height: 20),
                     _IntegrationDetails(snapshot: data),
                   ],
                 );
@@ -105,6 +112,84 @@ class _HealthScreenState extends State<HealthScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _RecoveryBaselineSection extends StatelessWidget {
+  const _RecoveryBaselineSection({required this.future});
+
+  final Future<List<HealthMetricSummary>> future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<HealthMetricSummary>>(
+      future: future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <HealthMetricSummary>[];
+        if (snapshot.connectionState == ConnectionState.waiting || items.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Recovery vs your baseline', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Latest reading vs your trailing 14-day average.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: items
+                      .map((item) => _RecoveryBaselineRow(item: item))
+                      .toList(growable: false),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecoveryBaselineRow extends StatelessWidget {
+  const _RecoveryBaselineRow({required this.item});
+
+  final HealthMetricSummary item;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = item.baselineRatio;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              item.metricType.replaceAll('_', ' '),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          Text(
+            '${item.latestValue.toStringAsFixed(1)}${item.unit != null ? ' ${item.unit}' : ''}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 90,
+            child: Text(
+              ratio == null ? 'Not enough history' : '${ratio.round()}% of usual',
+              textAlign: TextAlign.right,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
