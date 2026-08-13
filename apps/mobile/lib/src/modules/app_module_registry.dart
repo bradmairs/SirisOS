@@ -9,6 +9,7 @@ import '../screens/homelab_screen.dart';
 import '../screens/knowledge_hub_screen.dart';
 import '../screens/projects_hub_screen.dart';
 import '../screens/running_screen.dart';
+import '../screens/siris_coach_screen.dart';
 import '../screens/siris_memory_screen.dart';
 import '../widgets/siris_logo.dart';
 
@@ -96,6 +97,10 @@ class AppModuleRegistry {
             screenBuilder: (context) => GymScreen(
               addRequest: context.workoutAddRequest,
             ),
+          ),
+        'coach' => SirisModuleRegistration(
+            definition: definition,
+            screenBuilder: (_) => const SirisCoachScreen(),
           ),
         'health' => SirisModuleRegistration(
             definition: definition,

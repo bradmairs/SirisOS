@@ -15,7 +15,7 @@ from app.services.training_load_service import TrainingLoadService
 
 
 def _random_year() -> int:
-    return random.randint(2200, 2999)
+    return random.randint(2100, 5999)
 
 
 def _monday(year: int, week_offset: int) -> date:

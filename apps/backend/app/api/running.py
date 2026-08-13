@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.api.activity import router as activity_router
+from app.api.coach import router as coach_router
 from app.api.gym import router as gym_router
 from app.api.health import router as health_router
 from app.api.intelligence import router as intelligence_router
@@ -22,6 +23,7 @@ router.include_router(search_router)
 router.include_router(intelligence_router)
 router.include_router(health_router)
 router.include_router(training_router)
+router.include_router(coach_router)
 service = RunningService()
 service.initialise()
 activity_service = ActivityService()

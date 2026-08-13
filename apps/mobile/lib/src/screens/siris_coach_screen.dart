@@ -1,0 +1,362 @@
+import 'package:flutter/material.dart';
+
+import '../models/coach_report.dart';
+import '../services/coach_service.dart';
+import '../theme/app_theme.dart';
+
+class SirisCoachScreen extends StatefulWidget {
+  const SirisCoachScreen({super.key});
+
+  @override
+  State<SirisCoachScreen> createState() => _SirisCoachScreenState();
+}
+
+class _SirisCoachScreenState extends State<SirisCoachScreen> {
+  final CoachService _service = CoachService();
+  late Future<WeeklyCoachReport> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _service.fetchWeeklyReport();
+  }
+
+  Future<void> _refresh() async {
+    final next = _service.fetchWeeklyReport();
+    setState(() {
+      _future = next;
+    });
+    await next;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: FutureBuilder<WeeklyCoachReport>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _CoachError(
+                message: snapshot.error.toString(), onRetry: _refresh);
+          }
+
+          final report = snapshot.data!;
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 1100
+                    ? 4
+                    : constraints.maxWidth >= 650
+                        ? 2
+                        : 1;
+                final horizontalPadding = constraints.maxWidth >= 900 ? 28.0 : 20.0;
+                final availableWidth = constraints.maxWidth - horizontalPadding * 2;
+                final tileWidth = (availableWidth - (columns - 1) * 16) / columns;
+
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(horizontalPadding, 24, horizontalPadding, 32),
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Coach', style: Theme.of(context).textTheme.headlineMedium),
+                              const SizedBox(height: 6),
+                              Text(
+                                'This week, in plain terms.',
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton.filledTonal(
+                          onPressed: _refresh,
+                          tooltip: 'Refresh',
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _HeadlineCard(report: report),
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        SizedBox(
+                          width: tileWidth,
+                          child: _MetricTile(
+                            icon: Icons.directions_run_rounded,
+                            color: const Color(0xFF38BDF8),
+                            label: 'Running',
+                            value: '${report.runningDistanceKm.toStringAsFixed(1)} km',
+                            delta: report.runningDistanceKmDelta,
+                            deltaUnit: 'km',
+                          ),
+                        ),
+                        SizedBox(
+                          width: tileWidth,
+                          child: _MetricTile(
+                            icon: Icons.event_repeat_rounded,
+                            color: const Color(0xFF63D83A),
+                            label: 'Runs logged',
+                            value: '${report.runCount}',
+                            delta: report.runCountDelta?.toDouble(),
+                            deltaUnit: '',
+                          ),
+                        ),
+                        SizedBox(
+                          width: tileWidth,
+                          child: _MetricTile(
+                            icon: Icons.fitness_center_rounded,
+                            color: AppTheme.primaryBright,
+                            label: 'Strength volume',
+                            value: '${report.gymVolumeKg.toStringAsFixed(0)} kg',
+                            delta: report.gymVolumeKgDelta,
+                            deltaUnit: 'kg',
+                          ),
+                        ),
+                        SizedBox(
+                          width: tileWidth,
+                          child: _MetricTile(
+                            icon: Icons.event_available_rounded,
+                            color: const Color(0xFFC45BFF),
+                            label: 'Workouts logged',
+                            value: '${report.gymSessionCount}',
+                            delta: report.gymSessionCountDelta?.toDouble(),
+                            deltaUnit: '',
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (report.improvements.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      _ImprovementsCard(improvements: report.improvements),
+                    ],
+                  ],
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HeadlineCard extends StatelessWidget {
+  const _HeadlineCard({required this.report});
+
+  final WeeklyCoachReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final combined = report.trainingLoad.combinedIndex;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
+              ),
+              child: const Icon(Icons.auto_awesome_rounded, color: AppTheme.primaryBright, size: 26),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(report.headline, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    _weekRangeLabel(report.weekStart, report.weekEnd),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            if (combined != null) ...[
+              const SizedBox(width: 12),
+              Text(
+                '${combined.round()}',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w800, color: AppTheme.primaryBright),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _weekRangeLabel(DateTime start, DateTime end) {
+    String label(DateTime d) => '${d.day}/${d.month}';
+    return '${label(start)} – ${label(end)}';
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.delta,
+    required this.deltaUnit,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+  final double? delta;
+  final String deltaUnit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 140),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color.withValues(alpha: 0.09), Colors.transparent],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(label, style: Theme.of(context).textTheme.titleSmall)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _deltaLabel(),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _deltaLabel() {
+    if (delta == null) return 'First week logged';
+    if (delta == 0) return 'Same as last week';
+    final sign = delta! > 0 ? '+' : '';
+    final formatted = deltaUnit.isEmpty
+        ? '$sign${delta!.round()}'
+        : '$sign${delta!.toStringAsFixed(1)} $deltaUnit';
+    return '$formatted vs last week';
+  }
+}
+
+class _ImprovementsCard extends StatelessWidget {
+  const _ImprovementsCard({required this.improvements});
+
+  final List<ExerciseImprovement> improvements;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('New bests this week', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            ...improvements.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    const Text('🏆 ', style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        '${item.exercise} · ${item.recordType.label}: ${item.value.toStringAsFixed(1)} kg (was ${item.previousValue.toStringAsFixed(1)} kg)',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachError extends StatelessWidget {
+  const _CoachError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome_outlined,
+                  size: 54, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(height: 18),
+              Text('Coach report unavailable', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Try again')),
+            ],
+          ),
+        ),
+      );
+}
