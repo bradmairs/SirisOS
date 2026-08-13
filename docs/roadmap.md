@@ -453,7 +453,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 
 ### Unified training
 - [x] Weekly training load v1 — running (`effort_score`) and gym (`total_volume_kg`) weekly totals each expressed as a percentage of the athlete's own trailing 8-week baseline, summed into one `combined_index` (100 = a typical week). Requires at least 2 qualifying baseline weeks per modality before showing a ratio, so a new user correctly sees "not enough history yet" rather than a distorted number. Surfaced as a shared `TrainingLoadCard` on both the Gym and Running screens (ADR 069)
-- [ ] Training conflict detection (e.g. heavy-leg-day-before-intervals) — the brainstorm's own pick for "signature feature"; depends on the combined training load above
+- [x] Training conflict detection v1 — recovery-based: flags when HRV/resting heart rate is notably worse than your trailing baseline (Health Summary API) on a day you also trained, via a "Today" card on the Coach screen (ADR 073). The brainstorm's own literal example (heavy-leg-day-before-intervals sequencing) remains future work — it needs workout-name/run-intensity heuristics this v1 deliberately avoided in favour of a real signal with none
 - [ ] Smart weekly planner balancing recovery, running load and historical performance, with drag-to-rearrange
 - [ ] "Can I train today?" / "Should I run tonight?" — a natural-language front end over the same deterministic training-load and readiness data everything above already computes
 

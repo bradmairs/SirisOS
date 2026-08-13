@@ -19,7 +19,7 @@ from app.services.training_load_service import TrainingLoadService
 
 
 def _random_year() -> int:
-    return random.randint(4000, 5999)
+    return random.randint(3300, 5599)
 
 
 def _unique_exercise(label: str) -> str:
