@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../core/siris_event_bus.dart';
 import '../models/achievement.dart';
 import '../models/ask_siris_answer.dart';
 import '../models/coach_report.dart';
@@ -19,6 +22,7 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
   late Future<WeeklyCoachReport> _future;
   late Future<TrainingConflictCheck> _conflictFuture;
   late Future<List<Achievement>> _achievementsFuture;
+  StreamSubscription<SirisEvent>? _eventSubscription;
 
   @override
   void initState() {
@@ -26,6 +30,16 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
     _future = _service.fetchWeeklyReport();
     _conflictFuture = _service.fetchConflictCheck();
     _achievementsFuture = _service.fetchAchievements();
+    _eventSubscription =
+        SirisEventBus.instance.on<ModuleDataChanged>().listen((event) {
+      if (event.moduleId == 'health') _refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _refresh() async {

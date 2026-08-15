@@ -293,7 +293,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Canonical `health_metric_samples` / `health_workouts` store, workouts upserted by id
 - [x] `GET /api/v1/health/status` sync summary (`last_sync`, `records_received`, `last_error`)
 - [x] Health summary API — `GET /api/v1/health/summary` reads back the ingested HRV/resting-HR/sleep (any metric type present) with a trailing 14-day baseline ratio, mirroring the same "vs your own history" pattern as weekly training load. Generic over metric type, not hardcoded to specific metrics. Surfaced as a "Recovery vs your baseline" section on the Health screen (ADR 072). This is the prerequisite that was blocking Training Conflict Detection, Run Readiness and the Smart Weekly Planner
-- [ ] Event Bus refresh on new sync (live push notification, split out from the item above)
+- [x] Event Bus refresh on new sync v1 — `HealthSyncWatcher` polls the existing `GET /health/status` every 5 minutes (no backend push mechanism exists anywhere in this app, so this is the poll-then-publish pattern `SirisIntegrationManager` already uses for its own connectors) and publishes `ModuleDataChanged(moduleId: 'health')` only when `last_sync`/`records_received` actually change. Health and Coach screens subscribe and refresh automatically -- verified live with a temporarily shortened poll interval (ADR 075)
 - [ ] Health Data Export context provider
 - [x] Keep MCP as an optional interactive/debug query layer rather than canonical ingestion
 
