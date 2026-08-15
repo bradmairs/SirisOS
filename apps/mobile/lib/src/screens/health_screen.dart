@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../core/siris_event_bus.dart';
 import '../models/health_metric_summary.dart';
 import '../models/health_snapshot.dart';
 import '../services/health_service.dart';
@@ -16,12 +19,23 @@ class _HealthScreenState extends State<HealthScreen> {
   final HealthService _service = HealthService();
   late Future<HealthSnapshot> _future;
   late Future<List<HealthMetricSummary>> _summaryFuture;
+  StreamSubscription<SirisEvent>? _eventSubscription;
 
   @override
   void initState() {
     super.initState();
     _future = _service.fetchSnapshot();
     _summaryFuture = _service.fetchSummary();
+    _eventSubscription =
+        SirisEventBus.instance.on<ModuleDataChanged>().listen((event) {
+      if (event.moduleId == 'health') _refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _refresh() async {

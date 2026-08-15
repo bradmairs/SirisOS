@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/health_sync_watcher.dart';
 import '../core/module_registry.dart';
 import '../models/dashboard_summary.dart';
 import '../modules/app_module_registry.dart';
@@ -46,11 +47,13 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _sidebarFuture = _dashboardService.fetchDashboard();
     HardwareKeyboard.instance.addHandler(_handleGlobalKey);
+    HealthSyncWatcher.instance.start();
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
+    HealthSyncWatcher.instance.stop();
     super.dispose();
   }
 

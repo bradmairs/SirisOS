@@ -374,6 +374,10 @@ A "Today" card at the top of the Coach screen — above the weekly report, match
 
 An "Achievements" card on the Coach screen shows 8 concrete, evidence-backed milestones — 100 kg club on bench/squat/deadlift/overhead press, a Million Kilo Club for lifetime lifted volume, a sub-25 5K badge, an 8-consecutive-week training-consistency streak, and a 5-consecutive-session progressive-overload streak — each a real recorded fact crossing a real threshold, never an invented point total. Locked achievements still show progress toward the next unlock (e.g. "70 / 100 kg"). `GET /api/v1/coach/achievements`. The brainstorm's companion idea, a composite "Training Level" score, was deliberately deferred rather than built alongside this: unlike every other number in this app (always expressed relative to the athlete's own history), a "Strength" sub-score has no defensible basis without bodyweight or strength-standards data SirisOS doesn't have — building one now would be this app's first fabricated, non-evidence-based number. ADR 074.
 
+### Health Event Bus Refresh v1
+
+The Health and Coach screens now refresh automatically when new Health Auto Export data lands, closing the last item under Health Data Export ingestion. Since Health Auto Export POSTs directly to the backend from the iPhone automation — no open Flutter session is involved in that request, and this app has no backend-push mechanism anywhere (confirmed: no WebSocket/SSE endpoint exists) — a client-side `SirisEventBus` publish had nothing to hook onto. `HealthSyncWatcher` instead polls the existing `GET /api/v1/health/status` every 5 minutes (the same poll-then-publish pattern `SirisIntegrationManager` already uses for its own connectors) and publishes `ModuleDataChanged(moduleId: 'health')` only when `last_sync`/`records_received` actually change — the first poll after app start silently establishes a baseline rather than firing a spurious refresh on launch. ADR 075.
+
 ## Long-term pillars
 
 - **Personal OS:** health, sleep, recovery, running, gym, calendar
