@@ -37,3 +37,25 @@ class WeeklyTrainingLoad {
   final double? combinedIndex;
   final String assessment;
 }
+
+class DailyTrainingIntensity {
+  const DailyTrainingIntensity({
+    required this.day,
+    required this.gymVolumeKg,
+    required this.runningEffortScore,
+    required this.intensity,
+  });
+
+  factory DailyTrainingIntensity.fromJson(Map<String, dynamic> json) =>
+      DailyTrainingIntensity(
+        day: DateTime.parse(json['day'] as String),
+        gymVolumeKg: (json['gym_volume_kg'] as num).toDouble(),
+        runningEffortScore: (json['running_effort_score'] as num).toDouble(),
+        intensity: (json['intensity'] as num).toDouble(),
+      );
+
+  final DateTime day;
+  final double gymVolumeKg;
+  final double runningEffortScore;
+  final double intensity;
+}

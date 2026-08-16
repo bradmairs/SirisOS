@@ -5,6 +5,7 @@ import '../models/gym_workout.dart';
 import '../models/workout_template.dart';
 import '../services/gym_service.dart';
 import '../widgets/metric_line_chart.dart';
+import '../widgets/training_heatmap_card.dart';
 import '../widgets/training_load_card.dart';
 import 'exercise_progress_screen.dart';
 import 'workout_templates_screen.dart';
@@ -137,6 +138,8 @@ class _GymScreenState extends State<GymScreen> {
                 ),
                 const SizedBox(height: 20),
                 const TrainingLoadCard(),
+                const SizedBox(height: 20),
+                const TrainingHeatmapCard(),
                 const SizedBox(height: 20),
                 Card(
                   child: Padding(

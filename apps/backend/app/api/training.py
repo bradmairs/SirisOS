@@ -33,6 +33,13 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> str:
     return AUTH_USERNAME
 
 
+class DailyTrainingIntensityResponse(BaseModel):
+    day: date
+    gym_volume_kg: float
+    running_effort_score: float
+    intensity: float
+
+
 class WeeklyTrainingLoadResponse(BaseModel):
     week_start: date
     week_end: date
@@ -63,3 +70,14 @@ async def weekly_load_history(
 ) -> list[WeeklyTrainingLoadResponse]:
     _authenticate(authorization)
     return [_response(item) for item in service.recent_weekly_loads(weeks=weeks)]
+
+
+@router.get("/heatmap", response_model=list[DailyTrainingIntensityResponse])
+async def training_heatmap(
+    days: Annotated[int, Query(ge=7, le=365)] = 84,
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[DailyTrainingIntensityResponse]:
+    _authenticate(authorization)
+    return [
+        DailyTrainingIntensityResponse(**item.__dict__) for item in service.daily_intensity(days=days)
+    ]
