@@ -8,10 +8,8 @@ from fastapi import APIRouter, Body, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.health_ingest_service import HealthIngestService
-from app.services.health_mcp_service import HealthMcpService
 
 router = APIRouter(prefix="/health", tags=["health"])
-service = HealthMcpService()
 ingest_service = HealthIngestService()
 ingest_service.initialise()
 
@@ -60,13 +58,20 @@ class HealthMetricSummaryResponse(BaseModel):
 
 
 def _authenticate_ingest(authorization: Annotated[str | None, Header()] = None) -> None:
-    if not HEALTH_INGEST_TOKEN:
-        raise HTTPException(status_code=401, detail="Health ingest token is not configured.")
+    """Accepts either the unattended ingest token (for automations that can't log
+    in, e.g. a Shortcuts push) or a normal SirisOS session JWT (the native app's
+    HealthKit sync, which is already logged in and shouldn't need a second secret)."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required.")
     token = authorization.removeprefix("Bearer ").strip()
-    if not secrets.compare_digest(token, HEALTH_INGEST_TOKEN):
-        raise HTTPException(status_code=401, detail="Invalid ingest token.")
+    if HEALTH_INGEST_TOKEN and secrets.compare_digest(token, HEALTH_INGEST_TOKEN):
+        return
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], issuer="sirisos-api")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid ingest credentials.") from None
+    if payload.get("sub") != AUTH_USERNAME:
+        raise HTTPException(status_code=401, detail="Invalid session user.")
 
 
 def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -90,7 +95,7 @@ async def health_snapshot(
     authorization: Annotated[str | None, Header()] = None,
 ) -> HealthSnapshotResponse:
     _authenticate(authorization)
-    snapshot = service.snapshot()
+    snapshot = ingest_service.snapshot()
     return HealthSnapshotResponse(
         available=snapshot.available,
         endpoint_configured=snapshot.endpoint_configured,

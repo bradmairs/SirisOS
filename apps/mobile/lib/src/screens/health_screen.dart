@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../core/siris_event_bus.dart';
 import '../models/health_metric_summary.dart';
 import '../models/health_snapshot.dart';
+import '../services/health_kit_sync_service.dart';
 import '../services/health_service.dart';
 import '../theme/app_theme.dart';
 
@@ -17,9 +19,15 @@ class HealthScreen extends StatefulWidget {
 
 class _HealthScreenState extends State<HealthScreen> {
   final HealthService _service = HealthService();
+  final HealthKitSyncService _healthKitSync = HealthKitSyncService();
   late Future<HealthSnapshot> _future;
   late Future<List<HealthMetricSummary>> _summaryFuture;
   StreamSubscription<SirisEvent>? _eventSubscription;
+  bool _syncing = false;
+  String? _syncError;
+  DateTime? _lastSyncTime;
+
+  bool get _healthKitSupported => defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
   void initState() {
@@ -30,6 +38,12 @@ class _HealthScreenState extends State<HealthScreen> {
         SirisEventBus.instance.on<ModuleDataChanged>().listen((event) {
       if (event.moduleId == 'health') _refresh();
     });
+    if (_healthKitSupported) {
+      _healthKitSync.lastSyncTime().then((value) {
+        if (mounted) setState(() => _lastSyncTime = value);
+      });
+      _syncHealthKit();
+    }
   }
 
   @override
@@ -46,6 +60,26 @@ class _HealthScreenState extends State<HealthScreen> {
       _summaryFuture = nextSummary;
     });
     await next;
+  }
+
+  Future<void> _syncHealthKit() async {
+    setState(() {
+      _syncing = true;
+      _syncError = null;
+    });
+    try {
+      final result = await _healthKitSync.sync();
+      if (!mounted) return;
+      setState(() => _lastSyncTime = DateTime.now());
+      if (result.hadNewData) {
+        await _refresh();
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _syncError = error.toString());
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   @override
@@ -88,21 +122,36 @@ class _HealthScreenState extends State<HealthScreen> {
                               Text('Health', style: Theme.of(context).textTheme.headlineMedium),
                               const SizedBox(height: 6),
                               Text(
-                                'Live Apple Health data through Health Auto Export.',
+                                _healthKitSupported
+                                    ? 'Synced directly from Apple Health on this iPhone.'
+                                    : 'Apple Health sync runs on the iOS app.',
                                 style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                               ),
                             ],
                           ),
                         ),
-                        IconButton.filledTonal(
-                          onPressed: _refresh,
-                          tooltip: 'Refresh Apple Health',
-                          icon: const Icon(Icons.refresh_rounded),
-                        ),
+                        if (_healthKitSupported)
+                          IconButton.filledTonal(
+                            onPressed: _syncing ? null : _syncHealthKit,
+                            tooltip: 'Sync Apple Health now',
+                            icon: _syncing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.sync_rounded),
+                          )
+                        else
+                          IconButton.filledTonal(
+                            onPressed: _refresh,
+                            tooltip: 'Refresh',
+                            icon: const Icon(Icons.refresh_rounded),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _ConnectionCard(snapshot: data),
+                    _ConnectionCard(snapshot: data, syncError: _syncError, healthKitSupported: _healthKitSupported),
                     const SizedBox(height: 20),
                     if (data.available && data.metrics.isNotEmpty) ...[
                       Text('Latest metrics', style: Theme.of(context).textTheme.titleLarge),
@@ -119,7 +168,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     const SizedBox(height: 20),
                     _RecoveryBaselineSection(future: _summaryFuture),
                     const SizedBox(height: 20),
-                    _IntegrationDetails(snapshot: data),
+                    _IntegrationDetails(snapshot: data, lastSyncTime: _lastSyncTime),
                   ],
                 );
               },
@@ -210,29 +259,37 @@ class _RecoveryBaselineRow extends StatelessWidget {
 }
 
 class _ConnectionCard extends StatelessWidget {
-  const _ConnectionCard({required this.snapshot});
+  const _ConnectionCard({
+    required this.snapshot,
+    required this.syncError,
+    required this.healthKitSupported,
+  });
 
   final HealthSnapshot snapshot;
+  final String? syncError;
+  final bool healthKitSupported;
 
   @override
   Widget build(BuildContext context) {
     final available = snapshot.available;
-    final configured = snapshot.endpointConfigured;
+    final everSynced = snapshot.endpointConfigured;
     final accent = available
         ? AppTheme.success
-        : configured
+        : everSynced
             ? Theme.of(context).colorScheme.error
             : Theme.of(context).colorScheme.secondary;
     final title = available
-        ? 'Apple Health connected'
-        : configured
-            ? 'iPhone Health server offline'
-            : 'Apple Health not configured';
+        ? 'Apple Health synced'
+        : everSynced
+            ? 'Apple Health data is stale'
+            : 'Apple Health not synced yet';
     final message = available
-        ? '${snapshot.metrics.length} health metrics loaded from your iPhone.'
-        : configured
-            ? 'Open Health Auto Export on your iPhone, keep it in the foreground, and confirm the phone is connected to the same network.'
-            : 'Add the MCP URL and bearer token to the SirisOS server .env file, then rebuild the API.';
+        ? '${snapshot.metrics.length} health metrics from the last sync.'
+        : everSynced
+            ? 'No new data in the last 48 hours. Open the app on your iPhone to sync.'
+            : healthKitSupported
+                ? 'Open this screen on your iPhone and grant Apple Health access to start syncing.'
+                : 'Open the SirisOS iOS app to grant Apple Health access and sync.';
 
     return Card(
       child: Container(
@@ -266,7 +323,10 @@ class _ConnectionCard extends StatelessWidget {
                   Text(title, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 6),
                   Text(message, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  if (snapshot.error != null && snapshot.error!.isNotEmpty) ...[
+                  if (syncError != null) ...[
+                    const SizedBox(height: 10),
+                    Text('Sync error: $syncError', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+                  ] else if (snapshot.error != null && snapshot.error!.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Text(snapshot.error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
                   ],
@@ -338,9 +398,10 @@ class _MetricTile extends StatelessWidget {
 }
 
 class _IntegrationDetails extends StatelessWidget {
-  const _IntegrationDetails({required this.snapshot});
+  const _IntegrationDetails({required this.snapshot, required this.lastSyncTime});
 
   final HealthSnapshot snapshot;
+  final DateTime? lastSyncTime;
 
   @override
   Widget build(BuildContext context) {
@@ -350,17 +411,30 @@ class _IntegrationDetails extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Integration', style: Theme.of(context).textTheme.titleMedium),
+            Text('Sync', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            _DetailRow(label: 'MCP endpoint', value: snapshot.endpointConfigured ? 'Configured' : 'Not configured'),
+            const _DetailRow(label: 'Source', value: 'Apple HealthKit (on-device)'),
             const SizedBox(height: 8),
-            _DetailRow(label: 'Connection', value: snapshot.available ? 'Online' : 'Offline'),
+            _DetailRow(label: 'Data freshness', value: snapshot.available ? 'Up to date' : 'Stale'),
             const SizedBox(height: 8),
-            _DetailRow(label: 'Discovered tools', value: snapshot.tools.isEmpty ? 'None' : snapshot.tools.join(', ')),
+            _DetailRow(
+              label: 'Last synced on this device',
+              value: lastSyncTime == null ? 'Never' : _formatRelative(lastSyncTime!),
+            ),
+            const SizedBox(height: 8),
+            _DetailRow(label: 'Metrics tracked', value: snapshot.tools.isEmpty ? 'None' : snapshot.tools.join(', ')),
           ],
         ),
       ),
     );
+  }
+
+  String _formatRelative(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }
 
