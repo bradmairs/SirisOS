@@ -115,3 +115,38 @@ class ProgressiveOverloadSuggestion {
   final String rationale;
   final DateTime? basedOnWorkoutDate;
 }
+
+enum DeloadStatus { deloadRecommended, onTrack, insufficientData }
+
+extension DeloadStatusValue on DeloadStatus {
+  static DeloadStatus fromApiValue(String value) => switch (value) {
+        'deload_recommended' => DeloadStatus.deloadRecommended,
+        'on_track' => DeloadStatus.onTrack,
+        _ => DeloadStatus.insufficientData,
+      };
+}
+
+class DeloadSuggestion {
+  const DeloadSuggestion({
+    required this.exercise,
+    required this.status,
+    required this.rationale,
+    required this.sessionDates,
+  });
+
+  factory DeloadSuggestion.fromJson(Map<String, dynamic> json) =>
+      DeloadSuggestion(
+        exercise: json['exercise'] as String,
+        status: DeloadStatusValue.fromApiValue(json['status'] as String),
+        rationale: json['rationale'] as String,
+        sessionDates: (json['session_dates'] as List<dynamic>?)
+            ?.whereType<String>()
+            .map(DateTime.parse)
+            .toList(growable: false),
+      );
+
+  final String exercise;
+  final DeloadStatus status;
+  final String rationale;
+  final List<DateTime>? sessionDates;
+}

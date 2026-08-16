@@ -114,6 +114,13 @@ class ProgressiveOverloadSuggestionResponse(BaseModel):
     based_on_workout_date: date | None
 
 
+class DeloadSuggestionResponse(BaseModel):
+    exercise: str
+    status: Literal["deload_recommended", "on_track", "insufficient_data"]
+    rationale: str
+    session_dates: list[date] | None
+
+
 class WorkoutTemplateExerciseCreate(BaseModel):
     exercise: str = Field(min_length=1, max_length=120)
     target_sets: int = Field(default=1, ge=1, le=20)
@@ -260,6 +267,15 @@ async def exercise_suggestion(
     _authenticate(authorization)
     suggestion = service.suggest_progressive_overload(exercise_name)
     return ProgressiveOverloadSuggestionResponse(**suggestion.__dict__)
+
+
+@router.get("/exercises/{exercise_name}/deload", response_model=DeloadSuggestionResponse)
+async def exercise_deload(
+    exercise_name: str, authorization: Annotated[str | None, Header()] = None
+) -> DeloadSuggestionResponse:
+    _authenticate(authorization)
+    suggestion = service.suggest_deload(exercise_name)
+    return DeloadSuggestionResponse(**suggestion.__dict__)
 
 
 @router.get("/templates", response_model=list[WorkoutTemplateResponse])
