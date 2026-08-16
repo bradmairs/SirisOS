@@ -15,8 +15,8 @@ from app.services.training_conflict_service import TrainingConflictService
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 service = CoachService()
-ask_siris_service = AskSirisService()
 conflict_service = TrainingConflictService()
+ask_siris_service = AskSirisService(training_conflict_service=conflict_service)
 achievement_service = AchievementService()
 
 ASK_SIRIS_SYSTEM_PROMPT = (

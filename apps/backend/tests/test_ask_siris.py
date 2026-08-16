@@ -189,3 +189,38 @@ def test_weekly_summary_reuses_coach_headline(tmp_path: Path, monkeypatch) -> No
 
     assert result.understood is True
     assert len(result.answer) > 0
+
+
+def test_can_i_train_today_composes_conflict_and_load_guidance(tmp_path: Path, monkeypatch) -> None:
+    _, _, ask_siris = _services(tmp_path, monkeypatch)
+    today = _monday(2026, 0)
+
+    result = ask_siris.answer("Can I train today?", today=today)
+
+    assert result.understood is True
+    # With no Health data ingested and no training history yet, both
+    # underlying deterministic signals should say so plainly.
+    assert "recovery data" in result.answer.lower()
+    assert "not enough training history" in result.answer.lower()
+    assert result.facts["conflict_status"] == "insufficient_data"
+    assert result.facts["combined_index"] is None
+
+
+def test_should_i_run_tonight_is_recognised(tmp_path: Path, monkeypatch) -> None:
+    _, _, ask_siris = _services(tmp_path, monkeypatch)
+    today = _monday(2026, 0)
+
+    result = ask_siris.answer("Should I run tonight?", today=today)
+
+    assert result.understood is True
+
+
+def test_readiness_question_without_a_day_reference_is_not_recognised(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _, _, ask_siris = _services(tmp_path, monkeypatch)
+    today = _monday(2026, 0)
+
+    result = ask_siris.answer("Should I train more often?", today=today)
+
+    assert result.understood is False
