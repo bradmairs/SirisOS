@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 from datetime import datetime
@@ -6,6 +7,8 @@ from typing import Annotated, Any
 import jwt
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 from pydantic import BaseModel
+
+logger = logging.getLogger("sirisos.health_ingest_auth")
 
 from app.services.health_ingest_service import HealthIngestService
 
@@ -62,15 +65,22 @@ def _authenticate_ingest(authorization: Annotated[str | None, Header()] = None) 
     in, e.g. a Shortcuts push) or a normal SirisOS session JWT (the native app's
     HealthKit sync, which is already logged in and shouldn't need a second secret)."""
     if not authorization or not authorization.startswith("Bearer "):
+        logger.warning(
+            "ingest auth rejected: missing/malformed header (present=%s, prefix_ok=%s)",
+            authorization is not None,
+            bool(authorization and authorization.startswith("Bearer ")),
+        )
         raise HTTPException(status_code=401, detail="Authentication required.")
     token = authorization.removeprefix("Bearer ").strip()
     if HEALTH_INGEST_TOKEN and secrets.compare_digest(token, HEALTH_INGEST_TOKEN):
         return
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], issuer="sirisos-api")
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as exc:
+        logger.warning("ingest auth rejected: jwt decode failed: %r (token_len=%d)", exc, len(token))
         raise HTTPException(status_code=401, detail="Invalid ingest credentials.") from None
     if payload.get("sub") != AUTH_USERNAME:
+        logger.warning("ingest auth rejected: sub=%r != AUTH_USERNAME=%r", payload.get("sub"), AUTH_USERNAME)
         raise HTTPException(status_code=401, detail="Invalid session user.")
 
 
