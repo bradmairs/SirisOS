@@ -111,11 +111,13 @@ class _ExerciseDetailScreen extends StatefulWidget {
 class _ExerciseDetailScreenState extends State<_ExerciseDetailScreen> {
   final GymService _service = GymService();
   late Future<ProgressiveOverloadSuggestion> _suggestion;
+  late Future<DeloadSuggestion> _deload;
 
   @override
   void initState() {
     super.initState();
     _suggestion = _service.fetchSuggestion(widget.progress.exercise);
+    _deload = _service.fetchDeloadSuggestion(widget.progress.exercise);
   }
 
   @override
@@ -183,6 +185,53 @@ class _ExerciseDetailScreenState extends State<_ExerciseDetailScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(suggestion.rationale),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          FutureBuilder<DeloadSuggestion>(
+            future: _deload,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox.shrink();
+              final deload = snapshot.data!;
+              if (deload.status != DeloadStatus.deloadRecommended) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.battery_2_bar_rounded,
+                            color: Theme.of(context).colorScheme.onErrorContainer),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Consider a deload',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onErrorContainer,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                deload.rationale,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onErrorContainer,
+                                ),
+                              ),
                             ],
                           ),
                         ),

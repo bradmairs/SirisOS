@@ -51,6 +51,18 @@ class GymService {
         jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  Future<DeloadSuggestion> fetchDeloadSuggestion(String exercise) async {
+    final response = await http.get(
+      Uri.parse(
+          '${ApiConfig.baseUrl}/api/v1/gym/exercises/${Uri.encodeComponent(exercise)}/deload'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load a deload check for $exercise.');
+    return DeloadSuggestion.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   Future<List<WorkoutTemplate>> fetchTemplates() async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates'),

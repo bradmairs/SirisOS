@@ -6,6 +6,7 @@ import os
 from typing import Literal
 
 PROGRESSIVE_OVERLOAD_INCREMENT_KG = 2.5
+DELOAD_LOOKBACK_SESSIONS = 3
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
@@ -114,6 +115,14 @@ class ProgressiveOverloadSuggestion:
     suggested_reps: int | None
     rationale: str
     based_on_workout_date: date | None
+
+
+@dataclass(frozen=True)
+class DeloadSuggestion:
+    exercise: str
+    status: Literal["deload_recommended", "on_track", "insufficient_data"]
+    rationale: str
+    session_dates: list[date] | None
 
 
 class GymService:
@@ -328,6 +337,91 @@ class GymService:
                 f"repeat {weight:g} kg and aim to hold reps across all sets."
             ),
             based_on_workout_date=last_date,
+        )
+
+    def suggest_deload(self, exercise: str) -> DeloadSuggestion:
+        # Deterministic v1: three converging signals (declining e1RM, falling
+        # reps, rising RIR-implied effort) each required to show a genuine,
+        # non-bouncing decline across the exercise's last 3 logged sessions.
+        # Falls back to just e1RM + reps when RIR wasn't recorded for one of
+        # those sessions, since RIR is optional at log time. A high bar on
+        # purpose -- this should rarely fire, not nag every plateau.
+        summary = self.get_exercise(exercise)
+        if summary is None or not summary.history:
+            return DeloadSuggestion(
+                exercise=exercise,
+                status="insufficient_data",
+                rationale=f"No sets logged for {exercise} yet.",
+                session_dates=None,
+            )
+
+        session_order: list[int] = []
+        sessions: dict[int, list[ExerciseHistoryPoint]] = {}
+        for point in summary.history:
+            if point.workout_id not in sessions:
+                sessions[point.workout_id] = []
+                session_order.append(point.workout_id)
+            sessions[point.workout_id].append(point)
+
+        if len(session_order) < DELOAD_LOOKBACK_SESSIONS:
+            return DeloadSuggestion(
+                exercise=summary.exercise,
+                status="insufficient_data",
+                rationale=(
+                    f"Need at least {DELOAD_LOOKBACK_SESSIONS} logged sessions of {summary.exercise} "
+                    f"to check for a deload signal -- only {len(session_order)} so far."
+                ),
+                session_dates=None,
+            )
+
+        recent_ids = session_order[-DELOAD_LOOKBACK_SESSIONS:]
+        session_dates: list[date] = []
+        e1rms: list[float] = []
+        first_reps: list[int] = []
+        min_rirs: list[int | None] = []
+        for workout_id in recent_ids:
+            points = sessions[workout_id]
+            session_dates.append(points[0].workout_date)
+            e1rms.append(max(point.estimated_one_rep_max_kg for point in points))
+            first_reps.append(points[0].reps)
+            rir_values = [point.rir for point in points if point.rir is not None]
+            min_rirs.append(min(rir_values) if rir_values else None)
+
+        def declining(values: list[float]) -> bool:
+            return values[0] >= values[1] >= values[2] and values[0] > values[2]
+
+        e1rm_declining = declining(e1rms)
+        reps_falling = declining([float(item) for item in first_reps])
+        dates_label = ", ".join(item.isoformat() for item in session_dates)
+
+        if all(item is not None for item in min_rirs):
+            rir_floats = [float(item) for item in min_rirs]  # type: ignore[arg-type]
+            effort_rising = declining(rir_floats)
+            triggered = e1rm_declining and reps_falling and effort_rising
+            signal_label = "estimated 1RM, first-set reps and RIR-implied effort all"
+        else:
+            triggered = e1rm_declining and reps_falling
+            signal_label = "estimated 1RM and first-set reps both (RIR wasn't recorded for one of these sessions)"
+
+        if triggered:
+            return DeloadSuggestion(
+                exercise=summary.exercise,
+                status="deload_recommended",
+                rationale=(
+                    f"Over your last 3 {summary.exercise} sessions ({dates_label}), {signal_label} "
+                    f"declined -- consider a lighter week before pushing again."
+                ),
+                session_dates=session_dates,
+            )
+
+        return DeloadSuggestion(
+            exercise=summary.exercise,
+            status="on_track",
+            rationale=(
+                f"Your last 3 {summary.exercise} sessions ({dates_label}) don't show a consistent "
+                f"decline -- no deload signal."
+            ),
+            session_dates=session_dates,
         )
 
     @staticmethod
