@@ -439,7 +439,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [x] Automatic deload detection v1 — per-exercise signal on the Exercise Intelligence page: falling first-set reps, rising RIR-implied effort and a declining e1RM trend, all required to show a genuine non-bouncing decline across the exercise's last 3 logged sessions before flagging. Falls back to e1RM + reps alone when RIR wasn't recorded for one of the sessions. Deliberately rare/high-confidence rather than chatty (ADR 078)
 - [ ] Strength score — aggregate + per-muscle-group breakdown from historical performance, explicitly framed as personal/relative rather than a universal absolute number
 - [ ] Muscle map / weekly workload by muscle group — requires exercise → muscle-group tagging that doesn't exist yet
-- [ ] Training volume heatmap (sessions/sets/tonnage/muscle group over time)
+- [x] Training volume heatmap v1 — daily calendar-style grid combining gym volume and running effort into one self-relative intensity per day (each modality expressed as a fraction of the athlete's own all-time best day, summed and capped), on both the Gym and Running screens. Muscle-group breakdown remains unbuilt -- no exercise taxonomy exists yet (ADR 080)
 - [ ] Smart rest timer that learns per-exercise-category rest duration from observed set-to-set performance dropoff
 - [ ] Set-by-set live coaching during a workout (next-set suggestion, rest-length nudge) — natural extension once Progressive Overload v1's reasoning is real
 - [ ] AI workout generator grounded in actual recent training (deterministic candidate selection first; Ollama's role, if any, is explaining the choice, not inventing the program — matching the SirisHydro/ADR 057 pattern)

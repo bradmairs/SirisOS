@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/run_record.dart';
 import '../services/running_service.dart';
 import '../widgets/metric_line_chart.dart';
+import '../widgets/training_heatmap_card.dart';
 import '../widgets/training_load_card.dart';
 
 class RunningScreen extends StatefulWidget {
@@ -89,6 +90,8 @@ class _RunningScreenState extends State<RunningScreen> {
                 ),
                 const SizedBox(height: 20),
                 const TrainingLoadCard(),
+                const SizedBox(height: 20),
+                const TrainingHeatmapCard(),
                 const SizedBox(height: 20),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))

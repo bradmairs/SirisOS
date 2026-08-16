@@ -8,6 +8,15 @@ from app.services.running_service import RunningService, RunRecord
 
 TRAINING_LOAD_BASELINE_WEEKS = 8
 MIN_BASELINE_WEEKS = 2
+DAILY_HEATMAP_DEFAULT_DAYS = 84
+
+
+@dataclass(frozen=True)
+class DailyTrainingIntensity:
+    day: date
+    gym_volume_kg: float
+    running_effort_score: float
+    intensity: float
 
 
 @dataclass(frozen=True)
@@ -39,6 +48,51 @@ class TrainingLoadService:
 
     def weekly_load(self, *, reference_date: date | None = None) -> WeeklyTrainingLoad:
         return self.recent_weekly_loads(weeks=1, reference_date=reference_date)[0]
+
+    def daily_intensity(
+        self, *, days: int = DAILY_HEATMAP_DEFAULT_DAYS, reference_date: date | None = None
+    ) -> list[DailyTrainingIntensity]:
+        # Self-relative to the athlete's own all-time single-day best per
+        # modality (not a fabricated absolute unit, and not a rolling
+        # baseline window -- a single day doesn't have enough data for a
+        # trailing-average to mean anything the way a week does). Gym and
+        # running fractions are summed and capped at 1.0 so a big day in
+        # both modalities reads as maximally intense without needing an
+        # invented kg-to-effort exchange rate.
+        anchor = reference_date or date.today()
+        start = anchor - timedelta(days=days - 1)
+        runs = self._running_service.list_runs()
+        workouts = self._gym_service.list_workouts()
+
+        gym_by_day: dict[date, float] = {}
+        for workout in workouts:
+            gym_by_day[workout.workout_date] = (
+                gym_by_day.get(workout.workout_date, 0.0) + workout.total_volume_kg
+            )
+        run_by_day: dict[date, float] = {}
+        for run in runs:
+            run_by_day[run.run_date] = run_by_day.get(run.run_date, 0.0) + run.effort_score
+
+        max_gym_day = max(gym_by_day.values(), default=0.0)
+        max_run_day = max(run_by_day.values(), default=0.0)
+
+        results: list[DailyTrainingIntensity] = []
+        current = start
+        while current <= anchor:
+            gym_kg = round(gym_by_day.get(current, 0.0), 1)
+            run_effort = round(run_by_day.get(current, 0.0), 1)
+            gym_fraction = gym_kg / max_gym_day if max_gym_day > 0 else 0.0
+            run_fraction = run_effort / max_run_day if max_run_day > 0 else 0.0
+            results.append(
+                DailyTrainingIntensity(
+                    day=current,
+                    gym_volume_kg=gym_kg,
+                    running_effort_score=run_effort,
+                    intensity=round(min(1.0, gym_fraction + run_fraction), 3),
+                )
+            )
+            current += timedelta(days=1)
+        return results
 
     def recent_weekly_loads(
         self, *, weeks: int = 1, reference_date: date | None = None
