@@ -272,6 +272,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Keep PostgreSQL, docker-socket-proxy and node-exporter as separate infrastructure boundaries
 - [x] Remove obsolete standalone web/API production Dockerfiles
 - [x] ADR 039
+- [x] iOS platform target — `apps/mobile/ios/` scaffolded and buildable/launchable on the iOS Simulator via `flutter run`, ahead of SirisOS eventually shipping as a native iOS app rather than only Flutter web (ADR 076)
 
 ## Build validation ✅ Foundation
 
@@ -467,7 +468,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [ ] A training level derived from historical strength/endurance/consistency/recovery data, not a game-style XP grind — deliberately deferred (ADR 074): Endurance/Consistency have a real basis in existing data, but Strength has no defensible basis without bodyweight or strength-standards data this app doesn't have, and building one would be this app's first fabricated (non-evidence-based) number
 
 ### Apple Watch / iPhone
-- [ ] Focused watch-face-style views (current set/target/rest during a workout; pace/target/HR/distance during a run) once a native or watchOS-companion surface exists — no watch app exists in this repo today, so this is gated on that decision, not just a screen redesign
+- [ ] Focused watch-face-style views (current set/target/rest during a workout; pace/target/HR/distance during a run) once a native or watchOS-companion surface exists — an iOS platform target now exists (see Deployment architecture, ADR 076), but no watchOS-companion surface does, so this remains gated on that decision, not just a screen redesign
 
 ### Experimental (explicitly speculative, not scheduled)
 - [ ] Training Digital Twin — model the user over time to project outcomes of a proposed training change before they make it
