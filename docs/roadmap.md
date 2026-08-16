@@ -445,7 +445,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [ ] AI workout generator grounded in actual recent training (deterministic candidate selection first; Ollama's role, if any, is explaining the choice, not inventing the program — matching the SirisHydro/ADR 057 pattern)
 
 ### SirisRun
-- [ ] Personal running records beyond simple PRs — fastest splits at multiple distances, longest run, best negative split, lowest HR at a given pace, highest-elevation week
+- [x] Personal running records v1 — longest run and lowest heart rate recorded at a comparable pace (±15 sec/km), both detected the moment a run is saved and surfaced with the same `🏆 New record` callout Gym Personal Records already uses. Fastest splits, best negative split and highest-elevation week remain explicitly deferred -- `RunRecord` captures no GPS/splits/elevation, so building them now would mean approximating rather than real evidence (ADR 079)
 - [ ] Race predictor from actual run history rather than a generic VO₂max formula, with an explainable "you're relatively stronger over X than Y" comparison
 - [ ] Run readiness — distinct from general recovery because someone can be HRV-recovered while their legs are wrecked from squats; needs both Health recovery data and recent gym leg volume as inputs, so depends on both the Health import pipeline and the training-load work below
 - [ ] Post-run AI analysis grounded in pace/HR-drift/splits versus the runner's own recent history (second instance of the SirisHydro/ADR 057 deterministic-evidence-plus-optional-Ollama-synthesis pattern)

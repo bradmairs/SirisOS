@@ -62,6 +62,14 @@ class RunCreateRequest(BaseModel):
     average_heart_rate: int = Field(ge=40, le=240)
 
 
+class RunningPersonalRecordResponse(BaseModel):
+    record_type: Literal["longest_run", "lowest_heart_rate_at_pace"]
+    value: float
+    previous_value: float | None
+    run_date: date
+    pace_seconds_per_km: int | None = None
+
+
 class RunResponse(BaseModel):
     id: int
     run_date: date
@@ -72,9 +80,10 @@ class RunResponse(BaseModel):
     effort_score: float
     fitness_score: float
     created_at: datetime
+    new_records: list[RunningPersonalRecordResponse] = []
 
 
-def to_response(record) -> RunResponse:
+def to_response(record, new_records=()) -> RunResponse:
     return RunResponse(
         id=record.id,
         run_date=record.run_date,
@@ -85,7 +94,26 @@ def to_response(record) -> RunResponse:
         effort_score=record.effort_score,
         fitness_score=record.fitness_score,
         created_at=record.created_at,
+        new_records=[RunningPersonalRecordResponse(**item.__dict__) for item in new_records],
     )
+
+
+_RECORD_LABELS = {
+    "longest_run": "longest run",
+    "lowest_heart_rate_at_pace": "lowest heart rate at that pace",
+}
+
+
+def _record_message(record) -> str:
+    label = _RECORD_LABELS[record.record_type]
+    if record.record_type == "longest_run":
+        if record.previous_value is None:
+            return f"New {label}: {record.value:.2f} km."
+        return f"New {label}: {record.value:.2f} km (previous {record.previous_value:.2f} km)."
+    pace = _pace_label(record.pace_seconds_per_km) if record.pace_seconds_per_km else "that pace"
+    if record.previous_value is None:
+        return f"New {label} at {pace}: {record.value:.0f} bpm."
+    return f"New {label} at {pace}: {record.value:.0f} bpm (previous {record.previous_value:.0f} bpm)."
 
 
 def _pace_label(seconds_per_km: int) -> str:
@@ -106,7 +134,7 @@ async def create_run(
     authorization: Annotated[str | None, Header()] = None,
 ) -> RunResponse:
     username = current_username(authorization)
-    record = service.create_run(
+    record, new_records = service.create_run(
         run_date=payload.run_date,
         run_type=payload.run_type,
         distance_km=payload.distance_km,
@@ -125,4 +153,13 @@ async def create_run(
         severity="success",
         user=username,
     )
-    return to_response(record)
+    for personal_record in new_records:
+        activity_service.record(
+            module="running",
+            event_type="personal_record",
+            title="New running record",
+            message=_record_message(personal_record),
+            severity="success",
+            user=username,
+        )
+    return to_response(record, new_records)

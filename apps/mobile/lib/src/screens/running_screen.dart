@@ -39,11 +39,18 @@ class _RunningScreenState extends State<RunningScreen> {
       });
 
   Future<void> _addRun() async {
-    final saved = await showDialog<bool>(
+    final newRecords = await showDialog<List<RunningPersonalRecord>>(
       context: context,
       builder: (_) => const _RunEntryDialog(),
     );
-    if (saved == true) _reload();
+    if (newRecords == null) return;
+    _reload();
+    if (newRecords.isNotEmpty && mounted) {
+      final summary = newRecords.map((item) => item.recordType.label).join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('🏆 New record: $summary')),
+      );
+    }
   }
 
   @override
@@ -180,14 +187,14 @@ class _RunEntryDialogState extends State<_RunEntryDialog> {
     final paceSeconds = int.parse(paceParts[0]) * 60 + int.parse(paceParts[1]);
     setState(() => _saving = true);
     try {
-      await _service.createRun(
+      final saved = await _service.createRun(
         date: _date,
         type: _type,
         distanceKm: double.parse(_distance.text),
         paceSecondsPerKm: paceSeconds,
         averageHeartRate: int.parse(_heartRate.text),
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, saved.newRecords);
     } catch (_) {
       if (mounted) {
         setState(() => _saving = false);

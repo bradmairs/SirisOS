@@ -10,6 +10,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 RunType = Literal["outdoor", "treadmill"]
 
+# "Comparable pace" for the lowest-heart-rate-at-pace record: within this many
+# seconds/km of the new run's pace. Loose enough to catch genuinely similar
+# efforts, tight enough that a 5:00/km run is never compared against a
+# 6:30/km one.
+LOWEST_HEART_RATE_PACE_TOLERANCE_SECONDS_PER_KM = 15
+
 
 class Base(DeclarativeBase):
     pass
@@ -41,6 +47,15 @@ class RunRecord:
     effort_score: float
     fitness_score: float
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class RunningPersonalRecord:
+    record_type: Literal["longest_run", "lowest_heart_rate_at_pace"]
+    value: float
+    previous_value: float | None
+    run_date: date
+    pace_seconds_per_km: int | None = None
 
 
 def calculate_effort_score(
@@ -84,7 +99,21 @@ class RunningService:
         distance_km: float,
         average_pace_seconds_per_km: int,
         average_heart_rate: int,
-    ) -> RunRecord:
+    ) -> tuple[RunRecord, list[RunningPersonalRecord]]:
+        # Snapshot prior bests before inserting, so the new run is never
+        # compared against itself.
+        prior_runs = self.list_runs()
+        prior_longest_km = max((item.distance_km for item in prior_runs), default=None)
+        prior_comparable_heart_rates = [
+            item.average_heart_rate
+            for item in prior_runs
+            if abs(item.average_pace_seconds_per_km - average_pace_seconds_per_km)
+            <= LOWEST_HEART_RATE_PACE_TOLERANCE_SECONDS_PER_KM
+        ]
+        prior_lowest_heart_rate_at_pace = (
+            min(prior_comparable_heart_rates) if prior_comparable_heart_rates else None
+        )
+
         effort_score = calculate_effort_score(
             run_type=run_type,
             distance_km=distance_km,
@@ -104,7 +133,33 @@ class RunningService:
             session.commit()
             saved_id = model.id
 
-        return next(record for record in self.list_runs() if record.id == saved_id)
+        saved = next(record for record in self.list_runs() if record.id == saved_id)
+
+        records: list[RunningPersonalRecord] = []
+        if prior_longest_km is not None and distance_km > prior_longest_km:
+            records.append(
+                RunningPersonalRecord(
+                    record_type="longest_run",
+                    value=distance_km,
+                    previous_value=prior_longest_km,
+                    run_date=run_date,
+                )
+            )
+        if (
+            prior_lowest_heart_rate_at_pace is not None
+            and average_heart_rate < prior_lowest_heart_rate_at_pace
+        ):
+            records.append(
+                RunningPersonalRecord(
+                    record_type="lowest_heart_rate_at_pace",
+                    value=float(average_heart_rate),
+                    previous_value=float(prior_lowest_heart_rate_at_pace),
+                    run_date=run_date,
+                    pace_seconds_per_km=average_pace_seconds_per_km,
+                )
+            )
+
+        return saved, records
 
     def list_runs(self) -> list[RunRecord]:
         with self._session_factory() as session:

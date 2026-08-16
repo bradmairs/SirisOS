@@ -21,7 +21,7 @@ class RunningService {
         .toList(growable: false);
   }
 
-  Future<void> createRun({
+  Future<RunRecord> createRun({
     required DateTime date,
     required String type,
     required double distanceKm,
@@ -50,5 +50,6 @@ class RunningService {
     SirisEventBus.instance.publish(
       NotificationStateChanged(source: 'running'),
     );
+    return RunRecord.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 }
