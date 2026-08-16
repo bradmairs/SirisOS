@@ -10,12 +10,15 @@ from pydantic import BaseModel
 from app.services.achievement_service import AchievementService
 from app.services.ask_siris_service import AskSirisService
 from app.services.coach_service import CoachService
+from app.services.health_ingest_service import HealthIngestService
 from app.services.ollama_service import chat_client
 from app.services.training_conflict_service import TrainingConflictService
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 service = CoachService()
-conflict_service = TrainingConflictService()
+_health_service = HealthIngestService()
+_health_service.initialise()
+conflict_service = TrainingConflictService(health_service=_health_service)
 ask_siris_service = AskSirisService(training_conflict_service=conflict_service)
 achievement_service = AchievementService()
 
