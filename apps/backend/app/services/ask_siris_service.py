@@ -6,7 +6,10 @@ from datetime import date, timedelta
 
 from app.services.coach_service import CoachService
 from app.services.gym_service import GymService
+from app.services.health_ingest_service import HealthIngestService
 from app.services.running_service import RunningService
+from app.services.training_conflict_service import TrainingConflictService
+from app.services.training_load_service import TrainingLoadService
 
 EXAMPLE_QUESTIONS = [
     "What's my best 5K this year?",
@@ -15,6 +18,7 @@ EXAMPLE_QUESTIONS = [
     "When did I last deadlift 140 kg?",
     "How many leg workouts have I done this month?",
     "How's my training going this week?",
+    "Can I train today?",
 ]
 
 # Ask Siris v1 is deliberately a small, fixed set of recognized question
@@ -79,10 +83,25 @@ class AskSirisService:
         running_service: RunningService | None = None,
         gym_service: GymService | None = None,
         coach_service: CoachService | None = None,
+        training_conflict_service: TrainingConflictService | None = None,
+        training_load_service: TrainingLoadService | None = None,
     ) -> None:
         self._running_service = running_service or RunningService()
         self._gym_service = gym_service or GymService()
         self._coach_service = coach_service or CoachService(
+            running_service=self._running_service, gym_service=self._gym_service
+        )
+        if training_conflict_service is not None:
+            self._training_conflict_service = training_conflict_service
+        else:
+            health_service = HealthIngestService()
+            health_service.initialise()
+            self._training_conflict_service = TrainingConflictService(
+                running_service=self._running_service,
+                gym_service=self._gym_service,
+                health_service=health_service,
+            )
+        self._training_load_service = training_load_service or TrainingLoadService(
             running_service=self._running_service, gym_service=self._gym_service
         )
 
@@ -95,6 +114,7 @@ class AskSirisService:
             self._best_distance,
             self._training_counts,
             self._weekly_summary,
+            self._readiness_check,
         )
         for handler in handlers:
             result = handler(question, today)
@@ -347,5 +367,36 @@ class AskSirisService:
                 "running_distance_km": report.running_distance_km,
                 "gym_volume_kg": report.gym_volume_kg,
                 "combined_index": report.training_load.combined_index,
+            },
+        )
+
+    def _readiness_check(self, question: str, today: date) -> AskSirisAnswer | None:
+        # A natural-language front end over the same deterministic signals
+        # the Coach screen already shows ("Today" card + weekly load) --
+        # composes existing services rather than adding new inference.
+        lowered = question.lower()
+        wants_readiness = any(
+            phrase in lowered
+            for phrase in (
+                "can i train", "should i train", "can i run", "should i run",
+                "can i lift", "should i lift", "can i work out", "should i work out",
+                "can i workout", "should i workout",
+            )
+        )
+        if not wants_readiness or not any(word in lowered for word in ("today", "tonight")):
+            return None
+
+        conflict = self._training_conflict_service.check(reference_date=today)
+        load = self._training_load_service.weekly_load(reference_date=today)
+        answer = f"{conflict.guidance} {load.assessment}"
+
+        return AskSirisAnswer(
+            question=question,
+            understood=True,
+            answer=answer,
+            facts={
+                "conflict_status": conflict.status,
+                "trained_today": conflict.trained,
+                "combined_index": load.combined_index,
             },
         )
