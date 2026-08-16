@@ -175,3 +175,30 @@ def test_status_endpoint_reports_sync_state(tmp_path: Path, monkeypatch) -> None
     assert response.records_received == 4
     assert response.last_error is None
     assert response.last_sync is not None
+
+
+def test_ingest_endpoint_accepts_session_jwt_without_ingest_token(tmp_path: Path, monkeypatch) -> None:
+    """The iOS app's HealthKit sync is already logged in and should be able to
+    push without a separately configured SIRISOS_HEALTH_INGEST_TOKEN."""
+    monkeypatch.setattr(health, "ingest_service", _service(tmp_path))
+    monkeypatch.setattr(health, "HEALTH_INGEST_TOKEN", "")
+
+    response = asyncio.run(
+        health.ingest_health_data(METRICS_PAYLOAD, _admin_token())
+    )
+
+    assert response.accepted is True
+    assert response.metric_samples_received == 3
+    assert response.workouts_received == 1
+
+
+def test_ingest_endpoint_rejects_other_users_jwt(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(health, "ingest_service", _service(tmp_path))
+    monkeypatch.setattr(health, "HEALTH_INGEST_TOKEN", "")
+    other_user_token = "Bearer " + jwt.encode(
+        {"sub": "someone-else", "iss": "sirisos-api"}, health.JWT_SECRET, algorithm="HS256"
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(health.ingest_health_data(METRICS_PAYLOAD, other_user_token))
+    assert excinfo.value.status_code == 401

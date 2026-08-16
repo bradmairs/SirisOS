@@ -187,19 +187,18 @@ The goal is to prevent dependency/API/deployment regressions from reaching `main
 
 ## Health Data Export REST ingestion
 
-Canonical Apple Health ingestion is a dedicated REST endpoint pushed to by the
-[Health Auto Export](https://www.healthyapps.dev/) iPhone app. The earlier MCP
-scaffold (`HEALTH_AUTO_EXPORT_MCP_URL`/`HEALTH_AUTO_EXPORT_MCP_TOKEN`) remains
-available for interactive/debug queries, but it depends on Health Auto Export
-staying foregrounded and is not the source of truth.
+Canonical Apple Health ingestion is a dedicated REST endpoint. The SirisOS iOS
+app reads HealthKit directly (see `apps/mobile`'s `HealthKitSyncService`) and
+pushes samples to it using the same session the user is already logged in
+with — no separate third-party export app in the loop.
 
 Flow:
 
 ```text
-Apple Health
+Apple Health (HealthKit)
    ↓
-Health Auto Export
-   ↓ HTTPS POST, bearer token
+SirisOS iOS app (HealthKitSyncService)
+   ↓ HTTPS POST, session JWT
 POST /api/v1/health/ingest
    ↓
 health_metric_samples / health_workouts (Postgres)
@@ -207,22 +206,26 @@ health_metric_samples / health_workouts (Postgres)
 Health module / Context / Briefing / Siris Score / SirisAI
 ```
 
-- `POST /api/v1/health/ingest` — authenticated with `SIRISOS_HEALTH_INGEST_TOKEN`
-  (not the SirisOS admin login), accepts Health Auto Export's JSON export v2
-  body for both the Health Metrics and Workouts automation types, and reads
-  Health Auto Export's `automation-id`/`automation-name`/`session-id` headers
-  for provenance. Fails closed with 401 when the token is missing, wrong, or
-  not configured.
+- `POST /api/v1/health/ingest` — accepts either a normal SirisOS session JWT
+  (the iOS app's own HealthKit sync) or the separate `SIRISOS_HEALTH_INGEST_TOKEN`
+  bearer token, kept for any unattended/non-logged-in pusher (e.g. a Shortcuts
+  automation). The body is the same JSON shape Health Auto Export's export v2
+  used (`data.metrics[]` / `data.workouts[]`), so the parser is pusher-agnostic.
+  Fails closed with 401 when neither credential checks out.
 - Metric samples are deduplicated on a deterministic key
   (`metric + timestamp + source + value + unit`), so re-sending the same
   rolling window is a no-op; a revised value lands as a new sample rather than
   silently overwriting history.
-- Workouts are upserted by Health Auto Export's workout id, so an amended
-  workout (e.g. heart-rate data finishing processing) replaces the earlier row.
+- Workouts are upserted by workout id, so an amended workout (e.g. heart-rate
+  data finishing processing) replaces the earlier row.
+- `GET /api/v1/health/snapshot` (SirisOS admin session) reports the latest
+  reading per metric type, sourced from the ingested samples above — it's
+  "fresh" (`available: true`) when the newest sample is under 48 hours old.
 - `GET /api/v1/health/status` (SirisOS admin session) reports `last_sync`,
   `records_received` and `last_error` for a quick health check of the pipeline.
-- Generate the ingest token with `openssl rand -hex 32` and set it as
-  `SIRISOS_HEALTH_INGEST_TOKEN` — see `.env.example`.
+- `SIRISOS_HEALTH_INGEST_TOKEN` is optional if the iOS app is the only ingest
+  source; generate one with `openssl rand -hex 32` only if you still need an
+  unattended pusher — see `.env.example`.
 
 ## Sprint 0.5.0 — Knowledge Platform 🚧 in progress
 

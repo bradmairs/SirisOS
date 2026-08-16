@@ -11,6 +11,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 HEALTH_SUMMARY_BASELINE_DAYS = 14
 MIN_BASELINE_SAMPLES = 3
+SNAPSHOT_FRESHNESS = timedelta(hours=48)
 
 
 class Base(DeclarativeBase):
@@ -91,6 +92,23 @@ class HealthMetricSummary:
     baseline_average: float | None
     baseline_ratio: float | None
     baseline_sample_count: int
+
+
+@dataclass(frozen=True)
+class HealthSnapshotMetric:
+    name: str
+    value: float
+    unit: str | None
+    date: str | None
+
+
+@dataclass(frozen=True)
+class HealthSnapshot:
+    available: bool
+    endpoint_configured: bool
+    tools: list[str]
+    metrics: list[HealthSnapshotMetric]
+    error: str | None
 
 
 def _as_float(value: Any) -> float | None:
@@ -278,6 +296,59 @@ class HealthIngestService:
                 )
 
         return sorted(summaries, key=lambda item: item.metric_type)
+
+    def snapshot(self) -> HealthSnapshot:
+        # Sourced from ingested samples rather than a live call out to a phone-hosted
+        # server (the old Health Auto Export MCP integration) -- the same rows that
+        # /health/ingest writes and /health/summary reads from, so any pusher (native
+        # HealthKit sync or, historically, Health Auto Export) lights this up the same way.
+        with self._sessions() as session:
+            metric_types = session.scalars(
+                select(HealthMetricSampleModel.metric_type).distinct()
+            ).all()
+            if not metric_types:
+                return HealthSnapshot(False, False, [], [], "No Apple Health data has been synced yet.")
+
+            latest_rows = [
+                row
+                for metric_type in metric_types
+                if (
+                    row := session.scalar(
+                        select(HealthMetricSampleModel)
+                        .where(HealthMetricSampleModel.metric_type == metric_type)
+                        .order_by(HealthMetricSampleModel.timestamp.desc())
+                        .limit(1)
+                    )
+                )
+                is not None
+            ]
+
+        latest_rows.sort(key=lambda row: row.metric_type)
+        most_recent = max((row.timestamp for row in latest_rows), default=None)
+        # SQLite (used in local dev/tests) drops tzinfo on round-trip even for a
+        # DateTime(timezone=True) column, unlike Postgres; every write path here
+        # stores UTC, so a naive value is always UTC.
+        if most_recent is not None and most_recent.tzinfo is None:
+            most_recent = most_recent.replace(tzinfo=timezone.utc)
+        is_fresh = most_recent is not None and (
+            datetime.now(timezone.utc) - most_recent <= SNAPSHOT_FRESHNESS
+        )
+
+        return HealthSnapshot(
+            available=is_fresh,
+            endpoint_configured=True,
+            tools=[row.metric_type for row in latest_rows],
+            metrics=[
+                HealthSnapshotMetric(
+                    name=row.metric_type,
+                    value=row.value,
+                    unit=row.unit,
+                    date=row.timestamp.isoformat(),
+                )
+                for row in latest_rows
+            ],
+            error=None if is_fresh else "No Apple Health data synced in the last 48 hours.",
+        )
 
     def _record_receipt(
         self,
