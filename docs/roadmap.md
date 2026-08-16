@@ -273,6 +273,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Remove obsolete standalone web/API production Dockerfiles
 - [x] ADR 039
 - [x] iOS platform target — `apps/mobile/ios/` scaffolded and buildable/launchable on the iOS Simulator via `flutter run`, ahead of SirisOS eventually shipping as a native iOS app rather than only Flutter web (ADR 076)
+- [x] iOS sign-in UI test — a `RunnerUITests` XCUITest target verifies the sign-in flow via `xcodebuild test`, independently of Claude Code's own (currently disabled) simulator tooling; confirmed against the real backend (ADR 077)
 
 ## Build validation ✅ Foundation
 
