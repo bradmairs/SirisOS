@@ -113,3 +113,82 @@ def test_muscle_group_workload_excludes_sets_outside_the_window(tmp_path: Path, 
 
     assert by_group["chest"].total_volume_kg == 0.0
     assert by_group["chest"].set_count == 0
+
+
+def test_fatigue_is_zero_for_a_never_trained_group(tmp_path: Path, monkeypatch) -> None:
+    service = _service(tmp_path, monkeypatch)
+
+    fatigue = {item.muscle_group: item for item in service.muscle_group_fatigue()}
+
+    assert fatigue["legs"].fatigue_fraction == 0.0
+    assert fatigue["legs"].last_trained_date is None
+    assert fatigue["legs"].days_since_trained is None
+    assert fatigue["legs"].ready_at is None
+
+
+def test_fatigue_is_maximal_the_day_a_group_is_first_trained(tmp_path: Path, monkeypatch) -> None:
+    # No baseline exists yet, so a first-ever session has nothing to compare
+    # against -- treated as fresh/maximal rather than silently zero, since a
+    # baseline of zero would otherwise divide out to "not fatigued at all".
+    service = _service(tmp_path, monkeypatch)
+    today = date.today()
+    service.create_workout(
+        workout_date=today, name="Push", notes=None,
+        sets=[{"exercise": "Bench Press", "weight_kg": 80, "reps": 8, "rir": 2}],
+    )
+    service.tag_exercise("Bench Press", "chest")
+
+    fatigue = {item.muscle_group: item for item in service.muscle_group_fatigue()}
+
+    assert fatigue["chest"].fatigue_fraction == 1.0
+    assert fatigue["chest"].last_trained_date == today
+    assert fatigue["chest"].days_since_trained == 0
+    assert fatigue["chest"].ready_at == today + timedelta(days=3)
+
+
+def test_fatigue_decays_toward_zero_as_recovery_window_elapses(tmp_path: Path, monkeypatch) -> None:
+    service = _service(tmp_path, monkeypatch)
+    today = date.today()
+    # Establish a baseline: several past sessions at 400 kg each, well
+    # outside the 3-day recovery window, so they set the "typical session"
+    # reference without themselves counting as current fatigue.
+    for weeks_ago in (2, 3, 4):
+        service.create_workout(
+            workout_date=today - timedelta(weeks=weeks_ago), name="Push", notes=None,
+            sets=[{"exercise": "Bench Press", "weight_kg": 100, "reps": 4, "rir": 2}],
+        )
+    service.tag_exercise("Bench Press", "chest")
+    # One more session exactly at the recovery window boundary.
+    service.create_workout(
+        workout_date=today - timedelta(days=3), name="Push", notes=None,
+        sets=[{"exercise": "Bench Press", "weight_kg": 100, "reps": 4, "rir": 2}],
+    )
+
+    fatigue = {item.muscle_group: item for item in service.muscle_group_fatigue()}
+
+    # A session exactly at the recovery-window boundary has fully decayed.
+    assert fatigue["chest"].fatigue_fraction == 0.0
+    assert fatigue["chest"].last_trained_date == today - timedelta(days=3)
+    assert fatigue["chest"].days_since_trained == 3
+
+
+def test_fatigue_is_partial_partway_through_the_recovery_window(tmp_path: Path, monkeypatch) -> None:
+    service = _service(tmp_path, monkeypatch)
+    today = date.today()
+    for weeks_ago in (2, 3, 4):
+        service.create_workout(
+            workout_date=today - timedelta(weeks=weeks_ago), name="Push", notes=None,
+            sets=[{"exercise": "Bench Press", "weight_kg": 100, "reps": 4, "rir": 2}],
+        )
+    service.tag_exercise("Bench Press", "chest")
+    # Trained yesterday: 1 of 3 recovery-window days elapsed.
+    service.create_workout(
+        workout_date=today - timedelta(days=1), name="Push", notes=None,
+        sets=[{"exercise": "Bench Press", "weight_kg": 100, "reps": 4, "rir": 2}],
+    )
+
+    fatigue = {item.muscle_group: item for item in service.muscle_group_fatigue()}
+
+    assert fatigue["chest"].fatigue_fraction == pytest.approx(2 / 3, abs=0.01)
+    assert fatigue["chest"].days_since_trained == 1
+    assert fatigue["chest"].ready_at == today + timedelta(days=2)

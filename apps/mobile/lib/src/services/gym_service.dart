@@ -103,6 +103,21 @@ class GymService {
         .toList(growable: false);
   }
 
+  Future<List<MuscleGroupFatigue>> fetchMuscleGroupFatigue() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/muscle-groups/fatigue'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load muscle group fatigue.');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(MuscleGroupFatigue.fromJson)
+        .toList(growable: false);
+  }
+
   Future<void> tagExercise(String exercise, String muscleGroup) async {
     final response = await http.put(
       Uri.parse(

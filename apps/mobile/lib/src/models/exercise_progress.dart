@@ -99,6 +99,35 @@ class MuscleGroupWorkload {
   final int exerciseCount;
 }
 
+class MuscleGroupFatigue {
+  const MuscleGroupFatigue({
+    required this.muscleGroup,
+    required this.fatigueFraction,
+    this.lastTrainedDate,
+    this.daysSinceTrained,
+    this.readyAt,
+  });
+
+  factory MuscleGroupFatigue.fromJson(Map<String, dynamic> json) =>
+      MuscleGroupFatigue(
+        muscleGroup: json['muscle_group'] as String,
+        fatigueFraction: (json['fatigue_fraction'] as num).toDouble(),
+        lastTrainedDate: json['last_trained_date'] == null
+            ? null
+            : DateTime.parse(json['last_trained_date'] as String),
+        daysSinceTrained: json['days_since_trained'] as int?,
+        readyAt: json['ready_at'] == null
+            ? null
+            : DateTime.parse(json['ready_at'] as String),
+      );
+
+  final String muscleGroup;
+  final double fatigueFraction;
+  final DateTime? lastTrainedDate;
+  final int? daysSinceTrained;
+  final DateTime? readyAt;
+}
+
 enum ProgressiveOverloadStatus { progress, repeat, noData }
 
 extension ProgressiveOverloadStatusValue on ProgressiveOverloadStatus {

@@ -117,6 +117,14 @@ class MuscleGroupWorkloadResponse(BaseModel):
     exercise_count: int
 
 
+class MuscleGroupFatigueResponse(BaseModel):
+    muscle_group: str
+    fatigue_fraction: float
+    last_trained_date: date | None
+    days_since_trained: int | None
+    ready_at: date | None
+
+
 class ProgressiveOverloadSuggestionResponse(BaseModel):
     exercise: str
     status: Literal["progress", "repeat", "no_data"]
@@ -325,6 +333,12 @@ async def muscle_group_workload(
     return [
         MuscleGroupWorkloadResponse(**item.__dict__) for item in service.muscle_group_workload(days=days)
     ]
+
+
+@router.get("/muscle-groups/fatigue", response_model=list[MuscleGroupFatigueResponse])
+async def muscle_group_fatigue(authorization: Annotated[str | None, Header()] = None) -> list[MuscleGroupFatigueResponse]:
+    _authenticate(authorization)
+    return [MuscleGroupFatigueResponse(**item.__dict__) for item in service.muscle_group_fatigue()]
 
 
 @router.get("/templates", response_model=list[WorkoutTemplateResponse])

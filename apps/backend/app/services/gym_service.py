@@ -9,6 +9,14 @@ PROGRESSIVE_OVERLOAD_INCREMENT_KG = 2.5
 DELOAD_LOOKBACK_SESSIONS = 3
 MUSCLE_GROUP_WORKLOAD_DEFAULT_DAYS = 7
 
+# A general recovery-window assumption (not derived from the athlete's own
+# data -- no per-muscle-group timeline exists anywhere in SirisOS yet, and
+# building one honestly needs real recovery evidence, not a guess). Kept as
+# one named constant, applied equally to every group, and always surfaced to
+# the UI as an estimate rather than a fact.
+MUSCLE_GROUP_RECOVERY_WINDOW_DAYS = 3
+MUSCLE_GROUP_FATIGUE_BASELINE_LOOKBACK_DAYS = 90
+
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -126,6 +134,15 @@ class MuscleGroupWorkload:
     total_volume_kg: float
     set_count: int
     exercise_count: int
+
+
+@dataclass(frozen=True)
+class MuscleGroupFatigue:
+    muscle_group: str
+    fatigue_fraction: float
+    last_trained_date: date | None
+    days_since_trained: int | None
+    ready_at: date | None
 
 
 @dataclass(frozen=True)
@@ -354,6 +371,76 @@ class GymService:
             )
             for group in MUSCLE_GROUPS
         ]
+
+    def muscle_group_fatigue(
+        self,
+        *,
+        recovery_window_days: int = MUSCLE_GROUP_RECOVERY_WINDOW_DAYS,
+        baseline_lookback_days: int = MUSCLE_GROUP_FATIGUE_BASELINE_LOOKBACK_DAYS,
+    ) -> list[MuscleGroupFatigue]:
+        # Estimated, not measured: SirisOS has no per-athlete recovery
+        # timeline (that's the unscheduled "Personal Fatigue Model" in the
+        # roadmap), so this combines two things that ARE real evidence --
+        # how much was actually lifted, and how long ago -- against one
+        # named, equally-applied recovery-window assumption. The intensity
+        # side is self-relative (each group's own typical session volume,
+        # the same baseline pattern used elsewhere in this app) rather than
+        # an absolute number, so "fatigued" means "heavy for you", not a
+        # made-up universal threshold.
+        tags = self._muscle_group_tags()
+        today = date.today()
+        baseline_cutoff = today - timedelta(days=baseline_lookback_days - 1)
+        recovery_cutoff = today - timedelta(days=recovery_window_days)
+
+        daily_volume: dict[str, dict[date, float]] = {group: {} for group in MUSCLE_GROUPS}
+        last_trained: dict[str, date] = {}
+
+        for workout in self.list_workouts():
+            if workout.workout_date < baseline_cutoff:
+                continue
+            for item in workout.sets:
+                key = item.exercise.strip().casefold()
+                group = tags.get(key)
+                if group is None:
+                    continue
+                bucket = daily_volume[group]
+                bucket[workout.workout_date] = bucket.get(workout.workout_date, 0.0) + item.volume_kg
+                if group not in last_trained or workout.workout_date > last_trained[group]:
+                    last_trained[group] = workout.workout_date
+
+        results: list[MuscleGroupFatigue] = []
+        for group in MUSCLE_GROUPS:
+            sessions = daily_volume[group]
+            # Baseline is historical only (outside the current recovery
+            # window) so a session can't inflate the very reference it's
+            # being measured against.
+            historical = {d: v for d, v in sessions.items() if d <= recovery_cutoff}
+            baseline = (sum(historical.values()) / len(historical)) if historical else 0.0
+
+            decayed_volume = 0.0
+            for session_date, volume in sessions.items():
+                if session_date <= recovery_cutoff:
+                    continue
+                days_ago = (today - session_date).days
+                weight = max(0.0, 1 - days_ago / recovery_window_days)
+                decayed_volume += volume * weight
+
+            if baseline > 0:
+                fatigue_fraction = min(1.0, decayed_volume / baseline)
+            else:
+                fatigue_fraction = 1.0 if decayed_volume > 0 else 0.0
+
+            last_date = last_trained.get(group)
+            results.append(
+                MuscleGroupFatigue(
+                    muscle_group=group,
+                    fatigue_fraction=round(fatigue_fraction, 3),
+                    last_trained_date=last_date,
+                    days_since_trained=(today - last_date).days if last_date else None,
+                    ready_at=(last_date + timedelta(days=recovery_window_days)) if last_date else None,
+                )
+            )
+        return results
 
     def _muscle_group_tags(self) -> dict[str, str]:
         with self._sessions() as session:
