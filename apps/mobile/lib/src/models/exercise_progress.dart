@@ -42,6 +42,7 @@ class ExerciseProgress {
     required this.bestEstimatedOneRepMaxKg,
     required this.bestSetVolumeKg,
     required this.history,
+    this.muscleGroup,
   });
 
   factory ExerciseProgress.fromJson(Map<String, dynamic> json) =>
@@ -60,6 +61,7 @@ class ExerciseProgress {
             .whereType<Map<String, dynamic>>()
             .map(ExerciseHistoryPoint.fromJson)
             .toList(growable: false),
+        muscleGroup: json['muscle_group'] as String?,
       );
 
   final String exercise;
@@ -72,6 +74,29 @@ class ExerciseProgress {
   final double bestEstimatedOneRepMaxKg;
   final double bestSetVolumeKg;
   final List<ExerciseHistoryPoint> history;
+  final String? muscleGroup;
+}
+
+class MuscleGroupWorkload {
+  const MuscleGroupWorkload({
+    required this.muscleGroup,
+    required this.totalVolumeKg,
+    required this.setCount,
+    required this.exerciseCount,
+  });
+
+  factory MuscleGroupWorkload.fromJson(Map<String, dynamic> json) =>
+      MuscleGroupWorkload(
+        muscleGroup: json['muscle_group'] as String,
+        totalVolumeKg: (json['total_volume_kg'] as num).toDouble(),
+        setCount: json['set_count'] as int,
+        exerciseCount: json['exercise_count'] as int,
+      );
+
+  final String muscleGroup;
+  final double totalVolumeKg;
+  final int setCount;
+  final int exerciseCount;
 }
 
 enum ProgressiveOverloadStatus { progress, repeat, noData }

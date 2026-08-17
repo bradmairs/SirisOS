@@ -63,6 +63,61 @@ class GymService {
         jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  Future<List<String>> fetchMuscleGroups() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/muscle-groups'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load muscle groups.');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded.whereType<String>().toList(growable: false);
+  }
+
+  Future<List<String>> fetchUntaggedExercises() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/muscle-groups/untagged'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load untagged exercises.');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded.whereType<String>().toList(growable: false);
+  }
+
+  Future<List<MuscleGroupWorkload>> fetchMuscleGroupWorkload({int days = 7}) async {
+    final response = await http.get(
+      Uri.parse(
+          '${ApiConfig.baseUrl}/api/v1/gym/muscle-groups/workload?days=$days'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load muscle group workload.');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(MuscleGroupWorkload.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<void> tagExercise(String exercise, String muscleGroup) async {
+    final response = await http.put(
+      Uri.parse(
+          '${ApiConfig.baseUrl}/api/v1/gym/exercises/${Uri.encodeComponent(exercise)}/muscle-group'),
+      headers: {
+        ...AuthService.authorizationHeaders,
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'muscle_group': muscleGroup}),
+    );
+    if (response.statusCode != 204) {
+      throw Exception('Could not tag $exercise.');
+    }
+  }
+
   Future<List<WorkoutTemplate>> fetchTemplates() async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/templates'),

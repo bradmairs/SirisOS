@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import os
 from typing import Literal
 
 PROGRESSIVE_OVERLOAD_INCREMENT_KG = 2.5
 DELOAD_LOOKBACK_SESSIONS = 3
+MUSCLE_GROUP_WORKLOAD_DEFAULT_DAYS = 7
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+
+# Fixed list, not inferred from exercise name: exercise names are free text
+# with no reliable keyword pattern for muscle group (unlike the small,
+# unambiguous set AchievementService's _MAJOR_LIFTS matches on), so this app's
+# no-fabrication rule means the athlete tags each exercise themselves once,
+# rather than SirisOS guessing.
+MUSCLE_GROUPS = ("chest", "back", "legs", "shoulders", "arms", "core")
 
 
 class Base(DeclarativeBase):
@@ -39,6 +47,19 @@ class WorkoutSetModel(Base):
     reps: Mapped[int] = mapped_column(Integer)
     rir: Mapped[int | None] = mapped_column(Integer, nullable=True)
     workout: Mapped[WorkoutModel] = relationship(back_populates="sets")
+
+
+class ExerciseMuscleGroupModel(Base):
+    """One athlete-assigned muscle-group tag per exercise, keyed the same way
+    list_exercises() already groups sets (casefolded name) so a tag applies
+    to every past and future set logged under that exercise."""
+
+    __tablename__ = "exercise_muscle_groups"
+
+    exercise_key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    exercise_name: Mapped[str] = mapped_column(String(120))
+    muscle_group: Mapped[str] = mapped_column(String(40))
+    tagged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 @dataclass(frozen=True)
@@ -96,6 +117,15 @@ class ExerciseSummary:
     best_estimated_one_rep_max_kg: float
     best_set_volume_kg: float
     history: list[ExerciseHistoryPoint]
+    muscle_group: str | None = None
+
+
+@dataclass(frozen=True)
+class MuscleGroupWorkload:
+    muscle_group: str
+    total_volume_kg: float
+    set_count: int
+    exercise_count: int
 
 
 @dataclass(frozen=True)
@@ -239,6 +269,8 @@ class GymService:
                     )
                 )
 
+        tags = self._muscle_group_tags()
+
         summaries: list[ExerciseSummary] = []
         for key, history in grouped.items():
             latest = history[-1]
@@ -254,6 +286,7 @@ class GymService:
                     best_estimated_one_rep_max_kg=max(point.estimated_one_rep_max_kg for point in history),
                     best_set_volume_kg=max(point.volume_kg for point in history),
                     history=history,
+                    muscle_group=tags.get(key),
                 )
             )
         return sorted(summaries, key=lambda item: item.latest_date, reverse=True)
@@ -261,6 +294,71 @@ class GymService:
     def get_exercise(self, exercise: str) -> ExerciseSummary | None:
         target = exercise.strip().casefold()
         return next((item for item in self.list_exercises() if item.exercise.casefold() == target), None)
+
+    def tag_exercise(self, exercise: str, muscle_group: str) -> None:
+        muscle_group = muscle_group.strip().lower()
+        if muscle_group not in MUSCLE_GROUPS:
+            raise ValueError(f"Unknown muscle group {muscle_group!r}. Expected one of {MUSCLE_GROUPS}.")
+        key = exercise.strip().casefold()
+        with self._sessions() as session:
+            existing = session.get(ExerciseMuscleGroupModel, key)
+            if existing is None:
+                session.add(
+                    ExerciseMuscleGroupModel(
+                        exercise_key=key,
+                        exercise_name=exercise.strip(),
+                        muscle_group=muscle_group,
+                        tagged_at=datetime.now(timezone.utc),
+                    )
+                )
+            else:
+                existing.muscle_group = muscle_group
+                existing.tagged_at = datetime.now(timezone.utc)
+            session.commit()
+
+    def list_untagged_exercises(self) -> list[str]:
+        tags = self._muscle_group_tags()
+        return sorted(
+            {item.exercise for item in self.list_exercises() if item.exercise.strip().casefold() not in tags}
+        )
+
+    def muscle_group_workload(self, *, days: int = MUSCLE_GROUP_WORKLOAD_DEFAULT_DAYS) -> list[MuscleGroupWorkload]:
+        # Only tagged exercises contribute -- an untagged one is missing
+        # evidence, not zero workload, so it's surfaced separately via
+        # list_untagged_exercises() rather than silently folded into a
+        # group or dropped without explanation.
+        tags = self._muscle_group_tags()
+        cutoff = date.today() - timedelta(days=days - 1)
+        volume_by_group: dict[str, float] = {group: 0.0 for group in MUSCLE_GROUPS}
+        sets_by_group: dict[str, int] = {group: 0 for group in MUSCLE_GROUPS}
+        exercises_by_group: dict[str, set[str]] = {group: set() for group in MUSCLE_GROUPS}
+
+        for workout in self.list_workouts():
+            if workout.workout_date < cutoff:
+                continue
+            for item in workout.sets:
+                key = item.exercise.strip().casefold()
+                group = tags.get(key)
+                if group is None:
+                    continue
+                volume_by_group[group] += item.volume_kg
+                sets_by_group[group] += 1
+                exercises_by_group[group].add(key)
+
+        return [
+            MuscleGroupWorkload(
+                muscle_group=group,
+                total_volume_kg=round(volume_by_group[group], 1),
+                set_count=sets_by_group[group],
+                exercise_count=len(exercises_by_group[group]),
+            )
+            for group in MUSCLE_GROUPS
+        ]
+
+    def _muscle_group_tags(self) -> dict[str, str]:
+        with self._sessions() as session:
+            rows = session.scalars(select(ExerciseMuscleGroupModel)).all()
+        return {row.exercise_key: row.muscle_group for row in rows}
 
     def suggest_progressive_overload(self, exercise: str) -> ProgressiveOverloadSuggestion:
         # Deterministic v1: reasons only from the exercise's own most recent

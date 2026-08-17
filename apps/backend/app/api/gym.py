@@ -3,11 +3,11 @@ import os
 from typing import Annotated, Literal
 
 import jwt
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.services.activity_service import ActivityService
-from app.services.gym_service import GymService
+from app.services.gym_service import MUSCLE_GROUPS, GymService
 from app.services.workout_template_service import WorkoutTemplateService
 
 router = APIRouter(prefix="/gym", tags=["gym"])
@@ -103,6 +103,18 @@ class ExerciseSummaryResponse(BaseModel):
     best_estimated_one_rep_max_kg: float
     best_set_volume_kg: float
     history: list[ExerciseHistoryPointResponse]
+    muscle_group: str | None = None
+
+
+class MuscleGroupTagRequest(BaseModel):
+    muscle_group: str = Field(min_length=1, max_length=40)
+
+
+class MuscleGroupWorkloadResponse(BaseModel):
+    muscle_group: str
+    total_volume_kg: float
+    set_count: int
+    exercise_count: int
 
 
 class ProgressiveOverloadSuggestionResponse(BaseModel):
@@ -198,6 +210,7 @@ def _exercise_response(item) -> ExerciseSummaryResponse:
         best_estimated_one_rep_max_kg=item.best_estimated_one_rep_max_kg,
         best_set_volume_kg=item.best_set_volume_kg,
         history=[ExerciseHistoryPointResponse(**point.__dict__) for point in item.history],
+        muscle_group=item.muscle_group,
     )
 
 
@@ -276,6 +289,42 @@ async def exercise_deload(
     _authenticate(authorization)
     suggestion = service.suggest_deload(exercise_name)
     return DeloadSuggestionResponse(**suggestion.__dict__)
+
+
+@router.put("/exercises/{exercise_name}/muscle-group", status_code=status.HTTP_204_NO_CONTENT)
+async def tag_exercise_muscle_group(
+    exercise_name: str,
+    payload: MuscleGroupTagRequest,
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    _authenticate(authorization)
+    try:
+        service.tag_exercise(exercise_name, payload.muscle_group)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@router.get("/muscle-groups", response_model=list[str])
+async def list_muscle_groups(authorization: Annotated[str | None, Header()] = None) -> list[str]:
+    _authenticate(authorization)
+    return list(MUSCLE_GROUPS)
+
+
+@router.get("/muscle-groups/untagged", response_model=list[str])
+async def untagged_exercises(authorization: Annotated[str | None, Header()] = None) -> list[str]:
+    _authenticate(authorization)
+    return service.list_untagged_exercises()
+
+
+@router.get("/muscle-groups/workload", response_model=list[MuscleGroupWorkloadResponse])
+async def muscle_group_workload(
+    days: Annotated[int, Query(ge=1, le=90)] = 7,
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[MuscleGroupWorkloadResponse]:
+    _authenticate(authorization)
+    return [
+        MuscleGroupWorkloadResponse(**item.__dict__) for item in service.muscle_group_workload(days=days)
+    ]
 
 
 @router.get("/templates", response_model=list[WorkoutTemplateResponse])
