@@ -1,7 +1,7 @@
 import logging
 import os
 import secrets
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any
 
 import jwt
@@ -58,6 +58,13 @@ class HealthMetricSummaryResponse(BaseModel):
     baseline_average: float | None
     baseline_ratio: float | None
     baseline_sample_count: int
+
+
+class DailyMetricPointResponse(BaseModel):
+    day: date
+    value: float
+    unit: str | None
+    sample_count: int
 
 
 def _authenticate_ingest(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -162,4 +169,17 @@ async def health_summary(
     return [
         HealthMetricSummaryResponse(**item.__dict__)
         for item in ingest_service.summary(baseline_days=baseline_days)
+    ]
+
+
+@router.get("/metrics/{metric_type}/history", response_model=list[DailyMetricPointResponse])
+async def health_metric_history(
+    metric_type: str,
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[DailyMetricPointResponse]:
+    _authenticate(authorization)
+    return [
+        DailyMetricPointResponse(**item.__dict__)
+        for item in ingest_service.daily_history(metric_type, days=days)
     ]

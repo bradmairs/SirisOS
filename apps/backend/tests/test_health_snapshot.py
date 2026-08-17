@@ -63,13 +63,27 @@ def test_snapshot_is_stale_when_newest_sample_is_old(tmp_path: Path) -> None:
     assert len(snapshot.metrics) == 1
 
 
-def test_snapshot_reports_latest_value_per_metric_type(tmp_path: Path) -> None:
+def test_snapshot_sums_cumulative_metric_samples_for_today(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    # Fixed, non-wall-clock-relative day so the "today" bucketing this test
+    # depends on can't flake near local midnight.
+    reference_now = datetime(2026, 3, 10, 5, 0, tzinfo=timezone.utc)  # 16:00 Sydney
+    service.ingest(_payload_at("step_count", "count", 4000, datetime(2026, 3, 10, 1, 0, tzinfo=timezone.utc)))
+    service.ingest(_payload_at("step_count", "count", 7000, datetime(2026, 3, 10, 4, 0, tzinfo=timezone.utc)))
+
+    snapshot = service.snapshot(now=reference_now)
+
+    assert len(snapshot.metrics) == 1
+    assert snapshot.metrics[0].value == 11000
+
+
+def test_snapshot_reports_latest_value_for_point_in_time_metric(tmp_path: Path) -> None:
     service = _service(tmp_path)
     now = datetime.now(timezone.utc)
-    service.ingest(_payload_at("step_count", "count", 4000, now - timedelta(hours=5)))
-    service.ingest(_payload_at("step_count", "count", 7000, now - timedelta(hours=1)))
+    service.ingest(_payload_at("resting_heart_rate", "bpm", 62, now - timedelta(hours=5)))
+    service.ingest(_payload_at("resting_heart_rate", "bpm", 58, now - timedelta(hours=1)))
 
     snapshot = service.snapshot()
 
     assert len(snapshot.metrics) == 1
-    assert snapshot.metrics[0].value == 7000
+    assert snapshot.metrics[0].value == 58

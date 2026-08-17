@@ -28,3 +28,25 @@ class HealthMetricSummary {
   final double? baselineRatio;
   final int baselineSampleCount;
 }
+
+class DailyMetricPoint {
+  const DailyMetricPoint({
+    required this.day,
+    required this.value,
+    required this.unit,
+    required this.sampleCount,
+  });
+
+  factory DailyMetricPoint.fromJson(Map<String, dynamic> json) =>
+      DailyMetricPoint(
+        day: DateTime.parse(json['day'] as String),
+        value: (json['value'] as num).toDouble(),
+        unit: json['unit'] as String?,
+        sampleCount: json['sample_count'] as int,
+      );
+
+  final DateTime day;
+  final double value;
+  final String? unit;
+  final int sampleCount;
+}
