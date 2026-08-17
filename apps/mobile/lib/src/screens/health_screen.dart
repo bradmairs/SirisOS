@@ -9,6 +9,15 @@ import '../models/health_snapshot.dart';
 import '../services/health_kit_sync_service.dart';
 import '../services/health_service.dart';
 import '../theme/app_theme.dart';
+import 'health_metric_history_screen.dart';
+
+void _openMetricHistory(BuildContext context, String metricType) {
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => HealthMetricHistoryScreen(metricType: metricType),
+    ),
+  );
+}
 
 class HealthScreen extends StatefulWidget {
   const HealthScreen({super.key});
@@ -154,7 +163,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     _ConnectionCard(snapshot: data, syncError: _syncError, healthKitSupported: _healthKitSupported),
                     const SizedBox(height: 20),
                     if (data.available && data.metrics.isNotEmpty) ...[
-                      Text('Latest metrics', style: Theme.of(context).textTheme.titleLarge),
+                      Text('Today', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 16,
@@ -200,7 +209,7 @@ class _RecoveryBaselineSection extends StatelessWidget {
             Text('Recovery vs your baseline', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'Latest reading vs your trailing 14-day average.',
+              "Today's total (or latest reading) vs your trailing 14-day average. Tap a row for its trend.",
               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -229,30 +238,33 @@ class _RecoveryBaselineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = item.baselineRatio;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              item.metricType.replaceAll('_', ' '),
-              style: Theme.of(context).textTheme.bodyMedium,
+    return InkWell(
+      onTap: () => _openMetricHistory(context, item.metricType),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.metricType.replaceAll('_', ' '),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ),
-          ),
-          Text(
-            '${item.latestValue.toStringAsFixed(1)}${item.unit != null ? ' ${item.unit}' : ''}',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 90,
-            child: Text(
-              ratio == null ? 'Not enough history' : '${ratio.round()}% of usual',
-              textAlign: TextAlign.right,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+            Text(
+              '${item.latestValue.toStringAsFixed(1)}${item.unit != null ? ' ${item.unit}' : ''}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 90,
+              child: Text(
+                ratio == null ? 'Not enough history' : '${ratio.round()}% of usual',
+                textAlign: TextAlign.right,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -348,49 +360,53 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final details = _metricStyle(metric.name);
-    return Card(
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 154),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [details.color.withValues(alpha: 0.09), Colors.transparent],
+    return GestureDetector(
+      onTap: () => _openMetricHistory(context, metric.name),
+      child: Card(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 154),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [details.color.withValues(alpha: 0.09), Colors.transparent],
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: details.color.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(13),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: details.color.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(details.icon, color: details.color),
                   ),
-                  child: Icon(details.icon, color: details.color),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(metric.displayName, style: Theme.of(context).textTheme.titleMedium)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(metric.displayName, style: Theme.of(context).textTheme.titleMedium)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                metric.displayValue,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: details.color,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              if (metric.date != null) ...[
+                const SizedBox(height: 6),
+                Text(metric.date!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               ],
-            ),
-            const Spacer(),
-            Text(
-              metric.displayValue,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: details.color,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            if (metric.date != null) ...[
-              const SizedBox(height: 6),
-              Text(metric.date!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -87,8 +87,11 @@ def test_baseline_excludes_same_day_as_latest(tmp_path: Path) -> None:
             )
         )
     )
-    # A second, later reading logged on the SAME day as the "latest" reading
-    # must not sneak into its own baseline.
+    # A second, later reading logged on the SAME *local* day as the "latest"
+    # reading must not sneak into its own baseline. Both times stay within
+    # Sydney's local calendar day for 2026-08-10 (06:00/12:00 UTC -> 16:00/22:00
+    # local) -- unlike a UTC 22:00 sample, which would cross into the next
+    # local day and defeat the point of this test.
     service.ingest(
         {
             "data": {
@@ -98,7 +101,7 @@ def test_baseline_excludes_same_day_as_latest(tmp_path: Path) -> None:
                         "units": "ms",
                         "data": [
                             {"date": "2026-08-10 06:00:00 +0000", "qty": 40.0},
-                            {"date": "2026-08-10 22:00:00 +0000", "qty": 45.0},
+                            {"date": "2026-08-10 12:00:00 +0000", "qty": 45.0},
                         ],
                     }
                 ]

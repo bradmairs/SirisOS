@@ -3,15 +3,62 @@ from __future__ import annotations
 import hashlib
 import os
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 HEALTH_SUMMARY_BASELINE_DAYS = 14
 MIN_BASELINE_SAMPLES = 3
+MIN_BASELINE_DAYS = 3
 SNAPSHOT_FRESHNESS = timedelta(hours=48)
+DAILY_HISTORY_DEFAULT_DAYS = 30
+
+# Apple Health samples arrive as real UTC instants, but "today's total" only
+# means something in the athlete's own local calendar day -- with no
+# timezone concept, a morning walk in Sydney (UTC+10/11) would silently land
+# in "yesterday"'s UTC-day bucket. This is the first local-time-aware code
+# in the backend; everywhere else still treats naive datetimes as UTC.
+HEALTH_TIMEZONE_NAME = os.getenv("SIRISOS_TIMEZONE", "Australia/Sydney")
+HEALTH_TIMEZONE = ZoneInfo(HEALTH_TIMEZONE_NAME)
+
+# HealthKit's own quantity-type aggregation style: cumulative types (steps,
+# active energy, sleep duration) sum to a meaningful daily total; discrete
+# types (heart rate, weight) do not -- summing heart-rate readings would be
+# nonsense, so those stay "latest reading" as before. Aliases included for
+# the same metric-type-string variants the rest of the app already
+# recognises (e.g. TrainingConflictService's HRV/resting-HR sets).
+CUMULATIVE_METRIC_TYPES = {
+    "step_count",
+    "steps",
+    "active_energy_burned",
+    "active_energy",
+    "sleep_analysis",
+    "sleep",
+    "sleep_duration",
+}
+
+
+def _is_cumulative(metric_type: str) -> bool:
+    return metric_type.lower() in CUMULATIVE_METRIC_TYPES
+
+
+def _as_aware(moment: datetime) -> datetime:
+    # SQLite (used in local dev/tests) drops tzinfo on round-trip even for a
+    # DateTime(timezone=True) column, unlike Postgres; every write path here
+    # stores UTC, so a naive value is always UTC.
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=timezone.utc)
+
+
+def _local_date(moment: datetime) -> date:
+    return _as_aware(moment).astimezone(HEALTH_TIMEZONE).date()
+
+
+def _local_day_start_utc(day: date) -> datetime:
+    """The UTC instant corresponding to local midnight at the start of `day`."""
+    return datetime(day.year, day.month, day.day, tzinfo=HEALTH_TIMEZONE).astimezone(timezone.utc)
 
 
 class Base(DeclarativeBase):
@@ -92,6 +139,14 @@ class HealthMetricSummary:
     baseline_average: float | None
     baseline_ratio: float | None
     baseline_sample_count: int
+
+
+@dataclass(frozen=True)
+class DailyMetricPoint:
+    day: date
+    value: float
+    unit: str | None
+    sample_count: int
 
 
 @dataclass(frozen=True)
@@ -242,14 +297,18 @@ class HealthIngestService:
             last_error=latest.error if latest else None,
         )
 
-    def summary(self, *, baseline_days: int = HEALTH_SUMMARY_BASELINE_DAYS) -> list[HealthMetricSummary]:
-        # One row per metric_type: the latest reading, plus a trailing baseline
-        # average computed from samples strictly *before* the latest reading's
-        # own day -- so a metric is never compared against itself, matching the
-        # same principle ADR 066/067/069 already apply to gym/running data.
-        # Requires MIN_BASELINE_SAMPLES before showing a ratio, same reasoning
-        # as TrainingLoadService's MIN_BASELINE_WEEKS: too little history to
-        # call anything "typical" yet.
+    def summary(
+        self, *, baseline_days: int = HEALTH_SUMMARY_BASELINE_DAYS, now: datetime | None = None
+    ) -> list[HealthMetricSummary]:
+        # One row per metric_type. Cumulative metrics (steps, active energy,
+        # sleep) report today's running total -- the sum of every sample on
+        # today's *local* calendar day -- with the baseline being the average
+        # of each of the trailing `baseline_days` prior days' own totals.
+        # Point-in-time metrics (heart rate, weight) are unchanged: the latest
+        # single reading, baselined against prior individual readings. Either
+        # way a metric is never compared against itself, matching the same
+        # principle ADR 066/067/069 already apply to gym/running data.
+        now = now or datetime.now(timezone.utc)
         with self._sessions() as session:
             metric_types = session.scalars(
                 select(HealthMetricSampleModel.metric_type).distinct()
@@ -257,96 +316,190 @@ class HealthIngestService:
 
             summaries: list[HealthMetricSummary] = []
             for metric_type in metric_types:
-                latest = session.scalar(
+                rows = session.scalars(
                     select(HealthMetricSampleModel)
                     .where(HealthMetricSampleModel.metric_type == metric_type)
-                    .order_by(HealthMetricSampleModel.timestamp.desc())
-                    .limit(1)
-                )
-                if latest is None:
-                    continue
-
-                latest_day_start = latest.timestamp.replace(hour=0, minute=0, second=0, microsecond=0)
-                baseline_window_start = latest_day_start - timedelta(days=baseline_days)
-                baseline_rows = session.scalars(
-                    select(HealthMetricSampleModel.value).where(
-                        HealthMetricSampleModel.metric_type == metric_type,
-                        HealthMetricSampleModel.timestamp >= baseline_window_start,
-                        HealthMetricSampleModel.timestamp < latest_day_start,
-                    )
+                    .order_by(HealthMetricSampleModel.timestamp.asc())
                 ).all()
-
-                baseline_average: float | None = None
-                baseline_ratio: float | None = None
-                if len(baseline_rows) >= MIN_BASELINE_SAMPLES:
-                    baseline_average = round(sum(baseline_rows) / len(baseline_rows), 2)
-                    if baseline_average != 0:
-                        baseline_ratio = round((latest.value / baseline_average) * 100, 1)
-
-                summaries.append(
-                    HealthMetricSummary(
-                        metric_type=metric_type,
-                        unit=latest.unit,
-                        latest_value=latest.value,
-                        latest_timestamp=latest.timestamp,
-                        baseline_average=baseline_average,
-                        baseline_ratio=baseline_ratio,
-                        baseline_sample_count=len(baseline_rows),
-                    )
-                )
+                if not rows:
+                    continue
+                if _is_cumulative(metric_type):
+                    summaries.append(self._cumulative_summary(metric_type, rows, baseline_days, now))
+                else:
+                    summaries.append(self._point_in_time_summary(metric_type, rows, baseline_days))
 
         return sorted(summaries, key=lambda item: item.metric_type)
 
-    def snapshot(self) -> HealthSnapshot:
+    @staticmethod
+    def _point_in_time_summary(
+        metric_type: str, rows: list[HealthMetricSampleModel], baseline_days: int
+    ) -> HealthMetricSummary:
+        latest = rows[-1]
+        latest_day = _local_date(latest.timestamp)
+        latest_day_start_utc = _local_day_start_utc(latest_day)
+        baseline_window_start_utc = _local_day_start_utc(latest_day - timedelta(days=baseline_days))
+        baseline_values = [
+            row.value
+            for row in rows
+            if baseline_window_start_utc <= _as_aware(row.timestamp) < latest_day_start_utc
+        ]
+
+        baseline_average: float | None = None
+        baseline_ratio: float | None = None
+        if len(baseline_values) >= MIN_BASELINE_SAMPLES:
+            baseline_average = round(sum(baseline_values) / len(baseline_values), 2)
+            if baseline_average != 0:
+                baseline_ratio = round((latest.value / baseline_average) * 100, 1)
+
+        return HealthMetricSummary(
+            metric_type=metric_type,
+            unit=latest.unit,
+            latest_value=latest.value,
+            latest_timestamp=_as_aware(latest.timestamp),
+            baseline_average=baseline_average,
+            baseline_ratio=baseline_ratio,
+            baseline_sample_count=len(baseline_values),
+        )
+
+    @staticmethod
+    def _cumulative_summary(
+        metric_type: str, rows: list[HealthMetricSampleModel], baseline_days: int, now: datetime
+    ) -> HealthMetricSummary:
+        today_local = _local_date(now)
+        daily_totals: dict[date, float] = {}
+        daily_unit: dict[date, str | None] = {}
+        daily_latest_timestamp: dict[date, datetime] = {}
+        for row in rows:
+            day = _local_date(row.timestamp)
+            daily_totals[day] = daily_totals.get(day, 0.0) + row.value
+            daily_unit[day] = row.unit
+            aware_timestamp = _as_aware(row.timestamp)
+            if day not in daily_latest_timestamp or aware_timestamp > daily_latest_timestamp[day]:
+                daily_latest_timestamp[day] = aware_timestamp
+
+        today_total = daily_totals.get(today_local, 0.0)
+        latest_timestamp = daily_latest_timestamp.get(today_local) or _as_aware(rows[-1].timestamp)
+        unit = daily_unit.get(today_local, rows[-1].unit)
+
+        cutoff = today_local - timedelta(days=baseline_days)
+        prior_day_totals = [total for day, total in daily_totals.items() if cutoff <= day < today_local]
+
+        baseline_average: float | None = None
+        baseline_ratio: float | None = None
+        if len(prior_day_totals) >= MIN_BASELINE_DAYS:
+            baseline_average = round(sum(prior_day_totals) / len(prior_day_totals), 2)
+            if baseline_average != 0:
+                baseline_ratio = round((today_total / baseline_average) * 100, 1)
+
+        return HealthMetricSummary(
+            metric_type=metric_type,
+            unit=unit,
+            latest_value=round(today_total, 2),
+            latest_timestamp=latest_timestamp,
+            baseline_average=baseline_average,
+            baseline_ratio=baseline_ratio,
+            # Counts prior *days* with data, not prior samples -- the
+            # cumulative-metric equivalent of baseline_sample_count.
+            baseline_sample_count=len(prior_day_totals),
+        )
+
+    def daily_history(
+        self, metric_type: str, *, days: int = DAILY_HISTORY_DEFAULT_DAYS, now: datetime | None = None
+    ) -> list[DailyMetricPoint]:
+        # One point per local calendar day with data: the day's sum for
+        # cumulative metrics, or that day's latest reading for point-in-time
+        # metrics. This is what backs the "tap a metric to see its trend"
+        # drill-down -- the same underlying samples `summary()` reads, just
+        # bucketed across many days instead of collapsed to one.
+        now = now or datetime.now(timezone.utc)
+        with self._sessions() as session:
+            rows = session.scalars(
+                select(HealthMetricSampleModel)
+                .where(HealthMetricSampleModel.metric_type == metric_type)
+                .order_by(HealthMetricSampleModel.timestamp.asc())
+            ).all()
+        if not rows:
+            return []
+
+        cumulative = _is_cumulative(metric_type)
+        buckets: dict[date, list[HealthMetricSampleModel]] = {}
+        for row in rows:
+            buckets.setdefault(_local_date(row.timestamp), []).append(row)
+
+        today_local = _local_date(now)
+        cutoff = today_local - timedelta(days=days - 1)
+
+        points: list[DailyMetricPoint] = []
+        for day in sorted(buckets):
+            if day < cutoff:
+                continue
+            day_rows = buckets[day]
+            if cumulative:
+                value = sum(row.value for row in day_rows)
+            else:
+                value = max(day_rows, key=lambda row: _as_aware(row.timestamp)).value
+            points.append(
+                DailyMetricPoint(
+                    day=day,
+                    value=round(value, 2),
+                    unit=day_rows[-1].unit,
+                    sample_count=len(day_rows),
+                )
+            )
+        return points
+
+    def snapshot(self, *, now: datetime | None = None) -> HealthSnapshot:
         # Sourced from ingested samples rather than a live call out to a phone-hosted
         # server (the old Health Auto Export MCP integration) -- the same rows that
         # /health/ingest writes and /health/summary reads from, so any pusher (native
         # HealthKit sync or, historically, Health Auto Export) lights this up the same way.
+        # Cumulative metrics report today's running total, matching summary().
+        now = now or datetime.now(timezone.utc)
         with self._sessions() as session:
-            metric_types = session.scalars(
-                select(HealthMetricSampleModel.metric_type).distinct()
-            ).all()
-            if not metric_types:
-                return HealthSnapshot(False, False, [], [], "No Apple Health data has been synced yet.")
+            rows = session.scalars(select(HealthMetricSampleModel)).all()
+        if not rows:
+            return HealthSnapshot(False, False, [], [], "No Apple Health data has been synced yet.")
 
-            latest_rows = [
-                row
-                for metric_type in metric_types
-                if (
-                    row := session.scalar(
-                        select(HealthMetricSampleModel)
-                        .where(HealthMetricSampleModel.metric_type == metric_type)
-                        .order_by(HealthMetricSampleModel.timestamp.desc())
-                        .limit(1)
-                    )
+        by_type: dict[str, list[HealthMetricSampleModel]] = {}
+        for row in rows:
+            by_type.setdefault(row.metric_type, []).append(row)
+
+        today_local = _local_date(now)
+        metrics: list[HealthSnapshotMetric] = []
+        for metric_type, type_rows in by_type.items():
+            type_rows.sort(key=lambda row: _as_aware(row.timestamp))
+            if _is_cumulative(metric_type):
+                today_rows = [row for row in type_rows if _local_date(row.timestamp) == today_local]
+                value = sum(row.value for row in today_rows)
+                latest_timestamp = (
+                    max(_as_aware(row.timestamp) for row in today_rows)
+                    if today_rows
+                    else _as_aware(type_rows[-1].timestamp)
                 )
-                is not None
-            ]
+                unit = today_rows[-1].unit if today_rows else type_rows[-1].unit
+            else:
+                latest = type_rows[-1]
+                value = latest.value
+                latest_timestamp = _as_aware(latest.timestamp)
+                unit = latest.unit
+            metrics.append(
+                HealthSnapshotMetric(
+                    name=metric_type,
+                    value=round(value, 2),
+                    unit=unit,
+                    date=latest_timestamp.isoformat(),
+                )
+            )
 
-        latest_rows.sort(key=lambda row: row.metric_type)
-        most_recent = max((row.timestamp for row in latest_rows), default=None)
-        # SQLite (used in local dev/tests) drops tzinfo on round-trip even for a
-        # DateTime(timezone=True) column, unlike Postgres; every write path here
-        # stores UTC, so a naive value is always UTC.
-        if most_recent is not None and most_recent.tzinfo is None:
-            most_recent = most_recent.replace(tzinfo=timezone.utc)
-        is_fresh = most_recent is not None and (
-            datetime.now(timezone.utc) - most_recent <= SNAPSHOT_FRESHNESS
-        )
+        metrics.sort(key=lambda item: item.name)
+        most_recent = max((_as_aware(row.timestamp) for row in rows), default=None)
+        is_fresh = most_recent is not None and (now - most_recent <= SNAPSHOT_FRESHNESS)
 
         return HealthSnapshot(
             available=is_fresh,
             endpoint_configured=True,
-            tools=[row.metric_type for row in latest_rows],
-            metrics=[
-                HealthSnapshotMetric(
-                    name=row.metric_type,
-                    value=row.value,
-                    unit=row.unit,
-                    date=row.timestamp.isoformat(),
-                )
-                for row in latest_rows
-            ],
+            tools=[item.name for item in metrics],
+            metrics=metrics,
             error=None if is_fresh else "No Apple Health data synced in the last 48 hours.",
         )
 
