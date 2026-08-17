@@ -112,12 +112,46 @@ class _ExerciseDetailScreenState extends State<_ExerciseDetailScreen> {
   final GymService _service = GymService();
   late Future<ProgressiveOverloadSuggestion> _suggestion;
   late Future<DeloadSuggestion> _deload;
+  late String? _muscleGroup;
+  bool _tagging = false;
 
   @override
   void initState() {
     super.initState();
     _suggestion = _service.fetchSuggestion(widget.progress.exercise);
     _deload = _service.fetchDeloadSuggestion(widget.progress.exercise);
+    _muscleGroup = widget.progress.muscleGroup;
+  }
+
+  Future<void> _pickMuscleGroup() async {
+    setState(() => _tagging = true);
+    try {
+      final groups = await _service.fetchMuscleGroups();
+      if (!mounted) return;
+      final selected = await showDialog<String>(
+        context: context,
+        builder: (_) => SimpleDialog(
+          title: const Text('Tag muscle group'),
+          children: groups
+              .map((group) => SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, group),
+                    child: Text(group[0].toUpperCase() + group.substring(1)),
+                  ))
+              .toList(growable: false),
+        ),
+      );
+      if (selected == null) return;
+      await _service.tagExercise(widget.progress.exercise, selected);
+      if (mounted) setState(() => _muscleGroup = selected);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save muscle group tag.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _tagging = false);
+    }
   }
 
   @override
@@ -135,6 +169,17 @@ class _ExerciseDetailScreenState extends State<_ExerciseDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          ActionChip(
+            avatar: _tagging
+                ? const SizedBox(
+                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.fitness_center_rounded, size: 18),
+            label: Text(_muscleGroup == null
+                ? 'Tag muscle group'
+                : _muscleGroup![0].toUpperCase() + _muscleGroup!.substring(1)),
+            onPressed: _tagging ? null : _pickMuscleGroup,
+          ),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 12,
             runSpacing: 12,
