@@ -7,6 +7,7 @@ import '../models/achievement.dart';
 import '../models/ask_siris_answer.dart';
 import '../models/coach_report.dart';
 import '../models/training_conflict_check.dart';
+import '../models/training_level.dart';
 import '../services/coach_service.dart';
 import '../theme/app_theme.dart';
 
@@ -22,6 +23,7 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
   late Future<WeeklyCoachReport> _future;
   late Future<TrainingConflictCheck> _conflictFuture;
   late Future<List<Achievement>> _achievementsFuture;
+  late Future<TrainingLevel> _trainingLevelFuture;
   StreamSubscription<SirisEvent>? _eventSubscription;
 
   @override
@@ -30,6 +32,7 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
     _future = _service.fetchWeeklyReport();
     _conflictFuture = _service.fetchConflictCheck();
     _achievementsFuture = _service.fetchAchievements();
+    _trainingLevelFuture = _service.fetchTrainingLevel();
     _eventSubscription =
         SirisEventBus.instance.on<ModuleDataChanged>().listen((event) {
       if (event.moduleId == 'health') _refresh();
@@ -46,10 +49,12 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
     final next = _service.fetchWeeklyReport();
     final nextConflict = _service.fetchConflictCheck();
     final nextAchievements = _service.fetchAchievements();
+    final nextTrainingLevel = _service.fetchTrainingLevel();
     setState(() {
       _future = next;
       _conflictFuture = nextConflict;
       _achievementsFuture = nextAchievements;
+      _trainingLevelFuture = nextTrainingLevel;
     });
     await next;
   }
@@ -170,6 +175,8 @@ class _SirisCoachScreenState extends State<SirisCoachScreen> {
                     ],
                     const SizedBox(height: 20),
                     _AchievementsCard(future: _achievementsFuture),
+                    const SizedBox(height: 20),
+                    _TrainingLevelCard(future: _trainingLevelFuture),
                     const SizedBox(height: 20),
                     const _AskSirisCard(),
                   ],
@@ -644,6 +651,117 @@ class _AchievementRow extends StatelessWidget {
           Text(
             achievement.progressLabel,
             style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrainingLevelCard extends StatelessWidget {
+  const _TrainingLevelCard({required this.future});
+
+  final Future<TrainingLevel> future;
+
+  static const _dimensionLabels = {
+    'strength': 'Strength',
+    'endurance': 'Endurance',
+    'consistency': 'Consistency',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<TrainingLevel>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: SizedBox(
+                height: 24,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
+          );
+        }
+        final level = snapshot.data;
+        if (snapshot.hasError || level == null) {
+          return const SizedBox.shrink();
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('Training level', style: Theme.of(context).textTheme.titleMedium),
+                    ),
+                    if (level.overallScore != null)
+                      Text(
+                        '${level.overallScore!.round()}',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.primaryBright,
+                            ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Strength, endurance and consistency, each measured against your own '
+                  'history -- never against anyone else. Recovery isn\'t included yet: '
+                  'there\'s no honest way to blend it into one number today.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                ...level.dimensions.map((item) => _TrainingLevelDimensionRow(
+                      label: _dimensionLabels[item.dimension] ?? item.dimension,
+                      dimension: item,
+                    )),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TrainingLevelDimensionRow extends StatelessWidget {
+  const _TrainingLevelDimensionRow({required this.label, required this.dimension});
+
+  final String label;
+  final TrainingLevelDimension dimension;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          Expanded(
+            child: Text(
+              dimension.detail,
+              style: TextStyle(color: muted, fontSize: 12),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            dimension.score == null ? '--' : '${dimension.score!.round()}',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: dimension.score == null ? muted : null,
+            ),
           ),
         ],
       ),

@@ -12,12 +12,14 @@ from app.services.ask_siris_service import AskSirisService
 from app.services.coach_service import CoachService
 from app.services.ollama_service import chat_client
 from app.services.training_conflict_service import TrainingConflictService
+from app.services.training_level_service import TrainingLevelService
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 service = CoachService()
 conflict_service = TrainingConflictService()
 ask_siris_service = AskSirisService(training_conflict_service=conflict_service)
 achievement_service = AchievementService()
+training_level_service = TrainingLevelService()
 
 ASK_SIRIS_SYSTEM_PROMPT = (
     "You are Siris, a personal training coach assistant. Rephrase the given "
@@ -173,3 +175,26 @@ async def achievements(
 ) -> list[AchievementResponse]:
     _authenticate(authorization)
     return [AchievementResponse(**item.__dict__) for item in achievement_service.list_achievements()]
+
+
+class TrainingLevelDimensionResponse(BaseModel):
+    dimension: Literal["strength", "endurance", "consistency"]
+    score: float | None
+    detail: str
+
+
+class TrainingLevelResponse(BaseModel):
+    overall_score: float | None
+    dimensions: list[TrainingLevelDimensionResponse]
+
+
+@router.get("/training-level", response_model=TrainingLevelResponse)
+async def training_level(
+    authorization: Annotated[str | None, Header()] = None,
+) -> TrainingLevelResponse:
+    _authenticate(authorization)
+    result = training_level_service.training_level()
+    return TrainingLevelResponse(
+        overall_score=result.overall_score,
+        dimensions=[TrainingLevelDimensionResponse(**item.__dict__) for item in result.dimensions],
+    )
