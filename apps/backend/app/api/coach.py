@@ -28,6 +28,13 @@ ASK_SIRIS_SYSTEM_PROMPT = (
     "exercises or claims that are not already there."
 )
 
+WEEKLY_REPORT_SYSTEM_PROMPT = (
+    "You are Siris, a personal training coach assistant. Rephrase the given "
+    "deterministic weekly training summary as one or two natural, conversational "
+    "sentences. Use only the facts already stated -- do not add numbers, dates, "
+    "exercises or claims that are not already there."
+)
+
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 
@@ -73,6 +80,7 @@ class WeeklyCoachReportResponse(BaseModel):
     week_start: date
     week_end: date
     headline: str
+    synthesized_headline: str | None = None
     training_load: TrainingLoadSummaryResponse
     running_distance_km: float
     running_distance_km_delta: float | None
@@ -85,11 +93,12 @@ class WeeklyCoachReportResponse(BaseModel):
     improvements: list[ExerciseImprovementResponse]
 
 
-def _response(report) -> WeeklyCoachReportResponse:
+def _response(report, *, synthesized_headline: str | None = None) -> WeeklyCoachReportResponse:
     return WeeklyCoachReportResponse(
         week_start=report.week_start,
         week_end=report.week_end,
         headline=report.headline,
+        synthesized_headline=synthesized_headline,
         training_load=TrainingLoadSummaryResponse(**report.training_load.__dict__),
         running_distance_km=report.running_distance_km,
         running_distance_km_delta=report.running_distance_km_delta,
@@ -108,7 +117,17 @@ async def weekly_report(
     authorization: Annotated[str | None, Header()] = None
 ) -> WeeklyCoachReportResponse:
     _authenticate(authorization)
-    return _response(service.weekly_report())
+    report = service.weekly_report()
+    # Fail-open, same contract as Ask Siris (ADR 071/081): the deterministic
+    # headline is always correct and always returned; this is an optional
+    # rephrase on top, never a replacement source of facts. synthesized_headline
+    # stays null whenever Ollama is unconfigured, unreachable, or returns
+    # nothing usable -- the Flutter card falls back to `headline` in that case.
+    synthesized_headline = await chat_client.complete(
+        system=WEEKLY_REPORT_SYSTEM_PROMPT,
+        prompt=f"Weekly training summary: {report.headline}",
+    )
+    return _response(report, synthesized_headline=synthesized_headline)
 
 
 class AskSirisResponse(BaseModel):

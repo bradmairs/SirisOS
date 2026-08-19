@@ -44,6 +44,7 @@ class WeeklyCoachReport {
     required this.weekStart,
     required this.weekEnd,
     required this.headline,
+    this.synthesizedHeadline,
     required this.trainingLoad,
     required this.runningDistanceKm,
     required this.runningDistanceKmDelta,
@@ -61,6 +62,7 @@ class WeeklyCoachReport {
         weekStart: DateTime.parse(json['week_start'] as String),
         weekEnd: DateTime.parse(json['week_end'] as String),
         headline: json['headline'] as String,
+        synthesizedHeadline: json['synthesized_headline'] as String?,
         trainingLoad: WeeklyTrainingLoad.fromJson(
             json['training_load'] as Map<String, dynamic>),
         runningDistanceKm: (json['running_distance_km'] as num).toDouble(),
@@ -81,6 +83,7 @@ class WeeklyCoachReport {
   final DateTime weekStart;
   final DateTime weekEnd;
   final String headline;
+  final String? synthesizedHeadline;
   final WeeklyTrainingLoad trainingLoad;
   final double runningDistanceKm;
   final double? runningDistanceKmDelta;
