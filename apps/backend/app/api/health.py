@@ -86,6 +86,7 @@ class UnloggedHealthWorkoutResponse(BaseModel):
     start_date: date
     duration_seconds: float | None
     distance_m: float | None
+    avg_hr: float | None
 
 
 def _authenticate_ingest(authorization: Annotated[str | None, Header()] = None) -> None:

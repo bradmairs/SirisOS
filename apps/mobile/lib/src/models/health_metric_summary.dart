@@ -59,6 +59,7 @@ class UnloggedHealthWorkout {
     required this.startDate,
     required this.durationSeconds,
     required this.distanceM,
+    required this.avgHr,
   });
 
   factory UnloggedHealthWorkout.fromJson(Map<String, dynamic> json) =>
@@ -69,6 +70,7 @@ class UnloggedHealthWorkout {
         startDate: DateTime.parse(json['start_date'] as String),
         durationSeconds: (json['duration_seconds'] as num?)?.toDouble(),
         distanceM: (json['distance_m'] as num?)?.toDouble(),
+        avgHr: (json['avg_hr'] as num?)?.toDouble(),
       );
 
   final String externalId;
@@ -77,4 +79,5 @@ class UnloggedHealthWorkout {
   final DateTime startDate;
   final double? durationSeconds;
   final double? distanceM;
+  final double? avgHr;
 }

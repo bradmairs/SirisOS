@@ -37,6 +37,7 @@ class UnloggedHealthWorkout:
     start_date: date
     duration_seconds: float | None
     distance_m: float | None
+    avg_hr: float | None
 
 
 class HealthWorkoutMatchService:
@@ -87,6 +88,7 @@ class HealthWorkoutMatchService:
                     start_date=workout.start_date,
                     duration_seconds=workout.duration_seconds,
                     distance_m=workout.distance_m,
+                    avg_hr=workout.avg_hr,
                 )
             )
         return unlogged
