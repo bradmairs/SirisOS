@@ -441,7 +441,8 @@ class _HeadlineCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(report.headline, style: Theme.of(context).textTheme.titleLarge),
+                  Text(report.synthesizedHeadline ?? report.headline,
+                      style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 6),
                   Text(
                     _weekRangeLabel(report.weekStart, report.weekEnd),
