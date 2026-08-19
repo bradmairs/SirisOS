@@ -10,11 +10,23 @@ from pydantic import BaseModel
 
 logger = logging.getLogger("sirisos.health_ingest_auth")
 
+from app.services.gym_service import GymService
 from app.services.health_ingest_service import HealthIngestService
+from app.services.health_workout_match_service import HealthWorkoutMatchService
+from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/health", tags=["health"])
 ingest_service = HealthIngestService()
 ingest_service.initialise()
+_workout_match_gym_service = GymService()
+_workout_match_gym_service.initialise()
+_workout_match_running_service = RunningService()
+_workout_match_running_service.initialise()
+workout_match_service = HealthWorkoutMatchService(
+    health_service=ingest_service,
+    gym_service=_workout_match_gym_service,
+    running_service=_workout_match_running_service,
+)
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -65,6 +77,15 @@ class DailyMetricPointResponse(BaseModel):
     value: float
     unit: str | None
     sample_count: int
+
+
+class UnloggedHealthWorkoutResponse(BaseModel):
+    external_id: str
+    workout_type: str
+    category: str
+    start_date: date
+    duration_seconds: float | None
+    distance_m: float | None
 
 
 def _authenticate_ingest(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -182,4 +203,16 @@ async def health_metric_history(
     return [
         DailyMetricPointResponse(**item.__dict__)
         for item in ingest_service.daily_history(metric_type, days=days)
+    ]
+
+
+@router.get("/unlogged-workouts", response_model=list[UnloggedHealthWorkoutResponse])
+async def unlogged_workouts(
+    days: Annotated[int, Query(ge=1, le=90)] = 30,
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[UnloggedHealthWorkoutResponse]:
+    _authenticate(authorization)
+    return [
+        UnloggedHealthWorkoutResponse(**item.__dict__)
+        for item in workout_match_service.list_unlogged_workouts(lookback_days=days)
     ]
