@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 from pathlib import Path
 
 import jwt
@@ -98,6 +99,57 @@ def test_ingest_workout_upserts_by_external_id(tmp_path: Path) -> None:
     assert result.workouts_received == 1
     status = service.status()
     assert status.records_received == 4  # replaced, not duplicated
+
+
+def test_list_workouts_reads_back_ingested_workouts(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    service.ingest(METRICS_PAYLOAD)
+
+    workouts = service.list_workouts()
+
+    assert len(workouts) == 1
+    workout = workouts[0]
+    assert workout.external_id == "workout-1"
+    assert workout.workout_type == "Running"
+    assert workout.distance_m == 5200
+    assert workout.duration_seconds == 1800
+    assert workout.avg_hr == 150.0
+    assert workout.max_hr == 160.0
+
+
+def test_late_local_timestamp_does_not_shift_into_the_next_day(tmp_path: Path) -> None:
+    # A regression guard: timestamps past ~2pm local were previously getting
+    # double-shifted forward under SQLite (offset preserved instead of
+    # normalised to UTC before storage, then re-added on read).
+    service = _service(tmp_path)
+    service.ingest(
+        {
+            "data": {
+                "metrics": [],
+                "workouts": [
+                    {
+                        "id": "late-workout",
+                        "name": "Traditional Strength Training",
+                        "start": "2026-08-18 18:00:00 +1000",
+                        "duration": 2400,
+                    }
+                ],
+            }
+        }
+    )
+
+    workouts = service.list_workouts()
+
+    assert len(workouts) == 1
+    assert workouts[0].start_date == date(2026, 8, 18)
+
+
+def test_list_workouts_since_filters_by_local_start_date(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    service.ingest(METRICS_PAYLOAD)  # workout starts 2026-08-11
+
+    assert len(service.list_workouts(since=date(2026, 8, 11))) == 1
+    assert len(service.list_workouts(since=date(2026, 8, 12))) == 0
 
 
 def test_ingest_records_receipt_on_malformed_payload(tmp_path: Path) -> None:

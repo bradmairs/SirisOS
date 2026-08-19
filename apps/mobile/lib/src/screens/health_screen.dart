@@ -31,6 +31,7 @@ class _HealthScreenState extends State<HealthScreen> {
   final HealthKitSyncService _healthKitSync = HealthKitSyncService();
   late Future<HealthSnapshot> _future;
   late Future<List<HealthMetricSummary>> _summaryFuture;
+  late Future<List<UnloggedHealthWorkout>> _unloggedWorkoutsFuture;
   StreamSubscription<SirisEvent>? _eventSubscription;
   bool _syncing = false;
   String? _syncError;
@@ -43,6 +44,7 @@ class _HealthScreenState extends State<HealthScreen> {
     super.initState();
     _future = _service.fetchSnapshot();
     _summaryFuture = _service.fetchSummary();
+    _unloggedWorkoutsFuture = _service.fetchUnloggedWorkouts();
     _eventSubscription =
         SirisEventBus.instance.on<ModuleDataChanged>().listen((event) {
       if (event.moduleId == 'health') _refresh();
@@ -64,9 +66,11 @@ class _HealthScreenState extends State<HealthScreen> {
   Future<void> _refresh() async {
     final next = _service.fetchSnapshot();
     final nextSummary = _service.fetchSummary();
+    final nextUnloggedWorkouts = _service.fetchUnloggedWorkouts();
     setState(() {
       _future = next;
       _summaryFuture = nextSummary;
+      _unloggedWorkoutsFuture = nextUnloggedWorkouts;
     });
     await next;
   }
@@ -177,6 +181,8 @@ class _HealthScreenState extends State<HealthScreen> {
                     const SizedBox(height: 20),
                     _RecoveryBaselineSection(future: _summaryFuture),
                     const SizedBox(height: 20),
+                    _UnloggedWorkoutsCard(future: _unloggedWorkoutsFuture),
+                    const SizedBox(height: 20),
                     _IntegrationDetails(snapshot: data, lastSyncTime: _lastSyncTime),
                   ],
                 );
@@ -265,6 +271,90 @@ class _RecoveryBaselineRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _UnloggedWorkoutsCard extends StatelessWidget {
+  const _UnloggedWorkoutsCard({required this.future});
+
+  final Future<List<UnloggedHealthWorkout>> future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<UnloggedHealthWorkout>>(
+      future: future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <UnloggedHealthWorkout>[];
+        if (snapshot.connectionState == ConnectionState.waiting ||
+            snapshot.hasError ||
+            items.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Not yet logged in SirisOS', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Apple Health has runs or strength workouts from the last 30 days with no '
+                  'matching entry in SirisRun or SirisGym on the same day.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                ...items.map((item) => _UnloggedWorkoutRow(workout: item)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UnloggedWorkoutRow extends StatelessWidget {
+  const _UnloggedWorkoutRow({required this.workout});
+
+  final UnloggedHealthWorkout workout;
+
+  static String _dateLabel(DateTime value) => '${value.day}/${value.month}/${value.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final parts = <String>[];
+    if (workout.distanceM != null) {
+      parts.add('${(workout.distanceM! / 1000).toStringAsFixed(1)} km');
+    }
+    if (workout.durationSeconds != null) {
+      parts.add('${(workout.durationSeconds! / 60).round()} min');
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(
+            workout.category == 'running' ? Icons.directions_run_rounded : Icons.fitness_center_rounded,
+            color: muted,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(workout.workoutType, style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (parts.isNotEmpty)
+                  Text(parts.join(' · '), style: TextStyle(color: muted, fontSize: 12)),
+              ],
+            ),
+          ),
+          Text(_dateLabel(workout.startDate), style: TextStyle(color: muted, fontSize: 12)),
+        ],
       ),
     );
   }

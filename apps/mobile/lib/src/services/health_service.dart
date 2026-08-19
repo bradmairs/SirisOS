@@ -77,6 +77,28 @@ class HealthService {
         .toList(growable: false);
   }
 
+  Future<List<UnloggedHealthWorkout>> fetchUnloggedWorkouts({int days = 30}) async {
+    final response = await _client
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/health/unlogged-workouts?days=$days'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 8));
+
+    if (response.statusCode != 200) {
+      throw HealthServiceException(
+        'Unlogged workouts request failed with status ${response.statusCode}.',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(UnloggedHealthWorkout.fromJson)
+        .toList(growable: false);
+  }
+
   Future<HealthSnapshot> fetchSnapshot() async {
     final response = await _client
         .get(

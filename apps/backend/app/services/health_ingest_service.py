@@ -166,6 +166,18 @@ class HealthSnapshot:
     error: str | None
 
 
+@dataclass(frozen=True)
+class HealthWorkout:
+    external_id: str
+    workout_type: str
+    start_date: date
+    duration_seconds: float | None
+    distance_m: float | None
+    active_energy_kcal: float | None
+    avg_hr: float | None
+    max_hr: float | None
+
+
 def _as_float(value: Any) -> float | None:
     if isinstance(value, dict):
         value = value.get("qty", value.get("value"))
@@ -196,8 +208,16 @@ def _parse_timestamp(raw: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed
+        return parsed.replace(tzinfo=timezone.utc)
+    # Normalise to UTC before this ever reaches storage. Every write path is
+    # assumed to store UTC (see _as_aware) so a naive value read back can
+    # safely be treated as UTC -- but Health Auto Export sends offsets like
+    # "+1000", and without this the offset was preserved as-is (e.g. "18:00
+    # +10:00" stored as naive "18:00") rather than converted, so SQLite
+    # dropping tzinfo on round-trip (unlike Postgres) silently double-applied
+    # the local offset on read, shifting any time past ~2pm local into the
+    # next day.
+    return parsed.astimezone(timezone.utc)
 
 
 def _sample_key(*, metric_type: str, timestamp: datetime, source: str | None, value: float, unit: str | None) -> str:
@@ -296,6 +316,29 @@ class HealthIngestService:
             records_received=records_received,
             last_error=latest.error if latest else None,
         )
+
+    def list_workouts(self, *, since: date | None = None) -> list[HealthWorkout]:
+        # health_workouts has been write-only since ingestion shipped -- ingested
+        # by /health/ingest, never read back by anything. This is the first
+        # consumer.
+        with self._sessions() as session:
+            rows = session.scalars(select(HealthWorkoutModel).order_by(HealthWorkoutModel.start_time.desc())).all()
+        workouts = [
+            HealthWorkout(
+                external_id=row.external_id,
+                workout_type=row.workout_type,
+                start_date=_local_date(row.start_time),
+                duration_seconds=row.duration_seconds,
+                distance_m=row.distance_m,
+                active_energy_kcal=row.active_energy_kcal,
+                avg_hr=row.avg_hr,
+                max_hr=row.max_hr,
+            )
+            for row in rows
+        ]
+        if since is not None:
+            workouts = [item for item in workouts if item.start_date >= since]
+        return workouts
 
     def summary(
         self, *, baseline_days: int = HEALTH_SUMMARY_BASELINE_DAYS, now: datetime | None = None

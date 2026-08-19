@@ -50,3 +50,31 @@ class DailyMetricPoint {
   final String? unit;
   final int sampleCount;
 }
+
+class UnloggedHealthWorkout {
+  const UnloggedHealthWorkout({
+    required this.externalId,
+    required this.workoutType,
+    required this.category,
+    required this.startDate,
+    required this.durationSeconds,
+    required this.distanceM,
+  });
+
+  factory UnloggedHealthWorkout.fromJson(Map<String, dynamic> json) =>
+      UnloggedHealthWorkout(
+        externalId: json['external_id'] as String,
+        workoutType: json['workout_type'] as String,
+        category: json['category'] as String,
+        startDate: DateTime.parse(json['start_date'] as String),
+        durationSeconds: (json['duration_seconds'] as num?)?.toDouble(),
+        distanceM: (json['distance_m'] as num?)?.toDouble(),
+      );
+
+  final String externalId;
+  final String workoutType;
+  final String category;
+  final DateTime startDate;
+  final double? durationSeconds;
+  final double? distanceM;
+}
