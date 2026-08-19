@@ -368,13 +368,14 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] Per-module model/profile selection and context budgets
 - [x] Model availability monitoring (ADR 058)
 - [ ] Preserve deterministic outputs beneath optional LLM rewriting
+- [x] SirisAI tool-using agent v1 — "ask anything" grounded in real SirisOS data, not free-form chat against Ollama's own training data: Ollama gets nine tools backed by already-shipped deterministic services (Strength Score, Training Level, muscle-group fatigue, weekly training load, Health summary, training conflict, achievements, recent runs/workouts) and decides which to call per question; every fact it states traces to a real tool result. Scoped to Training + Health for v1, not Homelab/Knowledge/Projects. Client-side conversation state, stateless per-call backend. New "Chat" tab on the Siris module alongside the existing Memory tab (ADR 091)
 
 ### Siris Memory
 - [x] Siris Memory Service v1 — Facts, Preferences, Episodes, Decisions, Observations and Conversation memory classes; manual entry with free-text content + optional source, atomic JSON persistence, CRUD API filterable by class (ADR 061)
 - [x] Wired into the `Siris` module (previously a "planned for later" placeholder), reachable from More → Siris
 - [ ] Structured (not free-text) provenance per memory record — typed source object reference, confidence — matching the citation standard already set by SirisHydro and Context
 - [ ] Cross-object traversal (e.g. Project → calculation → standard → SirisHydro question → meeting note → decision) so SirisAI can answer "why did I decide X?", not just "what does X say?"
-- [ ] Automatic capture from SirisAI conversations, once a conversational surface exists
+- [ ] Automatic capture from SirisAI conversations, once a conversational surface exists — the SirisAI agent's Chat tab (ADR 091) is now that surface, but *what* to capture and how (facts stated? questions asked? tool results?) remains an open, unscoped question, not silently decided by building the chat surface itself
 - [ ] Distinct from, and complementary to, Knowledge (documents), Projects (structured relationships) and SirisHydro history (evidence-grounded Q&A) — Memory is Siris's own accumulated understanding, not a fourth copy of the same content
 
 ### Universal Command Palette & contextual "Ask Siris"

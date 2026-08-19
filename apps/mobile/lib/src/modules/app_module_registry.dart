@@ -10,7 +10,7 @@ import '../screens/knowledge_hub_screen.dart';
 import '../screens/projects_hub_screen.dart';
 import '../screens/running_screen.dart';
 import '../screens/siris_coach_screen.dart';
-import '../screens/siris_memory_screen.dart';
+import '../screens/siris_hub_screen.dart';
 import '../widgets/siris_logo.dart';
 
 enum SirisModuleAvailability { available, preview, unavailable }
@@ -120,7 +120,7 @@ class AppModuleRegistry {
           ),
         'siris' => SirisModuleRegistration(
             definition: definition,
-            screenBuilder: (_) => const SirisMemoryScreen(),
+            screenBuilder: (_) => const SirisHubScreen(),
           ),
         _ => SirisModuleRegistration(
             definition: definition,

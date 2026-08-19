@@ -1,0 +1,216 @@
+import asyncio
+import json
+from datetime import date
+from pathlib import Path
+
+from app.services.gym_service import GymService
+from app.services.ollama_service import OllamaChatResult, OllamaToolCall
+from app.services.running_service import RunningService
+from app.services.siris_agent_service import SirisAgentService
+
+# The agent loop composes GymService/RunningService/HealthIngestService/etc,
+# unscoped by name -- same fully-isolated-database-per-test reasoning as the
+# achievement/coach suites. No real Ollama server exists in this dev
+# environment, so every scenario here scripts a fake chat_client -- the real
+# HTTP/JSON parsing is covered separately in test_ollama_service.py.
+
+
+class _FakeChatClient:
+    def __init__(self, responses: list[OllamaChatResult | None]) -> None:
+        self._responses = list(responses)
+        self.enabled = True
+        self.calls: list[list[dict]] = []
+
+    async def chat(self, *, messages, tools=None):
+        self.calls.append(messages)
+        if not self._responses:
+            return None
+        return self._responses.pop(0)
+
+
+class _DisabledFakeChatClient:
+    enabled = False
+
+    async def chat(self, *, messages, tools=None):  # pragma: no cover - must never be called
+        raise AssertionError("chat() should not be called when disabled")
+
+
+def _build(tmp_path: Path, monkeypatch) -> tuple[GymService, RunningService, SirisAgentService]:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/siris_agent.db")
+    gym = GymService()
+    gym.initialise()
+    running = RunningService()
+    running.initialise()
+    return gym, running, SirisAgentService(gym_service=gym, running_service=running)
+
+
+def test_returns_fixed_message_without_calling_ollama_when_disabled(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _, _, agent = _build(tmp_path, monkeypatch)
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", _DisabledFakeChatClient())
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "how strong am I?"}]))
+
+    assert result.available is False
+    assert "Ollama" in result.answer
+    assert result.tools_used == []
+
+
+def test_returns_direct_answer_when_no_tool_calls_needed(tmp_path: Path, monkeypatch) -> None:
+    _, _, agent = _build(tmp_path, monkeypatch)
+    fake = _FakeChatClient([OllamaChatResult(content="Hi there!", tool_calls=[])])
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "hello"}]))
+
+    assert result.available is True
+    assert result.answer == "Hi there!"
+    assert result.tools_used == []
+
+
+def test_dispatches_real_tool_and_feeds_result_back(tmp_path: Path, monkeypatch) -> None:
+    gym, _, agent = _build(tmp_path, monkeypatch)
+    gym.create_workout(
+        workout_date=date(2026, 6, 1), name="Push", notes=None,
+        sets=[{"exercise": "Bench Press", "weight_kg": 80, "reps": 8, "rir": 2}],
+    )
+    gym.tag_exercise("Bench Press", "chest")
+
+    fake = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_strength_score", arguments={})],
+            ),
+            OllamaChatResult(content="You're at 100% of your all-time peak.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "how strong am I?"}]))
+
+    assert result.answer == "You're at 100% of your all-time peak."
+    assert result.tools_used == ["get_strength_score"]
+    # The tool's real result (not a fabricated one) was fed back as context.
+    second_call_messages = fake.calls[1]
+    tool_messages = [item for item in second_call_messages if item.get("role") == "tool"]
+    assert len(tool_messages) == 1
+    payload = json.loads(tool_messages[0]["content"])
+    assert payload["overall_score"] == 1.0
+
+
+def test_dispatches_multiple_tool_calls_in_one_round(tmp_path: Path, monkeypatch) -> None:
+    _, running, agent = _build(tmp_path, monkeypatch)
+    running.create_run(
+        run_date=date(2026, 6, 1), run_type="outdoor", distance_km=5.0,
+        average_pace_seconds_per_km=300, average_heart_rate=150,
+    )
+
+    fake = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[
+                    OllamaToolCall(name="get_recent_runs", arguments={"limit": 1}),
+                    OllamaToolCall(name="get_achievements", arguments={}),
+                ],
+            ),
+            OllamaChatResult(content="Here's your recent activity.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "what have I been up to?"}]))
+
+    assert result.tools_used == ["get_recent_runs", "get_achievements"]
+    tool_messages = [item for item in fake.calls[1] if item.get("role") == "tool"]
+    assert len(tool_messages) == 2
+
+
+def test_unknown_tool_name_is_reported_without_crashing(tmp_path: Path, monkeypatch) -> None:
+    _, _, agent = _build(tmp_path, monkeypatch)
+    fake = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_the_weather", arguments={})],
+            ),
+            OllamaChatResult(content="I can't check that.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "what's the weather?"}]))
+
+    assert result.answer == "I can't check that."
+    tool_messages = [item for item in fake.calls[1] if item.get("role") == "tool"]
+    assert "error" in json.loads(tool_messages[0]["content"])
+
+
+def test_falls_back_gracefully_when_ollama_becomes_unreachable_mid_loop(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _, _, agent = _build(tmp_path, monkeypatch)
+    # First call succeeds, second call (after the tool result) fails open (None).
+    fake = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_strength_score", arguments={})],
+            ),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "how strong am I?"}]))
+
+    assert result.available is False
+    assert "reach Ollama" in result.answer
+    assert result.tools_used == ["get_strength_score"]
+
+
+def test_stops_after_max_iterations_if_ollama_never_settles(tmp_path: Path, monkeypatch) -> None:
+    _, _, agent = _build(tmp_path, monkeypatch)
+    always_wants_a_tool = OllamaChatResult(
+        content=None, tool_calls=[OllamaToolCall(name="get_strength_score", arguments={})]
+    )
+    fake = _FakeChatClient([always_wants_a_tool] * 10)
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "how strong am I?"}]))
+
+    assert result.available is True
+    assert "couldn't settle" in result.answer
+    assert len(result.tools_used) == 5  # MAX_TOOL_ITERATIONS
+
+
+def test_get_recent_runs_respects_limit(tmp_path: Path, monkeypatch) -> None:
+    _, running, agent = _build(tmp_path, monkeypatch)
+    for day in range(1, 5):
+        running.create_run(
+            run_date=date(2026, 6, day), run_type="outdoor", distance_km=5.0,
+            average_pace_seconds_per_km=300, average_heart_rate=150,
+        )
+
+    runs = agent._get_recent_runs({"limit": 2})
+
+    assert len(runs) == 2
+    assert runs[0].run_date == date(2026, 6, 4)  # most recent first
+
+
+def test_get_recent_workouts_includes_total_volume(tmp_path: Path, monkeypatch) -> None:
+    gym, _, agent = _build(tmp_path, monkeypatch)
+    gym.create_workout(
+        workout_date=date(2026, 6, 1), name="Push", notes=None,
+        sets=[
+            {"exercise": "Bench Press", "weight_kg": 80, "reps": 8, "rir": 2},
+            {"exercise": "Overhead Press", "weight_kg": 40, "reps": 8, "rir": 2},
+        ],
+    )
+
+    workouts = agent._get_recent_workouts({})
+
+    assert len(workouts) == 1
+    assert workouts[0]["total_volume_kg"] == 960.0
+    assert len(workouts[0]["sets"]) == 2
