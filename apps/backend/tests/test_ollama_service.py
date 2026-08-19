@@ -102,6 +102,107 @@ def test_status_reports_configured_model_missing_from_server() -> None:
     assert status.model_available is False
 
 
+def test_chat_disabled_without_url_or_model() -> None:
+    client = OllamaChatClient()
+    client.ollama_url = ""
+    client.model = ""
+    assert asyncio.run(client.chat(messages=[{"role": "user", "content": "hi"}])) is None
+
+
+def test_chat_disabled_for_empty_messages() -> None:
+    client = OllamaChatClient()
+    client.ollama_url = "http://ollama"
+    client.model = "chat-model"
+    assert asyncio.run(client.chat(messages=[])) is None
+
+
+def test_chat_fails_open_on_network_error() -> None:
+    client = OllamaChatClient()
+    client.ollama_url = "http://ollama"
+    client.model = "chat-model"
+
+    async def failing(*, messages, tools=None):
+        raise httpx.ConnectError("refused")
+
+    client._chat_with_tools = failing  # type: ignore[method-assign]
+    assert asyncio.run(client.chat(messages=[{"role": "user", "content": "hi"}])) is None
+
+
+def test_chat_parses_content_response_with_no_tool_calls() -> None:
+    client = OllamaChatClient()
+    client.ollama_url = "http://ollama"
+    client.model = "chat-model"
+
+    class _FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"role": "assistant", "content": "  Your strength score is 94.  "}}
+
+    async def fake_post(self, url, json):  # noqa: A002 - matches httpx.AsyncClient.post signature
+        return _FakeResponse()
+
+    import httpx as httpx_module
+
+    original_post = httpx_module.AsyncClient.post
+    httpx_module.AsyncClient.post = fake_post  # type: ignore[method-assign]
+    try:
+        result = asyncio.run(client.chat(messages=[{"role": "user", "content": "how strong am I"}]))
+    finally:
+        httpx_module.AsyncClient.post = original_post  # type: ignore[method-assign]
+
+    assert result is not None
+    assert result.content == "Your strength score is 94."
+    assert result.tool_calls == []
+
+
+def test_chat_parses_tool_calls_from_response() -> None:
+    client = OllamaChatClient()
+    client.ollama_url = "http://ollama"
+    client.model = "chat-model"
+
+    class _FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {"function": {"name": "get_strength_score", "arguments": {}}},
+                        {"function": {"name": "get_recent_runs", "arguments": {"limit": 3}}},
+                        {"not_a_function": True},
+                        {"function": {"arguments": {}}},  # missing name -- skipped
+                    ],
+                }
+            }
+
+    async def fake_post(self, url, json):
+        return _FakeResponse()
+
+    import httpx as httpx_module
+
+    original_post = httpx_module.AsyncClient.post
+    httpx_module.AsyncClient.post = fake_post  # type: ignore[method-assign]
+    try:
+        result = asyncio.run(
+            client.chat(messages=[{"role": "user", "content": "how strong am I"}], tools=[{"type": "function"}])
+        )
+    finally:
+        httpx_module.AsyncClient.post = original_post  # type: ignore[method-assign]
+
+    assert result is not None
+    assert result.content is None
+    assert len(result.tool_calls) == 2
+    assert result.tool_calls[0].name == "get_strength_score"
+    assert result.tool_calls[0].arguments == {}
+    assert result.tool_calls[1].name == "get_recent_runs"
+    assert result.tool_calls[1].arguments == {"limit": 3}
+
+
 def test_status_reports_unreachable_on_network_error() -> None:
     client = OllamaChatClient()
     client.ollama_url = "http://ollama"

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 
@@ -12,6 +13,18 @@ class OllamaStatus:
     reachable: bool
     model: str | None
     model_available: bool
+
+
+@dataclass(frozen=True)
+class OllamaToolCall:
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class OllamaChatResult:
+    content: str | None
+    tool_calls: list[OllamaToolCall] = field(default_factory=list)
 
 
 class OllamaChatClient:
@@ -61,6 +74,53 @@ class OllamaChatClient:
         if not isinstance(content, str) or not content.strip():
             return None
         return content.strip()
+
+    async def chat(
+        self, *, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None
+    ) -> OllamaChatResult | None:
+        """Multi-turn chat with optional tool/function-calling support, for an
+        agent loop (see SirisAgentService) rather than the single system+prompt
+        rephrase `complete()` serves. Same fail-open contract: disabled
+        configuration, network errors and malformed responses all return None."""
+        if not self.enabled or not messages:
+            return None
+        try:
+            return await self._chat_with_tools(messages=messages, tools=tools)
+        except (httpx.HTTPError, ValueError, KeyError):
+            return None
+
+    async def _chat_with_tools(
+        self, *, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None
+    ) -> OllamaChatResult:
+        payload: dict[str, Any] = {"model": self.model, "messages": messages, "stream": False}
+        if tools:
+            payload["tools"] = tools
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            response = await client.post(f"{self.ollama_url}/api/chat", json=payload)
+            response.raise_for_status()
+            payload_response = response.json()
+        message = payload_response.get("message")
+        if not isinstance(message, dict):
+            raise ValueError("Ollama returned an invalid chat response.")
+        content = message.get("content")
+        tool_calls: list[OllamaToolCall] = []
+        for item in message.get("tool_calls") or []:
+            if not isinstance(item, dict):
+                continue
+            function = item.get("function")
+            if not isinstance(function, dict):
+                continue
+            name = function.get("name")
+            if not isinstance(name, str) or not name:
+                continue
+            arguments = function.get("arguments")
+            tool_calls.append(
+                OllamaToolCall(name=name, arguments=arguments if isinstance(arguments, dict) else {})
+            )
+        return OllamaChatResult(
+            content=content.strip() if isinstance(content, str) and content.strip() else None,
+            tool_calls=tool_calls,
+        )
 
     async def status(self) -> OllamaStatus:
         model = self.model or None
