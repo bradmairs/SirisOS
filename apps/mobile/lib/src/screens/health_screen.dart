@@ -10,6 +10,7 @@ import '../services/health_kit_sync_service.dart';
 import '../services/health_service.dart';
 import '../theme/app_theme.dart';
 import 'health_metric_history_screen.dart';
+import 'running_screen.dart' show showAddRunDialog;
 
 void _openMetricHistory(BuildContext context, String metricType) {
   Navigator.of(context).push<void>(
@@ -181,7 +182,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     const SizedBox(height: 20),
                     _RecoveryBaselineSection(future: _summaryFuture),
                     const SizedBox(height: 20),
-                    _UnloggedWorkoutsCard(future: _unloggedWorkoutsFuture),
+                    _UnloggedWorkoutsCard(future: _unloggedWorkoutsFuture, onLogged: _refresh),
                     const SizedBox(height: 20),
                     _IntegrationDetails(snapshot: data, lastSyncTime: _lastSyncTime),
                   ],
@@ -277,9 +278,10 @@ class _RecoveryBaselineRow extends StatelessWidget {
 }
 
 class _UnloggedWorkoutsCard extends StatelessWidget {
-  const _UnloggedWorkoutsCard({required this.future});
+  const _UnloggedWorkoutsCard({required this.future, required this.onLogged});
 
   final Future<List<UnloggedHealthWorkout>> future;
+  final Future<void> Function() onLogged;
 
   @override
   Widget build(BuildContext context) {
@@ -302,11 +304,12 @@ class _UnloggedWorkoutsCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Apple Health has runs or strength workouts from the last 30 days with no '
-                  'matching entry in SirisRun or SirisGym on the same day.',
+                  'matching entry in SirisRun or SirisGym on the same day. Runs can be quick-logged '
+                  'from their Apple Health data; strength sessions need sets re-entered manually.',
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
-                ...items.map((item) => _UnloggedWorkoutRow(workout: item)),
+                ...items.map((item) => _UnloggedWorkoutRow(workout: item, onLogged: onLogged)),
               ],
             ),
           ),
@@ -317,22 +320,38 @@ class _UnloggedWorkoutsCard extends StatelessWidget {
 }
 
 class _UnloggedWorkoutRow extends StatelessWidget {
-  const _UnloggedWorkoutRow({required this.workout});
+  const _UnloggedWorkoutRow({required this.workout, required this.onLogged});
 
   final UnloggedHealthWorkout workout;
+  final Future<void> Function() onLogged;
 
   static String _dateLabel(DateTime value) => '${value.day}/${value.month}/${value.year}';
+
+  Future<void> _logRun(BuildContext context) async {
+    final distanceKm = workout.distanceM! / 1000;
+    final paceSecondsPerKm = (workout.durationSeconds! / distanceKm).round();
+    final newRecords = await showAddRunDialog(
+      context,
+      initialDate: workout.startDate,
+      initialDistanceKm: distanceKm,
+      initialPaceSecondsPerKm: paceSecondsPerKm,
+      initialHeartRate: workout.avgHr?.round(),
+    );
+    if (newRecords != null) await onLogged();
+  }
 
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    final parts = <String>[];
+    final parts = <String>[_dateLabel(workout.startDate)];
     if (workout.distanceM != null) {
       parts.add('${(workout.distanceM! / 1000).toStringAsFixed(1)} km');
     }
     if (workout.durationSeconds != null) {
       parts.add('${(workout.durationSeconds! / 60).round()} min');
     }
+    final canQuickLog =
+        workout.category == 'running' && workout.distanceM != null && workout.durationSeconds != null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -348,12 +367,12 @@ class _UnloggedWorkoutRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(workout.workoutType, style: const TextStyle(fontWeight: FontWeight.w700)),
-                if (parts.isNotEmpty)
-                  Text(parts.join(' · '), style: TextStyle(color: muted, fontSize: 12)),
+                Text(parts.join(' · '), style: TextStyle(color: muted, fontSize: 12)),
               ],
             ),
           ),
-          Text(_dateLabel(workout.startDate), style: TextStyle(color: muted, fontSize: 12)),
+          if (canQuickLog)
+            TextButton(onPressed: () => _logRun(context), child: const Text('Log this run')),
         ],
       ),
     );

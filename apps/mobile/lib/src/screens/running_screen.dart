@@ -40,10 +40,7 @@ class _RunningScreenState extends State<RunningScreen> {
       });
 
   Future<void> _addRun() async {
-    final newRecords = await showDialog<List<RunningPersonalRecord>>(
-      context: context,
-      builder: (_) => const _RunEntryDialog(),
-    );
+    final newRecords = await showAddRunDialog(context);
     if (newRecords == null) return;
     _reload();
     if (newRecords.isNotEmpty && mounted) {
@@ -159,8 +156,39 @@ class _RunningScreenState extends State<RunningScreen> {
   String _dateLabel(DateTime date) => '${date.day}/${date.month}/${date.year}';
 }
 
+/// Opens the "Add run" dialog, optionally pre-filled -- e.g. from an Apple
+/// Health workout the athlete is quick-logging (Health screen's "Not yet
+/// logged in SirisOS" card). Returns the same value `showDialog` would.
+Future<List<RunningPersonalRecord>?> showAddRunDialog(
+  BuildContext context, {
+  DateTime? initialDate,
+  double? initialDistanceKm,
+  int? initialPaceSecondsPerKm,
+  int? initialHeartRate,
+}) {
+  return showDialog<List<RunningPersonalRecord>>(
+    context: context,
+    builder: (_) => _RunEntryDialog(
+      initialDate: initialDate,
+      initialDistanceKm: initialDistanceKm,
+      initialPaceSecondsPerKm: initialPaceSecondsPerKm,
+      initialHeartRate: initialHeartRate,
+    ),
+  );
+}
+
 class _RunEntryDialog extends StatefulWidget {
-  const _RunEntryDialog();
+  const _RunEntryDialog({
+    this.initialDate,
+    this.initialDistanceKm,
+    this.initialPaceSecondsPerKm,
+    this.initialHeartRate,
+  });
+
+  final DateTime? initialDate;
+  final double? initialDistanceKm;
+  final int? initialPaceSecondsPerKm;
+  final int? initialHeartRate;
 
   @override
   State<_RunEntryDialog> createState() => _RunEntryDialogState();
@@ -172,9 +200,26 @@ class _RunEntryDialogState extends State<_RunEntryDialog> {
   final _pace = TextEditingController();
   final _heartRate = TextEditingController();
   final _service = RunningService();
-  DateTime _date = DateTime.now();
+  late DateTime _date;
   String _type = 'outdoor';
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _date = widget.initialDate ?? DateTime.now();
+    if (widget.initialDistanceKm != null) {
+      _distance.text = widget.initialDistanceKm!.toStringAsFixed(2);
+    }
+    if (widget.initialPaceSecondsPerKm != null) {
+      final minutes = widget.initialPaceSecondsPerKm! ~/ 60;
+      final seconds = widget.initialPaceSecondsPerKm! % 60;
+      _pace.text = '$minutes:${seconds.toString().padLeft(2, '0')}';
+    }
+    if (widget.initialHeartRate != null) {
+      _heartRate.text = '${widget.initialHeartRate}';
+    }
+  }
 
   @override
   void dispose() {
@@ -209,7 +254,7 @@ class _RunEntryDialogState extends State<_RunEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add run'),
+      title: Text(widget.initialDistanceKm == null ? 'Add run' : 'Add run (from Apple Health)'),
       content: SizedBox(
         width: 420,
         child: Form(
