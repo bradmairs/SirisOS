@@ -224,3 +224,63 @@ def test_readiness_question_without_a_day_reference_is_not_recognised(
     result = ask_siris.answer("Should I train more often?", today=today)
 
     assert result.understood is False
+
+
+def test_should_i_run_today_flags_fatigued_legs(tmp_path: Path, monkeypatch) -> None:
+    # muscle_group_fatigue() reasons from the real calendar date (no
+    # reference-date override like TrainingConflictService/TrainingLoadService
+    # have), so the fixture data and the `today` passed to answer() both need
+    # to line up with the real date.today() rather than an arbitrary Monday.
+    _, gym, ask_siris = _services(tmp_path, monkeypatch)
+    today = date.today()
+    for weeks_ago in (2, 3, 4):
+        gym.create_workout(
+            workout_date=today - timedelta(weeks=weeks_ago), name="Legs", notes=None,
+            sets=[{"exercise": "Squat", "weight_kg": 100, "reps": 4, "rir": 2}],
+        )
+    gym.create_workout(
+        workout_date=today - timedelta(days=1), name="Legs", notes=None,
+        sets=[{"exercise": "Squat", "weight_kg": 100, "reps": 4, "rir": 2}],
+    )
+    gym.tag_exercise("Squat", "legs")
+
+    result = ask_siris.answer("Should I run today?", today=today)
+
+    assert result.understood is True
+    assert "legs are still estimated fatigued" in result.answer
+    assert result.facts["legs_fatigued"] is True
+
+
+def test_should_i_run_today_stays_quiet_when_legs_are_fresh(tmp_path: Path, monkeypatch) -> None:
+    _, _, ask_siris = _services(tmp_path, monkeypatch)
+    today = date.today()
+
+    result = ask_siris.answer("Should I run today?", today=today)
+
+    assert result.understood is True
+    assert "legs" not in result.answer.lower()
+    assert result.facts["legs_fatigued"] is False
+
+
+def test_can_i_train_today_does_not_check_leg_fatigue(tmp_path: Path, monkeypatch) -> None:
+    # Leg readiness is specifically about running -- lifting doesn't imply
+    # legs are the limiting factor the way running does, so the generic
+    # "can I train" phrasing must not gain a leg-fatigue opinion.
+    _, gym, ask_siris = _services(tmp_path, monkeypatch)
+    today = date.today()
+    for weeks_ago in (2, 3, 4):
+        gym.create_workout(
+            workout_date=today - timedelta(weeks=weeks_ago), name="Legs", notes=None,
+            sets=[{"exercise": "Squat", "weight_kg": 100, "reps": 4, "rir": 2}],
+        )
+    gym.create_workout(
+        workout_date=today - timedelta(days=1), name="Legs", notes=None,
+        sets=[{"exercise": "Squat", "weight_kg": 100, "reps": 4, "rir": 2}],
+    )
+    gym.tag_exercise("Squat", "legs")
+
+    result = ask_siris.answer("Can I train today?", today=today)
+
+    assert result.understood is True
+    assert "legs" not in result.answer.lower()
+    assert "legs_fatigued" not in result.facts

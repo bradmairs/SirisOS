@@ -77,6 +77,12 @@ def _find_distance_km(question: str) -> float | None:
     return float(match.group(1)) if match else None
 
 
+# Same "Fatigued" boundary the Muscle Map UI already draws (MuscleReadiness,
+# ADR 084's fatigue_fraction), reused rather than inventing a second number
+# for what's conceptually the same threshold shown two different ways.
+RUN_READINESS_LEG_FATIGUE_THRESHOLD = 0.6
+
+
 class AskSirisService:
     def __init__(
         self,
@@ -375,10 +381,11 @@ class AskSirisService:
         # the Coach screen already shows ("Today" card + weekly load) --
         # composes existing services rather than adding new inference.
         lowered = question.lower()
-        wants_readiness = any(
+        wants_run = any(phrase in lowered for phrase in ("can i run", "should i run"))
+        wants_readiness = wants_run or any(
             phrase in lowered
             for phrase in (
-                "can i train", "should i train", "can i run", "should i run",
+                "can i train", "should i train",
                 "can i lift", "should i lift", "can i work out", "should i work out",
                 "can i workout", "should i workout",
             )
@@ -388,15 +395,49 @@ class AskSirisService:
 
         conflict = self._training_conflict_service.check(reference_date=today)
         load = self._training_load_service.weekly_load(reference_date=today)
-        answer = f"{conflict.guidance} {load.assessment}"
+        sentences = [conflict.guidance]
+
+        # Run readiness is deliberately narrower than "can I train" in
+        # general: someone can be HRV-recovered while their legs are wrecked
+        # from squats, which the whole-body conflict check above has no way
+        # to see. Only checked for running specifically -- lifting doesn't
+        # imply legs are the limiting factor the way running does.
+        legs_fatigued = False
+        if wants_run:
+            legs = next(
+                (item for item in self._gym_service.muscle_group_fatigue() if item.muscle_group == "legs"),
+                None,
+            )
+            if (
+                legs is not None
+                and legs.days_since_trained is not None
+                and legs.fatigue_fraction >= RUN_READINESS_LEG_FATIGUE_THRESHOLD
+            ):
+                legs_fatigued = True
+                if legs.days_since_trained == 0:
+                    recency = "training earlier today"
+                else:
+                    day_word = "day" if legs.days_since_trained == 1 else "days"
+                    recency = f"training {legs.days_since_trained} {day_word} ago"
+                sentences.append(
+                    f"Your legs are still estimated fatigued from {recency} -- "
+                    "an easy run or extra rest is reasonable before pushing pace."
+                )
+
+        sentences.append(load.assessment)
+        answer = " ".join(sentences)
+
+        facts: dict[str, object] = {
+            "conflict_status": conflict.status,
+            "trained_today": conflict.trained,
+            "combined_index": load.combined_index,
+        }
+        if wants_run:
+            facts["legs_fatigued"] = legs_fatigued
 
         return AskSirisAnswer(
             question=question,
             understood=True,
             answer=answer,
-            facts={
-                "conflict_status": conflict.status,
-                "trained_today": conflict.trained,
-                "combined_index": load.combined_index,
-            },
+            facts=facts,
         )
