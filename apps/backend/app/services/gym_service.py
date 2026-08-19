@@ -146,6 +146,30 @@ class MuscleGroupFatigue:
 
 
 @dataclass(frozen=True)
+class ExerciseStrengthRatio:
+    exercise: str
+    muscle_group: str
+    current_e1rm_kg: float
+    peak_e1rm_kg: float
+    ratio: float
+    latest_date: date
+
+
+@dataclass(frozen=True)
+class MuscleGroupStrengthScore:
+    muscle_group: str
+    score: float | None
+    exercise_count: int
+
+
+@dataclass(frozen=True)
+class StrengthScore:
+    overall_score: float | None
+    by_muscle_group: list[MuscleGroupStrengthScore]
+    by_exercise: list[ExerciseStrengthRatio]
+
+
+@dataclass(frozen=True)
 class PersonalRecord:
     exercise: str
     record_type: Literal["weight", "estimated_one_rep_max", "set_volume"]
@@ -441,6 +465,47 @@ class GymService:
                 )
             )
         return results
+
+    def strength_score(self) -> StrengthScore:
+        # Self-relative only, by design: comparing exercises to each other or
+        # to an external strength standard needs bodyweight/standards data
+        # this app doesn't have -- exactly what shelved Training Level's
+        # Strength sub-score (ADR 074). Each exercise is only ever compared
+        # to its OWN all-time-best e1RM, so "100%" means you're at your
+        # personal strongest for that lift right now, nothing more.
+        tags = self._muscle_group_tags()
+        by_exercise: list[ExerciseStrengthRatio] = []
+        for summary in self.list_exercises():
+            key = summary.exercise.strip().casefold()
+            group = tags.get(key)
+            if group is None or not summary.history:
+                continue
+            peak = summary.best_estimated_one_rep_max_kg
+            if peak <= 0:
+                continue
+            latest = summary.history[-1]
+            ratio = min(1.0, latest.estimated_one_rep_max_kg / peak)
+            by_exercise.append(
+                ExerciseStrengthRatio(
+                    exercise=summary.exercise,
+                    muscle_group=group,
+                    current_e1rm_kg=latest.estimated_one_rep_max_kg,
+                    peak_e1rm_kg=peak,
+                    ratio=round(ratio, 3),
+                    latest_date=latest.workout_date,
+                )
+            )
+
+        by_group: list[MuscleGroupStrengthScore] = []
+        for group in MUSCLE_GROUPS:
+            ratios = [item.ratio for item in by_exercise if item.muscle_group == group]
+            score = round(sum(ratios) / len(ratios), 3) if ratios else None
+            by_group.append(MuscleGroupStrengthScore(muscle_group=group, score=score, exercise_count=len(ratios)))
+
+        group_scores = [item.score for item in by_group if item.score is not None]
+        overall = round(sum(group_scores) / len(group_scores), 3) if group_scores else None
+
+        return StrengthScore(overall_score=overall, by_muscle_group=by_group, by_exercise=by_exercise)
 
     def _muscle_group_tags(self) -> dict[str, str]:
         with self._sessions() as session:
