@@ -118,6 +118,16 @@ class GymService {
         .toList(growable: false);
   }
 
+  Future<StrengthScore> fetchStrengthScore() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/strength-score'),
+      headers: AuthService.authorizationHeaders,
+    );
+    if (response.statusCode != 200)
+      throw Exception('Could not load strength score.');
+    return StrengthScore.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   Future<void> tagExercise(String exercise, String muscleGroup) async {
     final response = await http.put(
       Uri.parse(

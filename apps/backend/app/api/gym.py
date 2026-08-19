@@ -125,6 +125,27 @@ class MuscleGroupFatigueResponse(BaseModel):
     ready_at: date | None
 
 
+class ExerciseStrengthRatioResponse(BaseModel):
+    exercise: str
+    muscle_group: str
+    current_e1rm_kg: float
+    peak_e1rm_kg: float
+    ratio: float
+    latest_date: date
+
+
+class MuscleGroupStrengthScoreResponse(BaseModel):
+    muscle_group: str
+    score: float | None
+    exercise_count: int
+
+
+class StrengthScoreResponse(BaseModel):
+    overall_score: float | None
+    by_muscle_group: list[MuscleGroupStrengthScoreResponse]
+    by_exercise: list[ExerciseStrengthRatioResponse]
+
+
 class ProgressiveOverloadSuggestionResponse(BaseModel):
     exercise: str
     status: Literal["progress", "repeat", "no_data"]
@@ -339,6 +360,17 @@ async def muscle_group_workload(
 async def muscle_group_fatigue(authorization: Annotated[str | None, Header()] = None) -> list[MuscleGroupFatigueResponse]:
     _authenticate(authorization)
     return [MuscleGroupFatigueResponse(**item.__dict__) for item in service.muscle_group_fatigue()]
+
+
+@router.get("/strength-score", response_model=StrengthScoreResponse)
+async def strength_score(authorization: Annotated[str | None, Header()] = None) -> StrengthScoreResponse:
+    _authenticate(authorization)
+    result = service.strength_score()
+    return StrengthScoreResponse(
+        overall_score=result.overall_score,
+        by_muscle_group=[MuscleGroupStrengthScoreResponse(**item.__dict__) for item in result.by_muscle_group],
+        by_exercise=[ExerciseStrengthRatioResponse(**item.__dict__) for item in result.by_exercise],
+    )
 
 
 @router.get("/templates", response_model=list[WorkoutTemplateResponse])

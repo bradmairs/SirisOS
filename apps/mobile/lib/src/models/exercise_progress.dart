@@ -128,6 +128,77 @@ class MuscleGroupFatigue {
   final DateTime? readyAt;
 }
 
+class ExerciseStrengthRatio {
+  const ExerciseStrengthRatio({
+    required this.exercise,
+    required this.muscleGroup,
+    required this.currentE1rmKg,
+    required this.peakE1rmKg,
+    required this.ratio,
+    required this.latestDate,
+  });
+
+  factory ExerciseStrengthRatio.fromJson(Map<String, dynamic> json) =>
+      ExerciseStrengthRatio(
+        exercise: json['exercise'] as String,
+        muscleGroup: json['muscle_group'] as String,
+        currentE1rmKg: (json['current_e1rm_kg'] as num).toDouble(),
+        peakE1rmKg: (json['peak_e1rm_kg'] as num).toDouble(),
+        ratio: (json['ratio'] as num).toDouble(),
+        latestDate: DateTime.parse(json['latest_date'] as String),
+      );
+
+  final String exercise;
+  final String muscleGroup;
+  final double currentE1rmKg;
+  final double peakE1rmKg;
+  final double ratio;
+  final DateTime latestDate;
+}
+
+class MuscleGroupStrengthScore {
+  const MuscleGroupStrengthScore({
+    required this.muscleGroup,
+    required this.score,
+    required this.exerciseCount,
+  });
+
+  factory MuscleGroupStrengthScore.fromJson(Map<String, dynamic> json) =>
+      MuscleGroupStrengthScore(
+        muscleGroup: json['muscle_group'] as String,
+        score: (json['score'] as num?)?.toDouble(),
+        exerciseCount: json['exercise_count'] as int,
+      );
+
+  final String muscleGroup;
+  final double? score;
+  final int exerciseCount;
+}
+
+class StrengthScore {
+  const StrengthScore({
+    required this.overallScore,
+    required this.byMuscleGroup,
+    required this.byExercise,
+  });
+
+  factory StrengthScore.fromJson(Map<String, dynamic> json) => StrengthScore(
+        overallScore: (json['overall_score'] as num?)?.toDouble(),
+        byMuscleGroup: (json['by_muscle_group'] as List<dynamic>)
+            .whereType<Map<String, dynamic>>()
+            .map(MuscleGroupStrengthScore.fromJson)
+            .toList(growable: false),
+        byExercise: (json['by_exercise'] as List<dynamic>)
+            .whereType<Map<String, dynamic>>()
+            .map(ExerciseStrengthRatio.fromJson)
+            .toList(growable: false),
+      );
+
+  final double? overallScore;
+  final List<MuscleGroupStrengthScore> byMuscleGroup;
+  final List<ExerciseStrengthRatio> byExercise;
+}
+
 enum ProgressiveOverloadStatus { progress, repeat, noData }
 
 extension ProgressiveOverloadStatusValue on ProgressiveOverloadStatus {
