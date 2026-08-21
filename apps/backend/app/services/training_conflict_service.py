@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app.services.gym_service import GymService
-from app.services.health_ingest_service import HEALTH_SUMMARY_BASELINE_DAYS, HealthIngestService
+from app.services.health_ingest_service import HEALTH_SUMMARY_BASELINE_DAYS, HealthIngestService, to_local_date
 from app.services.running_service import RunningService
 
 # A "conflict" is deliberately narrow for v1: a recovery metric (HRV/resting
@@ -45,7 +45,12 @@ class TrainingConflictService:
         self._health_service = health_service or HealthIngestService()
 
     def check(self, *, reference_date: date | None = None) -> TrainingConflictCheck:
-        reference_date = reference_date or date.today()
+        # date.today() would use the server process's own system timezone
+        # (typically UTC in a Docker container) rather than the athlete's --
+        # up to half of every Melbourne day that would silently disagree
+        # with to_local_date() below, exactly the class of bug this method
+        # exists to avoid.
+        reference_date = reference_date or to_local_date(datetime.now(timezone.utc))
         summaries = self._health_service.summary()
         hrv = self._for_reference_day(_HRV_METRIC_TYPES, summaries, reference_date)
         resting_hr = self._for_reference_day(_RESTING_HR_METRIC_TYPES, summaries, reference_date)
@@ -117,7 +122,7 @@ class TrainingConflictService:
     @staticmethod
     def _for_reference_day(metric_types: set[str], summaries, reference_date: date):
         item = next((candidate for candidate in summaries if candidate.metric_type in metric_types), None)
-        if item is None or item.latest_timestamp.date() != reference_date:
+        if item is None or to_local_date(item.latest_timestamp) != reference_date:
             return None
         return item
 

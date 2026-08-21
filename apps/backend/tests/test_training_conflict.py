@@ -67,6 +67,41 @@ def test_stale_health_data_is_insufficient(tmp_path: Path, monkeypatch) -> None:
     assert result.status == "insufficient_data"
 
 
+def test_evening_local_hrv_sample_matches_its_own_local_reference_day(tmp_path: Path, monkeypatch) -> None:
+    # A sample timestamped late enough in UTC to already be the *next* local
+    # calendar day (Melbourne, UTC+10/11) must still match reference_date --
+    # comparing raw UTC .date() against a local reference_date silently
+    # treated real, same-day data as "not synced for today" for roughly half
+    # of every day.
+    _, _, health, conflict = _build(tmp_path, monkeypatch)
+    today = date(2026, 3, 10)
+
+    health.ingest(_hrv_payload([
+        (today - timedelta(days=4), 50.0),
+        (today - timedelta(days=3), 50.0),
+        (today - timedelta(days=2), 50.0),
+    ]))
+    # 20:30 UTC on the 9th is 07:30 local on the 10th (AEDT, UTC+11) --
+    # genuinely "today's" morning HRV reading in Melbourne.
+    health.ingest(
+        {
+            "data": {
+                "metrics": [
+                    {
+                        "name": "heart_rate_variability",
+                        "units": "ms",
+                        "data": [{"date": "2026-03-09 20:30:00 +0000", "qty": 51.0}],
+                    }
+                ]
+            }
+        }
+    )
+
+    result = conflict.check(reference_date=today)
+
+    assert result.status == "clear"
+
+
 def test_normal_recovery_is_clear(tmp_path: Path, monkeypatch) -> None:
     _, gym, health, conflict = _build(tmp_path, monkeypatch)
     today = date(2026, 3, 10)

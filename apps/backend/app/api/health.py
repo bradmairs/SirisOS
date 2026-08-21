@@ -13,6 +13,7 @@ logger = logging.getLogger("sirisos.health_ingest_auth")
 from app.services.gym_service import GymService
 from app.services.health_ingest_service import HealthIngestService
 from app.services.health_workout_match_service import HealthWorkoutMatchService
+from app.services.readiness_service import ReadinessService
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -27,6 +28,7 @@ workout_match_service = HealthWorkoutMatchService(
     gym_service=_workout_match_gym_service,
     running_service=_workout_match_running_service,
 )
+readiness_service = ReadinessService(health_service=ingest_service)
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -77,6 +79,13 @@ class DailyMetricPointResponse(BaseModel):
     value: float
     unit: str | None
     sample_count: int
+
+
+class DailyReadinessPointResponse(BaseModel):
+    day: date
+    score: int | None
+    hrv_ratio: float | None
+    sleep_ratio: float | None
 
 
 class UnloggedHealthWorkoutResponse(BaseModel):
@@ -205,6 +214,24 @@ async def health_metric_history(
         DailyMetricPointResponse(**item.__dict__)
         for item in ingest_service.daily_history(metric_type, days=days)
     ]
+
+
+@router.get("/readiness", response_model=DailyReadinessPointResponse | None)
+async def readiness_today(
+    authorization: Annotated[str | None, Header()] = None,
+) -> DailyReadinessPointResponse | None:
+    _authenticate(authorization)
+    point = readiness_service.today()
+    return DailyReadinessPointResponse(**point.__dict__) if point is not None else None
+
+
+@router.get("/readiness/history", response_model=list[DailyReadinessPointResponse])
+async def readiness_history(
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    authorization: Annotated[str | None, Header()] = None,
+) -> list[DailyReadinessPointResponse]:
+    _authenticate(authorization)
+    return [DailyReadinessPointResponse(**item.__dict__) for item in readiness_service.daily_history(days=days)]
 
 
 @router.get("/unlogged-workouts", response_model=list[UnloggedHealthWorkoutResponse])

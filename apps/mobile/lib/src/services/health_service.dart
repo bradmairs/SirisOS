@@ -99,6 +99,47 @@ class HealthService {
         .toList(growable: false);
   }
 
+  Future<DailyReadinessPoint?> fetchReadinessToday() async {
+    final response = await _client
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/health/readiness'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 8));
+
+    if (response.statusCode != 200) {
+      throw HealthServiceException(
+        'Readiness request failed with status ${response.statusCode}.',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) return null;
+    return DailyReadinessPoint.fromJson(decoded);
+  }
+
+  Future<List<DailyReadinessPoint>> fetchReadinessHistory({int days = 30}) async {
+    final response = await _client
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/v1/health/readiness/history?days=$days'),
+          headers: AuthService.authorizationHeaders,
+        )
+        .timeout(const Duration(seconds: 8));
+
+    if (response.statusCode != 200) {
+      throw HealthServiceException(
+        'Readiness history request failed with status ${response.statusCode}.',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(DailyReadinessPoint.fromJson)
+        .toList(growable: false);
+  }
+
   Future<HealthSnapshot> fetchSnapshot() async {
     final response = await _client
         .get(

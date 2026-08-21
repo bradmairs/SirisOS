@@ -12,6 +12,7 @@ from app.services.health_ingest_service import HealthIngestService
 from app.services.homelab_alert_service import HomelabAlertService
 from app.services.host_metrics_service import HostMetricsCollector
 from app.services.ollama_service import chat_client
+from app.services.readiness_service import ReadinessService
 from app.services.running_service import RunningService
 from app.services.training_conflict_service import TrainingConflictService
 from app.services.training_level_service import TrainingLevelService
@@ -43,8 +44,9 @@ REFUSAL_MESSAGE = (
 SIRIS_AGENT_SYSTEM_PROMPT = (
     "You are Siris, a personal training, health and homelab assistant inside SirisOS. You "
     "can ONLY answer questions about the athlete's own SirisOS data -- strength, running, "
-    "gym workouts, muscle recovery, Apple Health metrics, achievements, Docker container "
-    "status, and server/host resource usage. You have tools that look up that real data.\n\n"
+    "gym workouts, muscle recovery, Apple Health metrics, readiness/recovery score, "
+    "achievements, Docker container status, and server/host resource usage. You have tools "
+    "that look up that real data.\n\n"
     "Rules, no exceptions:\n"
     "1. If the question is not about the athlete's own training, health or homelab data -- "
     "general knowledge, world facts, anything none of your tools can answer -- do not "
@@ -226,6 +228,20 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "get_readiness_score",
+            "description": (
+                "Today's readiness/recovery score (0-100), self-relative to the "
+                "athlete's own trailing baseline -- driven by heart rate "
+                "variability and last night's sleep versus their own norm. "
+                "100 means fully at or above their own baseline; lower means "
+                "below it. Null if not enough HRV/sleep history has synced yet."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_homelab_alerts",
             "description": (
                 "Active homelab alerts right now -- high host CPU/memory/disk usage, "
@@ -252,10 +268,12 @@ class SirisAgentService:
         docker_monitor: DockerMonitor | None = None,
         host_metrics_collector: HostMetricsCollector | None = None,
         homelab_alert_service: HomelabAlertService | None = None,
+        readiness_service: ReadinessService | None = None,
     ) -> None:
         self._gym_service = gym_service or GymService()
         self._running_service = running_service or RunningService()
         self._health_service = health_service or HealthIngestService()
+        self._readiness_service = readiness_service or ReadinessService(health_service=self._health_service)
         self._training_load_service = training_load_service or TrainingLoadService(
             running_service=self._running_service, gym_service=self._gym_service
         )
@@ -285,6 +303,7 @@ class SirisAgentService:
             "get_health_summary": self._get_health_summary,
             "get_training_conflict_today": self._get_training_conflict_today,
             "get_achievements": self._get_achievements,
+            "get_readiness_score": self._get_readiness_score,
             "get_docker_status": self._get_docker_status,
             "get_host_metrics": self._get_host_metrics,
             "get_homelab_alerts": self._get_homelab_alerts,
@@ -404,6 +423,9 @@ class SirisAgentService:
 
     def _get_achievements(self, _arguments: dict[str, Any]) -> object:
         return self._achievement_service.list_achievements()
+
+    def _get_readiness_score(self, _arguments: dict[str, Any]) -> object:
+        return self._readiness_service.today()
 
     def _get_docker_status(self, _arguments: dict[str, Any]) -> object:
         return self._docker_monitor.collect()
