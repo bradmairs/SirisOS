@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.services.activity_service import ActivityService
 from app.services.docker_service import DockerMonitor
 from app.services.home_assistant_service import HomeAssistantService
+from app.services.homelab_alert_service import HomelabAlertService
 from app.services.homelab_audit_service import HomelabAuditService
 from app.services.host_metrics_service import HostMetricsCollector
 from app.services.prometheus_service import PrometheusService
@@ -18,12 +19,6 @@ router = APIRouter(prefix="/api/v1/homelab", tags=["homelab"])
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
-CPU_WARNING = float(os.getenv("SIRISOS_CPU_WARNING_PERCENT", "80"))
-CPU_CRITICAL = float(os.getenv("SIRISOS_CPU_CRITICAL_PERCENT", "95"))
-MEMORY_WARNING = float(os.getenv("SIRISOS_MEMORY_WARNING_PERCENT", "80"))
-MEMORY_CRITICAL = float(os.getenv("SIRISOS_MEMORY_CRITICAL_PERCENT", "95"))
-DISK_WARNING = float(os.getenv("SIRISOS_DISK_WARNING_PERCENT", "80"))
-DISK_CRITICAL = float(os.getenv("SIRISOS_DISK_CRITICAL_PERCENT", "90"))
 
 collector = HostMetricsCollector()
 docker_monitor = DockerMonitor()
@@ -161,28 +156,6 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
         raise HTTPException(status_code=401, detail="Invalid session user.")
 
 
-def _metric_alert(name: str, value: float | None, warning: float, critical: float) -> AlertResponse | None:
-    if value is None:
-        return None
-    if value >= critical:
-        severity = "critical"
-        threshold = critical
-    elif value >= warning:
-        severity = "warning"
-        threshold = warning
-    else:
-        return None
-    return AlertResponse(
-        id=f"host-{name.lower()}",
-        severity=severity,
-        source="Host",
-        title=f"High {name} usage",
-        message=f"{name} is at {value:.1f}%, above the {severity} threshold of {threshold:.0f}%.",
-        value=value,
-        threshold=threshold,
-    )
-
-
 async def _probe_integration(
     *,
     key: str,
@@ -232,34 +205,24 @@ async def _probe_integration(
 @router.get("/alerts", response_model=AlertSummaryResponse)
 async def alerts(authorization: Annotated[str | None, Header()] = None) -> AlertSummaryResponse:
     _authenticate(authorization)
-    items: list[AlertResponse] = []
-
-    host = collector.collect()
-    if host.available:
-        for alert in (
-            _metric_alert("CPU", host.cpu_percent, CPU_WARNING, CPU_CRITICAL),
-            _metric_alert("Memory", host.memory_percent, MEMORY_WARNING, MEMORY_CRITICAL),
-            _metric_alert("Disk", host.disk_percent, DISK_WARNING, DISK_CRITICAL),
-        ):
-            if alert is not None:
-                items.append(alert)
-
-    docker = docker_monitor.collect()
-    if not docker.available:
-        items.append(AlertResponse(id="docker-unavailable", severity="critical", source="Docker", title="Docker monitoring unavailable", message=docker.error or "The Docker socket proxy cannot be reached."))
-    else:
-        for container in docker.containers:
-            if container.health == "unhealthy":
-                items.append(AlertResponse(id=f"container-{container.container_id}-unhealthy", severity="critical", source=container.name, title="Container unhealthy", message=f"{container.name} is reporting an unhealthy status."))
-            elif container.state != "running":
-                items.append(AlertResponse(id=f"container-{container.container_id}-stopped", severity="warning", source=container.name, title="Container not running", message=f"{container.name} is currently {container.state}."))
-            if container.update_available:
-                items.append(AlertResponse(id=f"container-{container.container_id}-update", severity="warning", source=container.name, title="Container image update available", message=f"A newer image is available for {container.image}."))
-
-    warning_count = sum(item.severity == "warning" for item in items)
-    critical_count = sum(item.severity == "critical" for item in items)
-    status_value: Literal["healthy", "warning", "critical"] = "critical" if critical_count else "warning" if warning_count else "healthy"
-    return AlertSummaryResponse(status=status_value, warning_count=warning_count, critical_count=critical_count, alerts=items)
+    summary = HomelabAlertService(host_metrics_collector=collector, docker_monitor=docker_monitor).get_summary()
+    return AlertSummaryResponse(
+        status=summary.status,
+        warning_count=summary.warning_count,
+        critical_count=summary.critical_count,
+        alerts=[
+            AlertResponse(
+                id=item.id,
+                severity=item.severity,
+                source=item.source,
+                title=item.title,
+                message=item.message,
+                value=item.value,
+                threshold=item.threshold,
+            )
+            for item in summary.alerts
+        ],
+    )
 
 
 @router.get("/docker/updates", response_model=DockerUpdateSummaryResponse)

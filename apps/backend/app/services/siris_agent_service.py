@@ -9,6 +9,7 @@ from app.services.achievement_service import AchievementService
 from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
 from app.services.health_ingest_service import HealthIngestService
+from app.services.homelab_alert_service import HomelabAlertService
 from app.services.host_metrics_service import HostMetricsCollector
 from app.services.ollama_service import chat_client
 from app.services.running_service import RunningService
@@ -25,9 +26,11 @@ from app.services.training_load_service import TrainingLoadService
 # fact it states still has to come from a tool call, never its own training
 # data. v1 scoped to Training + Health; Homelab (Docker status, host
 # metrics) added in v2, reusing the same already-shipped deterministic
-# services the Homelab dashboard cards already call -- Knowledge and
-# Projects remain unscoped since neither has a clean service-layer object
-# to wrap the same way (their logic lives directly in API route handlers).
+# services the Homelab dashboard cards already call. Homelab alerts followed
+# once their scoring logic was itself extracted out of the route handler
+# into HomelabAlertService (ADR 094) -- Knowledge and Projects remain
+# unscoped since neither has a clean service-layer object to wrap the same
+# way (their logic lives directly in API route handlers).
 
 MAX_TOOL_ITERATIONS = 5
 DEFAULT_LIST_LIMIT = 5
@@ -220,6 +223,19 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_homelab_alerts",
+            "description": (
+                "Active homelab alerts right now -- high host CPU/memory/disk usage, "
+                "Docker monitoring unavailable, and any container that's unhealthy, "
+                "stopped, or has an image update available. Includes an overall "
+                "healthy/warning/critical status and counts."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -235,6 +251,7 @@ class SirisAgentService:
         achievement_service: AchievementService | None = None,
         docker_monitor: DockerMonitor | None = None,
         host_metrics_collector: HostMetricsCollector | None = None,
+        homelab_alert_service: HomelabAlertService | None = None,
     ) -> None:
         self._gym_service = gym_service or GymService()
         self._running_service = running_service or RunningService()
@@ -255,6 +272,9 @@ class SirisAgentService:
         )
         self._docker_monitor = docker_monitor or DockerMonitor()
         self._host_metrics_collector = host_metrics_collector or HostMetricsCollector()
+        self._homelab_alert_service = homelab_alert_service or HomelabAlertService(
+            host_metrics_collector=self._host_metrics_collector, docker_monitor=self._docker_monitor
+        )
         self._dispatch = {
             "get_strength_score": self._get_strength_score,
             "get_training_level": self._get_training_level,
@@ -267,6 +287,7 @@ class SirisAgentService:
             "get_achievements": self._get_achievements,
             "get_docker_status": self._get_docker_status,
             "get_host_metrics": self._get_host_metrics,
+            "get_homelab_alerts": self._get_homelab_alerts,
         }
 
     async def ask(self, messages: list[dict[str, Any]]) -> SirisAgentAnswer:
@@ -389,3 +410,6 @@ class SirisAgentService:
 
     def _get_host_metrics(self, _arguments: dict[str, Any]) -> object:
         return self._host_metrics_collector.collect()
+
+    def _get_homelab_alerts(self, _arguments: dict[str, Any]) -> object:
+        return self._homelab_alert_service.get_summary()
