@@ -6,8 +6,10 @@ from datetime import date, datetime
 from typing import Any
 
 from app.services.achievement_service import AchievementService
+from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
 from app.services.health_ingest_service import HealthIngestService
+from app.services.host_metrics_service import HostMetricsCollector
 from app.services.ollama_service import chat_client
 from app.services.running_service import RunningService
 from app.services.training_conflict_service import TrainingConflictService
@@ -21,22 +23,27 @@ from app.services.training_load_service import TrainingLoadService
 # of these same underlying services to call based on a free-text question,
 # genuinely "ask anything" within what SirisOS actually knows -- but every
 # fact it states still has to come from a tool call, never its own training
-# data. Scoped to Training + Health for v1, matching what this session
-# already built deep, well-tested deterministic services for.
+# data. v1 scoped to Training + Health; Homelab (Docker status, host
+# metrics) added in v2, reusing the same already-shipped deterministic
+# services the Homelab dashboard cards already call -- Knowledge and
+# Projects remain unscoped since neither has a clean service-layer object
+# to wrap the same way (their logic lives directly in API route handlers).
 
 MAX_TOOL_ITERATIONS = 5
 DEFAULT_LIST_LIMIT = 5
 MAX_LIST_LIMIT = 20
 
-REFUSAL_MESSAGE = "I can only answer questions about your own SirisOS training and health data."
+REFUSAL_MESSAGE = (
+    "I can only answer questions about your own SirisOS training, health and homelab data."
+)
 
 SIRIS_AGENT_SYSTEM_PROMPT = (
-    "You are Siris, a personal training and health assistant inside SirisOS. You can "
-    "ONLY answer questions about the athlete's own SirisOS training and health data -- "
-    "strength, running, gym workouts, muscle recovery, Apple Health metrics, "
-    "achievements. You have tools that look up that real data.\n\n"
+    "You are Siris, a personal training, health and homelab assistant inside SirisOS. You "
+    "can ONLY answer questions about the athlete's own SirisOS data -- strength, running, "
+    "gym workouts, muscle recovery, Apple Health metrics, achievements, Docker container "
+    "status, and server/host resource usage. You have tools that look up that real data.\n\n"
     "Rules, no exceptions:\n"
-    "1. If the question is not about the athlete's own training or health data -- "
+    "1. If the question is not about the athlete's own training, health or homelab data -- "
     "general knowledge, world facts, anything none of your tools can answer -- do not "
     f"call any tool. Reply with exactly this sentence: \"{REFUSAL_MESSAGE}\"\n"
     "2. If it IS about their data, call the tool(s) that answer it before saying "
@@ -190,6 +197,29 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_docker_status",
+            "description": (
+                "Status of every Docker container on the homelab server -- how many are "
+                "running, stopped, or unhealthy, and each container's name, state and "
+                "health."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_host_metrics",
+            "description": (
+                "The homelab server's own resource usage right now -- CPU, memory and "
+                "disk percent used, load average, and uptime."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -203,6 +233,8 @@ class SirisAgentService:
         training_conflict_service: TrainingConflictService | None = None,
         training_level_service: TrainingLevelService | None = None,
         achievement_service: AchievementService | None = None,
+        docker_monitor: DockerMonitor | None = None,
+        host_metrics_collector: HostMetricsCollector | None = None,
     ) -> None:
         self._gym_service = gym_service or GymService()
         self._running_service = running_service or RunningService()
@@ -221,6 +253,8 @@ class SirisAgentService:
         self._achievement_service = achievement_service or AchievementService(
             running_service=self._running_service, gym_service=self._gym_service
         )
+        self._docker_monitor = docker_monitor or DockerMonitor()
+        self._host_metrics_collector = host_metrics_collector or HostMetricsCollector()
         self._dispatch = {
             "get_strength_score": self._get_strength_score,
             "get_training_level": self._get_training_level,
@@ -231,6 +265,8 @@ class SirisAgentService:
             "get_health_summary": self._get_health_summary,
             "get_training_conflict_today": self._get_training_conflict_today,
             "get_achievements": self._get_achievements,
+            "get_docker_status": self._get_docker_status,
+            "get_host_metrics": self._get_host_metrics,
         }
 
     async def ask(self, messages: list[dict[str, Any]]) -> SirisAgentAnswer:
@@ -347,3 +383,9 @@ class SirisAgentService:
 
     def _get_achievements(self, _arguments: dict[str, Any]) -> object:
         return self._achievement_service.list_achievements()
+
+    def _get_docker_status(self, _arguments: dict[str, Any]) -> object:
+        return self._docker_monitor.collect()
+
+    def _get_host_metrics(self, _arguments: dict[str, Any]) -> object:
+        return self._host_metrics_collector.collect()
