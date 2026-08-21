@@ -3,7 +3,9 @@ import json
 from datetime import date
 from pathlib import Path
 
+from app.services.docker_service import DockerContainer, DockerSummary
 from app.services.gym_service import GymService
+from app.services.host_metrics_service import HostMetrics
 from app.services.ollama_service import OllamaChatResult, OllamaToolCall
 from app.services.running_service import RunningService
 from app.services.siris_agent_service import SirisAgentService
@@ -214,3 +216,97 @@ def test_get_recent_workouts_includes_total_volume(tmp_path: Path, monkeypatch) 
     assert len(workouts) == 1
     assert workouts[0]["total_volume_kg"] == 960.0
     assert len(workouts[0]["sets"]) == 2
+
+
+class _FakeDockerMonitor:
+    def collect(self, *, check_updates: bool = False) -> DockerSummary:
+        return DockerSummary(
+            available=True,
+            total=2,
+            running=1,
+            stopped=1,
+            unhealthy=0,
+            updates_available=0,
+            containers=[
+                DockerContainer(
+                    container_id="abc123",
+                    name="sirisos-api",
+                    image="sirisos-api:latest",
+                    state="running",
+                    status="Up 2 hours",
+                    health="healthy",
+                    cpu_percent=1.2,
+                    memory_usage_bytes=100_000_000,
+                    memory_limit_bytes=500_000_000,
+                    memory_percent=20.0,
+                ),
+                DockerContainer(
+                    container_id="def456",
+                    name="sirisos-worker",
+                    image="sirisos-worker:latest",
+                    state="exited",
+                    status="Exited (1) 3 hours ago",
+                    health=None,
+                    cpu_percent=None,
+                    memory_usage_bytes=None,
+                    memory_limit_bytes=None,
+                    memory_percent=None,
+                ),
+            ],
+        )
+
+
+class _FakeHostMetricsCollector:
+    def collect(self) -> HostMetrics:
+        return HostMetrics(available=True, hostname="siris-server", cpu_percent=12.5, memory_percent=44.0)
+
+
+def _build_with_homelab(tmp_path: Path, monkeypatch) -> SirisAgentService:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/siris_agent_homelab.db")
+    return SirisAgentService(
+        docker_monitor=_FakeDockerMonitor(),
+        host_metrics_collector=_FakeHostMetricsCollector(),
+    )
+
+
+def test_get_docker_status_returns_real_container_data(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_homelab(tmp_path, monkeypatch)
+
+    status = agent._get_docker_status({})
+
+    assert status.running == 1
+    assert status.stopped == 1
+    assert status.containers[0].name == "sirisos-api"
+    assert status.containers[1].state == "exited"
+
+
+def test_get_host_metrics_returns_real_data(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_homelab(tmp_path, monkeypatch)
+
+    metrics = agent._get_host_metrics({})
+
+    assert metrics.available is True
+    assert metrics.cpu_percent == 12.5
+    assert metrics.memory_percent == 44.0
+
+
+def test_agent_dispatches_docker_status_through_the_full_loop(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_homelab(tmp_path, monkeypatch)
+    fake_chat = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_docker_status", arguments={})],
+            ),
+            OllamaChatResult(content="One container is down.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake_chat)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "Are all my containers healthy?"}]))
+
+    assert result.tools_used == ["get_docker_status"]
+    tool_messages = [item for item in fake_chat.calls[1] if item.get("role") == "tool"]
+    payload = json.loads(tool_messages[0]["content"])
+    assert payload["running"] == 1
+    assert payload["containers"][1]["name"] == "sirisos-worker"
