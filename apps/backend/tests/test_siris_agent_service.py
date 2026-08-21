@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.services.docker_service import DockerContainer, DockerSummary
 from app.services.gym_service import GymService
+from app.services.homelab_alert_service import HomelabAlert, HomelabAlertSummary
 from app.services.host_metrics_service import HostMetrics
 from app.services.ollama_service import OllamaChatResult, OllamaToolCall
 from app.services.running_service import RunningService
@@ -261,11 +262,31 @@ class _FakeHostMetricsCollector:
         return HostMetrics(available=True, hostname="siris-server", cpu_percent=12.5, memory_percent=44.0)
 
 
+class _FakeHomelabAlertService:
+    def get_summary(self) -> HomelabAlertSummary:
+        return HomelabAlertSummary(
+            status="critical",
+            warning_count=1,
+            critical_count=1,
+            alerts=[
+                HomelabAlert(
+                    id="docker-unavailable", severity="critical", source="Docker",
+                    title="Docker monitoring unavailable", message="The Docker socket proxy cannot be reached.",
+                ),
+                HomelabAlert(
+                    id="host-cpu", severity="warning", source="Host", title="High CPU usage",
+                    message="CPU is at 85.0%, above the warning threshold of 80%.", value=85.0, threshold=80.0,
+                ),
+            ],
+        )
+
+
 def _build_with_homelab(tmp_path: Path, monkeypatch) -> SirisAgentService:
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/siris_agent_homelab.db")
     return SirisAgentService(
         docker_monitor=_FakeDockerMonitor(),
         host_metrics_collector=_FakeHostMetricsCollector(),
+        homelab_alert_service=_FakeHomelabAlertService(),
     )
 
 
@@ -310,3 +331,37 @@ def test_agent_dispatches_docker_status_through_the_full_loop(tmp_path: Path, mo
     payload = json.loads(tool_messages[0]["content"])
     assert payload["running"] == 1
     assert payload["containers"][1]["name"] == "sirisos-worker"
+
+
+def test_get_homelab_alerts_returns_real_summary_data(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_homelab(tmp_path, monkeypatch)
+
+    summary = agent._get_homelab_alerts({})
+
+    assert summary.status == "critical"
+    assert summary.warning_count == 1
+    assert summary.critical_count == 1
+    assert len(summary.alerts) == 2
+
+
+def test_agent_dispatches_homelab_alerts_through_the_full_loop(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_homelab(tmp_path, monkeypatch)
+    fake_chat = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_homelab_alerts", arguments={})],
+            ),
+            OllamaChatResult(content="One critical and one warning alert are active.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake_chat)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "Any homelab alerts right now?"}]))
+
+    assert result.tools_used == ["get_homelab_alerts"]
+    tool_messages = [item for item in fake_chat.calls[1] if item.get("role") == "tool"]
+    payload = json.loads(tool_messages[0]["content"])
+    assert payload["status"] == "critical"
+    assert payload["critical_count"] == 1
+    assert payload["alerts"][0]["id"] == "docker-unavailable"
