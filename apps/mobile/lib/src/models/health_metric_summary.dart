@@ -51,6 +51,28 @@ class DailyMetricPoint {
   final int sampleCount;
 }
 
+class DailyReadinessPoint {
+  const DailyReadinessPoint({
+    required this.day,
+    required this.score,
+    required this.hrvRatio,
+    required this.sleepRatio,
+  });
+
+  factory DailyReadinessPoint.fromJson(Map<String, dynamic> json) =>
+      DailyReadinessPoint(
+        day: DateTime.parse(json['day'] as String),
+        score: json['score'] as int?,
+        hrvRatio: (json['hrv_ratio'] as num?)?.toDouble(),
+        sleepRatio: (json['sleep_ratio'] as num?)?.toDouble(),
+      );
+
+  final DateTime day;
+  final int? score;
+  final double? hrvRatio;
+  final double? sleepRatio;
+}
+
 class UnloggedHealthWorkout {
   const UnloggedHealthWorkout({
     required this.externalId,

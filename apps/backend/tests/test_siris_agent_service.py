@@ -8,6 +8,7 @@ from app.services.gym_service import GymService
 from app.services.homelab_alert_service import HomelabAlert, HomelabAlertSummary
 from app.services.host_metrics_service import HostMetrics
 from app.services.ollama_service import OllamaChatResult, OllamaToolCall
+from app.services.readiness_service import DailyReadinessPoint
 from app.services.running_service import RunningService
 from app.services.siris_agent_service import SirisAgentService
 
@@ -365,3 +366,45 @@ def test_agent_dispatches_homelab_alerts_through_the_full_loop(tmp_path: Path, m
     assert payload["status"] == "critical"
     assert payload["critical_count"] == 1
     assert payload["alerts"][0]["id"] == "docker-unavailable"
+
+
+class _FakeReadinessService:
+    def today(self):
+        return DailyReadinessPoint(day=date(2026, 3, 10), score=78, hrv_ratio=85.0, sleep_ratio=71.0)
+
+
+def _build_with_readiness(tmp_path: Path, monkeypatch) -> SirisAgentService:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/siris_agent_readiness.db")
+    return SirisAgentService(readiness_service=_FakeReadinessService())
+
+
+def test_get_readiness_score_returns_real_data(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_readiness(tmp_path, monkeypatch)
+
+    point = agent._get_readiness_score({})
+
+    assert point.score == 78
+    assert point.hrv_ratio == 85.0
+    assert point.sleep_ratio == 71.0
+
+
+def test_agent_dispatches_readiness_score_through_the_full_loop(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_readiness(tmp_path, monkeypatch)
+    fake_chat = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_readiness_score", arguments={})],
+            ),
+            OllamaChatResult(content="Your readiness is 78 today, a bit below your norm.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake_chat)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "How ready am I today?"}]))
+
+    assert result.tools_used == ["get_readiness_score"]
+    tool_messages = [item for item in fake_chat.calls[1] if item.get("role") == "tool"]
+    payload = json.loads(tool_messages[0]["content"])
+    assert payload["score"] == 78
+    assert payload["hrv_ratio"] == 85.0

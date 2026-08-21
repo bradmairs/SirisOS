@@ -18,10 +18,13 @@ DAILY_HISTORY_DEFAULT_DAYS = 30
 
 # Apple Health samples arrive as real UTC instants, but "today's total" only
 # means something in the athlete's own local calendar day -- with no
-# timezone concept, a morning walk in Sydney (UTC+10/11) would silently land
-# in "yesterday"'s UTC-day bucket. This is the first local-time-aware code
-# in the backend; everywhere else still treats naive datetimes as UTC.
-HEALTH_TIMEZONE_NAME = os.getenv("SIRISOS_TIMEZONE", "Australia/Sydney")
+# timezone concept, a morning walk in Melbourne (UTC+10/11) would silently
+# land in "yesterday"'s UTC-day bucket. This is the first local-time-aware
+# code in the backend; everywhere else still treats naive datetimes as UTC.
+# SIRISOS_TIMEZONE was previously read here but never actually wired through
+# docker-compose.yml, so production always silently ran on this default --
+# now both are kept in sync (see docker-compose.yml).
+HEALTH_TIMEZONE_NAME = os.getenv("SIRISOS_TIMEZONE", "Australia/Melbourne")
 HEALTH_TIMEZONE = ZoneInfo(HEALTH_TIMEZONE_NAME)
 
 # HealthKit's own quantity-type aggregation style: cumulative types (steps,
@@ -38,11 +41,34 @@ CUMULATIVE_METRIC_TYPES = {
     "sleep_analysis",
     "sleep",
     "sleep_duration",
+    "flights_climbed",
 }
 
 
 def _is_cumulative(metric_type: str) -> bool:
     return metric_type.lower() in CUMULATIVE_METRIC_TYPES
+
+
+# Sleep is the one metric where "today's total" bucketed by plain local
+# calendar day is wrong: a real night's sleep straddles midnight, so most of
+# it (everything after 00:00) would land on the wake-up day while the
+# pre-midnight portion silently landed on the day before -- fragmenting one
+# night into two days and making "last night's sleep" look mostly missing.
+# Sleep instead buckets to the day the athlete woke up, using the standard
+# trick of shifting the clock back before taking the date: any sample
+# between local `SLEEP_DAY_CUTOFF_HOUR` on day D and the same hour on day
+# D+1 lands on D+1. The cutoff itself is deliberately late in the evening
+# (20:00), not noon: it's also used to bucket `now` when computing "today's
+# total" for display, and a noon cutoff would make that total silently
+# reset to zero mid-afternoon -- hours before that night's sleep has even
+# started -- rather than keep showing last night's completed total for the
+# rest of the day the way a person actually expects.
+SLEEP_METRIC_TYPES = {"sleep_analysis", "sleep", "sleep_duration"}
+SLEEP_DAY_CUTOFF_HOUR = 20
+
+
+def _is_sleep(metric_type: str) -> bool:
+    return metric_type.lower() in SLEEP_METRIC_TYPES
 
 
 def _as_aware(moment: datetime) -> datetime:
@@ -54,6 +80,23 @@ def _as_aware(moment: datetime) -> datetime:
 
 def _local_date(moment: datetime) -> date:
     return _as_aware(moment).astimezone(HEALTH_TIMEZONE).date()
+
+
+def to_local_date(moment: datetime) -> date:
+    """Public wrapper so other services (e.g. TrainingConflictService) compare
+    a health sample's timestamp against a reference *local* calendar day the
+    same way this module does internally, rather than a raw UTC .date() --
+    which silently misses "today's" data for roughly half of every day, since
+    HEALTH_TIMEZONE (UTC+10/11) means a Melbourne evening is already the next
+    UTC calendar day."""
+    return _local_date(moment)
+
+
+def _bucket_day(moment: datetime, metric_type: str) -> date:
+    local_dt = _as_aware(moment).astimezone(HEALTH_TIMEZONE)
+    if _is_sleep(metric_type):
+        return (local_dt - timedelta(hours=SLEEP_DAY_CUTOFF_HOUR)).date() + timedelta(days=1)
+    return local_dt.date()
 
 
 def _local_day_start_utc(day: date) -> datetime:
@@ -408,12 +451,12 @@ class HealthIngestService:
     def _cumulative_summary(
         metric_type: str, rows: list[HealthMetricSampleModel], baseline_days: int, now: datetime
     ) -> HealthMetricSummary:
-        today_local = _local_date(now)
+        today_local = _bucket_day(now, metric_type)
         daily_totals: dict[date, float] = {}
         daily_unit: dict[date, str | None] = {}
         daily_latest_timestamp: dict[date, datetime] = {}
         for row in rows:
-            day = _local_date(row.timestamp)
+            day = _bucket_day(row.timestamp, metric_type)
             daily_totals[day] = daily_totals.get(day, 0.0) + row.value
             daily_unit[day] = row.unit
             aware_timestamp = _as_aware(row.timestamp)
@@ -467,9 +510,9 @@ class HealthIngestService:
         cumulative = _is_cumulative(metric_type)
         buckets: dict[date, list[HealthMetricSampleModel]] = {}
         for row in rows:
-            buckets.setdefault(_local_date(row.timestamp), []).append(row)
+            buckets.setdefault(_bucket_day(row.timestamp, metric_type), []).append(row)
 
-        today_local = _local_date(now)
+        today_local = _bucket_day(now, metric_type)
         cutoff = today_local - timedelta(days=days - 1)
 
         points: list[DailyMetricPoint] = []
@@ -507,12 +550,12 @@ class HealthIngestService:
         for row in rows:
             by_type.setdefault(row.metric_type, []).append(row)
 
-        today_local = _local_date(now)
         metrics: list[HealthSnapshotMetric] = []
         for metric_type, type_rows in by_type.items():
             type_rows.sort(key=lambda row: _as_aware(row.timestamp))
             if _is_cumulative(metric_type):
-                today_rows = [row for row in type_rows if _local_date(row.timestamp) == today_local]
+                today_bucket = _bucket_day(now, metric_type)
+                today_rows = [row for row in type_rows if _bucket_day(row.timestamp, metric_type) == today_bucket]
                 value = sum(row.value for row in today_rows)
                 latest_timestamp = (
                     max(_as_aware(row.timestamp) for row in today_rows)

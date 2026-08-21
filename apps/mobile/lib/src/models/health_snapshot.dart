@@ -1,3 +1,50 @@
+// Shared between HealthMetric, the Recovery baseline rows, and the metric
+// history screen -- every place a raw metric_type/unit string from the
+// backend reaches the UI. Raw values are whatever the ingestion source used
+// (HealthKit's own SCREAMING_SNAKE_CASE enum names, e.g. "BEATS_PER_MINUTE"),
+// never meant for display as-is.
+String healthMetricDisplayName(String name) => switch (name.toLowerCase()) {
+      'step_count' || 'steps' => 'Steps',
+      'resting_heart_rate' => 'Resting heart rate',
+      'heart_rate_variability' || 'hrv' => 'Heart rate variability',
+      'sleep_analysis' || 'sleep' || 'sleep_duration' => 'Sleep',
+      'body_mass' || 'weight' => 'Weight',
+      'active_energy_burned' || 'active_energy' => 'Active energy',
+      'vo2_max' || 'vo2max' => 'VO₂ max',
+      'blood_oxygen' => 'Blood oxygen',
+      'respiratory_rate' => 'Respiratory rate',
+      'body_fat_percentage' => 'Body fat',
+      'flights_climbed' => 'Flights climbed',
+      _ => name
+          .split('_')
+          .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}')
+          .join(' '),
+    };
+
+const Map<String, String?> _knownUnits = {
+  'beats_per_minute': 'bpm',
+  'count': null, // "7,500" reads better than "7500 count"
+  'kilogram': 'kg',
+  'gram': 'g',
+  'percent': '%',
+  'millisecond': 'ms',
+  'second': 's',
+  'hour': 'hr',
+  'minute': 'min',
+  'kilocalorie': 'kcal',
+  'meter': 'm',
+  'kilometer': 'km',
+  'degree_celsius': '°C',
+  'respirations_per_minute': 'breaths/min',
+};
+
+String? healthMetricFriendlyUnit(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  final key = raw.toLowerCase();
+  if (_knownUnits.containsKey(key)) return _knownUnits[key];
+  return key.replaceAll('_', ' ');
+}
+
 class HealthMetric {
   const HealthMetric({
     required this.name,
@@ -18,18 +65,7 @@ class HealthMetric {
   final String? unit;
   final String? date;
 
-  String get displayName => switch (name.toLowerCase()) {
-        'step_count' || 'steps' => 'Steps',
-        'resting_heart_rate' => 'Resting heart rate',
-        'sleep_analysis' || 'sleep' || 'sleep_duration' => 'Sleep',
-        'body_mass' || 'weight' => 'Weight',
-        'active_energy_burned' || 'active_energy' => 'Active energy',
-        'vo2_max' || 'vo2max' => 'VO₂ max',
-        _ => name
-            .split('_')
-            .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
-            .join(' '),
-      };
+  String get displayName => healthMetricDisplayName(name);
 
   String get displayValue {
     final raw = value;
@@ -39,7 +75,8 @@ class HealthMetric {
             ? raw.toInt().toString()
             : raw.toDouble().toStringAsFixed(1)
         : raw.toString();
-    return unit == null || unit!.isEmpty ? formatted : '$formatted $unit';
+    final friendlyUnit = healthMetricFriendlyUnit(unit);
+    return friendlyUnit == null || friendlyUnit.isEmpty ? formatted : '$formatted $friendlyUnit';
   }
 }
 

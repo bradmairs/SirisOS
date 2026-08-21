@@ -20,15 +20,23 @@ class HealthKitSyncService {
   static const _lastSyncKey = 'health_kit_last_sync_millis';
 
   // Maps to the same metric_type strings the backend/UI already recognise
-  // (see HealthIngestService, health_screen.dart's _metricStyle). VO2 max is
-  // not yet exposed by the `health` plugin's HealthDataType, so it is not
-  // synced by this path.
+  // (see HealthIngestService, health_snapshot.dart's healthMetricDisplayName).
+  // VO2 max is not yet exposed by the `health` plugin's HealthDataType, so
+  // it is not synced by this path. HEART_RATE_VARIABILITY_SDNN feeds both
+  // the Health screen and TrainingConflictService/ReadinessService, which
+  // already recognised "heart_rate_variability" before any data for it
+  // existed -- this is what actually starts populating it.
   static const Map<hk.HealthDataType, String> _metricTypes = {
     hk.HealthDataType.STEPS: 'step_count',
     hk.HealthDataType.RESTING_HEART_RATE: 'resting_heart_rate',
+    hk.HealthDataType.HEART_RATE_VARIABILITY_SDNN: 'heart_rate_variability',
     hk.HealthDataType.SLEEP_ASLEEP: 'sleep_analysis',
     hk.HealthDataType.WEIGHT: 'body_mass',
     hk.HealthDataType.ACTIVE_ENERGY_BURNED: 'active_energy_burned',
+    hk.HealthDataType.BLOOD_OXYGEN: 'blood_oxygen',
+    hk.HealthDataType.RESPIRATORY_RATE: 'respiratory_rate',
+    hk.HealthDataType.BODY_FAT_PERCENTAGE: 'body_fat_percentage',
+    hk.HealthDataType.FLIGHTS_CLIMBED: 'flights_climbed',
   };
 
   List<hk.HealthDataType> get _requestedTypes => [

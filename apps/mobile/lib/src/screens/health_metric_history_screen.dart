@@ -62,7 +62,7 @@ class _HealthMetricHistoryScreenState
               ),
             );
           }
-          final unit = points.last.unit ?? '';
+          final unit = healthMetricFriendlyUnit(points.last.unit) ?? '';
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(

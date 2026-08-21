@@ -33,6 +33,7 @@ class _HealthScreenState extends State<HealthScreen> {
   late Future<HealthSnapshot> _future;
   late Future<List<HealthMetricSummary>> _summaryFuture;
   late Future<List<UnloggedHealthWorkout>> _unloggedWorkoutsFuture;
+  late Future<List<DailyReadinessPoint>> _readinessHistoryFuture;
   StreamSubscription<SirisEvent>? _eventSubscription;
   bool _syncing = false;
   String? _syncError;
@@ -46,6 +47,7 @@ class _HealthScreenState extends State<HealthScreen> {
     _future = _service.fetchSnapshot();
     _summaryFuture = _service.fetchSummary();
     _unloggedWorkoutsFuture = _service.fetchUnloggedWorkouts();
+    _readinessHistoryFuture = _service.fetchReadinessHistory();
     _eventSubscription =
         SirisEventBus.instance.on<ModuleDataChanged>().listen((event) {
       if (event.moduleId == 'health') _refresh();
@@ -68,10 +70,12 @@ class _HealthScreenState extends State<HealthScreen> {
     final next = _service.fetchSnapshot();
     final nextSummary = _service.fetchSummary();
     final nextUnloggedWorkouts = _service.fetchUnloggedWorkouts();
+    final nextReadinessHistory = _service.fetchReadinessHistory();
     setState(() {
       _future = next;
       _summaryFuture = nextSummary;
       _unloggedWorkoutsFuture = nextUnloggedWorkouts;
+      _readinessHistoryFuture = nextReadinessHistory;
     });
     await next;
   }
@@ -167,6 +171,8 @@ class _HealthScreenState extends State<HealthScreen> {
                     const SizedBox(height: 20),
                     _ConnectionCard(snapshot: data, syncError: _syncError, healthKitSupported: _healthKitSupported),
                     const SizedBox(height: 20),
+                    _ReadinessSection(future: _readinessHistoryFuture),
+                    const SizedBox(height: 20),
                     if (data.available && data.metrics.isNotEmpty) ...[
                       Text('Today', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 12),
@@ -193,6 +199,182 @@ class _HealthScreenState extends State<HealthScreen> {
         },
       ),
     );
+  }
+}
+
+class _ReadinessSection extends StatelessWidget {
+  const _ReadinessSection({required this.future});
+
+  final Future<List<DailyReadinessPoint>> future;
+
+  static Color _scoreColor(int score) {
+    if (score >= 70) return AppTheme.success;
+    if (score >= 40) return const Color(0xFFFFB020);
+    return const Color(0xFFE5484D);
+  }
+
+  static String _scoreLabel(int score) {
+    if (score >= 85) return 'Great';
+    if (score >= 70) return 'Good';
+    if (score >= 40) return 'Fair';
+    return 'Low';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<DailyReadinessPoint>>(
+      future: future,
+      builder: (context, snapshot) {
+        final points = snapshot.data ?? const <DailyReadinessPoint>[];
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        final scored = points.where((point) => point.score != null).toList(growable: false);
+        if (scored.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Readiness', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Not enough synced heart rate variability or sleep history yet to '
+                    'compute a readiness score.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final today = scored.last;
+        final color = _scoreColor(today.score!);
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Readiness', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Today, vs your own HRV and sleep baseline.',
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${today.score}',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: color,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        Text(_scoreLabel(today.score!), style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 120,
+                  width: double.infinity,
+                  child: scored.length < 2
+                      ? Center(
+                          child: Icon(Icons.show_chart_rounded, size: 36, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        )
+                      : CustomPaint(
+                          painter: _ReadinessChartPainter(
+                            samples: scored,
+                            lineColor: color,
+                            gridColor: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+                            fillColor: color.withValues(alpha: 0.12),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ReadinessChartPainter extends CustomPainter {
+  const _ReadinessChartPainter({
+    required this.samples,
+    required this.lineColor,
+    required this.gridColor,
+    required this.fillColor,
+  });
+
+  final List<DailyReadinessPoint> samples;
+  final Color lineColor;
+  final Color gridColor;
+  final Color fillColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const topPadding = 6.0;
+    const bottomPadding = 6.0;
+    final chartHeight = size.height - topPadding - bottomPadding;
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 2; i++) {
+      final y = topPadding + chartHeight * i / 2;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final points = <Offset>[];
+    for (var i = 0; i < samples.length; i++) {
+      final x = samples.length == 1 ? 0.0 : size.width * i / (samples.length - 1);
+      final normalised = (samples[i].score! / 100).clamp(0.0, 1.0);
+      final y = topPadding + chartHeight * (1 - normalised);
+      points.add(Offset(x, y));
+    }
+
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      linePath.lineTo(point.dx, point.dy);
+    }
+    final fillPath = Path.from(linePath)
+      ..lineTo(points.last.dx, topPadding + chartHeight)
+      ..lineTo(points.first.dx, topPadding + chartHeight)
+      ..close();
+
+    canvas.drawPath(fillPath, Paint()..color = fillColor);
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawCircle(points.last, 4, Paint()..color = lineColor);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ReadinessChartPainter oldDelegate) {
+    return oldDelegate.samples != samples || oldDelegate.lineColor != lineColor;
   }
 }
 
@@ -245,6 +427,7 @@ class _RecoveryBaselineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = item.baselineRatio;
+    final friendlyUnit = healthMetricFriendlyUnit(item.unit);
     return InkWell(
       onTap: () => _openMetricHistory(context, item.metricType),
       child: Padding(
@@ -253,12 +436,12 @@ class _RecoveryBaselineRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                item.metricType.replaceAll('_', ' '),
+                healthMetricDisplayName(item.metricType),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
             Text(
-              '${item.latestValue.toStringAsFixed(1)}${item.unit != null ? ' ${item.unit}' : ''}',
+              '${item.latestValue.toStringAsFixed(1)}${friendlyUnit != null ? ' $friendlyUnit' : ''}',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 10),
@@ -547,7 +730,12 @@ class _IntegrationDetails extends StatelessWidget {
               value: lastSyncTime == null ? 'Never' : _formatRelative(lastSyncTime!),
             ),
             const SizedBox(height: 8),
-            _DetailRow(label: 'Metrics tracked', value: snapshot.tools.isEmpty ? 'None' : snapshot.tools.join(', ')),
+            _DetailRow(
+              label: 'Metrics tracked',
+              value: snapshot.tools.isEmpty
+                  ? 'None'
+                  : snapshot.tools.map(healthMetricDisplayName).join(', '),
+            ),
           ],
         ),
       ),
@@ -621,10 +809,15 @@ class _HealthError extends StatelessWidget {
   return switch (name.toLowerCase()) {
     'step_count' || 'steps' => (icon: Icons.directions_walk_rounded, color: const Color(0xFF38BDF8)),
     'resting_heart_rate' => (icon: Icons.monitor_heart_rounded, color: const Color(0xFFFF5D8F)),
+    'heart_rate_variability' || 'hrv' => (icon: Icons.timeline_rounded, color: const Color(0xFF5DD8C8)),
     'sleep_analysis' || 'sleep' || 'sleep_duration' => (icon: Icons.bedtime_rounded, color: const Color(0xFF8B7CFF)),
     'body_mass' || 'weight' => (icon: Icons.monitor_weight_rounded, color: const Color(0xFFC45BFF)),
     'active_energy_burned' || 'active_energy' => (icon: Icons.local_fire_department_rounded, color: const Color(0xFFFF9D3D)),
     'vo2_max' || 'vo2max' => (icon: Icons.air_rounded, color: const Color(0xFF63D83A)),
+    'blood_oxygen' => (icon: Icons.bloodtype_rounded, color: const Color(0xFFE0446E)),
+    'respiratory_rate' => (icon: Icons.air_rounded, color: const Color(0xFF4FA8E8)),
+    'body_fat_percentage' => (icon: Icons.pie_chart_rounded, color: const Color(0xFFC45BFF)),
+    'flights_climbed' => (icon: Icons.stairs_rounded, color: const Color(0xFFFF9D3D)),
     _ => (icon: Icons.favorite_rounded, color: AppTheme.primary),
   };
 }
