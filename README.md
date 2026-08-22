@@ -87,6 +87,10 @@ SirisOS now maintains a deterministic current context with typed facts, prioriti
 
 The service publishes `ContextSnapshotChanged` through the Event Bus, keeps a bounded transition timeline, and appears in Mission Control and Operations Center. Personal states such as sleeping, working or travelling are not guessed; they remain deferred until authoritative Apple Health, Home Assistant presence, calendar or project providers exist. ADR 031.
 
+### Manual context override v1
+
+The Context panel (Mission Control's `siris.context` widget / Operations Center) now has a header action to directly assert a context fact -- a label, optional detail, a domain and an optional expiry (1h/4h/8h/no expiry) -- rather than waiting for a provider to infer one. `ManualContextOverrideProvider` emits it at priority 200, above every provider-derived fact (the highest, UPS power events, is 100), so it always wins as `snapshot.primary`; setting or clearing it refreshes the panel immediately. Persisted client-side via `SharedPreferences`, the same boundary every other Context Service provider already lives behind -- there's no server-side context store to persist through. An expired override is deleted from storage the moment it's read past its expiry, though display freshness is bounded by the same event-triggered refresh cadence as the rest of Context Service, not a dedicated timer. ADR 099.
+
 ## Sprint 0.4.5 — Engineering Module 🚧 in progress
 
 Engineering is now a first-class SirisOS module.
