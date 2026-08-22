@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/siris_agent.dart';
 import '../services/ollama_status_service.dart';
@@ -13,12 +17,34 @@ const _examplePrompts = [
   'What project am I currently working on?',
 ];
 
+// Conversation state lives client-side, stateless per call on the backend
+// (ADR 091) -- persistence is entirely local too. Capped on both ends: only
+// the most recent turns are kept in storage (a chat transcript isn't meant
+// to grow forever), and only a shorter recent window is actually sent as
+// context on each request, so a long-lived persisted conversation can't
+// silently balloon every Ollama call's token count.
+const _maxStoredTurns = 200;
+const _maxContextTurns = 20;
+const _chatHistoryPrefsKey = 'siris_agent_chat_history_v1';
+
 class _ChatTurn {
   const _ChatTurn({required this.role, required this.content, this.toolsUsed});
+
+  factory _ChatTurn.fromJson(Map<String, dynamic> json) => _ChatTurn(
+        role: json['role'] as String,
+        content: json['content'] as String,
+        toolsUsed: (json['toolsUsed'] as List<dynamic>?)?.whereType<String>().toList(growable: false),
+      );
 
   final String role; // 'user' | 'assistant'
   final String content;
   final List<String>? toolsUsed;
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'content': content,
+        if (toolsUsed != null) 'toolsUsed': toolsUsed,
+      };
 }
 
 class SirisAgentChatScreen extends StatefulWidget {
@@ -36,11 +62,60 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
   final List<_ChatTurn> _turns = [];
   late Future<OllamaStatus> _statusFuture;
   bool _sending = false;
+  bool _restoredHistory = false;
 
   @override
   void initState() {
     super.initState();
     _statusFuture = _statusService.status();
+    _restoreHistory();
+  }
+
+  Future<void> _restoreHistory() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.getString(_chatHistoryPrefsKey);
+    if (raw == null) {
+      setState(() => _restoredHistory = true);
+      return;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        final restored = decoded
+            .whereType<Map<String, dynamic>>()
+            .map(_ChatTurn.fromJson)
+            .toList(growable: false);
+        if (!mounted) return;
+        setState(() {
+          _turns.addAll(restored);
+          _restoredHistory = true;
+        });
+        _scrollToBottom();
+        return;
+      }
+    } catch (_) {
+      // A corrupted or outdated stored payload must not block the chat
+      // screen from opening -- just start fresh, same fail-open spirit as
+      // every other local-only cache in this app.
+    }
+    if (mounted) setState(() => _restoredHistory = true);
+  }
+
+  Future<void> _persistHistory() async {
+    final preferences = await SharedPreferences.getInstance();
+    final toStore = _turns.length > _maxStoredTurns
+        ? _turns.sublist(_turns.length - _maxStoredTurns)
+        : _turns;
+    await preferences.setString(
+      _chatHistoryPrefsKey,
+      jsonEncode(toStore.map((turn) => turn.toJson()).toList(growable: false)),
+    );
+  }
+
+  Future<void> _clearConversation() async {
+    setState(() => _turns.clear());
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_chatHistoryPrefsKey);
   }
 
   @override
@@ -70,9 +145,17 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
     });
     _input.clear();
     _scrollToBottom();
+    unawaited(_persistHistory());
     try {
+      // Only a recent window is sent as context, independent of how long
+      // the persisted, on-screen conversation has grown -- a chat restored
+      // from days ago shouldn't silently balloon every request's token
+      // count just because it's still visible.
+      final contextTurns = _turns.length > _maxContextTurns
+          ? _turns.sublist(_turns.length - _maxContextTurns)
+          : _turns;
       final history =
-          _turns.map((turn) => SirisAgentMessage(role: turn.role, content: turn.content)).toList();
+          contextTurns.map((turn) => SirisAgentMessage(role: turn.role, content: turn.content)).toList();
       final reply = await _service.ask(history);
       if (!mounted) return;
       setState(() {
@@ -86,6 +169,7 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
       _scrollToBottom();
+      unawaited(_persistHistory());
     }
   }
 
@@ -114,18 +198,29 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
                     return _OllamaStatusChip(status: status);
                   },
                 ),
+                if (_restoredHistory && _turns.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: _clearConversation,
+                    tooltip: 'Clear conversation',
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ],
             ),
           ),
           Expanded(
-            child: _turns.isEmpty
-                ? _EmptyChatState(onExampleTap: _send)
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _turns.length,
-                    itemBuilder: (context, index) => _ChatBubble(turn: _turns[index]),
-                  ),
+            child: !_restoredHistory
+                ? const SizedBox.shrink()
+                : _turns.isEmpty
+                    ? _EmptyChatState(onExampleTap: _send)
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _turns.length,
+                        itemBuilder: (context, index) => _ChatBubble(turn: _turns[index]),
+                      ),
           ),
           if (_sending)
             const Padding(
