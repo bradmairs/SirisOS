@@ -85,7 +85,7 @@ Important architecture ADRs: 012–030.
 
 SirisOS now maintains a deterministic current context with typed facts, priorities and provenance. Initial operational contexts include power events, backup attention, network/storage/compute degradation and nominal homelab state.
 
-The service publishes `ContextSnapshotChanged` through the Event Bus, keeps a bounded transition timeline, and appears in Mission Control and Operations Center. Personal states such as sleeping, working or travelling are not guessed; they remain deferred until authoritative Health Data Export, Home Assistant presence, calendar or project providers exist. ADR 031.
+The service publishes `ContextSnapshotChanged` through the Event Bus, keeps a bounded transition timeline, and appears in Mission Control and Operations Center. Personal states such as sleeping, working or travelling are not guessed; they remain deferred until authoritative Apple Health, Home Assistant presence, calendar or project providers exist. ADR 031.
 
 ## Sprint 0.4.5 — Engineering Module 🚧 in progress
 
@@ -185,7 +185,7 @@ GitHub Actions CI now runs on pull requests and `main` pushes. It validates:
 
 The goal is to prevent dependency/API/deployment regressions from reaching `main` while preserving the normal self-hosted deployment workflow.
 
-## Health Data Export REST ingestion
+## Apple Health ingestion
 
 Canonical Apple Health ingestion is a dedicated REST endpoint. The SirisOS iOS
 app reads HealthKit directly (see `apps/mobile`'s `HealthKitSyncService`) and
