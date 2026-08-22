@@ -360,6 +360,10 @@ A Recommendation's `capability_id`/`capability_params` are now populated for the
 
 `home_assistant.control` (light/switch/input_boolean, low risk, no confirmation) and `home_assistant.cover_control` (covers, medium risk, confirmation required) join the capability registry alongside the three Docker capabilities, both delegating to the same `HomeAssistantService.call_service()` the direct REST endpoint already used — no second execution path. Along the way, moved audit recording out of the route handler and into the service itself (matching `DockerMonitor`'s existing pattern), so every caller gets a complete audit trail automatically rather than each caller having to remember to add it — the same fix ADR 065 made once already, this time at the layer that actually needed it. ADR 096.
 
+### Recommendation Ollama synthesis v1
+
+`Recommendation.synthesized_rationale` optionally rephrases the deterministic rationale into one natural sentence — the third instance of the SirisHydro (ADR 057) / Coach weekly report (ADR 090) fail-open pattern: `chat_client.complete()` on top of an already-correct deterministic fact, `null` whenever Ollama is unconfigured, unreachable, or returns nothing usable. Computed once, at the moment a recommendation is first detected, not on every poll of the same still-open recommendation — this endpoint reconciles fresh alert state on every `GET` (ADR 064), so without that guard a polling Operations Center screen would re-call Ollama for an unchanged recommendation indefinitely. Flutter's `displayRationale` getter (`synthesizedRationale ?? rationale`) mirrors Coach's own `synthesizedHeadline ?? headline` fallback exactly. ADR 097.
+
 Planned automation stack:
 
 - Structured provenance (typed source object reference, confidence) and cross-object traversal for Siris Memory

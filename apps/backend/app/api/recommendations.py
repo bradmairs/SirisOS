@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.api import homelab_alerts
 from app.services.activity_service import ActivityService
+from app.services.ollama_service import chat_client
 
 router = APIRouter(prefix="/api/v1/recommendations", tags=["recommendations"])
 
@@ -20,6 +21,14 @@ RECOMMENDATIONS_PATH = Path(os.getenv("SIRISOS_RECOMMENDATIONS_PATH", "/app/data
 MAX_RECOMMENDATION_RECORDS = 500
 
 RecommendationStatus = Literal["pending", "dismissed", "acted"]
+
+RECOMMENDATION_SYSTEM_PROMPT = (
+    "You are Siris, a homelab operations assistant. Rephrase the given "
+    "deterministic recommendation as one natural, conversational sentence "
+    "explaining the issue and what to do about it. Use only the facts "
+    "already stated -- do not add causes, container names, values or claims "
+    "that are not already there."
+)
 
 activity_service = ActivityService()
 activity_service.initialise()
@@ -36,6 +45,7 @@ class Recommendation(BaseModel):
     suggested_action: str
     capability_id: str | None = None
     capability_params: dict[str, str] | None = None
+    synthesized_rationale: str | None = None
     status: RecommendationStatus
     created_at: str
     updated_at: str
@@ -162,7 +172,18 @@ async def _reconcile(authorization: str | None) -> list[Recommendation]:
     for candidate in candidates[:MAX_RECOMMENDATION_RECORDS]:
         prior = existing.get(candidate.id)
         if prior is None:
-            reconciled.append(candidate)
+            # Fail-open, same contract as Coach's weekly report (ADR 090):
+            # the deterministic rationale is always correct and already
+            # returned; this is an optional rephrase on top, never a
+            # replacement source of facts. Only attempted once, at the
+            # moment a recommendation is first detected -- every later poll
+            # for the same still-open recommendation reuses this result
+            # rather than re-calling Ollama on every request.
+            synthesized_rationale = await chat_client.complete(
+                system=RECOMMENDATION_SYSTEM_PROMPT,
+                prompt=f"{candidate.title}: {candidate.rationale} Suggested action: {candidate.suggested_action}",
+            )
+            reconciled.append(candidate.model_copy(update={"synthesized_rationale": synthesized_rationale}))
             activity_service.record(
                 module="recommendations",
                 event_type="recommendation_created",
@@ -177,6 +198,7 @@ async def _reconcile(authorization: str | None) -> list[Recommendation]:
                         "status": prior.status,
                         "created_at": prior.created_at,
                         "updated_at": prior.updated_at,
+                        "synthesized_rationale": prior.synthesized_rationale,
                     }
                 )
             )
