@@ -363,11 +363,15 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 
 Suggested internal sequencing: Ollama connector → Siris Memory → recommendation engine → Action Framework → Playbooks → Siris Inbox. Hermes should not receive meaningful write/control capability until the deterministic layers ahead of it (Planner, Action Framework, approvals) are solid — automation must stay explainable and approved, not just fast.
 
+A comprehensive SirisAI architecture brainstorm (an intelligence/context/memory/reasoning/orchestration layer, distinct from Ollama as the inference engine and Hermes as the execution/agent layer) was reconciled into this sprint. Most of its ambitious surface turned out to already be planned or shipped under different names — the Knowledge Graph (Sprint 0.6), Digital Twin (0.4.3j), Siris Inbox, contextual "Ask Siris"/"Explain this", the "Why?" provenance affordance (Explicit exclusions / rules below), Richer Morning Briefing (Sprint 1.0) and the tool-using SirisAgent itself (ADRs 091–094) all predate it. The genuinely new ideas are folded into the subsections below, plus a new speculative tier at the end for the furthest-out ones.
+
 ### Ollama / local inference
 - [x] Ollama connector/provider with server-side configuration (ADR 057)
 - [x] SirisHydro answer synthesis grounded in retrieved evidence, fail-open when Ollama is unavailable (ADR 057)
 - [ ] Shared model routing for SirisHydro, SirisPM, briefings and semantic search
 - [ ] Per-module model/profile selection and context budgets
+- [ ] Task-based model routing — route each request to the right local model for the job (a fast/small model for classification-style lookups, a larger model for synthesis, a vision-capable model for images) instead of one fixed model for everything
+- [ ] Local multimodal vision — feed a photo/screenshot/diagram (a homelab rack photo, a network diagram, an engineering site photo) to a vision-capable Ollama model and get it described/analyzed against real SirisOS context, same fail-open/evidence-grounded contract as every other Ollama use in this app
 - [x] Model availability monitoring (ADR 058)
 - [ ] Preserve deterministic outputs beneath optional LLM rewriting
 - [x] SirisAI tool-using agent v1 — "ask anything" grounded in real SirisOS data, not free-form chat against Ollama's own training data: Ollama gets nine tools backed by already-shipped deterministic services (Strength Score, Training Level, muscle-group fatigue, weekly training load, Health summary, training conflict, achievements, recent runs/workouts) and decides which to call per question; every fact it states traces to a real tool result. Scoped to Training + Health for v1, not Homelab/Knowledge/Projects. Client-side conversation state, stateless per-call backend. New "Chat" tab on the Siris module alongside the existing Memory tab (ADR 091)
@@ -388,11 +392,19 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] Palette results blend live state, related Knowledge notes/projects and available actions for a single query (e.g. "plex" → status + notes + project + restart/logs actions)
 - [ ] Contextual "Ask Siris" / "Explain this" affordance on individual objects — server, project, calculation, standard, incident, Knowledge note — not only inside one dedicated chat screen
 - [ ] Keep a global Siris chat alongside contextual entry points, not instead of them
+- [ ] Converge the Command Palette (search/navigate) and the SirisAgent Chat tab (ADR 091) into one Cmd+K-reachable, page-aware AI surface open to every module — today they're two separate surfaces, and the agent is still scoped to Training/Health/Homelab rather than truly universal
+- [ ] Natural-language analytics — ask a question of any SirisOS dataset ("how has my resting HR trended since I started the new job") and get a deterministic answer with an auto-generated chart, generalizing the existing training-scoped Ask Siris (ADR 071) pattern beyond Training/Health
 
 ### Siris Inbox
 - [ ] Unified attention queue distinct from Operations Center (investigate) and Notification Policies (alert) — Inbox is where Siris surfaces things it thinks deserve a human decision
 - [ ] Each item exposes why Siris noticed it → evidence → suggested action → dismiss/snooze/act
 - [ ] Sits between Notification Policies, the Incident Engine and the Operations Planner/recommendation engine below
+- [ ] Shadow Mode — observe repeated user actions over time (e.g. always turning off the same light at the same time) and surface the pattern as a proposed automation to approve, rather than SirisOS inventing automations unprompted
+
+### Explainable investigation
+- [ ] AI-narrated "what changed" digest — a natural-language summary layered on top of the deterministic per-object History Engine queries (0.4.3g), spanning multiple domains in one digest ("since yesterday: two containers updated, your resting HR rose 8%, a new PR on bench") rather than one object at a time
+- [ ] Incident Commander — extend the Incident Engine (0.4.3i) and Recommendation Engine (ADR 064) from flat evidence lists into an investigative root-cause narrative/timeline ("probable cause: X, because: [ordered evidence]"), still grounded in real dependency/evidence data per the Digital Twin causation rule below, never inferred
+- [ ] Explicit confidence levels (High/Moderate/Low) surfaced alongside any AI-narrated claim, extending the existing "Why?" provenance affordance rather than replacing it
 
 ### Hermes Agent / server runtime
 - [ ] Optional Hermes Agent connector/runtime adapter
@@ -420,7 +432,17 @@ Suggested internal sequencing: Ollama connector → Siris Memory → recommendat
 - [ ] n8n integration
 - [ ] Event-driven Siris Automations
 - [ ] Human approval policies shared by Hermes and other automation
+- [ ] Specialist agent auto-routing — SirisAgent already scopes its tools by module (Training+Health+Homelab); extend this into named per-domain personas (e.g. a homelab-focused agent, a training-focused agent) that a single "ask anything" entry point routes to automatically, never a manual model/agent picker
+- [ ] Formal AI action-permission tiers — a stated Read Only / Recommend / Ask Before Acting / Trusted Automation scale, per capability rather than a single app-wide setting, formalizing what Action Framework's existing risk/confirmation metadata (ADR 065) already does implicitly, ahead of SirisAgent (currently read-only) ever gaining write tools
+- [ ] Sandbox / simulate-before-executing — show the predicted effect of a proposed action (especially a Hermes or Action Framework write) before it runs, reusing Digital Twin downstream-impact traversal where a dependency exists
+- [ ] Extend proactive, narrated recommendations beyond Homelab (ADR 064's current `homelab_alerts` source) into Training/Health/Engineering once each has a real backend signal to evaluate, rather than remaining a homelab-only pattern
+- [ ] Cross-domain reasoning as an explicit design target — SirisAgent's Training+Health+Homelab tool access today is already cross-domain in effect; state it as a goal so future tool/module additions (Engineering, Knowledge, Projects) are added with that connectivity in mind, not as isolated per-module silos
 - [x] ADR 029: SirisAI orchestration vs Hermes runtime vs Ollama inference
+
+### Experimental (explicitly speculative, not scheduled)
+- [ ] General-purpose prediction engine — trend extrapolation across any tracked SirisOS metric (homelab capacity, training load, backup growth), distinct from the narrow single-purpose Race Predictor in Sprint 0.9
+- [ ] Natural-language dashboard builder — describe a Mission Control widget in plain language and have SirisAI assemble it from already-existing data sources, rather than every widget being hand-built
+- [ ] SirisAI Developer Mode — SirisAI reads and reasons about the SirisOS codebase itself and proposes (never silently applies) code changes; the furthest-out idea in this section, gated on every safety mechanism above (permission tiers, sandbox, audit trail) actually existing first
 
 ## Sprint 0.8 — Plugin SDK
 
