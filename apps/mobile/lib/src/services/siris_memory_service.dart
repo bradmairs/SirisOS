@@ -49,6 +49,18 @@ class SirisMemoryRecord {
       );
 }
 
+class SirisMemorySuggestion {
+  const SirisMemorySuggestion({required this.memoryClass, required this.content});
+
+  factory SirisMemorySuggestion.fromJson(Map<String, dynamic> json) => SirisMemorySuggestion(
+        memoryClass: SirisMemoryClassLabel.fromApiValue(json['memory_class'] as String),
+        content: json['content'] as String,
+      );
+
+  final SirisMemoryClass memoryClass;
+  final String content;
+}
+
 class SirisMemoryService {
   Future<List<SirisMemoryRecord>> list({SirisMemoryClass? memoryClass}) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/siris/memory').replace(
@@ -90,6 +102,37 @@ class SirisMemoryService {
       throw SirisMemoryException('Unable to save memory (${response.statusCode}).');
     }
     return SirisMemoryRecord.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  /// Best-effort: asks the backend to extract candidate memories from one real
+  /// chat exchange. Fails open (empty list) on any error -- a suggestion
+  /// failure must never surface as an error to someone just trying to chat.
+  Future<List<SirisMemorySuggestion>> suggest({
+    required String userMessage,
+    required String assistantMessage,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/api/v1/siris/memory/suggest'),
+            headers: {
+              ...AuthService.authorizationHeaders,
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'user_message': userMessage, 'assistant_message': assistantMessage}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return const [];
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      // Growable: the chat screen calls .remove() on this list when the
+      // athlete saves or dismisses a suggestion chip.
+      return (body['suggestions'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(SirisMemorySuggestion.fromJson)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> delete(String id) async {
