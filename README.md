@@ -356,13 +356,17 @@ Server-side capability registry (`GET /api/v1/actions`, `POST /api/v1/actions/{c
 
 A Recommendation's `capability_id`/`capability_params` are now populated for the alert shapes that have a real registered capability behind them — `container-*-stopped` → `docker.start`, `container-*-unhealthy` → `docker.restart` — giving those recommendations a "Run" button in Operations Center instead of just descriptive text. Running it calls the same audited `/api/v1/actions/{id}/execute` endpoint Action Framework v1 already built, then auto-marks the recommendation acted on success. Every other recommendation (host resource alerts, `docker-unavailable`, image updates) stays descriptive-only, since no capability exists for them — nothing is force-fit. The Flutter `SirisCapabilityRegistry` (ADR 030) is still separate/discovery-only; this wiring goes through the backend registry directly. ADR 068.
 
+### Home Assistant capabilities
+
+`home_assistant.control` (light/switch/input_boolean, low risk, no confirmation) and `home_assistant.cover_control` (covers, medium risk, confirmation required) join the capability registry alongside the three Docker capabilities, both delegating to the same `HomeAssistantService.call_service()` the direct REST endpoint already used — no second execution path. Along the way, moved audit recording out of the route handler and into the service itself (matching `DockerMonitor`'s existing pattern), so every caller gets a complete audit trail automatically rather than each caller having to remember to add it — the same fix ADR 065 made once already, this time at the layer that actually needed it. ADR 096.
+
 Planned automation stack:
 
 - Structured provenance (typed source object reference, confidence) and cross-object traversal for Siris Memory
 - Palette results blending live state, related Knowledge/Projects and available actions per query; contextual "Ask Siris" on individual objects
 - Siris Inbox — a unified attention/decision queue distinct from Operations Center and Notification Policies
 - Extend Recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation
-- Bring Home Assistant control into the capability registry
+- Bind a Home Assistant-triggered recommendation to the new capabilities once `homelab_alerts` produces an HA-shaped alert
 - Playbook Engine
 - Context-aware recommendations
 - n8n integration

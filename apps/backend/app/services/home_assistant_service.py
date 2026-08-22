@@ -10,6 +10,8 @@ import httpx
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed, WebSocketException
 
+from app.services.activity_service import ActivityService
+
 
 @dataclass(frozen=True)
 class HomeAssistantEntity:
@@ -50,6 +52,9 @@ class HomeAssistantService:
         self._sequence = 0
         self._last_error: str | None = None
         self._lock = asyncio.Lock()
+        self._activity = ActivityService()
+        self._activity.initialise()
+        self._username = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 
     @property
     def configured(self) -> bool:
@@ -97,13 +102,19 @@ class HomeAssistantService:
         return await self._rest_snapshot()
 
     async def call_service(self, domain: str, service: str, entity_id: str) -> None:
+        label = f"{domain}.{service}"
         if not self.configured:
+            self._record(label, entity_id, "failed", "Home Assistant is not configured.")
             raise RuntimeError("Home Assistant is not configured.")
         allowed = _ALLOWED_SERVICES.get(domain)
         if allowed is None or service not in allowed:
-            raise ValueError(f"Service {domain}.{service} is not permitted by SirisOS.")
+            detail = f"Service {label} is not permitted by SirisOS."
+            self._record(label, entity_id, "rejected", detail)
+            raise ValueError(detail)
         if not entity_id.startswith(f"{domain}."):
-            raise ValueError("Entity domain does not match the requested service domain.")
+            detail = "Entity domain does not match the requested service domain."
+            self._record(label, entity_id, "rejected", detail)
+            raise ValueError(detail)
 
         try:
             async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -114,9 +125,25 @@ class HomeAssistantService:
                 )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise RuntimeError(
-                f"Home Assistant service call failed: {type(exc).__name__}"
-            ) from exc
+            detail = f"Home Assistant service call failed: {type(exc).__name__}"
+            self._record(label, entity_id, "failed", detail)
+            raise RuntimeError(detail) from exc
+
+        self._record(label, entity_id, "success", f"{label} executed on {entity_id}.")
+
+    def _record(self, service_label: str, entity_id: str, result: str, detail: str) -> None:
+        try:
+            severity = "info" if result == "success" else "warning" if result == "rejected" else "critical"
+            self._activity.record(
+                module="homelab",
+                event_type="home_assistant_action",
+                title=f"{service_label} {result}" if result != "success" else service_label,
+                message=detail,
+                severity=severity,
+                user=self._username,
+            )
+        except Exception:
+            pass
 
     def _ensure_listener(self) -> None:
         if not self.configured:

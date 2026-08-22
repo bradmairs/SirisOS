@@ -14,6 +14,17 @@ def _token() -> str:
     )
 
 
+class _FakeHomeAssistantService:
+    def __init__(self, *, raises: Exception | None = None) -> None:
+        self.raises = raises
+        self.calls: list[tuple[str, str, str]] = []
+
+    async def call_service(self, domain: str, service: str, entity_id: str) -> None:
+        self.calls.append((domain, service, entity_id))
+        if self.raises is not None:
+            raise self.raises
+
+
 class _FakeDockerMonitor:
     def __init__(self, *, raises: Exception | None = None, result: str = "running") -> None:
         self.raises = raises
@@ -53,11 +64,21 @@ def test_list_capabilities_returns_docker_actions() -> None:
     username = _current_username()
     results = asyncio.run(actions.list_capabilities(_=username))
     ids = {item.id for item in results}
-    assert ids == {"docker.start", "docker.stop", "docker.restart"}
+    assert ids == {
+        "docker.start",
+        "docker.stop",
+        "docker.restart",
+        "home_assistant.control",
+        "home_assistant.cover_control",
+    }
     restart = next(item for item in results if item.id == "docker.restart")
     assert restart.requires_confirmation is True
     start = next(item for item in results if item.id == "docker.start")
     assert start.requires_confirmation is False
+    cover = next(item for item in results if item.id == "home_assistant.cover_control")
+    assert cover.requires_confirmation is True
+    control = next(item for item in results if item.id == "home_assistant.control")
+    assert control.requires_confirmation is False
 
 
 def test_execute_low_risk_capability_without_confirmation(monkeypatch) -> None:
@@ -168,3 +189,104 @@ def test_execute_missing_container_id_returns_400(monkeypatch) -> None:
     else:
         raise AssertionError("Expected 400 for missing container_id")
     assert fake.calls == []
+
+
+def test_execute_home_assistant_control_without_confirmation(monkeypatch) -> None:
+    fake = _FakeHomeAssistantService()
+    monkeypatch.setattr(actions, "home_assistant_service", fake)
+    username = _current_username()
+
+    response = asyncio.run(
+        actions.execute_capability(
+            "home_assistant.control",
+            actions.ActionExecuteRequest(
+                params={"domain": "light", "service": "turn_on", "entity_id": "light.living_room"},
+                confirm=False,
+            ),
+            username,
+        )
+    )
+
+    assert response.accepted is True
+    assert fake.calls == [("light", "turn_on", "light.living_room")]
+
+
+def test_execute_home_assistant_control_rejects_cover_domain(monkeypatch) -> None:
+    fake = _FakeHomeAssistantService()
+    monkeypatch.setattr(actions, "home_assistant_service", fake)
+    username = _current_username()
+
+    try:
+        asyncio.run(
+            actions.execute_capability(
+                "home_assistant.control",
+                actions.ActionExecuteRequest(
+                    params={"domain": "cover", "service": "open_cover", "entity_id": "cover.garage"},
+                    confirm=False,
+                ),
+                username,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 400
+    else:
+        raise AssertionError("Expected cover domain to be rejected by home_assistant.control")
+    assert fake.calls == []
+
+
+def test_execute_home_assistant_cover_control_requires_confirmation(monkeypatch) -> None:
+    fake = _FakeHomeAssistantService()
+    monkeypatch.setattr(actions, "home_assistant_service", fake)
+    username = _current_username()
+
+    try:
+        asyncio.run(
+            actions.execute_capability(
+                "home_assistant.cover_control",
+                actions.ActionExecuteRequest(
+                    params={"service": "open_cover", "entity_id": "cover.garage"},
+                    confirm=False,
+                ),
+                username,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 400
+    else:
+        raise AssertionError("Expected confirmation-required rejection")
+    assert fake.calls == []
+
+    response = asyncio.run(
+        actions.execute_capability(
+            "home_assistant.cover_control",
+            actions.ActionExecuteRequest(
+                params={"service": "open_cover", "entity_id": "cover.garage"},
+                confirm=True,
+            ),
+            username,
+        )
+    )
+    assert response.accepted is True
+    assert fake.calls == [("cover", "open_cover", "cover.garage")]
+
+
+def test_execute_home_assistant_control_propagates_rejection_as_400(monkeypatch) -> None:
+    fake = _FakeHomeAssistantService(raises=ValueError("Service light.explode is not permitted by SirisOS."))
+    monkeypatch.setattr(actions, "home_assistant_service", fake)
+    username = _current_username()
+
+    try:
+        asyncio.run(
+            actions.execute_capability(
+                "home_assistant.control",
+                actions.ActionExecuteRequest(
+                    params={"domain": "light", "service": "explode", "entity_id": "light.living_room"},
+                    confirm=False,
+                ),
+                username,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 400
+    else:
+        raise AssertionError("Expected 400 for a rejected Home Assistant service")
