@@ -364,6 +364,14 @@ Four new tools bring SirisAgent to 17: `search_knowledge`, `read_knowledge_note`
 
 Rather than keep tuning prompt wording against a model limit, `search_knowledge` was redesigned to not depend on reliable chaining at all: it now returns the best-matching note's real content directly in `top_result_content`, alongside the usual title/tag hit list -- `read_knowledge_note` still exists for a hit other than the top one. Re-tested 4/4 correct after the change (each answer correctly citing "AS 3725" and "1 in 5 years" from the real note), versus 0/4 correct immediately before it. "Change what the tool returns instead of tuning the prompt further" is the concrete, reusable lesson here -- the first SirisAgent slice where an architecture change, not more prompt iteration, is what actually fixed a reliability problem. Backend: 315 tests pass (30 new). ADR 098.
 
+### SirisAgent Chat Persistence
+
+The conversation had always lived entirely client-side, stateless per call on the backend (ADR 091) -- but "client-side" meant a plain `State` field, gone the moment the screen closed or the app restarted. `_ChatTurn` now round-trips through JSON into `SharedPreferences`, saved after every message and restored on screen open; a corrupted or unparseable stored payload fails open into a fresh empty conversation rather than blocking the screen, the same convention used everywhere else in this app.
+
+Two independent caps, for two different reasons: storage keeps only the most recent 200 turns (a transcript isn't meant to grow forever), and only the most recent 20 are actually sent as conversation context on each request regardless of how much history is on-screen or in storage -- without that second cap, a conversation revisited weeks later would silently send its entire history as context every time, growing token cost and latency indefinitely. That specific problem couldn't exist before this ADR, since in-memory-only state reset on every restart naturally bounded it. A "clear conversation" icon next to the Ollama status chip (shown only once there's something to clear) resets both the in-memory list and the stored payload.
+
+No backend change at all -- purely client-side, consistent with SirisAgent's stateless-backend architecture. Live-verified in the browser: sent a real message, reloaded the page, the exact same conversation reappeared; cleared it, reloaded again, confirmed it stayed empty. ADR 100.
+
 ### Universal Command Palette
 
 Cmd+K / Ctrl+K opens a lightweight dialog overlay from any screen, reusing the global search endpoint (ADR 062) rather than a new search implementation — arrow-key highlight navigation, Enter to open the highlighted result, Escape to close, click/tap to navigate. The desktop sidebar's "Search" entry opens the palette directly (with a `⌘K` hint); the full-screen `GlobalSearchScreen` remains the mobile Quick Actions entry point, where a dialog is a worse fit than dedicated touch targets. ADR 063.
