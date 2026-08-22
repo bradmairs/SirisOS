@@ -171,7 +171,7 @@ UPS / NUT:
 - [x] ADR 031
 - [ ] Persist context timeline through History Engine
 - [ ] Manual context override with expiry/provenance
-- [ ] Health Data Export context provider
+- [ ] Apple Health context provider
 - [ ] Home Assistant presence provider
 - [ ] Calendar/work/project context providers
 - [ ] Context-aware Briefing Engine and Siris Score
@@ -286,7 +286,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Full unified production `sirisos` Docker image build
 - [ ] Require CI status checks in branch protection once repository policy is configured
 
-## Health Data Export REST ingestion
+## Apple Health ingestion
 
 - [x] `POST /api/v1/health/ingest` ingestion endpoint
 - [x] Dedicated unattended bearer token (`SIRISOS_HEALTH_INGEST_TOKEN`)
@@ -301,7 +301,7 @@ Context claims remain evidence-based; SirisOS must not infer working/sleeping/tr
 - [x] Quick-log an unlogged Apple Health run v1 — the Health screen's "Log this run" button pre-fills the existing Add Run dialog with distance/pace/heart rate computed directly from the Apple Health workout, a genuine one-tap-to-review-and-save flow. Strength workouts stay visibility-only -- Apple Health captures duration/calories, not sets/reps/weight, so there's nothing meaningful to pre-fill on the Gym form. One dialog implementation now serves both the Running screen's own "+" button and this quick-log path (ADR 089)
 - [x] Apple Health integration overhaul — fixed sleep bucketing (a night's sleep was fragmenting across the pre/post-midnight boundary, making "last night's sleep" look mostly missing; now buckets to the wake day with a late-evening cutoff so the total also stays visible through the whole day rather than resetting hours before that night's sleep even starts), a second real timezone bug in `TrainingConflictService` found live (compared a sample's raw UTC date against the reference day instead of converting to local time first), `SIRISOS_TIMEZONE` never actually being wired through `docker-compose.yml` despite being read, and raw `SCREAMING_SNAKE_CASE` unit/metric-name display everywhere a Health value reached the UI. Added HRV, blood oxygen, respiratory rate, body fat percentage and flights climbed to native HealthKit sync -- HRV specifically had been recognised by name in `TrainingConflictService` since it shipped, with nothing ever actually syncing it. Live-verified against 21 days of realistic seeded data (ADR 095)
 - [x] Daily readiness/recovery score v1 — self-relative like every other score in this app: HRV and sleep duration each expressed as a percent of the athlete's own trailing baseline, averaged and clamped to [0, 100], with a typical day (both at baseline) scoring 100 rather than reserving that for an unusually good day. Computed live from existing daily history, no new table. New `get_readiness_score` SirisAgent tool (13th tool) and a score-plus-30-day-graph card on the Health screen (ADR 095)
-- [ ] Health Data Export context provider
+- [ ] Apple Health context provider
 - [x] Keep MCP as an optional interactive/debug query layer rather than canonical ingestion
 
 ## Sprint 0.5.0 — Knowledge Platform 🚧 In progress
@@ -456,7 +456,7 @@ A comprehensive SirisAI architecture brainstorm (an intelligence/context/memory/
 
 Running and Gym have been fully shipped, DB-backed modules since early in the project but never had a roadmap section of their own — this sprint gives them one, incorporating a dedicated brainstorm into a single training-intelligence direction rather than two apps that happen to live in the same shell. The signature goal (per the brainstorm's own framing): general fitness apps have great loggers; a self-hosted system's edge is saying *"your last five interval sessions performed best when they were at least 48 hours after legs, so I've moved Thursday's run to Friday"* — running, lifting, recovery and schedule informing each other, not living in silos.
 
-Suggested internal sequencing, adapted from the brainstorm's own recommended order to reflect what's already real: Progressive overload → PR/record tracking → weekly training load → Siris Coach summaries → Ask Siris training queries → conflict detection → adaptive planning → correlation/predictive features. Apple Health recovery data (HRV, sleep, resting HR) is a hard dependency for readiness-aware features (Run Readiness, deload detection, conflict detection) — see the "Health Data Export REST ingestion" section above, which this sprint depends on rather than duplicates. HRV import and a first readiness score now exist (ADR 095); Run Readiness and deload detection remain unbuilt.
+Suggested internal sequencing, adapted from the brainstorm's own recommended order to reflect what's already real: Progressive overload → PR/record tracking → weekly training load → Siris Coach summaries → Ask Siris training queries → conflict detection → adaptive planning → correlation/predictive features. Apple Health recovery data (HRV, sleep, resting HR) is a hard dependency for readiness-aware features (Run Readiness, deload detection, conflict detection) — see the "Apple Health ingestion" section above, which this sprint depends on rather than duplicates. HRV import and a first readiness score now exist (ADR 095); Run Readiness and deload detection remain unbuilt.
 
 ### Baseline (already shipped, not part of this brainstorm)
 - [x] Gym session logging — exercise/weight/reps/RIR sets, workout notes, volume and Epley-estimated 1RM computed per set
@@ -464,7 +464,7 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [x] Per-exercise rollups (`GET /gym/exercises`) — best weight, best e1RM, best set volume, full history, computed live each call
 - [x] ~~Client-side-only progressive overload heuristic~~ — replaced by Automatic Progressive Overload v1 below (ADR 066); noted here as the gap that motivated it
 - [x] Running session logging — distance, pace, heart rate, outdoor/treadmill, a per-run effort score and an EWMA fitness-score trend
-- [x] Live Apple Health snapshot (steps, resting HR, sleep, body mass, active energy, VO₂ max) via on-iPhone MCP pull — ephemeral only, nothing persisted or historized (see Health Data Export REST sidestep)
+- [x] Live Apple Health snapshot (steps, resting HR, sleep, body mass, active energy, VO₂ max) via on-iPhone MCP pull — ephemeral only, nothing persisted or historized (see Apple Health ingestion above)
 
 ### SirisGym
 - [x] Automatic Progressive Overload v1 — deterministic backend suggestion (`GET /gym/exercises/{name}/suggestion`) reasoning from the exercise's own most recent session, with a stated reason and correct handling of the "struggled" case (dropping reps / RIR ≤ 1 → repeat the load, not increase it). Surfaced in the workout form's template prefill and a new "Next session suggestion" card on the Exercise Intelligence page (ADR 066)
