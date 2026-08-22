@@ -563,7 +563,7 @@ class _RecommendationRow extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
                 Text(
-                  item.rationale,
+                  item.displayRationale,
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
