@@ -170,7 +170,7 @@ UPS / NUT:
 - [x] Operations Center current-context surface
 - [x] ADR 031
 - [ ] Persist context timeline through History Engine
-- [ ] Manual context override with expiry/provenance
+- [x] Manual context override with expiry/provenance — the user can directly assert a context fact ("Focused", "Away from home") with an optional expiry (1h/4h/8h/none) from the existing Context panel; it outranks every provider-derived fact so it always wins as `primary`, and clears itself the moment it's read past expiry (ADR 099)
 - [ ] Apple Health context provider
 - [ ] Home Assistant presence provider
 - [ ] Calendar/work/project context providers

@@ -11,6 +11,7 @@ import 'connectors/storage_connector.dart';
 import 'connectors/synology_connector.dart';
 import 'connectors/unifi_connector.dart';
 import 'connectors/ups_connector.dart';
+import 'core/manual_context_override.dart';
 import 'core/project_context_provider.dart';
 import 'core/siris_context_service.dart';
 import 'core/siris_integration_manager.dart';
@@ -73,6 +74,7 @@ class _SirisOsAppState extends State<SirisOsApp> {
       }
     }
     SirisCoreContextService.instance.register(ProjectContextProvider());
+    SirisCoreContextService.instance.register(ManualContextOverrideProvider());
     await SirisCoreContextService.instance.initializeDefaults();
   }
 
