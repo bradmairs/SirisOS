@@ -24,14 +24,9 @@ class _FakeHomeAssistantService:
             raise self.raises
 
 
-def test_home_assistant_action_records_an_activity_event_on_success(monkeypatch) -> None:
-    monkeypatch.setattr(homelab_alerts, "home_assistant_service", _FakeHomeAssistantService())
-    recorded: list[dict] = []
-    monkeypatch.setattr(
-        homelab_alerts.activity_service,
-        "record",
-        lambda **kwargs: recorded.append(kwargs),
-    )
+def test_home_assistant_action_succeeds_and_calls_the_service(monkeypatch) -> None:
+    fake = _FakeHomeAssistantService()
+    monkeypatch.setattr(homelab_alerts, "home_assistant_service", fake)
 
     response = asyncio.run(
         homelab_alerts.home_assistant_action(
@@ -43,22 +38,14 @@ def test_home_assistant_action_records_an_activity_event_on_success(monkeypatch)
     )
 
     assert response.accepted is True
-    assert len(recorded) == 1
-    assert recorded[0]["severity"] == "info"
-    assert "light.living_room" in recorded[0]["message"]
+    assert fake.calls == [("light", "turn_on", "light.living_room")]
 
 
-def test_home_assistant_action_records_an_activity_event_on_failure(monkeypatch) -> None:
+def test_home_assistant_action_propagates_failure_as_502(monkeypatch) -> None:
     monkeypatch.setattr(
         homelab_alerts,
         "home_assistant_service",
         _FakeHomeAssistantService(raises=RuntimeError("Home Assistant unreachable")),
-    )
-    recorded: list[dict] = []
-    monkeypatch.setattr(
-        homelab_alerts.activity_service,
-        "record",
-        lambda **kwargs: recorded.append(kwargs),
     )
 
     try:
@@ -75,5 +62,24 @@ def test_home_assistant_action_records_an_activity_event_on_failure(monkeypatch)
     else:
         raise AssertionError("Expected the Home Assistant failure to propagate")
 
-    assert len(recorded) == 1
-    assert recorded[0]["severity"] == "critical"
+
+def test_home_assistant_action_propagates_rejection_as_400(monkeypatch) -> None:
+    monkeypatch.setattr(
+        homelab_alerts,
+        "home_assistant_service",
+        _FakeHomeAssistantService(raises=ValueError("Service light.explode is not permitted by SirisOS.")),
+    )
+
+    try:
+        asyncio.run(
+            homelab_alerts.home_assistant_action(
+                homelab_alerts.HomeAssistantActionRequest(
+                    domain="light", service="turn_on", entity_id="light.living_room"
+                ),
+                authorization=_token(),
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 400
+    else:
+        raise AssertionError("Expected the rejection to propagate")

@@ -1,10 +1,13 @@
 from datetime import datetime
-from typing import Callable, Literal
+from typing import Awaitable, Callable, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.api.homelab_alerts import home_assistant_service
 from app.main import CurrentUsername, docker_monitor
+
+ActionHandler = Callable[[dict[str, str], str], Awaitable[str]]
 
 router = APIRouter(prefix="/api/v1/actions", tags=["actions"])
 
@@ -32,8 +35,8 @@ class ActionExecuteResponse(BaseModel):
     generated_at: str
 
 
-def _docker_action(action: Literal["start", "stop", "restart"]) -> Callable[[dict[str, str], str], str]:
-    def handler(params: dict[str, str], username: str) -> str:
+def _docker_action(action: Literal["start", "stop", "restart"]) -> ActionHandler:
+    async def handler(params: dict[str, str], username: str) -> str:
         container_id = params.get("container_id")
         if not container_id:
             raise ValueError("container_id is required.")
@@ -42,12 +45,34 @@ def _docker_action(action: Literal["start", "stop", "restart"]) -> Callable[[dic
     return handler
 
 
+async def _home_assistant_control(params: dict[str, str], username: str) -> str:
+    domain = params.get("domain")
+    service = params.get("service")
+    entity_id = params.get("entity_id")
+    if not domain or not service or not entity_id:
+        raise ValueError("domain, service and entity_id are all required.")
+    if domain == "cover":
+        raise ValueError("Use the home_assistant.cover_control capability for cover devices.")
+    await home_assistant_service.call_service(domain, service, entity_id)
+    return f"{domain}.{service} executed on {entity_id}."
+
+
+async def _home_assistant_cover_control(params: dict[str, str], username: str) -> str:
+    service = params.get("service")
+    entity_id = params.get("entity_id")
+    if not service or not entity_id:
+        raise ValueError("service and entity_id are required.")
+    await home_assistant_service.call_service("cover", service, entity_id)
+    return f"cover.{service} executed on {entity_id}."
+
+
 # Stable capability IDs a future Planner/Hermes/UI can target without knowing
 # provider-specific implementation details (README rule #19). Each handler
 # delegates to an execution primitive that already has audit logging built
-# in (DockerMonitor.action -> HomelabAuditService + ActivityService) rather
-# than inventing a second execution/audit path.
-_CAPABILITIES: dict[str, tuple[ActionCapability, Callable[[dict[str, str], str], str]]] = {
+# in (DockerMonitor.action / HomeAssistantService.call_service ->
+# HomelabAuditService/ActivityService) rather than inventing a second
+# execution/audit path.
+_CAPABILITIES: dict[str, tuple[ActionCapability, ActionHandler]] = {
     "docker.start": (
         ActionCapability(
             id="docker.start",
@@ -81,6 +106,28 @@ _CAPABILITIES: dict[str, tuple[ActionCapability, Callable[[dict[str, str], str],
         ),
         _docker_action("restart"),
     ),
+    "home_assistant.control": (
+        ActionCapability(
+            id="home_assistant.control",
+            title="Control device",
+            description="Turn a light/switch/input_boolean on, off, or toggle it.",
+            provider_id="home_assistant",
+            risk="low",
+            requires_confirmation=False,
+        ),
+        _home_assistant_control,
+    ),
+    "home_assistant.cover_control": (
+        ActionCapability(
+            id="home_assistant.cover_control",
+            title="Control cover",
+            description="Open, close or stop a cover (e.g. garage door, blinds).",
+            provider_id="home_assistant",
+            risk="medium",
+            requires_confirmation=True,
+        ),
+        _home_assistant_cover_control,
+    ),
 }
 
 
@@ -107,7 +154,7 @@ async def execute_capability(
         )
 
     try:
-        result = handler(request.params, username)
+        result = await handler(request.params, username)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
