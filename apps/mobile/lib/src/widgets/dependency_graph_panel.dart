@@ -164,17 +164,31 @@ class _DependencyGraphPanelState extends State<DependencyGraphPanel> {
   }
 
   Future<void> _remove(DependencyEdge edge) async {
-    await _graph.removeCustomEdge(edge.key);
-    if (!mounted) return;
-    setState(() {});
-    widget.onChanged?.call();
+    try {
+      await _graph.removeCustomEdge(edge.key);
+      if (mounted) {
+        setState(() {});
+        widget.onChanged?.call();
+      }
+    } on DependencyGraphException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   Future<void> _reset() async {
-    await _graph.resetCustomEdges();
-    if (!mounted) return;
-    setState(() {});
-    widget.onChanged?.call();
+    try {
+      await _graph.resetCustomEdges();
+      if (mounted) {
+        setState(() {});
+        widget.onChanged?.call();
+      }
+    } on DependencyGraphException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 }
 

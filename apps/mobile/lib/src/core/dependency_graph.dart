@@ -1,6 +1,6 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/digital_twin_service.dart';
 
 class DependencyNode {
   const DependencyNode({
@@ -31,12 +31,6 @@ class DependencyEdge {
   final bool isBuiltIn;
 
   String get key => '$dependentId>$dependencyId';
-
-  Map<String, Object> toJson() => {
-        'dependent_id': dependentId,
-        'dependency_id': dependencyId,
-        'reason': reason,
-      };
 
   static DependencyEdge? fromJson(Object? value) {
     if (value is! Map<String, dynamic>) return null;
@@ -81,7 +75,17 @@ class DependencyGraph {
   DependencyGraph._();
 
   static final DependencyGraph instance = DependencyGraph._();
-  static const _storageKey = 'sirisos.digital_twin.custom_edges.v1';
+
+  DigitalTwinService _service = DigitalTwinService();
+
+  /// Swaps the HTTP layer for a fake and forces the next [load] to refetch
+  /// -- test-only seam so the singleton doesn't have to talk to a real
+  /// backend.
+  @visibleForTesting
+  set debugService(DigitalTwinService value) {
+    _service = value;
+    _loaded = false;
+  }
 
   bool _loaded = false;
   final List<DependencyEdge> _customEdges = [];
@@ -121,27 +125,22 @@ class DependencyGraph {
 
   Future<void> load() async {
     if (_loaded) return;
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
-    _customEdges.clear();
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is List) {
-          for (final item in decoded) {
-            final edge = item is Map
-                ? DependencyEdge.fromJson(Map<String, dynamic>.from(item))
-                : null;
-            if (edge != null && _isValidStoredEdge(edge)) {
-              _customEdges.add(edge);
-            }
-          }
-        }
-      } catch (_) {
-        // Invalid stored topology degrades to built-in defaults.
-      }
-    }
+    await _refetch();
     _loaded = true;
+  }
+
+  Future<void> _refetch() async {
+    try {
+      final fetched = await _service.fetchCustomEdges();
+      _customEdges
+        ..clear()
+        ..addAll(fetched.where(_isValidStoredEdge));
+    } catch (_) {
+      // The topology backend is enrichment on top of the built-in edges --
+      // an unreachable/unconfigured backend degrades to built-in defaults
+      // rather than breaking whatever screen is reading this graph.
+      _customEdges.clear();
+    }
   }
 
   Future<void> addCustomEdge({
@@ -163,24 +162,42 @@ class DependencyGraph {
           ? reason!.trim()
           : '${node(dependentId)!.label} depends on ${node(dependencyId)!.label}.',
     );
-    if (edges.any((edge) => edge.key == candidate.key)) return;
+    // A fast local check for the common case, but the server re-validates
+    // independently against its own current state -- another session may
+    // have changed the shared topology since this one last fetched it.
     if (_wouldCreateCycle(candidate)) {
       throw const DependencyGraphException('That dependency would create a topology cycle.');
     }
-    _customEdges.add(candidate);
-    await _persist();
+    try {
+      await _service.addEdge(
+        dependentId: dependentId,
+        dependencyId: dependencyId,
+        reason: candidate.reason,
+      );
+    } on DigitalTwinServiceException catch (error) {
+      throw DependencyGraphException(error.message);
+    }
+    await _refetch();
   }
 
   Future<void> removeCustomEdge(String key) async {
     await load();
-    _customEdges.removeWhere((edge) => edge.key == key);
-    await _persist();
+    try {
+      await _service.removeEdge(key);
+    } on DigitalTwinServiceException catch (error) {
+      throw DependencyGraphException(error.message);
+    }
+    await _refetch();
   }
 
   Future<void> resetCustomEdges() async {
-    await load();
-    _customEdges.clear();
-    await _persist();
+    try {
+      await _service.resetEdges();
+    } on DigitalTwinServiceException catch (error) {
+      throw DependencyGraphException(error.message);
+    }
+    await _refetch();
+    _loaded = true;
   }
 
   DependencyNode? node(String id) {
@@ -231,12 +248,15 @@ class DependencyGraph {
     return result;
   }
 
+  // Backend-fetched edges are already write-time validated (node ids, no
+  // self-loop, cycle-free) -- this only guards against a genuinely
+  // malformed/stale response, not against invariants the server already
+  // enforces.
   bool _isValidStoredEdge(DependencyEdge edge) {
     if (edge.dependentId == edge.dependencyId) return false;
     if (node(edge.dependentId) == null || node(edge.dependencyId) == null) return false;
     if (_builtInEdges.any((item) => item.key == edge.key)) return false;
-    if (_customEdges.any((item) => item.key == edge.key)) return false;
-    return !_wouldCreateCycle(edge);
+    return true;
   }
 
   bool _wouldCreateCycle(DependencyEdge candidate) {
@@ -256,13 +276,5 @@ class DependencyGraph {
     }
 
     return _nodes.any((item) => visit(item.id));
-  }
-
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _storageKey,
-      jsonEncode(_customEdges.map((edge) => edge.toJson()).toList(growable: false)),
-    );
   }
 }

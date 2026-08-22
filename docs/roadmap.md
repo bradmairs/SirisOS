@@ -129,10 +129,10 @@ UPS / NUT:
 - [x] Directed dependency graph
 - [x] Transitive downstream impact traversal
 - [x] Built-in Synology → Hyper Backup → Backup Protection chain
-- [x] Editable local topology with duplicate/self/cycle protection
+- [x] Editable topology with duplicate/self/cycle protection, enforced client-side for instant feedback and re-validated server-side against the shared canonical state
 - [x] Incident downstream impact enrichment
 - [x] ADRs 027–028
-- [ ] Server-side canonical topology
+- [x] Server-side canonical topology — custom dependency edges now live behind `/api/v1/digital-twin`, visible from any session against the same backend rather than one device's local storage; the node/built-in-edge catalog itself stays fixed on both sides (ADR 102)
 - [ ] Arbitrary custom nodes
 - [ ] Authoritative dependency discovery
 - [ ] Interactive graph visualization

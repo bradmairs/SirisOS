@@ -81,6 +81,10 @@ Operational platform services added during 0.4.3:
 
 Important architecture ADRs: 012–030.
 
+### Digital Twin server-side topology v1
+
+Custom dependency edges (e.g. "Docker host is powered by the UPS") previously lived in one device's `SharedPreferences` -- a genuinely shared infrastructure fact stuck on whichever browser declared it. `GET/POST/DELETE /api/v1/digital-twin` now persists them backend-side, visible from any session against the same backend. The node/built-in-edge catalog and all validation (self-dependency, cycle detection, downstream traversal) stay exactly where they were -- `DependencyGraph` (ADRs 027-028) is untouched logic, only its persistence source moved, matching the same client-vs-backend-storage reasoning ADR 101 already applied to incident lifecycle. `addCustomEdge` still validates locally first for instant feedback, but the server independently re-validates against its own current state, since another session could have changed the shared topology since this one last fetched it. Backend: 349 tests pass (11 new). Flutter: 69 tests pass, `flutter analyze` clean. ADR 102.
+
 ### Sprint 0.4.4 — SirisCore Context Service ✅ foundation
 
 SirisOS now maintains a deterministic current context with typed facts, priorities and provenance. Initial operational contexts include power events, backup attention, network/storage/compute degradation and nominal homelab state.
