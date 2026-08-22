@@ -1,4 +1,4 @@
-# ADR 100 — Incident Lifecycle (Acknowledge / Assign / Resolve / History)
+# ADR 101 — Incident Lifecycle (Acknowledge / Assign / Resolve / History)
 
 ## Status
 
