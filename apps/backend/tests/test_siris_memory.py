@@ -3,6 +3,7 @@ import asyncio
 import jwt
 
 from app.api import siris_memory
+from app.services import siris_memory_service
 
 
 def _token() -> str:
@@ -92,6 +93,53 @@ def test_delete_missing_memory_returns_404(tmp_path, monkeypatch) -> None:
         assert getattr(exc, "status_code", None) == 404
     else:
         raise AssertionError("Expected missing memory record rejection")
+
+
+class _FakeChatClient:
+    def __init__(self, response: str | None) -> None:
+        self._response = response
+        self.enabled = True
+
+    async def complete(self, *, system: str, prompt: str) -> str | None:
+        return self._response
+
+
+def test_suggest_memory_route_returns_parsed_suggestions(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(siris_memory, "MEMORY_PATH", tmp_path / "memory.json")
+    monkeypatch.setattr(
+        siris_memory_service,
+        "_default_chat_client",
+        _FakeChatClient('[{"memory_class": "fact", "content": "Works as a civil engineer."}]'),
+    )
+
+    result = asyncio.run(
+        siris_memory.suggest_memory(
+            siris_memory.MemorySuggestRequest(
+                user_message="I'm a civil engineer", assistant_message="Good to know."
+            ),
+            authorization=_token(),
+        )
+    )
+
+    assert len(result.suggestions) == 1
+    assert result.suggestions[0].content == "Works as a civil engineer."
+    assert result.suggestions[0].memory_class == "fact"
+
+
+def test_suggest_memory_route_returns_empty_when_ollama_disabled(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(siris_memory, "MEMORY_PATH", tmp_path / "memory.json")
+    disabled = _FakeChatClient(None)
+    disabled.enabled = False
+    monkeypatch.setattr(siris_memory_service, "_default_chat_client", disabled)
+
+    result = asyncio.run(
+        siris_memory.suggest_memory(
+            siris_memory.MemorySuggestRequest(user_message="hi", assistant_message="hello"),
+            authorization=_token(),
+        )
+    )
+
+    assert result.suggestions == []
 
 
 def test_create_memory_rejects_invalid_memory_class() -> None:

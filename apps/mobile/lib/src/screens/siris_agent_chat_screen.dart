@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/siris_agent.dart';
 import '../services/ollama_status_service.dart';
 import '../services/siris_agent_service.dart';
+import '../services/siris_memory_service.dart';
 import '../theme/app_theme.dart';
 
 const _examplePrompts = [
@@ -57,9 +58,15 @@ class SirisAgentChatScreen extends StatefulWidget {
 class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
   final _service = SirisAgentService();
   final _statusService = OllamaStatusService();
+  final _memoryService = SirisMemoryService();
   final _input = TextEditingController();
   final _scrollController = ScrollController();
   final List<_ChatTurn> _turns = [];
+  // Keyed by the assistant turn's index in _turns. Deliberately not part of
+  // persisted history (ADR 100) -- a suggestion is only meaningful right
+  // after its exchange happened; re-showing it after restoring a
+  // conversation days later would be surprising, not helpful.
+  final Map<int, List<SirisMemorySuggestion>> _memorySuggestions = {};
   late Future<OllamaStatus> _statusFuture;
   bool _sending = false;
   bool _restoredHistory = false;
@@ -113,9 +120,47 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
   }
 
   Future<void> _clearConversation() async {
-    setState(() => _turns.clear());
+    setState(() {
+      _turns.clear();
+      _memorySuggestions.clear();
+    });
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_chatHistoryPrefsKey);
+  }
+
+  Future<void> _fetchMemorySuggestions({
+    required int turnIndex,
+    required String userMessage,
+    required String assistantMessage,
+  }) async {
+    final suggestions = await _memoryService.suggest(
+      userMessage: userMessage,
+      assistantMessage: assistantMessage,
+    );
+    if (!mounted || suggestions.isEmpty) return;
+    setState(() => _memorySuggestions[turnIndex] = suggestions);
+  }
+
+  Future<void> _saveSuggestion(int turnIndex, SirisMemorySuggestion suggestion) async {
+    // Optimistically remove it first -- a slow or failed save shouldn't
+    // leave a stale suggestion sitting on screen looking actionable.
+    setState(() => _memorySuggestions[turnIndex]?.remove(suggestion));
+    try {
+      await _memoryService.create(memoryClass: suggestion.memoryClass, content: suggestion.content);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved to Siris Memory.'), duration: Duration(seconds: 2)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to save memory: $error')),
+      );
+    }
+  }
+
+  void _dismissSuggestion(int turnIndex, SirisMemorySuggestion suggestion) {
+    setState(() => _memorySuggestions[turnIndex]?.remove(suggestion));
   }
 
   @override
@@ -158,9 +203,11 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
           contextTurns.map((turn) => SirisAgentMessage(role: turn.role, content: turn.content)).toList();
       final reply = await _service.ask(history);
       if (!mounted) return;
+      final assistantTurnIndex = _turns.length;
       setState(() {
         _turns.add(_ChatTurn(role: 'assistant', content: reply.answer, toolsUsed: reply.toolsUsed));
       });
+      unawaited(_fetchMemorySuggestions(turnIndex: assistantTurnIndex, userMessage: message, assistantMessage: reply.answer));
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -219,7 +266,12 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         itemCount: _turns.length,
-                        itemBuilder: (context, index) => _ChatBubble(turn: _turns[index]),
+                        itemBuilder: (context, index) => _ChatBubble(
+                          turn: _turns[index],
+                          suggestions: _memorySuggestions[index],
+                          onSaveSuggestion: (suggestion) => _saveSuggestion(index, suggestion),
+                          onDismissSuggestion: (suggestion) => _dismissSuggestion(index, suggestion),
+                        ),
                       ),
           ),
           if (_sending)
@@ -300,9 +352,17 @@ class _EmptyChatState extends StatelessWidget {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.turn});
+  const _ChatBubble({
+    required this.turn,
+    this.suggestions,
+    required this.onSaveSuggestion,
+    required this.onDismissSuggestion,
+  });
 
   final _ChatTurn turn;
+  final List<SirisMemorySuggestion>? suggestions;
+  final ValueChanged<SirisMemorySuggestion> onSaveSuggestion;
+  final ValueChanged<SirisMemorySuggestion> onDismissSuggestion;
 
   @override
   Widget build(BuildContext context) {
@@ -334,6 +394,20 @@ class _ChatBubble extends StatelessWidget {
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                     ),
                   ),
+                if (suggestions != null && suggestions!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: suggestions!
+                          .map((suggestion) => _MemorySuggestionChip(
+                                suggestion: suggestion,
+                                onSave: () => onSaveSuggestion(suggestion),
+                                onDismiss: () => onDismissSuggestion(suggestion),
+                              ))
+                          .toList(growable: false),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -344,6 +418,66 @@ class _ChatBubble extends StatelessWidget {
 
   static String _toolLabel(String tool) =>
       tool.replaceFirst('get_', '').replaceAll('_', ' ');
+}
+
+class _MemorySuggestionChip extends StatelessWidget {
+  const _MemorySuggestionChip({
+    required this.suggestion,
+    required this.onSave,
+    required this.onDismiss,
+  });
+
+  final SirisMemorySuggestion suggestion;
+  final VoidCallback onSave;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      constraints: const BoxConstraints(maxWidth: 420),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBright.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryBright.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primaryBright),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Siris noticed',
+                  style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                ),
+                Text(suggestion.content, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onSave,
+            tooltip: 'Save to memory',
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+            visualDensity: VisualDensity.compact,
+            color: AppTheme.success,
+          ),
+          IconButton(
+            onPressed: onDismiss,
+            tooltip: 'Dismiss',
+            icon: const Icon(Icons.close_rounded, size: 20),
+            visualDensity: VisualDensity.compact,
+            color: scheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _OllamaStatusChip extends StatelessWidget {

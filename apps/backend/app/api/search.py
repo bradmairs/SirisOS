@@ -12,6 +12,7 @@ from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
 from app.services.knowledge_global_search import search_knowledge_notes
 from app.services.project_service import ProjectService, ProjectStoreUnavailableError
+from app.services.siris_memory_service import MemoryStoreUnavailableError, SirisMemoryService
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -175,8 +176,8 @@ async def search(
             ))
 
     try:
-        memory_records = siris_memory._load()
-    except HTTPException:
+        memory_records = SirisMemoryService(memory_path=siris_memory.MEMORY_PATH).list_memory()
+    except MemoryStoreUnavailableError:
         memory_records = []
     for memory in memory_records:
         haystack = f"{memory.memory_class} {memory.content} {memory.source or ''}".lower()
