@@ -5,6 +5,7 @@ from app.api.activity import router as activity_router
 from app.api.engineering_calculations import router as engineering_calculations_router
 from app.api.health import router as health_router
 from app.api.history import router as history_router
+from app.api.incidents import router as incidents_router
 from app.api.infrastructure import router as infrastructure_router
 from app.api.intelligence import router as intelligence_router
 from app.api.knowledge import router as knowledge_router
@@ -26,6 +27,7 @@ for router in (
     engineering_calculations_router,
     health_router,
     history_router,
+    incidents_router,
     infrastructure_router,
     intelligence_router,
     knowledge_router,
