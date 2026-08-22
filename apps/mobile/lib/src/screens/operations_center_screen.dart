@@ -9,6 +9,7 @@ import '../core/siris_connector.dart';
 import '../core/siris_event_bus.dart';
 import '../core/siris_integration_manager.dart';
 import '../services/action_service.dart';
+import '../services/incident_lifecycle_service.dart';
 import '../services/recommendation_service.dart';
 import '../widgets/backup_protection_panel.dart';
 import '../widgets/capability_panel.dart';
@@ -197,34 +198,138 @@ class _Overview extends StatelessWidget {
       );
 }
 
-class _IncidentPanel extends StatelessWidget {
+class _IncidentPanel extends StatefulWidget {
   const _IncidentPanel({required this.incidents});
 
   final List<SirisIncident> incidents;
+
+  @override
+  State<_IncidentPanel> createState() => _IncidentPanelState();
+}
+
+class _IncidentPanelState extends State<_IncidentPanel> {
+  final _service = IncidentLifecycleService();
+  late Future<List<IncidentLifecycleRecord>> _future;
+  final Set<String> _busy = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _service.list();
+  }
+
+  void _refresh() {
+    setState(() => _future = _service.list());
+  }
+
+  Future<void> _updateStatus(String incidentId, IncidentLifecycleStatus status) async {
+    setState(() => _busy.add(incidentId));
+    try {
+      await _service.update(incidentId, status: status);
+      _refresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to update incident.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(incidentId));
+    }
+  }
 
   @override
   Widget build(BuildContext context) => SirisPanel(
         title: 'Active incidents',
         subtitle: 'Correlated conditions with declared dependency impact',
         icon: Icons.warning_amber_rounded,
-        child: incidents.isEmpty
-            ? const _EmptyState(
-                icon: Icons.verified_rounded,
-                title: 'No active incidents',
-                message: 'All active policy conditions are currently clear.',
-              )
-            : Column(
-                children: incidents
-                    .map((incident) => _IncidentRow(incident: incident))
-                    .toList(growable: false),
-              ),
+        child: FutureBuilder<List<IncidentLifecycleRecord>>(
+          future: _future,
+          builder: (context, snapshot) {
+            // Lifecycle is enrichment on top of the live, always-correct
+            // incident list -- a failed/slow lifecycle fetch must never hide
+            // an active incident, so the live list still renders during
+            // ConnectionState.waiting and even if this errors.
+            final lifecycle = <String, IncidentLifecycleRecord>{
+              for (final record in snapshot.data ?? const <IncidentLifecycleRecord>[])
+                record.id: record,
+            };
+            final activeIds = widget.incidents.map((item) => item.id).toSet();
+            final history = (snapshot.data ?? const <IncidentLifecycleRecord>[])
+                .where((record) => record.status == IncidentLifecycleStatus.resolved && !activeIds.contains(record.id))
+                .toList()
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.incidents.isEmpty)
+                  const _EmptyState(
+                    icon: Icons.verified_rounded,
+                    title: 'No active incidents',
+                    message: 'All active policy conditions are currently clear.',
+                  )
+                else
+                  Column(
+                    children: widget.incidents
+                        .map(
+                          (incident) => _IncidentRow(
+                            incident: incident,
+                            lifecycle: lifecycle[incident.id],
+                            busy: _busy.contains(incident.id),
+                            onAcknowledge: () =>
+                                _updateStatus(incident.id, IncidentLifecycleStatus.acknowledged),
+                            onResolve: () => _updateStatus(incident.id, IncidentLifecycleStatus.resolved),
+                            onReopen: () => _updateStatus(incident.id, IncidentLifecycleStatus.open),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                if (history.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('Recently resolved', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  for (final record in history.take(5))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline_rounded, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(record.id, style: Theme.of(context).textTheme.bodySmall),
+                          ),
+                          Text(
+                            _formatDateTime(record.updatedAt),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+            );
+          },
+        ),
       );
 }
 
 class _IncidentRow extends StatelessWidget {
-  const _IncidentRow({required this.incident});
+  const _IncidentRow({
+    required this.incident,
+    required this.lifecycle,
+    required this.busy,
+    required this.onAcknowledge,
+    required this.onResolve,
+    required this.onReopen,
+  });
 
   final SirisIncident incident;
+  final IncidentLifecycleRecord? lifecycle;
+  final bool busy;
+  final VoidCallback onAcknowledge;
+  final VoidCallback onResolve;
+  final VoidCallback onReopen;
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +338,7 @@ class _IncidentRow extends StatelessWidget {
       SirisIncidentSeverity.warning => SirisStatus.warning,
       SirisIncidentSeverity.critical => SirisStatus.critical,
     };
+    final lifecycleStatus = lifecycle?.status ?? IncidentLifecycleStatus.open;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -288,12 +394,56 @@ class _IncidentRow extends StatelessWidget {
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                 ),
+                if (lifecycleStatus == IncidentLifecycleStatus.resolved) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Marked resolved but the underlying condition is still active.',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (lifecycleStatus == IncidentLifecycleStatus.open)
+                      OutlinedButton(
+                        onPressed: busy ? null : onAcknowledge,
+                        child: const Text('Acknowledge'),
+                      ),
+                    if (lifecycleStatus != IncidentLifecycleStatus.resolved)
+                      FilledButton(
+                        onPressed: busy ? null : onResolve,
+                        child: const Text('Resolve'),
+                      ),
+                    if (lifecycleStatus != IncidentLifecycleStatus.open)
+                      TextButton(
+                        onPressed: busy ? null : onReopen,
+                        child: const Text('Reopen'),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          SirisStatusChip(
-              label: incident.severity.name.toUpperCase(), status: status),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              SirisStatusChip(
+                  label: incident.severity.name.toUpperCase(), status: status),
+              if (lifecycleStatus != IncidentLifecycleStatus.open) ...[
+                const SizedBox(height: 6),
+                SirisStatusChip(
+                  label: lifecycleStatus == IncidentLifecycleStatus.resolved ? 'RESOLVED' : 'ACKNOWLEDGED',
+                  status: lifecycleStatus == IncidentLifecycleStatus.resolved
+                      ? SirisStatus.success
+                      : SirisStatus.info,
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

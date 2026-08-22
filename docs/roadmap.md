@@ -122,8 +122,8 @@ UPS / NUT:
 - [x] Compute/storage/network/observability grouping
 - [x] Explicit correlation reasons and raw evidence retention
 - [x] ADR 026
-- [ ] Persist incident lifecycle/history
-- [ ] Acknowledge/assign/resolve workflow
+- [x] Persist incident lifecycle/history — `IncidentLifecycleRecord` tracks acknowledge/assign/resolve state per incident id backend-side, keyed to the already-stable ids the client's correlation engine produces; resolved records that have dropped out of the live list stay listed as a "Recently resolved" history rather than being deleted (ADR 101)
+- [x] Acknowledge/assign/resolve workflow — Operations Center's incident rows get Acknowledge/Resolve/Reopen actions, with a flagged (not hidden) state for an incident marked resolved while its underlying condition is still live (ADR 101)
 
 ### 0.4.3j — Digital Twin ✅ Configurable foundation
 - [x] Directed dependency graph
