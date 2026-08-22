@@ -2,6 +2,7 @@ from app.main import app
 
 from app.api.actions import router as actions_router
 from app.api.activity import router as activity_router
+from app.api.digital_twin import router as digital_twin_router
 from app.api.engineering_calculations import router as engineering_calculations_router
 from app.api.health import router as health_router
 from app.api.history import router as history_router
@@ -24,6 +25,7 @@ from app.api.synology import router as synology_router
 for router in (
     actions_router,
     activity_router,
+    digital_twin_router,
     engineering_calculations_router,
     health_router,
     history_router,
