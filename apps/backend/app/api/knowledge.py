@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import re
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -11,12 +9,20 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.services.knowledge_service import KnowledgeService
+from app.services.knowledge_service import all_summaries as _service_all_summaries
+from app.services.knowledge_service import markdown_files as _service_markdown_files
+from app.services.knowledge_service import note_tags as _service_note_tags
+from app.services.knowledge_service import read_text as _service_read_text
+from app.services.knowledge_service import summarise as _service_summarise
+
 router = APIRouter(prefix="/api/v1/knowledge", tags=["knowledge"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 VAULT_ROOT = Path(os.getenv("SIRISOS_KNOWLEDGE_VAULT_PATH", "/app/data/knowledge"))
 MAX_NOTE_BYTES = int(os.getenv("SIRISOS_KNOWLEDGE_MAX_NOTE_KB", "1024")) * 1024
 MAX_SCAN_FILES = int(os.getenv("SIRISOS_KNOWLEDGE_MAX_SCAN_FILES", "5000"))
+knowledge_service = KnowledgeService(vault_root=VAULT_ROOT)
 
 
 class KnowledgeNoteSummary(BaseModel):
@@ -128,21 +134,21 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
         raise HTTPException(status_code=401, detail="Invalid session user.")
 
 
+# Note-scanning primitives (frontmatter/tag/wikilink parsing, safe path
+# resolution, summarising) live in app.services.knowledge_service, shared
+# with KnowledgeService.search()/read_note() (the two SirisAgent uses). The
+# thin wrappers below just translate that service's None-on-failure
+# contract into this route file's existing HTTPException behaviour, so the
+# richer navigation routes below (browse, resolve, backlinks, related,
+# graph) -- which aren't needed by the agent and stay here -- don't change.
+
+
+def _tags(text: str) -> list[str]:
+    return _service_note_tags(text)
+
+
 def _markdown_files() -> list[Path]:
-    if not VAULT_ROOT.exists() or not VAULT_ROOT.is_dir():
-        return []
-    files: list[Path] = []
-    for path in VAULT_ROOT.rglob("*.md"):
-        try:
-            relative = path.relative_to(VAULT_ROOT)
-        except ValueError:
-            continue
-        if any(part.startswith(".") for part in relative.parts):
-            continue
-        files.append(path)
-        if len(files) >= MAX_SCAN_FILES:
-            break
-    return files
+    return _service_markdown_files(VAULT_ROOT, max_files=MAX_SCAN_FILES)
 
 
 def _safe_note_path(relative_path: str) -> Path:
@@ -158,82 +164,24 @@ def _safe_note_path(relative_path: str) -> Path:
 
 
 def _read_text(path: Path) -> str:
-    size = path.stat().st_size
-    if size > MAX_NOTE_BYTES:
+    text = _service_read_text(path, max_bytes=MAX_NOTE_BYTES)
+    if text is None:
         raise HTTPException(status_code=413, detail="Knowledge note exceeds the configured read limit.")
-    try:
-        return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        return path.read_text(encoding="utf-8", errors="replace")
-
-
-def _frontmatter_tags(text: str) -> list[str]:
-    if not text.startswith("---"):
-        return []
-    end = text.find("\n---", 3)
-    if end < 0:
-        return []
-    block = text[3:end]
-    tags: list[str] = []
-    inline = re.search(r"(?mi)^tags\s*:\s*\[(.*?)\]\s*$", block)
-    if inline:
-        tags.extend(part.strip().strip("'\"") for part in inline.group(1).split(","))
-    simple = re.search(r"(?mi)^tags\s*:\s*([^\n\[]+)\s*$", block)
-    if simple:
-        tags.extend(part.strip().lstrip("#") for part in simple.group(1).split())
-    return [tag for tag in tags if tag]
-
-
-def _tags(text: str) -> list[str]:
-    values = list(_frontmatter_tags(text))
-    values.extend(re.findall(r"(?<![\w#])#([A-Za-z0-9][A-Za-z0-9_/-]*)", text))
-    return sorted({value.strip().lstrip("#") for value in values if value.strip()})[:100]
-
-
-def _wikilinks(text: str) -> list[str]:
-    values = []
-    for raw in re.findall(r"\[\[([^\]]+)\]\]", text):
-        target = raw.split("|", 1)[0].split("#", 1)[0].strip()
-        if target:
-            values.append(target)
-    return sorted(set(values))[:100]
-
-
-def _title(path: Path, text: str) -> str:
-    heading = re.search(r"(?m)^#\s+(.+?)\s*$", text)
-    if heading:
-        return heading.group(1).strip()
-    return path.stem
-
-
-def _is_daily(path: Path) -> bool:
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.stem):
-        return True
-    return any(part.lower() in {"daily", "daily notes", "journal"} for part in path.parts)
+    return text
 
 
 def _summary(path: Path, text: str | None = None) -> KnowledgeNoteSummary:
-    stat = path.stat()
-    content = text if text is not None else _read_text(path)
-    return KnowledgeNoteSummary(
-        path=path.relative_to(VAULT_ROOT).as_posix(),
-        title=_title(path, content),
-        modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-        size_bytes=stat.st_size,
-        tags=_tags(content),
-        wikilinks=_wikilinks(content),
-        is_daily_note=_is_daily(path.relative_to(VAULT_ROOT)),
-    )
+    note = _service_summarise(VAULT_ROOT, path, text, max_bytes=MAX_NOTE_BYTES)
+    if note is None:
+        raise HTTPException(status_code=413, detail="Knowledge note exceeds the configured read limit.")
+    return KnowledgeNoteSummary(**note.__dict__)
 
 
 def _all_summaries() -> list[KnowledgeNoteSummary]:
-    summaries: list[KnowledgeNoteSummary] = []
-    for path in _markdown_files():
-        try:
-            summaries.append(_summary(path))
-        except (OSError, HTTPException):
-            continue
-    return summaries
+    return [
+        KnowledgeNoteSummary(**note.__dict__)
+        for note in _service_all_summaries(VAULT_ROOT, max_files=MAX_SCAN_FILES, max_bytes=MAX_NOTE_BYTES)
+    ]
 
 
 def _normalise_target(target: str) -> str:
@@ -424,36 +372,11 @@ async def search_knowledge(
     tag: Annotated[str | None, Query(max_length=120)] = None,
 ) -> KnowledgeSearchResponse:
     _authenticate(authorization)
-    needle = query.strip().lower()
-    folder_value = folder.strip("/ ").lower() if folder else None
-    tag_value = tag.strip().lstrip("#").lower() if tag else None
-    scored: list[tuple[int, KnowledgeNoteSummary]] = []
-    for path in _markdown_files():
-        try:
-            text = _read_text(path)
-            summary = _summary(path, text)
-        except (OSError, HTTPException):
-            continue
-        if folder_value and not summary.path.lower().startswith(f"{folder_value}/"):
-            continue
-        if tag_value and tag_value not in {value.lower() for value in summary.tags}:
-            continue
-        title = summary.title.lower()
-        relative = summary.path.lower()
-        body = text.lower()
-        score = 1 if not needle else 0
-        if needle:
-            if needle == title:
-                score += 100
-            elif needle in title:
-                score += 60
-            if needle in relative:
-                score += 30
-            score += min(body.count(needle), 10) * 5
-        if score > 0:
-            scored.append((score, summary))
-    scored.sort(key=lambda item: (-item[0], item[1].title.lower()))
-    return KnowledgeSearchResponse(query=query.strip(), hits=[item[1] for item in scored[:limit]])
+    result = knowledge_service.search(query, limit=limit, folder=folder, tag=tag)
+    return KnowledgeSearchResponse(
+        query=result.query,
+        hits=[KnowledgeNoteSummary(**note.__dict__) for note in result.hits],
+    )
 
 
 @router.get("/resolve", response_model=KnowledgeLinkResolutionResponse)
@@ -537,7 +460,7 @@ async def get_knowledge_note(
     authorization: Annotated[str | None, Header()] = None,
 ) -> KnowledgeNoteResponse:
     _authenticate(authorization)
-    note_path = _safe_note_path(path)
-    text = _read_text(note_path)
-    summary = _summary(note_path, text)
-    return KnowledgeNoteResponse(**summary.model_dump(), content=text)
+    note = knowledge_service.read_note(path)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Knowledge note not found.")
+    return KnowledgeNoteResponse(**note.__dict__)

@@ -11,7 +11,9 @@ from app.services.gym_service import GymService
 from app.services.health_ingest_service import HealthIngestService
 from app.services.homelab_alert_service import HomelabAlertService
 from app.services.host_metrics_service import HostMetricsCollector
+from app.services.knowledge_service import KnowledgeService
 from app.services.ollama_service import chat_client
+from app.services.project_service import ProjectService
 from app.services.readiness_service import ReadinessService
 from app.services.running_service import RunningService
 from app.services.training_conflict_service import TrainingConflictService
@@ -29,40 +31,51 @@ from app.services.training_load_service import TrainingLoadService
 # metrics) added in v2, reusing the same already-shipped deterministic
 # services the Homelab dashboard cards already call. Homelab alerts followed
 # once their scoring logic was itself extracted out of the route handler
-# into HomelabAlertService (ADR 094) -- Knowledge and Projects remain
-# unscoped since neither has a clean service-layer object to wrap the same
-# way (their logic lives directly in API route handlers).
+# into HomelabAlertService (ADR 094). Knowledge and Projects followed the
+# same pattern once KnowledgeService/ProjectService existed to wrap
+# (ADR 096) -- both previously lived directly in API route handlers with
+# no reusable service-layer object.
 
 MAX_TOOL_ITERATIONS = 5
 DEFAULT_LIST_LIMIT = 5
 MAX_LIST_LIMIT = 20
 
 REFUSAL_MESSAGE = (
-    "I can only answer questions about your own SirisOS training, health and homelab data."
+    "I can only answer questions about your own SirisOS training, health, homelab, knowledge "
+    "and projects data."
 )
 
 SIRIS_AGENT_SYSTEM_PROMPT = (
-    "You are Siris, a personal training, health and homelab assistant inside SirisOS. You "
-    "can ONLY answer questions about the athlete's own SirisOS data -- strength, running, "
-    "gym workouts, muscle recovery, Apple Health metrics, readiness/recovery score, "
-    "achievements, Docker container status, and server/host resource usage. You have tools "
-    "that look up that real data.\n\n"
+    "You are Siris, a personal training, health, homelab, knowledge and projects assistant "
+    "inside SirisOS. You can ONLY answer questions about the athlete's own SirisOS data -- "
+    "strength, running, gym workouts, muscle recovery, Apple Health metrics, "
+    "readiness/recovery score, achievements, Docker container status, server/host resource "
+    "usage, their personal Knowledge notes, and their Projects. You have tools that look up "
+    "that real data.\n\n"
     "Rules, no exceptions:\n"
-    "1. If the question is not about the athlete's own training, health or homelab data -- "
-    "general knowledge, world facts, anything none of your tools can answer -- do not "
-    f"call any tool. Reply with exactly this sentence: \"{REFUSAL_MESSAGE}\"\n"
-    "2. If it IS about their data, call the tool(s) that answer it before saying "
-    "anything factual. Never state a number, date, name or result that a tool did not "
-    "return.\n"
-    "3. Only describe what a tool actually returned. Do not rename, relabel or blend "
+    "1. If the question is not about the athlete's own training, health, homelab, knowledge "
+    "or projects data -- general knowledge, world facts, anything none of your tools can "
+    f"answer -- do not call any tool. Reply with exactly this sentence: \"{REFUSAL_MESSAGE}\"\n"
+    "2. THE MOMENT A TOOL RETURNS A RESULT, YOU MUST ANSWER USING THAT RESULT. This "
+    "overrides everything else, including rule 1 -- the refusal sentence is ONLY for the "
+    "instant before you've called any tool. A tool call happening at all means the "
+    "question was in scope; do not re-judge that after the fact and refuse anyway. This "
+    "is a real, observed failure mode: do not repeat it.\n"
+    "3. Call the tool(s) that answer a question before saying anything factual. Never "
+    "state a number, date, name or result that a tool did not return.\n"
+    "4. Only describe what a tool actually returned. Do not rename, relabel or blend "
     "one tool's numbers into a different metric -- weekly training load is not the "
     "same thing as training level; if asked about both, call both tools.\n"
-    "4. If a tool result says data is missing or insufficient, report that honestly -- "
+    "5. If a tool result says data is missing or insufficient, report that honestly -- "
     "do not fill the gap with a guess.\n"
-    "5. The refusal in rule 1 is ONLY for deciding whether to call a tool at all, before "
-    "you've called anything. Once a tool has actually returned a result, you MUST answer "
-    "using that result -- never discard a real tool result and reply with the refusal "
-    "sentence instead just because the topic feels broad.\n"
+    "6. search_knowledge's top_result_content field is the real text of the best-matching "
+    "note -- if it's non-null, answer from it directly, in the same turn. Do not guess "
+    "what a note says from its title, and do not call read_knowledge_note again for the "
+    "same note you already have top_result_content for -- that content already IS the "
+    "note. Only call read_knowledge_note if the athlete specifically wants a different "
+    "hit than the top one, or top_result_content is null.\n"
+    "7. search_knowledge takes only {\"query\": ...} and read_knowledge_note takes only "
+    "{\"path\": ...} -- never merge the two calls' arguments together.\n"
     "Example: asked \"what's the weather like\", you have no weather tool, so reply "
     f"with exactly \"{REFUSAL_MESSAGE}\" rather than guessing or calling an unrelated tool.\n\n"
     "Keep answers concise -- a few sentences, not a report."
@@ -252,6 +265,60 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_knowledge",
+            "description": (
+                "Search the athlete's own Knowledge vault (personal notes) by keyword. "
+                "Returns matching notes' titles/paths/tags, PLUS the full real text of the "
+                "best-matching note in top_result_content -- that field already answers "
+                "most 'what does my note about X say' questions on its own. Only call "
+                "read_knowledge_note separately if the athlete wants a DIFFERENT hit than "
+                "the top one."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Keyword or phrase to search for."},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_knowledge_note",
+            "description": (
+                "Read one Knowledge note's full content by its path, exactly as returned by "
+                "search_knowledge. Use this to actually answer a question from a note's text."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "The note's path, from a search_knowledge hit."},
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_projects",
+            "description": "The athlete's own SirisOS projects -- name, kind, status and tags for each.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_project",
+            "description": "Whichever project is currently marked as active/in-focus in SirisOS, if any.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -269,6 +336,8 @@ class SirisAgentService:
         host_metrics_collector: HostMetricsCollector | None = None,
         homelab_alert_service: HomelabAlertService | None = None,
         readiness_service: ReadinessService | None = None,
+        knowledge_service: KnowledgeService | None = None,
+        project_service: ProjectService | None = None,
     ) -> None:
         self._gym_service = gym_service or GymService()
         self._running_service = running_service or RunningService()
@@ -293,6 +362,8 @@ class SirisAgentService:
         self._homelab_alert_service = homelab_alert_service or HomelabAlertService(
             host_metrics_collector=self._host_metrics_collector, docker_monitor=self._docker_monitor
         )
+        self._knowledge_service = knowledge_service or KnowledgeService()
+        self._project_service = project_service or ProjectService()
         self._dispatch = {
             "get_strength_score": self._get_strength_score,
             "get_training_level": self._get_training_level,
@@ -307,6 +378,10 @@ class SirisAgentService:
             "get_docker_status": self._get_docker_status,
             "get_host_metrics": self._get_host_metrics,
             "get_homelab_alerts": self._get_homelab_alerts,
+            "search_knowledge": self._search_knowledge,
+            "read_knowledge_note": self._read_knowledge_note,
+            "get_projects": self._get_projects,
+            "get_current_project": self._get_current_project,
         }
 
     async def ask(self, messages: list[dict[str, Any]]) -> SirisAgentAnswer:
@@ -435,3 +510,56 @@ class SirisAgentService:
 
     def _get_homelab_alerts(self, _arguments: dict[str, Any]) -> object:
         return self._homelab_alert_service.get_summary()
+
+    def _search_knowledge(self, arguments: dict[str, Any]) -> object:
+        # Live testing against a real (small, local) model found it
+        # unreliable at chaining search_knowledge -> read_knowledge_note
+        # even with an explicit rule and worked example -- it would often
+        # stop after search_knowledge and either fabricate an answer from
+        # the title alone or refuse. Rather than keep depending on that
+        # chain being followed, the best-matching hit's real content is
+        # included directly in this result, so the common case (asking
+        # about the obvious top match) is grounded in one call regardless
+        # of whether the model follows up. read_knowledge_note still exists
+        # for reading a *different* hit than the top one.
+        query = str(arguments.get("query") or "").strip()
+        if not query:
+            return {"error": "search_knowledge needs a non-empty query."}
+        result = self._knowledge_service.search(query, limit=DEFAULT_LIST_LIMIT)
+        if not result.hits:
+            return result
+        top_result_content = self._knowledge_service.read_note(result.hits[0].path)
+        return {
+            "query": result.query,
+            "hits": result.hits,
+            "top_result_content": top_result_content,
+        }
+
+    def _read_knowledge_note(self, arguments: dict[str, Any]) -> object:
+        path = str(arguments.get("path") or "").strip()
+        if path:
+            note = self._knowledge_service.read_note(path)
+            if note is not None:
+                return note
+        # Observed live: a small model sometimes merges search_knowledge's
+        # "query" into this call instead of a real path (even passing the
+        # other tool's own name as "path"). Rather than error out on a call
+        # that was clearly trying to find real content, fall back to
+        # searching with whatever text it did give and reading the top hit
+        # -- a generically useful recovery, not specific to any one garbled
+        # value, and harmless when the fallback text genuinely matches
+        # nothing (falls through to the same honest error below).
+        fallback_query = str(arguments.get("query") or "").strip() or path
+        if fallback_query:
+            hits = self._knowledge_service.search(fallback_query, limit=1).hits
+            if hits:
+                note = self._knowledge_service.read_note(hits[0].path)
+                if note is not None:
+                    return note
+        return {"error": f"No knowledge note found at '{path or fallback_query}'."}
+
+    def _get_projects(self, _arguments: dict[str, Any]) -> object:
+        return self._project_service.list_projects()
+
+    def _get_current_project(self, _arguments: dict[str, Any]) -> object:
+        return self._project_service.current_project()

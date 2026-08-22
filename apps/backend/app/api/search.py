@@ -11,6 +11,7 @@ from app.services.activity_service import ActivityService
 from app.services.docker_service import DockerMonitor
 from app.services.gym_service import GymService
 from app.services.knowledge_global_search import search_knowledge_notes
+from app.services.project_service import ProjectService, ProjectStoreUnavailableError
 from app.services.running_service import RunningService
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -118,8 +119,10 @@ async def search(
             ))
 
     try:
-        project_records = projects._load()
-    except HTTPException:
+        project_records = ProjectService(
+            projects_path=projects.PROJECTS_PATH, project_context_path=projects.PROJECT_CONTEXT_PATH
+        ).list_projects()
+    except ProjectStoreUnavailableError:
         # Search degrades gracefully per-source: a corrupted store must not
         # take down search for everything else.
         project_records = []

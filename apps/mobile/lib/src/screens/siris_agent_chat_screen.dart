@@ -10,6 +10,7 @@ const _examplePrompts = [
   'Is it a good day to run?',
   'What have I trained this week?',
   'Are all my Docker containers healthy?',
+  'What project am I currently working on?',
 ];
 
 class _ChatTurn {
@@ -99,8 +100,8 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Ask Siris anything about your training, health and homelab data -- every '
-                    'answer comes from a real tool call, never invented.',
+                    'Ask Siris anything about your training, health, homelab, knowledge and '
+                    'projects data -- every answer comes from a real tool call, never invented.',
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                   ),
                 ),
@@ -179,8 +180,8 @@ class _EmptyChatState extends StatelessWidget {
             Text('Ask Siris anything', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 6),
             Text(
-              'Siris looks up your real SirisGym, SirisRun, Health and Homelab data to '
-              'answer -- it never makes up a number.',
+              'Siris looks up your real SirisGym, SirisRun, Health, Homelab, Knowledge and '
+              'Projects data to answer -- it never makes up a number.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),

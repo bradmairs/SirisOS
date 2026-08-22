@@ -11,6 +11,7 @@ from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.api import engineering_calculations, engineering_standards, knowledge, projects
+from app.services.project_service import ProjectNotFoundError, ProjectService, ProjectStoreUnavailableError
 
 router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
 
@@ -106,8 +107,14 @@ def _save(relationships: list[ProjectRelationshipRecord]) -> None:
 
 
 def _require_project(project_id: str) -> projects.ProjectRecord:
-    _, project = projects._find(projects._load(), project_id)
-    return project
+    service = ProjectService(projects_path=projects.PROJECTS_PATH, project_context_path=projects.PROJECT_CONTEXT_PATH)
+    try:
+        project = service.get_project(project_id)
+    except ProjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Project not found.") from exc
+    except ProjectStoreUnavailableError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return projects.ProjectRecord(**project.__dict__)
 
 
 def _canonical_knowledge_target(target_id: str) -> tuple[str, str]:

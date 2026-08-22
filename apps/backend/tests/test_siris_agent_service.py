@@ -7,7 +7,9 @@ from app.services.docker_service import DockerContainer, DockerSummary
 from app.services.gym_service import GymService
 from app.services.homelab_alert_service import HomelabAlert, HomelabAlertSummary
 from app.services.host_metrics_service import HostMetrics
+from app.services.knowledge_service import KnowledgeService
 from app.services.ollama_service import OllamaChatResult, OllamaToolCall
+from app.services.project_service import ProjectService
 from app.services.readiness_service import DailyReadinessPoint
 from app.services.running_service import RunningService
 from app.services.siris_agent_service import SirisAgentService
@@ -408,3 +410,155 @@ def test_agent_dispatches_readiness_score_through_the_full_loop(tmp_path: Path, 
     payload = json.loads(tool_messages[0]["content"])
     assert payload["score"] == 78
     assert payload["hrv_ratio"] == 85.0
+
+
+def _build_with_knowledge_and_projects(tmp_path: Path, monkeypatch) -> SirisAgentService:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/siris_agent_knowledge.db")
+    return SirisAgentService(
+        knowledge_service=KnowledgeService(vault_root=tmp_path / "vault"),
+        project_service=ProjectService(
+            projects_path=tmp_path / "projects.json",
+            project_context_path=tmp_path / "project-context.json",
+        ),
+    )
+
+
+def test_search_knowledge_returns_matching_notes_with_top_hit_content(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Drainage.md").write_text("# Drainage design\nStormwater pipe notes.", encoding="utf-8")
+    (vault / "Meeting.md").write_text("# Meeting\nUnrelated.", encoding="utf-8")
+
+    result = agent._search_knowledge({"query": "drainage"})
+
+    assert result["query"] == "drainage"
+    assert [note.title for note in result["hits"]] == ["Drainage design"]
+    # The best-matching note's real content is included directly -- a small
+    # local model was found live to be unreliable at following up with a
+    # second read_knowledge_note call, so the common case must be answerable
+    # from this one result alone.
+    assert result["top_result_content"].content == "# Drainage design\nStormwater pipe notes."
+
+
+def test_search_knowledge_with_no_hits_has_no_top_result_content(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+
+    result = agent._search_knowledge({"query": "nonexistent"})
+
+    assert result.hits == []
+
+
+def test_search_knowledge_requires_a_query(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+
+    result = agent._search_knowledge({})
+
+    assert "error" in result
+
+
+def test_read_knowledge_note_returns_full_content(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Idea.md").write_text("# Idea\nFull body text.", encoding="utf-8")
+
+    note = agent._read_knowledge_note({"path": "Idea.md"})
+
+    assert note.title == "Idea"
+    assert note.content == "# Idea\nFull body text."
+
+
+def test_read_knowledge_note_reports_a_missing_note_without_crashing(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+
+    result = agent._read_knowledge_note({"path": "Nowhere.md"})
+
+    assert "error" in result
+
+
+def test_read_knowledge_note_recovers_from_a_query_merged_into_the_call(tmp_path: Path, monkeypatch) -> None:
+    # Observed live: a small model sometimes calls read_knowledge_note with
+    # search_knowledge's own arguments merged in -- even passing the other
+    # tool's name as "path" -- instead of a real path. This must still find
+    # the real note rather than erroring out on a call that was clearly
+    # trying to find real content.
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Drainage Design.md").write_text("# Drainage Design\nUse AS 3725 for pipe grade.", encoding="utf-8")
+
+    result = agent._read_knowledge_note({"path": "search_knowledge", "query": "pipe grade"})
+
+    assert result.title == "Drainage Design"
+    assert "AS 3725" in result.content
+
+
+def test_agent_dispatches_knowledge_search_then_read_through_the_full_loop(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Drainage.md").write_text("# Drainage design\nUse AS 3725 for pipe grade.", encoding="utf-8")
+
+    fake_chat = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="search_knowledge", arguments={"query": "drainage"})],
+            ),
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="read_knowledge_note", arguments={"path": "Drainage.md"})],
+            ),
+            OllamaChatResult(content="Your note says to use AS 3725 for pipe grade.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake_chat)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "What does my drainage note say?"}]))
+
+    assert result.tools_used == ["search_knowledge", "read_knowledge_note"]
+    final_tool_messages = [item for item in fake_chat.calls[2] if item.get("role") == "tool"]
+    payload = json.loads(final_tool_messages[-1]["content"])
+    assert "AS 3725" in payload["content"]
+
+
+def test_get_projects_returns_real_data(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+    agent._project_service.create_project(name="Penrith treatment plant", kind="engineering")
+
+    projects = agent._get_projects({})
+
+    assert [item.name for item in projects] == ["Penrith treatment plant"]
+
+
+def test_get_current_project_reports_none_when_nothing_selected(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+
+    selection = agent._get_current_project({})
+
+    assert selection.project is None
+
+
+def test_agent_dispatches_current_project_through_the_full_loop(tmp_path: Path, monkeypatch) -> None:
+    agent = _build_with_knowledge_and_projects(tmp_path, monkeypatch)
+    created = agent._project_service.create_project(name="Alpha", kind="homelab")
+    agent._project_service.set_current_project(created.id)
+
+    fake_chat = _FakeChatClient(
+        [
+            OllamaChatResult(
+                content=None,
+                tool_calls=[OllamaToolCall(name="get_current_project", arguments={})],
+            ),
+            OllamaChatResult(content="Your current project is Alpha.", tool_calls=[]),
+        ]
+    )
+    monkeypatch.setattr("app.services.siris_agent_service.chat_client", fake_chat)
+
+    result = asyncio.run(agent.ask([{"role": "user", "content": "What am I working on?"}]))
+
+    assert result.tools_used == ["get_current_project"]
+    tool_messages = [item for item in fake_chat.calls[1] if item.get("role") == "tool"]
+    payload = json.loads(tool_messages[0]["content"])
+    assert payload["project"]["name"] == "Alpha"
