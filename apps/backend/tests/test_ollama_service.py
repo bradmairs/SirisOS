@@ -203,6 +203,81 @@ def test_chat_parses_tool_calls_from_response() -> None:
     assert result.tool_calls[1].arguments == {"limit": 3}
 
 
+def test_chat_resolves_a_bare_configured_model_name_to_the_real_pulled_tag() -> None:
+    # Found live against a real deployment: SIRISOS_OLLAMA_CHAT_MODEL was
+    # "llama3.1" (no tag), only "llama3.1:8b" was actually pulled. status()
+    # correctly reported the model as available (it matches leniently), but
+    # every real chat call 404'd because Ollama has no such leniency and
+    # treats a bare name as an implicit ":latest". This is the fix.
+    client = OllamaChatClient()
+    client.ollama_url = "http://ollama"
+    client.model = "llama3.1"
+
+    async def fake_list_models() -> list[str]:
+        return ["llama3.1:8b", "mistral:latest"]
+
+    client._list_models = fake_list_models  # type: ignore[method-assign]
+
+    sent_payloads = []
+
+    class _FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"role": "assistant", "content": "hi"}}
+
+    async def fake_post(self, url, json):
+        sent_payloads.append(json)
+        return _FakeResponse()
+
+    import httpx as httpx_module
+
+    original_post = httpx_module.AsyncClient.post
+    httpx_module.AsyncClient.post = fake_post  # type: ignore[method-assign]
+    try:
+        asyncio.run(client.chat(messages=[{"role": "user", "content": "hi"}]))
+    finally:
+        httpx_module.AsyncClient.post = original_post  # type: ignore[method-assign]
+
+    assert sent_payloads[0]["model"] == "llama3.1:8b"
+
+
+def test_chat_falls_back_to_the_configured_name_if_the_tags_list_is_unreachable() -> None:
+    client = OllamaChatClient()
+    client.ollama_url = "http://ollama"
+    client.model = "llama3.1"
+
+    async def failing_list_models() -> list[str]:
+        raise httpx.ConnectError("refused")
+
+    client._list_models = failing_list_models  # type: ignore[method-assign]
+
+    sent_payloads = []
+
+    class _FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"role": "assistant", "content": "hi"}}
+
+    async def fake_post(self, url, json):
+        sent_payloads.append(json)
+        return _FakeResponse()
+
+    import httpx as httpx_module
+
+    original_post = httpx_module.AsyncClient.post
+    httpx_module.AsyncClient.post = fake_post  # type: ignore[method-assign]
+    try:
+        asyncio.run(client.chat(messages=[{"role": "user", "content": "hi"}]))
+    finally:
+        httpx_module.AsyncClient.post = original_post  # type: ignore[method-assign]
+
+    assert sent_payloads[0]["model"] == "llama3.1"
+
+
 def test_status_reports_unreachable_on_network_error() -> None:
     client = OllamaChatClient()
     client.ollama_url = "http://ollama"

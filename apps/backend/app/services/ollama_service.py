@@ -53,11 +53,12 @@ class OllamaChatClient:
             return None
 
     async def _chat(self, *, system: str, prompt: str) -> str | None:
+        model = await self._resolve_model()
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             response = await client.post(
                 f"{self.ollama_url}/api/chat",
                 json={
-                    "model": self.model,
+                    "model": model,
                     "messages": [
                         {"role": "system", "content": system},
                         {"role": "user", "content": prompt},
@@ -92,7 +93,8 @@ class OllamaChatClient:
     async def _chat_with_tools(
         self, *, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None
     ) -> OllamaChatResult:
-        payload: dict[str, Any] = {"model": self.model, "messages": messages, "stream": False}
+        model = await self._resolve_model()
+        payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
         if tools:
             payload["tools"] = tools
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
@@ -130,9 +132,7 @@ class OllamaChatClient:
             available = await self._list_models()
         except (httpx.HTTPError, ValueError, KeyError):
             return OllamaStatus(configured=True, reachable=False, model=model, model_available=False)
-        model_available = any(
-            candidate == self.model or candidate.split(":")[0] == self.model for candidate in available
-        )
+        model_available = any(self._matches_configured_model(candidate) for candidate in available)
         return OllamaStatus(configured=True, reachable=True, model=model, model_available=model_available)
 
     async def _list_models(self) -> list[str]:
@@ -144,6 +144,29 @@ class OllamaChatClient:
         if not isinstance(models, list):
             raise ValueError("Ollama returned an invalid tags response.")
         return [str(item["name"]) for item in models if isinstance(item, dict) and item.get("name")]
+
+    def _matches_configured_model(self, candidate: str) -> bool:
+        return candidate == self.model or candidate.split(":")[0] == self.model
+
+    async def _resolve_model(self) -> str:
+        """SIRISOS_OLLAMA_CHAT_MODEL is deliberately allowed to be configured
+        without a tag (e.g. "llama3.1"), and status()'s model_available check
+        already matches that leniently against whatever's actually pulled
+        (e.g. "llama3.1:8b"). But Ollama's own /api/chat has no such leniency
+        -- a bare model name is treated as an implicit ":latest", and if
+        nothing is pulled under that exact tag, every real chat call 404s
+        even though status() reports the model as available. Found live
+        against a real deployment (llama3.1:8b pulled, SIRISOS_OLLAMA_CHAT_MODEL
+        left as "llama3.1"): status() correctly said available, every chat
+        request instantly failed. Resolves to the real matching tag before
+        every chat call; falls back to the configured name unchanged if the
+        tags list can't be fetched, so a genuinely wrong/unpulled model still
+        surfaces its own real error rather than being silently masked."""
+        try:
+            available = await self._list_models()
+        except (httpx.HTTPError, ValueError, KeyError):
+            return self.model
+        return next((candidate for candidate in available if self._matches_configured_model(candidate)), self.model)
 
 
 chat_client = OllamaChatClient()
