@@ -146,7 +146,11 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
     // leave a stale suggestion sitting on screen looking actionable.
     setState(() => _memorySuggestions[turnIndex]?.remove(suggestion));
     try {
-      await _memoryService.create(memoryClass: suggestion.memoryClass, content: suggestion.content);
+      await _memoryService.create(
+        memoryClass: suggestion.memoryClass,
+        content: suggestion.content,
+        source: 'Suggested from SirisAI chat',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Saved to Siris Memory.'), duration: Duration(seconds: 2)),
