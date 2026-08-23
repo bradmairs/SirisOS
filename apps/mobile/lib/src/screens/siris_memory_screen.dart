@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/project_service.dart';
 import '../services/siris_memory_service.dart';
 
 class SirisMemoryScreen extends StatefulWidget {
@@ -39,7 +40,9 @@ class _SirisMemoryScreenState extends State<SirisMemoryScreen> {
       await _service.create(
         memoryClass: result.memoryClass,
         content: result.content,
-        source: result.source,
+        sourceType: result.sourceType,
+        sourceId: result.sourceId,
+        sourceLabel: result.sourceLabel,
       );
       if (!mounted) return;
       _refresh();
@@ -170,7 +173,9 @@ class _SirisMemoryScreenState extends State<SirisMemoryScreen> {
                                   if (record.source != null) ...[
                                     const SizedBox(height: 6),
                                     Text(
-                                      record.source!,
+                                      record.source!.sourceType == SirisMemorySourceType.project
+                                          ? 'Project: ${record.source!.sourceLabel}'
+                                          : record.source!.sourceLabel,
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                             fontStyle: FontStyle.italic,
                                           ),
@@ -238,10 +243,18 @@ class _MemoryClassBadge extends StatelessWidget {
 }
 
 class _AddMemoryResult {
-  const _AddMemoryResult({required this.memoryClass, required this.content, this.source});
+  const _AddMemoryResult({
+    required this.memoryClass,
+    required this.content,
+    this.sourceType,
+    this.sourceId,
+    this.sourceLabel,
+  });
   final SirisMemoryClass memoryClass;
   final String content;
-  final String? source;
+  final SirisMemorySourceType? sourceType;
+  final String? sourceId;
+  final String? sourceLabel;
 }
 
 class _AddMemoryDialog extends StatefulWidget {
@@ -254,24 +267,36 @@ class _AddMemoryDialog extends StatefulWidget {
 class _AddMemoryDialogState extends State<_AddMemoryDialog> {
   SirisMemoryClass _memoryClass = SirisMemoryClass.fact;
   final _content = TextEditingController();
-  final _source = TextEditingController();
+  final _manualSourceLabel = TextEditingController();
+  SirisMemorySourceType? _sourceType;
+  String? _selectedProjectId;
+  late final Future<List<ProjectRecord>> _projects;
+
+  @override
+  void initState() {
+    super.initState();
+    _projects = ProjectService().listProjects();
+  }
 
   @override
   void dispose() {
     _content.dispose();
-    _source.dispose();
+    _manualSourceLabel.dispose();
     super.dispose();
   }
 
   void _submit() {
     final content = _content.text.trim();
     if (content.isEmpty) return;
+    if (_sourceType == SirisMemorySourceType.project && _selectedProjectId == null) return;
     Navigator.pop(
       context,
       _AddMemoryResult(
         memoryClass: _memoryClass,
         content: content,
-        source: _source.text.trim().isEmpty ? null : _source.text.trim(),
+        sourceType: _sourceType,
+        sourceId: _sourceType == SirisMemorySourceType.project ? _selectedProjectId : null,
+        sourceLabel: _sourceType == SirisMemorySourceType.manual ? _manualSourceLabel.text.trim() : null,
       ),
     );
   }
@@ -306,15 +331,55 @@ class _AddMemoryDialogState extends State<_AddMemoryDialog> {
               decoration: const InputDecoration(labelText: 'What should Siris remember?', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _source,
-              decoration: const InputDecoration(
-                labelText: 'Source (optional)',
-                hintText: 'e.g. Project: Sydney Water rising main',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _submit(),
+            DropdownButtonFormField<SirisMemorySourceType?>(
+              initialValue: _sourceType,
+              decoration: const InputDecoration(labelText: 'Source (optional)', border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('None')),
+                DropdownMenuItem(value: SirisMemorySourceType.manual, child: Text('A note in my own words')),
+                DropdownMenuItem(value: SirisMemorySourceType.project, child: Text('A project')),
+              ],
+              onChanged: (value) => setState(() {
+                _sourceType = value;
+                _selectedProjectId = null;
+              }),
             ),
+            if (_sourceType == SirisMemorySourceType.manual) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _manualSourceLabel,
+                decoration: const InputDecoration(
+                  labelText: 'Note',
+                  hintText: 'e.g. From the site inspection on Tuesday',
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+            ],
+            if (_sourceType == SirisMemorySourceType.project) ...[
+              const SizedBox(height: 12),
+              FutureBuilder<List<ProjectRecord>>(
+                future: _projects,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const LinearProgressIndicator();
+                  }
+                  final projects = snapshot.data!;
+                  if (projects.isEmpty) {
+                    return const Text('No projects yet.');
+                  }
+                  return DropdownButtonFormField<String>(
+                    initialValue: _selectedProjectId,
+                    decoration: const InputDecoration(labelText: 'Which project?', border: OutlineInputBorder()),
+                    items: [
+                      for (final project in projects)
+                        DropdownMenuItem(value: project.id, child: Text(project.name)),
+                    ],
+                    onChanged: (value) => setState(() => _selectedProjectId = value),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),

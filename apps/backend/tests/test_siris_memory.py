@@ -4,6 +4,7 @@ import jwt
 
 from app.api import siris_memory
 from app.services import siris_memory_service
+from app.services.project_service import ProjectService
 
 
 def _token() -> str:
@@ -33,14 +34,17 @@ def test_create_list_and_delete_memory(tmp_path, monkeypatch) -> None:
             siris_memory.MemoryCreateRequest(
                 memory_class="decision",
                 content="Used Class 3 pipe on the Sydney Water rising main.",
-                source="Project: Sydney Water rising main",
+                source_type="manual",
+                source_label="Project: Sydney Water rising main",
             ),
             authorization,
         )
     )
     assert created.memory_class == "decision"
     assert created.content == "Used Class 3 pipe on the Sydney Water rising main."
-    assert created.source == "Project: Sydney Water rising main"
+    assert created.source is not None
+    assert created.source.source_type == "manual"
+    assert created.source.source_label == "Project: Sydney Water rising main"
     assert siris_memory.MEMORY_PATH.exists()
 
     listed = asyncio.run(siris_memory.list_memory(authorization))
@@ -62,6 +66,77 @@ def test_create_memory_without_source_defaults_to_none(tmp_path, monkeypatch) ->
         )
     )
     assert created.source is None
+
+
+def test_create_memory_with_project_source(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(siris_memory, "MEMORY_PATH", tmp_path / "memory.json")
+    projects = ProjectService(
+        projects_path=tmp_path / "projects.json", project_context_path=tmp_path / "project-context.json"
+    )
+    project = projects.create_project(name="Penrith treatment plant", kind="engineering", tags=[])
+    monkeypatch.setattr(
+        siris_memory, "_service", lambda: siris_memory_service.SirisMemoryService(
+            memory_path=siris_memory.MEMORY_PATH, project_service=projects
+        )
+    )
+    authorization = _token()
+
+    created = asyncio.run(
+        siris_memory.create_memory(
+            siris_memory.MemoryCreateRequest(
+                memory_class="fact", content="Uses AS 3500 for hydraulics.", source_type="project", source_id=project.id
+            ),
+            authorization,
+        )
+    )
+
+    assert created.source.source_type == "project"
+    assert created.source.source_id == project.id
+    assert created.source.source_label == "Penrith treatment plant"
+
+
+def test_create_memory_with_unknown_project_returns_404(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(siris_memory, "MEMORY_PATH", tmp_path / "memory.json")
+    projects = ProjectService(
+        projects_path=tmp_path / "projects.json", project_context_path=tmp_path / "project-context.json"
+    )
+    monkeypatch.setattr(
+        siris_memory, "_service", lambda: siris_memory_service.SirisMemoryService(
+            memory_path=siris_memory.MEMORY_PATH, project_service=projects
+        )
+    )
+    authorization = _token()
+
+    try:
+        asyncio.run(
+            siris_memory.create_memory(
+                siris_memory.MemoryCreateRequest(
+                    memory_class="fact", content="Note.", source_type="project", source_id="missing-id"
+                ),
+                authorization,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 404
+    else:
+        raise AssertionError("Expected 404 for an unknown project id")
+
+
+def test_create_memory_with_project_source_missing_id_returns_422(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(siris_memory, "MEMORY_PATH", tmp_path / "memory.json")
+    authorization = _token()
+
+    try:
+        asyncio.run(
+            siris_memory.create_memory(
+                siris_memory.MemoryCreateRequest(memory_class="fact", content="Note.", source_type="project"),
+                authorization,
+            )
+        )
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 422
+    else:
+        raise AssertionError("Expected 422 when source_type is 'project' with no source_id")
 
 
 def test_list_memory_filters_by_class(tmp_path, monkeypatch) -> None:

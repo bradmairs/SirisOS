@@ -149,7 +149,8 @@ class _SirisAgentChatScreenState extends State<SirisAgentChatScreen> {
       await _memoryService.create(
         memoryClass: suggestion.memoryClass,
         content: suggestion.content,
-        source: 'Suggested from SirisAI chat',
+        sourceType: SirisMemorySourceType.conversation,
+        sourceLabel: 'Suggested from SirisAI chat',
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

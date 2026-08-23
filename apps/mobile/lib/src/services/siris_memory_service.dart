@@ -25,6 +25,51 @@ extension SirisMemoryClassLabel on SirisMemoryClass {
       );
 }
 
+enum SirisMemorySourceType { manual, conversation, project }
+
+extension SirisMemorySourceTypeLabel on SirisMemorySourceType {
+  String get apiValue => name;
+
+  String get label => switch (this) {
+        SirisMemorySourceType.manual => 'Manual note',
+        SirisMemorySourceType.conversation => 'SirisAI conversation',
+        SirisMemorySourceType.project => 'Project',
+      };
+
+  static SirisMemorySourceType fromApiValue(String value) => SirisMemorySourceType.values.firstWhere(
+        (item) => item.apiValue == value,
+        orElse: () => SirisMemorySourceType.manual,
+      );
+}
+
+/// Typed provenance -- which real SirisOS object (if any) a memory came
+/// from, matching the target_type/target_id/label pattern Project
+/// relationships already use, rather than a free-text string a person
+/// could type anything into. sourceId is null for "manual"/"conversation"
+/// (there's no addressable object behind either); confidence is currently
+/// always 1.0, since every write path today requires explicit human
+/// confirmation before a memory is ever saved.
+class SirisMemorySource {
+  const SirisMemorySource({
+    required this.sourceType,
+    this.sourceId,
+    required this.sourceLabel,
+    this.confidence = 1.0,
+  });
+
+  factory SirisMemorySource.fromJson(Map<String, dynamic> json) => SirisMemorySource(
+        sourceType: SirisMemorySourceTypeLabel.fromApiValue(json['source_type'] as String),
+        sourceId: json['source_id'] as String?,
+        sourceLabel: json['source_label'] as String,
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 1.0,
+      );
+
+  final SirisMemorySourceType sourceType;
+  final String? sourceId;
+  final String sourceLabel;
+  final double confidence;
+}
+
 class SirisMemoryRecord {
   const SirisMemoryRecord({
     required this.id,
@@ -37,14 +82,16 @@ class SirisMemoryRecord {
   final String id;
   final SirisMemoryClass memoryClass;
   final String content;
-  final String? source;
+  final SirisMemorySource? source;
   final DateTime createdAt;
 
   factory SirisMemoryRecord.fromJson(Map<String, dynamic> json) => SirisMemoryRecord(
         id: json['id'] as String,
         memoryClass: SirisMemoryClassLabel.fromApiValue(json['memory_class'] as String),
         content: json['content'] as String,
-        source: json['source'] as String?,
+        source: json['source'] != null
+            ? SirisMemorySource.fromJson(json['source'] as Map<String, dynamic>)
+            : null,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
 }
@@ -82,7 +129,9 @@ class SirisMemoryService {
   Future<SirisMemoryRecord> create({
     required SirisMemoryClass memoryClass,
     required String content,
-    String? source,
+    SirisMemorySourceType? sourceType,
+    String? sourceId,
+    String? sourceLabel,
   }) async {
     final response = await http
         .post(
@@ -94,7 +143,9 @@ class SirisMemoryService {
           body: jsonEncode({
             'memory_class': memoryClass.apiValue,
             'content': content,
-            if (source != null && source.trim().isNotEmpty) 'source': source.trim(),
+            if (sourceType != null) 'source_type': sourceType.apiValue,
+            if (sourceId != null && sourceId.trim().isNotEmpty) 'source_id': sourceId.trim(),
+            if (sourceLabel != null && sourceLabel.trim().isNotEmpty) 'source_label': sourceLabel.trim(),
           }),
         )
         .timeout(const Duration(seconds: 12));

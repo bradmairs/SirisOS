@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 from app.services.siris_memory_service import (
     MemoryClass,
     MemoryNotFoundError,
+    MemorySourceNotFoundError,
+    MemorySourceType,
     MemoryStoreUnavailableError,
     SirisMemoryService,
 )
@@ -21,18 +23,27 @@ JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
 MEMORY_PATH = Path(os.getenv("SIRISOS_MEMORY_PATH", "/app/data/siris-memory.json"))
 
 
+class MemorySourceResponse(BaseModel):
+    source_type: MemorySourceType
+    source_id: str | None = None
+    source_label: str
+    confidence: float = 1.0
+
+
 class MemoryRecord(BaseModel):
     id: str
     memory_class: MemoryClass
     content: str
-    source: str | None = None
+    source: MemorySourceResponse | None = None
     created_at: str
 
 
 class MemoryCreateRequest(BaseModel):
     memory_class: MemoryClass
     content: str = Field(min_length=1, max_length=2000)
-    source: str | None = Field(default=None, max_length=300)
+    source_type: MemorySourceType | None = None
+    source_id: str | None = Field(default=None, max_length=200)
+    source_label: str | None = Field(default=None, max_length=300)
 
 
 class MemoryListResponse(BaseModel):
@@ -78,7 +89,14 @@ def _service() -> SirisMemoryService:
 
 
 def _record(memory) -> MemoryRecord:
-    return MemoryRecord(**memory.__dict__)
+    source = MemorySourceResponse(**memory.source.__dict__) if memory.source else None
+    return MemoryRecord(
+        id=memory.id,
+        memory_class=memory.memory_class,
+        content=memory.content,
+        source=source,
+        created_at=memory.created_at,
+    )
 
 
 @router.get("", response_model=MemoryListResponse)
@@ -102,8 +120,16 @@ async def create_memory(
     _authenticate(authorization)
     try:
         record = _service().create_memory(
-            memory_class=request.memory_class, content=request.content, source=request.source
+            memory_class=request.memory_class,
+            content=request.content,
+            source_type=request.source_type,
+            source_id=request.source_id,
+            source_label=request.source_label,
         )
+    except MemorySourceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except MemoryStoreUnavailableError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return _record(record)
