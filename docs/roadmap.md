@@ -2,6 +2,15 @@
 
 This is the implementation checklist for SirisOS. `README.md` is the authoritative handover. Keep both synchronized whenever scope or sprint status changes.
 
+## Product philosophy: complement, not replace
+
+SirisOS complements existing best-in-class apps rather than rebuilding them. As of 2026-08-22: Helmarr already does home media control well, Neo Server already does homelab remote control well, JEFIT already does gym logging well — SirisOS is not trying to be a second, worse version of any of them. Concretely:
+
+- **Media**: monitor the Radarr/Sonarr/Overseerr stack and surface errors/issues via SirisAI, evidence-first like every other Recommendation/Incident (see 0.4.3l below) — not search/add/approve control.
+- **Homelab**: monitoring, recommendations, incident lifecycle and AI diagnosis remain the direction; growing direct-control capability execution (Action Framework write actions) beyond what's already shipped is de-prioritized, not a near-term goal.
+- **Gym**: JEFIT becomes the system of record. SirisOS imports JEFIT's data (its CSV/file export) rather than re-logging it, feeding the same analytics (Strength Score, Training Level, readiness) that already exist. The manual gym logging UI shifts to import-primary rather than staying the main input path.
+- **Everything else** — Running, Engineering, Knowledge, Projects, Siris Memory, SirisAI, Digital Twin, and the rest — stays SirisOS-primary; there's no existing app being complemented there.
+
 ## Sprint 0.4.1 — SirisCore ✅ Complete
 
 - [x] Typed Event Bus
@@ -150,9 +159,20 @@ UPS / NUT:
 - [ ] Server-side capability endpoint
 - [ ] Bind executable capabilities to Action Framework
 
+### 0.4.3l — Media Monitoring (new, not started)
+
+Radarr/Sonarr/Overseerr read-only status and queue monitoring, with errors/issues surfaced through the existing Recommendation/Incident Engine pattern and SirisAI diagnosis on top — not a second media-control app (see Product philosophy above). A separate Codex/ChatGPT session already built and tested a full control integration (search/add/approve, branch `feature/media-servarr-control`, not merged) before this direction was set; that work needs stripping down to its read-only status/queue plumbing rather than being rebuilt from scratch or discarded.
+
+- [ ] Radarr/Sonarr connector — read-only queue/health/download status
+- [ ] Overseerr connector — read-only request-queue status
+- [ ] Media alerts folded into the existing `homelab_alerts`/Recommendation Engine pattern (ADR 064), not a parallel system
+- [ ] SirisAI-diagnosed media issues, evidence-first like every other AI-adjacent claim in this app
+
 ### Homelab / Operations follow-on backlog
+
+Direct-control expansion (new Action Framework capabilities beyond what's already shipped) is de-prioritized per the Product philosophy above — monitoring, recommendations and diagnosis are the near-term direction, not more write actions. Already-shipped control (Docker start/stop/restart, Home Assistant device control) stays as-is.
+
 - [ ] Operations Planner
-- [ ] Action Framework
 - [ ] Playbook Engine
 - [ ] Safe UPS graceful shutdown orchestration
 - [ ] Explainable Siris Score contribution history
@@ -455,7 +475,7 @@ A comprehensive SirisAI architecture brainstorm (an intelligence/context/memory/
 
 ## Sprint 0.9 — SirisRun & SirisGym Intelligence
 
-Running and Gym have been fully shipped, DB-backed modules since early in the project but never had a roadmap section of their own — this sprint gives them one, incorporating a dedicated brainstorm into a single training-intelligence direction rather than two apps that happen to live in the same shell. The signature goal (per the brainstorm's own framing): general fitness apps have great loggers; a self-hosted system's edge is saying *"your last five interval sessions performed best when they were at least 48 hours after legs, so I've moved Thursday's run to Friday"* — running, lifting, recovery and schedule informing each other, not living in silos.
+Running and Gym have been fully shipped, DB-backed modules since early in the project but never had a roadmap section of their own — this sprint gives them one, incorporating a dedicated brainstorm into a single training-intelligence direction rather than two apps that happen to live in the same shell. The signature goal (per the brainstorm's own framing): general fitness apps have great loggers; a self-hosted system's edge is saying *"your last five interval sessions performed best when they were at least 48 hours after legs, so I've moved Thursday's run to Friday"* — running, lifting, recovery and schedule informing each other, not living in silos. Running has no existing app Brad prefers, so it stays SirisOS-primary; Gym now imports from JEFIT instead (see Product philosophy above and the SirisGym section below) — the intelligence layer (Training Level, Strength Score, readiness) is the same regardless of which side logged the data.
 
 Suggested internal sequencing, adapted from the brainstorm's own recommended order to reflect what's already real: Progressive overload → PR/record tracking → weekly training load → Siris Coach summaries → Ask Siris training queries → conflict detection → adaptive planning → correlation/predictive features. Apple Health recovery data (HRV, sleep, resting HR) is a hard dependency for readiness-aware features (Run Readiness, deload detection, conflict detection) — see the "Apple Health ingestion" section above, which this sprint depends on rather than duplicates. HRV import and a first readiness score now exist (ADR 095); Run Readiness and deload detection remain unbuilt.
 
@@ -468,6 +488,11 @@ Suggested internal sequencing, adapted from the brainstorm's own recommended ord
 - [x] Live Apple Health snapshot (steps, resting HR, sleep, body mass, active energy, VO₂ max) via on-iPhone MCP pull — ephemeral only, nothing persisted or historized (see Apple Health ingestion above)
 
 ### SirisGym
+
+Per the Product philosophy above, JEFIT is Brad's system of record for gym logging as of 2026-08-22 — SirisOS imports its CSV/file export rather than growing its own manual logging path further. The analytics below (Progressive Overload, PRs, Strength Score, Muscle Map, deload detection) all read from the same underlying session/set data regardless of whether it was manually logged or imported, so nothing here needs to be rebuilt — JEFIT import just needs to land in the same shape. The manual logging UI itself (session form, templates) stays functional but is no longer the primary intended input path once import exists.
+
+- [ ] JEFIT CSV/file import v1 — parse JEFIT's "Backup & Export" CSV into the existing exercise/set/rep/weight/RIR shape so Progressive Overload, PRs, Strength Score, Muscle Map and Training Level all work on imported data unchanged; exact column mapping needs a real sample export to design against, not assumed
+- [ ] Import-sourced sessions feed the readiness score alongside HRV/sleep, per Brad's explicit ask — needs a concrete design for how gym volume/intensity should adjust readiness, not just recovery metrics
 - [x] Automatic Progressive Overload v1 — deterministic backend suggestion (`GET /gym/exercises/{name}/suggestion`) reasoning from the exercise's own most recent session, with a stated reason and correct handling of the "struggled" case (dropping reps / RIR ≤ 1 → repeat the load, not increase it). Surfaced in the workout form's template prefill and a new "Next session suggestion" card on the Exercise Intelligence page (ADR 066)
 - [x] Personal Records v1 — a real PR-achieved event (heaviest weight, best estimated 1RM, best set volume, each checked independently per exercise) fires the moment a workout beats a prior best, with an ActivityService event and an understated in-app callout (ADR 067). Running PR tracking (fastest splits, longest run, best negative split) remains separate future work — `RunRecord` doesn't capture splits today
 - [x] Automatic deload detection v1 — per-exercise signal on the Exercise Intelligence page: falling first-set reps, rising RIR-implied effort and a declining e1RM trend, all required to show a genuine non-bouncing decline across the exercise's last 3 logged sessions before flagging. Falls back to e1RM + reps alone when RIR wasn't recorded for one of the sessions. Deliberately rare/high-confidence rather than chatty (ADR 078)
@@ -542,3 +567,4 @@ The direction: observe → understand → remember → recommend → act. SirisO
 - Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
 - Knowledge vault access remains read-only until a write/editing design is explicitly approved; ambiguous wikilinks must not be silently resolved.
 - Pull requests should pass backend, Flutter and production-container CI before merge except for explicit emergency hotfixes.
+- SirisOS complements Helmarr (media), Neo Server (homelab remote control) and JEFIT (gym) rather than rebuilding their control surfaces — media/homelab stay monitor-and-diagnose, gym stays import-and-analyze. See "Product philosophy" above.

@@ -8,6 +8,8 @@ Its product rule is simple:
 2. Help you decide what to do next.
 3. Help you act without leaving SirisOS.
 
+**Complement, not replace** (2026-08-22): for domains where Brad already has a best-in-class app -- Helmarr for media, Neo Server for homelab remote control, JEFIT for gym logging -- rule 3 stops at "decide," deliberately. SirisOS monitors and diagnoses media/homelab issues rather than duplicating those apps' control surfaces, and imports rather than re-logs gym data. Running, Engineering, Knowledge, Projects and everything else without an existing preferred app stay fully SirisOS-primary, rule 3 included. See `docs/roadmap.md`'s "Product philosophy" section.
+
 This README is the authoritative project handover. `docs/roadmap.md` is the implementation checklist. **Update both whenever scope or sprint status changes.**
 
 ## Standard deployment workflow
