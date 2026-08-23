@@ -17,7 +17,7 @@ MUSCLE_GROUP_WORKLOAD_DEFAULT_DAYS = 7
 MUSCLE_GROUP_RECOVERY_WINDOW_DAYS = 3
 MUSCLE_GROUP_FATIGUE_BASELINE_LOOKBACK_DAYS = 90
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, create_engine, select
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, create_engine, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 # Fixed list, not inferred from exercise name: exercise names are free text
@@ -40,6 +40,13 @@ class WorkoutModel(Base):
     name: Mapped[str] = mapped_column(String(120))
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # "manual" (the only source until JEFIT import) or "jefit". external_id is
+    # the source system's own stable session identifier -- None for manual
+    # entries, used by JEFIT import to detect a session it's already
+    # imported so re-uploading the same or an updated export is a no-op for
+    # sessions already present rather than creating duplicates.
+    source: Mapped[str] = mapped_column(String(40), default="manual")
+    external_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     sets: Mapped[list[WorkoutSetModel]] = relationship(
         back_populates="workout", cascade="all, delete-orphan", order_by="WorkoutSetModel.id"
     )
@@ -95,6 +102,8 @@ class Workout:
     notes: str | None
     created_at: datetime
     sets: list[WorkoutSet]
+    source: str = "manual"
+    external_id: str | None = None
 
     @property
     def total_volume_kg(self) -> float:
@@ -204,14 +213,50 @@ class GymService:
 
     def initialise(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._migrate_workout_source_columns()
+
+    def _migrate_workout_source_columns(self) -> None:
+        # create_all() only creates missing tables, never alters an existing
+        # one -- gym_workouts already exists in production with real data, so
+        # adding source/external_id to the model needs an explicit, idempotent
+        # column-add guarded by checking what's actually there first. Works
+        # the same way on SQLite (tests) and Postgres (production) since it
+        # avoids Postgres-only "ADD COLUMN IF NOT EXISTS" syntax.
+        inspector = inspect(self._engine)
+        if "gym_workouts" not in inspector.get_table_names():
+            return
+        existing_columns = {column["name"] for column in inspector.get_columns("gym_workouts")}
+        with self._engine.begin() as connection:
+            if "source" not in existing_columns:
+                connection.execute(text("ALTER TABLE gym_workouts ADD COLUMN source VARCHAR(40) DEFAULT 'manual'"))
+            if "external_id" not in existing_columns:
+                connection.execute(text("ALTER TABLE gym_workouts ADD COLUMN external_id VARCHAR(120)"))
 
     def list_workouts(self) -> list[Workout]:
         with self._sessions() as session:
             rows = list(session.scalars(select(WorkoutModel).order_by(WorkoutModel.workout_date.desc(), WorkoutModel.id.desc())))
             return [self._to_record(row) for row in rows]
 
+    def existing_external_ids(self, source: str) -> set[str]:
+        # One bulk lookup rather than one query per candidate session --
+        # JEFIT import checks hundreds of sessions per file.
+        with self._sessions() as session:
+            rows = session.scalars(
+                select(WorkoutModel.external_id).where(
+                    WorkoutModel.source == source, WorkoutModel.external_id.is_not(None)
+                )
+            )
+            return {row for row in rows if row is not None}
+
     def create_workout(
-        self, *, workout_date: date, name: str, notes: str | None, sets: list[dict]
+        self,
+        *,
+        workout_date: date,
+        name: str,
+        notes: str | None,
+        sets: list[dict],
+        source: str = "manual",
+        external_id: str | None = None,
     ) -> tuple[Workout, list[PersonalRecord]]:
         # Snapshot each exercise's bests before inserting, so the new sets are
         # never compared against themselves.
@@ -224,6 +269,8 @@ class GymService:
                 name=name.strip(),
                 notes=notes.strip() if notes and notes.strip() else None,
                 created_at=datetime.now(timezone.utc),
+                source=source,
+                external_id=external_id,
             )
             for item in sets:
                 row.sets.append(
@@ -285,6 +332,43 @@ class GymService:
                 )
 
         return workout, records
+
+    def bulk_import_workouts(self, entries: list[dict]) -> int:
+        # create_workout()'s per-call "prior bests" snapshot (get_exercise()
+        # -> list_exercises() -> list_workouts(), a full rescan of everything
+        # logged so far) is fine for one manual log, but calling it in a loop
+        # across a hundreds-of-sessions historical import makes each call
+        # more expensive than the last -- O(n^2) overall. This inserts every
+        # workout in one transaction with no per-session rescan; nothing
+        # calling this needs PersonalRecord events for years-old imported
+        # sessions (JefitImportService never surfaces them), and every
+        # existing analytic still computes PRs correctly afterwards since
+        # they're always derived live from list_workouts(), not stored at
+        # insert time.
+        if not entries:
+            return 0
+        with self._sessions() as session:
+            for entry in entries:
+                row = WorkoutModel(
+                    workout_date=entry["workout_date"],
+                    name=str(entry["name"]).strip(),
+                    notes=(entry.get("notes") or None),
+                    created_at=datetime.now(timezone.utc),
+                    source=entry.get("source", "manual"),
+                    external_id=entry.get("external_id"),
+                )
+                for item in entry["sets"]:
+                    row.sets.append(
+                        WorkoutSetModel(
+                            exercise=str(item["exercise"]).strip(),
+                            weight_kg=float(item["weight_kg"]),
+                            reps=int(item["reps"]),
+                            rir=int(item["rir"]) if item.get("rir") is not None else None,
+                        )
+                    )
+                session.add(row)
+            session.commit()
+        return len(entries)
 
     def list_exercises(self) -> list[ExerciseSummary]:
         workouts = list(reversed(self.list_workouts()))
@@ -686,4 +770,6 @@ class GymService:
                 WorkoutSet(id=item.id, exercise=item.exercise, weight_kg=item.weight_kg, reps=item.reps, rir=item.rir)
                 for item in row.sets
             ],
+            source=row.source or "manual",
+            external_id=row.external_id,
         )

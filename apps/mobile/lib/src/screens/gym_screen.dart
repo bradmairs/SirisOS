@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models/exercise_progress.dart';
@@ -23,6 +24,7 @@ class GymScreen extends StatefulWidget {
 class _GymScreenState extends State<GymScreen> {
   final GymService _service = GymService();
   late Future<List<GymWorkout>> _future;
+  bool _importingJefit = false;
 
   @override
   void initState() {
@@ -71,6 +73,44 @@ class _GymScreenState extends State<GymScreen> {
           builder: (_) => const WorkoutTemplatesScreen()),
     );
     if (template != null && mounted) await _addWorkout(template);
+  }
+
+  Future<void> _importJefit() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['csv', 'txt'],
+      withData: true,
+    );
+    final picked = result?.files.singleOrNull;
+    final bytes = picked?.bytes;
+    if (picked == null || bytes == null || !mounted) return;
+
+    setState(() => _importingJefit = true);
+    try {
+      final summary = await _service.importJefitExport(bytes, picked.name);
+      await _refresh();
+      if (!mounted) return;
+      final parts = <String>[
+        '${summary.sessionsImported} session${summary.sessionsImported == 1 ? '' : 's'} imported',
+        if (summary.sessionsSkipped > 0) '${summary.sessionsSkipped} already present',
+      ];
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            summary.errors.isNotEmpty
+                ? 'JEFIT import: ${parts.join(', ')} -- ${summary.errors.first}'
+                : 'JEFIT import: ${parts.join(', ')}.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('JEFIT import failed: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _importingJefit = false);
+    }
   }
 
   @override
@@ -129,6 +169,18 @@ class _GymScreenState extends State<GymScreen> {
                             builder: (_) => const ExerciseProgressScreen()),
                       ),
                       icon: const Icon(Icons.trending_up_rounded),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: 'Import from JEFIT',
+                      onPressed: _importingJefit ? null : _importJefit,
+                      icon: _importingJefit
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.upload_file_rounded),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(

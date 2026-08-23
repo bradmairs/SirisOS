@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -6,6 +7,7 @@ import '../config/api_config.dart';
 import '../core/siris_event_bus.dart';
 import '../models/exercise_progress.dart';
 import '../models/gym_workout.dart';
+import '../models/jefit_import_result.dart';
 import '../models/workout_template.dart';
 import 'auth_service.dart';
 
@@ -236,5 +238,34 @@ class GymService {
     );
     return GymWorkout.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<JefitImportResult> importJefitExport(
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${ApiConfig.baseUrl}/api/v1/gym/import/jefit'),
+    );
+    request.headers.addAll(AuthService.authorizationHeaders);
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+    final streamed = await request.send().timeout(const Duration(minutes: 3));
+    final response = await http.Response.fromStream(streamed);
+    final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
+    if (response.statusCode != 200) {
+      throw Exception(
+        decoded is Map<String, dynamic>
+            ? decoded['detail'] ?? 'JEFIT import failed.'
+            : 'JEFIT import failed.',
+      );
+    }
+    final result = JefitImportResult.fromJson(decoded as Map<String, dynamic>);
+    if (result.sessionsImported > 0) {
+      SirisEventBus.instance.publish(
+        ModuleDataChanged(moduleId: 'gym', reason: 'jefit_import'),
+      );
+    }
+    return result;
   }
 }
