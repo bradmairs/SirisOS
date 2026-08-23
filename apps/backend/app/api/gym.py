@@ -3,11 +3,12 @@ import os
 from typing import Annotated, Literal
 
 import jwt
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.services.activity_service import ActivityService
 from app.services.gym_service import MUSCLE_GROUPS, GymService
+from app.services.jefit_import_service import JefitImportService
 from app.services.workout_template_service import WorkoutTemplateService
 
 router = APIRouter(prefix="/gym", tags=["gym"])
@@ -17,6 +18,9 @@ template_service = WorkoutTemplateService()
 template_service.initialise()
 activity_service = ActivityService()
 activity_service.initialise()
+jefit_import_service = JefitImportService(gym_service=service)
+
+MAX_JEFIT_EXPORT_UPLOAD_BYTES = int(os.getenv("SIRISOS_JEFIT_EXPORT_MAX_UPLOAD_MB", "50")) * 1024 * 1024
 
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -186,6 +190,15 @@ class WorkoutTemplateResponse(BaseModel):
     name: str
     created_at: datetime
     exercises: list[WorkoutTemplateExerciseResponse]
+
+
+class JefitImportResponse(BaseModel):
+    sessions_imported: int
+    sessions_skipped: int
+    sets_imported: int
+    earliest_date: date | None
+    latest_date: date | None
+    errors: list[str]
 
 
 def _response(workout, new_records=()) -> WorkoutResponse:
@@ -405,3 +418,33 @@ async def delete_template(template_id: int, authorization: Annotated[str | None,
     _authenticate(authorization)
     if not template_service.delete_template(template_id):
         raise HTTPException(status_code=404, detail="Workout template not found.")
+
+
+@router.post("/import/jefit", response_model=JefitImportResponse)
+async def import_jefit(
+    file: Annotated[UploadFile, File()],
+    authorization: Annotated[str | None, Header()] = None,
+) -> JefitImportResponse:
+    username = _authenticate(authorization)
+    data = await file.read(MAX_JEFIT_EXPORT_UPLOAD_BYTES + 1)
+    if len(data) > MAX_JEFIT_EXPORT_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="JEFIT export file is too large.")
+    try:
+        text_content = data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="JEFIT export file must be UTF-8 text.") from exc
+
+    result = jefit_import_service.import_export(text_content)
+    if result.sessions_imported > 0:
+        activity_service.record(
+            module="gym",
+            event_type="jefit_import",
+            title="JEFIT data imported",
+            message=(
+                f"{result.sessions_imported} session{'s' if result.sessions_imported != 1 else ''} imported, "
+                f"{result.sessions_skipped} already present, {result.sets_imported} sets total."
+            ),
+            severity="success",
+            user=username,
+        )
+    return JefitImportResponse(**result.__dict__)
