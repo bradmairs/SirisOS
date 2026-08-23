@@ -1,11 +1,26 @@
 import asyncio
+import json
 from pathlib import Path
 
-from app.services.siris_memory_service import SirisMemoryService
+import pytest
+
+from app.services.project_service import ProjectService
+from app.services.siris_memory_service import (
+    MemorySourceNotFoundError,
+    SirisMemoryService,
+)
 
 
-def _service(tmp_path: Path, chat_client=None) -> SirisMemoryService:
-    return SirisMemoryService(memory_path=tmp_path / "memory.json", chat_client=chat_client)
+def _service(tmp_path: Path, chat_client=None, project_service=None) -> SirisMemoryService:
+    return SirisMemoryService(
+        memory_path=tmp_path / "memory.json", chat_client=chat_client, project_service=project_service
+    )
+
+
+def _project_service(tmp_path: Path) -> ProjectService:
+    return ProjectService(
+        projects_path=tmp_path / "projects.json", project_context_path=tmp_path / "project-context.json"
+    )
 
 
 class _FakeChatClient:
@@ -130,3 +145,148 @@ def test_suggest_dedups_against_existing_memory(tmp_path: Path) -> None:
     result = asyncio.run(service.suggest(user_message="hi", assistant_message="hello"))
 
     assert [item.content for item in result] == ["New fact never seen before."]
+
+
+def test_create_memory_with_no_source_stores_none(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+
+    created = service.create_memory(memory_class="fact", content="Works as a civil engineer.")
+
+    assert created.source is None
+
+
+def test_create_memory_with_manual_source(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+
+    created = service.create_memory(
+        memory_class="decision",
+        content="Used Class 3 pipe on the Sydney Water rising main.",
+        source_type="manual",
+        source_label="Project: Sydney Water rising main",
+    )
+
+    assert created.source is not None
+    assert created.source.source_type == "manual"
+    assert created.source.source_id is None
+    assert created.source.source_label == "Project: Sydney Water rising main"
+    assert created.source.confidence == 1.0
+
+
+def test_create_memory_with_manual_source_but_blank_label_stores_none(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+
+    created = service.create_memory(
+        memory_class="fact", content="Works as a civil engineer.", source_type="manual", source_label="   "
+    )
+
+    assert created.source is None
+
+
+def test_create_memory_with_conversation_source(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+
+    created = service.create_memory(
+        memory_class="fact",
+        content="Works as a civil engineer.",
+        source_type="conversation",
+        source_label="Suggested from SirisAI chat",
+    )
+
+    assert created.source is not None
+    assert created.source.source_type == "conversation"
+    assert created.source.source_id is None
+    assert created.source.source_label == "Suggested from SirisAI chat"
+
+
+def test_create_memory_with_project_source_resolves_current_name(tmp_path: Path) -> None:
+    projects = _project_service(tmp_path)
+    project = projects.create_project(name="Penrith treatment plant", kind="engineering", tags=[])
+    service = _service(tmp_path, project_service=projects)
+
+    created = service.create_memory(
+        memory_class="fact", content="Uses AS 3500 for hydraulics.", source_type="project", source_id=project.id
+    )
+
+    assert created.source is not None
+    assert created.source.source_type == "project"
+    assert created.source.source_id == project.id
+    assert created.source.source_label == "Penrith treatment plant"
+
+
+def test_create_memory_with_project_source_always_resolves_fresh_name(tmp_path: Path) -> None:
+    projects = _project_service(tmp_path)
+    project = projects.create_project(name="Old name", kind="engineering", tags=[])
+    projects.update_project(project.id, {"name": "New name"})
+    service = _service(tmp_path, project_service=projects)
+
+    created = service.create_memory(
+        memory_class="fact", content="Note.", source_type="project", source_id=project.id
+    )
+
+    assert created.source.source_label == "New name"
+
+
+def test_create_memory_with_unknown_project_id_raises(tmp_path: Path) -> None:
+    projects = _project_service(tmp_path)
+    service = _service(tmp_path, project_service=projects)
+
+    with pytest.raises(MemorySourceNotFoundError):
+        service.create_memory(
+            memory_class="fact", content="Note.", source_type="project", source_id="missing-id"
+        )
+
+
+def test_create_memory_with_project_source_missing_id_raises(tmp_path: Path) -> None:
+    service = _service(tmp_path, project_service=_project_service(tmp_path))
+
+    with pytest.raises(ValueError):
+        service.create_memory(memory_class="fact", content="Note.", source_type="project", source_id=None)
+
+
+def test_loading_pre_structured_provenance_string_source_wraps_as_manual(tmp_path: Path) -> None:
+    memory_path = tmp_path / "memory.json"
+    memory_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "abc-123",
+                    "memory_class": "fact",
+                    "content": "Works as a civil engineer.",
+                    "source": "Suggested from SirisAI chat",
+                    "created_at": "2026-08-22T12:00:00+00:00",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    service = _service(tmp_path)
+
+    listed = service.list_memory()
+
+    assert len(listed) == 1
+    assert listed[0].source.source_type == "manual"
+    assert listed[0].source.source_id is None
+    assert listed[0].source.source_label == "Suggested from SirisAI chat"
+
+
+def test_loading_pre_structured_provenance_null_source_stays_none(tmp_path: Path) -> None:
+    memory_path = tmp_path / "memory.json"
+    memory_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "abc-123",
+                    "memory_class": "fact",
+                    "content": "Works as a civil engineer.",
+                    "source": None,
+                    "created_at": "2026-08-22T12:00:00+00:00",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    service = _service(tmp_path)
+
+    listed = service.list_memory()
+
+    assert listed[0].source is None

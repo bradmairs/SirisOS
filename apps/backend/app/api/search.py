@@ -180,7 +180,8 @@ async def search(
     except MemoryStoreUnavailableError:
         memory_records = []
     for memory in memory_records:
-        haystack = f"{memory.memory_class} {memory.content} {memory.source or ''}".lower()
+        source_label = memory.source.source_label if memory.source else ""
+        haystack = f"{memory.memory_class} {memory.content} {source_label}".lower()
         if term in haystack:
             results.append(SearchResult(
                 module="siris",

@@ -11,6 +11,7 @@ from typing import Literal
 
 from app.services.ollama_service import OllamaChatClient
 from app.services.ollama_service import chat_client as _default_chat_client
+from app.services.project_service import ProjectNotFoundError, ProjectService, ProjectStoreUnavailableError
 
 MemoryClass = Literal["fact", "preference", "episode", "decision", "observation", "conversation"]
 MEMORY_CLASSES: tuple[MemoryClass, ...] = (
@@ -101,12 +102,40 @@ class MemoryNotFoundError(Exception):
     pass
 
 
+class MemorySourceNotFoundError(Exception):
+    pass
+
+
+# Structured provenance, matching the typed target_type/target_id/label
+# pattern project_relationships.py already established for cross-object
+# references (ADR 062-era), rather than a free-text string a person could
+# type anything into. "manual" and "conversation" have no real addressable
+# SirisOS object behind them -- source_id stays None and source_label is
+# just what the caller supplied. "project" is the one type backed by a real
+# object today: source_id is validated against ProjectService and
+# source_label is always the project's current name, resolved fresh on
+# write (not trusted from the caller), matching _canonical_target()'s own
+# resolve-don't-trust precedent. confidence is fixed at 1.0 for every path
+# that exists today, since Save always requires a human's explicit
+# confirmation (ADR 103) -- it's reserved for a future write path that
+# could record a memory without that confirmation step.
+MemorySourceType = Literal["manual", "conversation", "project"]
+
+
+@dataclass(frozen=True)
+class MemorySource:
+    source_type: MemorySourceType
+    source_id: str | None
+    source_label: str
+    confidence: float = 1.0
+
+
 @dataclass(frozen=True)
 class Memory:
     id: str
     memory_class: MemoryClass
     content: str
-    source: str | None
+    source: MemorySource | None
     created_at: str
 
 
@@ -117,9 +146,15 @@ class MemorySuggestion:
 
 
 class SirisMemoryService:
-    def __init__(self, memory_path: Path | None = None, chat_client: OllamaChatClient | None = None) -> None:
+    def __init__(
+        self,
+        memory_path: Path | None = None,
+        chat_client: OllamaChatClient | None = None,
+        project_service: ProjectService | None = None,
+    ) -> None:
         self._memory_path = memory_path or _default_memory_path()
         self._chat_client = chat_client or _default_chat_client
+        self._project_service = project_service or ProjectService()
 
     def list_memory(self, *, memory_class: MemoryClass | None = None) -> list[Memory]:
         records = self._load()
@@ -129,19 +164,54 @@ class SirisMemoryService:
         return records
 
     def create_memory(
-        self, *, memory_class: MemoryClass, content: str, source: str | None = None
+        self,
+        *,
+        memory_class: MemoryClass,
+        content: str,
+        source_type: MemorySourceType | None = None,
+        source_id: str | None = None,
+        source_label: str | None = None,
     ) -> Memory:
+        source = self._resolve_source(
+            source_type=source_type, source_id=source_id, source_label=source_label
+        )
         records = self._load()
         record = Memory(
             id=str(uuid.uuid4()),
             memory_class=memory_class,
             content=content.strip(),
-            source=(source.strip() or None) if source else None,
+            source=source,
             created_at=datetime.now(timezone.utc).isoformat(),
         )
         records.append(record)
         self._save(records[-MAX_MEMORY_RECORDS:])
         return record
+
+    def _resolve_source(
+        self,
+        *,
+        source_type: MemorySourceType | None,
+        source_id: str | None,
+        source_label: str | None,
+    ) -> MemorySource | None:
+        if source_type is None:
+            return None
+        if source_type == "project":
+            if not source_id or not source_id.strip():
+                raise ValueError("source_id is required when source_type is 'project'.")
+            try:
+                project = self._project_service.get_project(source_id.strip())
+            except ProjectNotFoundError as exc:
+                raise MemorySourceNotFoundError(f"Project '{source_id}' not found.") from exc
+            except ProjectStoreUnavailableError as exc:
+                raise MemoryStoreUnavailableError(str(exc)) from exc
+            return MemorySource(source_type="project", source_id=project.id, source_label=project.name)
+        # manual / conversation: no addressable object behind them, so the
+        # caller's own label is all there is to store.
+        label = (source_label or "").strip()
+        if not label:
+            return None
+        return MemorySource(source_type=source_type, source_id=None, source_label=label)
 
     def delete_memory(self, record_id: str) -> None:
         records = self._load()
@@ -196,9 +266,41 @@ class SirisMemoryService:
             raw = json.loads(self._memory_path.read_text(encoding="utf-8"))
             if not isinstance(raw, list):
                 raise ValueError("Siris memory store root must be a list")
-            return [Memory(**item) for item in raw]
+            return [self._memory_from_dict(item) for item in raw]
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             raise MemoryStoreUnavailableError("Siris memory store is unavailable.") from exc
 
+    @staticmethod
+    def _memory_from_dict(item: dict) -> Memory:
+        raw_source = item.get("source")
+        source: MemorySource | None
+        if raw_source is None:
+            source = None
+        elif isinstance(raw_source, str):
+            # Pre-structured-provenance records stored source as a plain
+            # string -- keep loading them by wrapping as a "manual" source
+            # rather than crashing the whole store on an old record.
+            stripped = raw_source.strip()
+            source = MemorySource(source_type="manual", source_id=None, source_label=stripped) if stripped else None
+        else:
+            source = MemorySource(**raw_source)
+        return Memory(
+            id=item["id"],
+            memory_class=item["memory_class"],
+            content=item["content"],
+            source=source,
+            created_at=item["created_at"],
+        )
+
     def _save(self, records: list[Memory]) -> None:
-        _atomic_json_write(self._memory_path, [item.__dict__ for item in records], ".siris-memory-")
+        payload = [
+            {
+                "id": item.id,
+                "memory_class": item.memory_class,
+                "content": item.content,
+                "source": item.source.__dict__ if item.source else None,
+                "created_at": item.created_at,
+            }
+            for item in records
+        ]
+        _atomic_json_write(self._memory_path, payload, ".siris-memory-")
