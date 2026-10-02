@@ -1,570 +1,69 @@
 # SirisOS Roadmap
 
-This is the implementation checklist for SirisOS. `README.md` is the authoritative handover. Keep both synchronized whenever scope or sprint status changes.
+SirisOS is the hub for the Siris family of apps (ADR 106). The pre-hub
+roadmap, Sprints 0.4 to 1.0, is archived in
+[`history/roadmap-v0.md`](history/roadmap-v0.md).
 
 ## Product philosophy: complement, not replace
 
-SirisOS complements existing best-in-class apps rather than rebuilding them. As of 2026-08-22: Helmarr already does home media control well, Neo Server already does homelab remote control well, JEFIT already does gym logging well — SirisOS is not trying to be a second, worse version of any of them. Concretely:
-
-- **Media**: monitor the Radarr/Sonarr/Overseerr stack and surface errors/issues via SirisAI, evidence-first like every other Recommendation/Incident (see 0.4.3l below) — not search/add/approve control.
-- **Homelab**: monitoring, recommendations, incident lifecycle and AI diagnosis remain the direction; growing direct-control capability execution (Action Framework write actions) beyond what's already shipped is de-prioritized, not a near-term goal.
-- **Gym**: JEFIT becomes the system of record. SirisOS imports JEFIT's data (its CSV/file export) rather than re-logging it, feeding the same analytics (Strength Score, Training Level, readiness) that already exist. The manual gym logging UI shifts to import-primary rather than staying the main input path.
-- **Everything else** — Running, Engineering, Knowledge, Projects, Siris Memory, SirisAI, Digital Twin, and the rest — stays SirisOS-primary; there's no existing app being complemented there.
-
-## Sprint 0.4.1 — SirisCore ✅ Complete
-
-- [x] Typed Event Bus
-- [x] Module Registry
-- [x] Widget Registry
-- [x] Notification Centre
-- [x] Deterministic Briefing Engine
-- [x] Explainable Siris Score foundation
-- [x] Scheduler
-- [x] AI Context Service
-- [x] Persisted SirisCore settings
-- [x] Standard `git pull && make up` deployment workflow
-
-## Sprint 0.4.2 — Mission Control ✅ Complete
-
-- [x] Navigation-free `/mission` Situation Room
-- [x] Live clock/date, briefing, Siris Score, widget grid and activity timeline
-- [x] Event-driven refresh with scheduled fallback
-- [x] Adaptive widget priority and critical wake
-- [x] Balanced, Operations and Compact profiles
-- [x] Work/Home/Fitness/Travel focus modes
-- [x] Ambient and reduced-motion behaviour
-- [x] Runtime diagnostics
-- [x] Shared dark red/black SirisOS design system
-
-## Sprint 0.4.3 — Live Homelab ✅ Platform foundation complete
-
-### 0.4.3a — Integration Framework ✅
-- [x] `SirisConnector` contract
-- [x] Integration health model and `SirisIntegrationManager`
-- [x] Scheduler-backed refresh and deterministic failure recovery
-- [x] Disabled/unconfigured state
-- [x] Server-side credential boundary
-- [x] ADR 012
-
-### 0.4.3b — Docker ✅
-- [x] Container list/status/actions/logs
-- [x] CPU/RAM and host metrics/history
-- [x] Image update availability
-- [x] Audit history
-- [x] ADR 013
-
-### 0.4.3c — Notification Policies ✅
-- [x] Activation, duration and escalation rules
-- [x] Stable-ID deduplication and explicit resolution
-- [x] Mission Control wake, Briefing and Siris Score integration
-- [x] ADR 014
-
-### 0.4.3d — Home Assistant ✅
-- [x] Server-side credentials
-- [x] WebSocket state-change subscription with REST fallback
-- [x] Entity browser/search/filter
-- [x] Allow-listed controls
-- [x] ADRs 015–016
-
-### 0.4.3e — Infrastructure integrations ✅
-
-Prometheus:
-- [x] Target health and instant PromQL
-- [x] Policies, caching and Mission Control widget
-- [x] ADR 017
-
-Grafana:
-- [x] Health/version and dashboard discovery
-- [x] Dashboard launch and optional bounded render proxy
-- [x] ADR 018
-
-UniFi:
-- [x] Controller/site/device/AP/client/WAN overview
-- [x] Controller/device policies and Mission Control widget
-- [x] ADR 019
-
-Storage / Synology:
-- [x] Host filesystem monitoring and storage policies
-- [x] Synology DSM discovery, disks and volumes
-- [x] Hyper Backup task/result monitoring
-- [x] Hyper Backup failure policy and Mission Control widget
-- [x] ADR 021
-
-UPS / NUT:
-- [x] Vendor-neutral NUT connector
-- [x] Battery/runtime/load/voltage/power state
-- [x] On-battery, low-battery and availability policies
-- [x] Mission Control UPS widget
-- [x] ADR 022
-
-### 0.4.3f — Operations Center ✅
-- [x] Authenticated `/operations` route
-- [x] Operational overview, incidents and attention queue
-- [x] Integration health and manual refresh
-- [x] Event-driven updates
-- [x] ADR 023
-
-### 0.4.3g — Generic History Engine ✅ Foundation
-- [x] PostgreSQL `time_series_observations`
-- [x] Generic source/metric/dimensions identity
-- [x] Numeric/text observations
-- [x] Retention/sample throttling
-- [x] Authenticated history API and Flutter client
-- [x] Storage, Synology, Hyper Backup and UPS producers
-- [x] ADR 024
-- [ ] Bridge legacy Docker/host history into generic contract
-- [ ] UniFi client/outage history
-- [ ] "What changed?" queries per object (since yesterday / this week / since I last looked) backed by the History Engine, generalizing beyond storage/backup metrics
-
-### 0.4.3h — Backup Protection Analytics ✅
-- [x] Discrete Hyper Backup completion events
-- [x] 1–90 day deterministic protection analytics
-- [x] 30-day Operations Center panel
-- [x] Per-task success/failure rates
-- [x] ADR 025
-- [ ] Schedule-aware overdue backup policy
-- [ ] Duration analytics when DSM exposes reliable per-run duration
-
-### 0.4.3i — Incident Engine ✅ Foundation
-- [x] Deterministic incident grouping
-- [x] Power-outage correlation anchored by UPS state
-- [x] Compute/storage/network/observability grouping
-- [x] Explicit correlation reasons and raw evidence retention
-- [x] ADR 026
-- [x] Persist incident lifecycle/history — `IncidentLifecycleRecord` tracks acknowledge/assign/resolve state per incident id backend-side, keyed to the already-stable ids the client's correlation engine produces; resolved records that have dropped out of the live list stay listed as a "Recently resolved" history rather than being deleted (ADR 101)
-- [x] Acknowledge/assign/resolve workflow — Operations Center's incident rows get Acknowledge/Resolve/Reopen actions, with a flagged (not hidden) state for an incident marked resolved while its underlying condition is still live (ADR 101)
-
-### 0.4.3j — Digital Twin ✅ Configurable foundation
-- [x] Directed dependency graph
-- [x] Transitive downstream impact traversal
-- [x] Built-in Synology → Hyper Backup → Backup Protection chain
-- [x] Editable topology with duplicate/self/cycle protection, enforced client-side for instant feedback and re-validated server-side against the shared canonical state
-- [x] Incident downstream impact enrichment
-- [x] ADRs 027–028
-- [x] Server-side canonical topology — custom dependency edges now live behind `/api/v1/digital-twin`, visible from any session against the same backend rather than one device's local storage; the node/built-in-edge catalog itself stays fixed on both sides (ADR 102)
-- [ ] Arbitrary custom nodes
-- [ ] Authoritative dependency discovery
-- [ ] Interactive graph visualization
-- [ ] Dependency-aware recommended actions
-
-### 0.4.3k — Capability Framework ✅ Foundation
-- [x] Stable capability IDs
-- [x] Provider/kind/risk/confirmation metadata
-- [x] Live availability from Integration Manager
-- [x] Fail-closed control semantics
-- [x] Operations Center capability panel
-- [x] ADR 030
-- [ ] Provider-owned dynamic capability registration
-- [ ] Capability argument schemas and authorization requirements
-- [ ] Server-side capability endpoint
-- [ ] Bind executable capabilities to Action Framework
-
-### 0.4.3l — Media Monitoring (new, not started)
-
-Radarr/Sonarr/Overseerr read-only status and queue monitoring, with errors/issues surfaced through the existing Recommendation/Incident Engine pattern and SirisAI diagnosis on top — not a second media-control app (see Product philosophy above). A separate Codex/ChatGPT session already built and tested a full control integration (search/add/approve, branch `feature/media-servarr-control`, not merged) before this direction was set; that work needs stripping down to its read-only status/queue plumbing rather than being rebuilt from scratch or discarded.
-
-- [ ] Radarr/Sonarr connector — read-only queue/health/download status
-- [ ] Overseerr connector — read-only request-queue status
-- [ ] Media alerts folded into the existing `homelab_alerts`/Recommendation Engine pattern (ADR 064), not a parallel system
-- [ ] SirisAI-diagnosed media issues, evidence-first like every other AI-adjacent claim in this app
-
-### Homelab / Operations follow-on backlog
-
-Direct-control expansion (new Action Framework capabilities beyond what's already shipped) is de-prioritized per the Product philosophy above — monitoring, recommendations and diagnosis are the near-term direction, not more write actions. Already-shipped control (Docker start/stop/restart, Home Assistant device control) stays as-is.
-
-- [ ] Operations Planner
-- [ ] Playbook Engine
-- [ ] Safe UPS graceful shutdown orchestration
-- [ ] Explainable Siris Score contribution history
-- [ ] Further Flutter web performance work: isolate Mission Control clock state and throttle pointer-hover activity
-
-## Sprint 0.4.4 — SirisCore Context Service ✅ Foundation complete
-
-- [x] Typed context facts/domains/priorities/provenance
-- [x] Modular context-provider interface
-- [x] Deterministic current snapshot and primary context
-- [x] Event Bus context updates
-- [x] Bounded context transition timeline
-- [x] Operational contexts for power, backup, network, storage and compute state
-- [x] `siris.context` Mission Control widget
-- [x] Operations Center current-context surface
-- [x] ADR 031
-- [ ] Persist context timeline through History Engine
-- [x] Manual context override with expiry/provenance — the user can directly assert a context fact ("Focused", "Away from home") with an optional expiry (1h/4h/8h/none) from the existing Context panel; it outranks every provider-derived fact so it always wins as `primary`, and clears itself the moment it's read past expiry (ADR 099)
-- [ ] Apple Health context provider
-- [ ] Home Assistant presence provider
-- [ ] Calendar/work/project context providers
-- [ ] Context-aware Briefing Engine and Siris Score
-- [ ] Context-aware UI: reprioritize (never hide) module/screen prominence by current context — work, home, gym, morning, evening — so Mission Control reflects the user's actual current context
-- [ ] Authenticated context API for backend/Hermes consumers
-- [ ] Presence Engine
-
-Context claims remain evidence-based; SirisOS must not infer working/sleeping/travelling/focused states without authoritative inputs.
-
-## Sprint 0.4.5 — Engineering Module 🚧 In progress
-
-### Engineering calculators ✅ Expanded civil/water foundation
-- [x] First-class Engineering module through Module Registry
-- [x] Mobile-friendly calculator category/selector surface
-- [x] Full circular-pipe Manning capacity and velocity
-- [x] Part-full circular-pipe Manning capacity, velocity and flow area
-- [x] Minimum full-pipe grade for a target Manning flow
-- [x] Rectangular open-channel Manning capacity
-- [x] Trapezoidal open-channel Manning capacity
-- [x] Rectangular-channel critical depth and velocity
-- [x] Rational Method peak flow using mm/h and hectares
-- [x] Rectangular free-flow weir discharge
-- [x] Circular orifice discharge
-- [x] Hazen–Williams pressure-pipe headloss
-- [x] Darcy–Weisbach headloss with Reynolds number and friction factor
-- [x] Pump hydraulic/input power estimate
-- [x] Buried-pipe buoyancy screening helper
-- [x] Constant-flow detention screening helper
-- [x] Minor-loss (K-value) fitting/valve/bend headloss, entered K coefficients rather than a hidden fitting catalogue
-- [x] Input validation and numerical regression tests
-- [x] Engineering navigation and Quick Action
-- [x] ADR 032
-- [ ] Traceable standards/authority assumption profiles per calculator
-- [x] Save/share calculation records into project context (ADR 055)
-- [x] Cite an exact standard revision on a saved calculation (ADR 056)
-- [ ] Multi-stage detention routing / stage-storage-discharge helper
-- [ ] Pit/inlet capture and gutter-flow helpers once authority assumptions are profile-driven
-
-### Standards Library / Search ✅ Expanded foundation
-- [x] Engineering hub with Calculators and Standards surfaces
-- [x] Authenticated private PDF upload
-- [x] Persistent local storage under `data/standards`
-- [x] Configurable `SIRISOS_STANDARDS_MAX_UPLOAD_MB` limit
-- [x] Title, authority, reference and edition/revision metadata
-- [x] Page-level local text extraction with `pypdf`
-- [x] Ranked local text search with page/snippet provenance
-- [x] Citation-bearing page retrieval
-- [x] Scanned/image PDFs accepted and handled by local OCR fallback
-- [x] OCRmyPDF/Tesseract indexing for scanned/image-only PDFs with native text preferred
-- [x] Immutable document IDs for citation provenance
-- [x] Archive/restore lifecycle without destructive deletion
-- [x] Replace-as-new-revision workflow with supersedes/superseded-by lineage
-- [x] Historical/archived revision search for citation review
-- [x] Local hybrid civil/water semantic reranking with exact lexical priority
-- [x] Authoritative discovery links for Standards Australia, WSAA, Sydney Water, Austroads and Australian Rainfall & Runoff
-- [x] No scraping/republication of protected standards content
-- [x] ADR 033 private standards library and citation/provenance boundary
-- [x] ADR 034 citation-first retrieval boundary
-- [x] ADR 036 local OCR boundary
-- [x] ADR 037 immutable document lifecycle/versioning
-- [x] ADR 038 local hybrid semantic retrieval
-- [ ] Optional explicit irreversible purge/export workflow for administrators
-- [ ] Optional local vector/embedding index for broader semantic recall
-- [ ] Traceable standards/authority assumption profiles for calculators
-
-### SirisHydro retrieval v1 ✅ Evidence foundation
-- [x] Authenticated `/api/v1/engineering/sirishydro/evidence` endpoint
-- [x] Deterministic cross-document page ranking
-- [x] Bounded evidence excerpts
-- [x] Exact document/reference/edition/authority/page provenance
-- [x] Deterministic human-readable citations
-- [x] Explicit sufficient/insufficient evidence state
-- [x] Copyable evidence context packet for future model use
-- [x] Dedicated SirisHydro Engineering tab
-- [x] Backend evidence-assembly regression tests
-- [x] Hybrid semantic retrieval reranking while retaining deterministic provenance
-- [x] Active-revision-only evidence assembly for new answers
-- [x] Retrieval strategy included in evidence context
-- [x] Ollama-backed answer composition over retrieved evidence (ADR 057)
-- [x] Answer UI with source-supported vs general-reasoning distinction
-- [x] Source-page deep links from SirisHydro results, sharing the Standards Library's page viewer
-- [x] Persistent query history — question, evidence citations, synthesized answer (ADR 059)
-- [ ] Conversation/session context
-- [ ] Optional vector/embedding reranking while retaining deterministic lexical fallback
-
-### Engineering follow-ons
-- [ ] SirisPM integration
-- [ ] Project notes, drawing review and Civil 3D utilities
-- [ ] Engineering context provider for active project/design mode
-
-## Deployment architecture ✅ Unified application container
-
-- [x] One production `sirisos` application container for Flutter web + FastAPI
-- [x] Nginx serves Flutter and reverse-proxies same-origin `/api/*` to loopback Uvicorn
-- [x] Production API no longer requires a host/IP compiled into Flutter
-- [x] End-to-end Nginx → FastAPI `/health` container healthcheck
-- [x] Preserve OCRmyPDF/Tesseract inside the unified application image
-- [x] Keep PostgreSQL, docker-socket-proxy and node-exporter as separate infrastructure boundaries
-- [x] Remove obsolete standalone web/API production Dockerfiles
-- [x] ADR 039
-- [x] iOS platform target — `apps/mobile/ios/` scaffolded and buildable/launchable on the iOS Simulator via `flutter run`, ahead of SirisOS eventually shipping as a native iOS app rather than only Flutter web (ADR 076)
-- [x] iOS sign-in UI test — a `RunnerUITests` XCUITest target verifies the sign-in flow via `xcodebuild test`, independently of Claude Code's own (currently disabled) simulator tooling; confirmed against the real backend (ADR 077)
-
-## Build validation ✅ Foundation
-
-- [x] GitHub Actions workflow on pull requests and `main`
-- [x] Python compile check
-- [x] Backend pytest suite
-- [x] Flutter analyze
-- [x] Flutter test
-- [x] Flutter release web build
-- [x] Full unified production `sirisos` Docker image build
-- [ ] Require CI status checks in branch protection once repository policy is configured
-
-## Apple Health ingestion
-
-- [x] `POST /api/v1/health/ingest` ingestion endpoint
-- [x] Dedicated unattended bearer token (`SIRISOS_HEALTH_INGEST_TOKEN`)
-- [x] Idempotent metric imports, keyed on metric/timestamp/source/value/unit
-- [x] Steps, sleep, HRV, resting HR and workouts first (any Health Auto Export metric is accepted)
-- [x] Canonical `health_metric_samples` / `health_workouts` store, workouts upserted by id
-- [x] `GET /api/v1/health/status` sync summary (`last_sync`, `records_received`, `last_error`)
-- [x] Health summary API — `GET /api/v1/health/summary` reads back the ingested HRV/resting-HR/sleep (any metric type present) with a trailing 14-day baseline ratio, mirroring the same "vs your own history" pattern as weekly training load. Generic over metric type, not hardcoded to specific metrics. Surfaced as a "Recovery vs your baseline" section on the Health screen (ADR 072). This is the prerequisite that was blocking Training Conflict Detection, Run Readiness and the Smart Weekly Planner
-- [x] Event Bus refresh on new sync v1 — `HealthSyncWatcher` polls the existing `GET /health/status` every 5 minutes (no backend push mechanism exists anywhere in this app, so this is the poll-then-publish pattern `SirisIntegrationManager` already uses for its own connectors) and publishes `ModuleDataChanged(moduleId: 'health')` only when `last_sync`/`records_received` actually change. Health and Coach screens subscribe and refresh automatically -- verified live with a temporarily shortened poll interval (ADR 075)
-- [x] Daily cumulative totals v1 — steps/active energy/sleep now sum to a true daily total (was previously showing just the latest individual sample), computed against real local-timezone day boundaries (`SIRISOS_TIMEZONE`, first local-time-aware code in the backend) rather than an implicit UTC one. Heart rate/weight remain latest-reading, matching HealthKit's own cumulative-vs-discrete quantity-type distinction. Tapping any metric now opens a 30-day trend drill-down (ADR 082)
-- [x] Unlogged Apple Health workouts v1 — `health_workouts` had been write-only since ingestion shipped, never read back by anything. `HealthWorkoutMatchService` cross-references ingested Apple Health run/strength workouts against SirisRun/SirisGym by same local calendar date and flags the ones with no matching entry, surfaced as a "Not yet logged in SirisOS" card on the Health screen. Other Health workout types (walk/swim/cycle/etc.) stay out of scope -- SirisOS has nowhere to log them yet. Also fixed a genuine timezone bug found while verifying this: ingested timestamps past ~2pm local were silently rolling into the next calendar day under SQLite because the offset was never normalised to UTC before storage (ADR 088)
-- [x] Quick-log an unlogged Apple Health run v1 — the Health screen's "Log this run" button pre-fills the existing Add Run dialog with distance/pace/heart rate computed directly from the Apple Health workout, a genuine one-tap-to-review-and-save flow. Strength workouts stay visibility-only -- Apple Health captures duration/calories, not sets/reps/weight, so there's nothing meaningful to pre-fill on the Gym form. One dialog implementation now serves both the Running screen's own "+" button and this quick-log path (ADR 089)
-- [x] Apple Health integration overhaul — fixed sleep bucketing (a night's sleep was fragmenting across the pre/post-midnight boundary, making "last night's sleep" look mostly missing; now buckets to the wake day with a late-evening cutoff so the total also stays visible through the whole day rather than resetting hours before that night's sleep even starts), a second real timezone bug in `TrainingConflictService` found live (compared a sample's raw UTC date against the reference day instead of converting to local time first), `SIRISOS_TIMEZONE` never actually being wired through `docker-compose.yml` despite being read, and raw `SCREAMING_SNAKE_CASE` unit/metric-name display everywhere a Health value reached the UI. Added HRV, blood oxygen, respiratory rate, body fat percentage and flights climbed to native HealthKit sync -- HRV specifically had been recognised by name in `TrainingConflictService` since it shipped, with nothing ever actually syncing it. Live-verified against 21 days of realistic seeded data (ADR 095)
-- [x] Daily readiness/recovery score v1 — self-relative like every other score in this app: HRV and sleep duration each expressed as a percent of the athlete's own trailing baseline, averaged and clamped to [0, 100], with a typical day (both at baseline) scoring 100 rather than reserving that for an unusually good day. Computed live from existing daily history, no new table. New `get_readiness_score` SirisAgent tool (13th tool) and a score-plus-30-day-graph card on the Health screen (ADR 095)
-- [ ] Apple Health context provider
-- [x] Keep MCP as an optional interactive/debug query layer rather than canonical ingestion
-
-## Sprint 0.5.0 — Knowledge Platform 🚧 In progress
-
-- [x] Obsidian/Selkies launch integration
-- [x] Obsidian connector through Integration Framework
-- [x] First-class Knowledge module
-- [x] Read-only Obsidian-compatible Markdown vault mount
-- [x] Authenticated overview/search/note APIs
-- [x] Recent Notes and Daily Notes surfaces
-- [x] Vault title/path/content search
-- [x] Folder browsing and filtering
-- [x] Frontmatter and inline Obsidian tag browsing/filtering
-- [x] Deterministic wikilink resolution
-- [x] Explicit ambiguous-wikilink candidate selection
-- [x] Clickable wikilink navigation in note viewer
-- [x] Backlink discovery and navigation
-- [x] Bounded per-request in-memory link index
-- [x] Global SirisOS search across vault content
-- [x] Global search coverage extended to Projects, saved Engineering calculations, the Standards library and Siris Memory, with per-source graceful degradation so one corrupted store can't take down search for everything else (ADR 062)
-- [x] Mission Control Knowledge widget
-- [x] Context-aware related notes with explainable ranking
-- [x] Optional Ollama AI semantic search, blended transparently into ranking
-- [x] Cross-link Engineering and Homelab Knowledge context
-- [x] ADR 040 read-only Knowledge vault foundation
-- [x] ADR 041 knowledge relationship resolution
-- [x] ADR 042 global search and Mission Control widget
-- [x] ADR 043 related notes and local graph contract
-- [x] ADR 045 Obsidian launch integration
-- [x] ADR 046 optional Ollama semantic search
-- [x] ADR 047 contextual Knowledge cross-links
-- [x] ADR 048 typed Knowledge context and API entrypoint
-- [x] Flutter UI for the local Knowledge Graph
-- [x] ADR 054 Knowledge Graph UI
-- [ ] Cross-link Tasks, Calendar and Briefings once those modules have authoritative object models
-
-## Sprint 0.6 — Projects and Context Graph 🚧 In progress
-
-- [x] General project model with stable UUID identities, kind and lifecycle status
-- [x] Typed Project ↔ Knowledge note relationships (`contains`/`references`)
-- [x] Explicit manually-selected current project context with SirisCore integration
-- [x] Bounded Project Context Graph projection and Flutter Projects → Graph view
-- [x] Typed Project ↔ Engineering Standard relationships (`references` only), attachable from the Project Context Graph
-- [x] ADR 049 project model foundation
-- [x] ADR 050 project-knowledge relationship contract
-- [x] ADR 051 current project context
-- [x] ADR 052 project context graph projection
-- [x] ADR 053 project-engineering standard relationships
-- [x] Typed Project ↔ Engineering Calculation relationships (`contains`/`references`), attachable from the Project Context Graph
-- [x] ADR 055 saved calculation records and project relationships
-- [x] ADR 056 cite an exact standard revision on a saved calculation
-- [ ] Relationships between tasks, files, events, repositories and conversations
-- [ ] Context containers for engineering, homelab, travel, fitness and personal projects
-- [ ] Siris Knowledge Graph semantic layer unifying the Digital Twin (operational infrastructure relationships) and the Project Context Graph (information/work-object relationships) into one traversable graph spanning Projects (Notes/Standards/Calculations/Decisions), Homelab (Servers/Services/Incidents), Knowledge, Health, Calendar and Conversations — so SirisAI traverses known relationships before retrieving supporting information, rather than performing generic RAG
-- [ ] `siris://` deep link URI scheme (project, knowledge note, engineering calculation, homelab service, incident, action) so notifications, Knowledge notes, Siris responses, Briefings and automation outputs can all point to real SirisOS objects
-- [ ] Migrate project/relationship persistence from atomic JSON store to PostgreSQL behind the same API contract
-
-## Sprint 0.7 — SirisAI, Intelligence and Automation
-
-Suggested internal sequencing: Ollama connector → Siris Memory → recommendation engine → Action Framework → Playbooks → Siris Inbox. Hermes should not receive meaningful write/control capability until the deterministic layers ahead of it (Planner, Action Framework, approvals) are solid — automation must stay explainable and approved, not just fast.
-
-A comprehensive SirisAI architecture brainstorm (an intelligence/context/memory/reasoning/orchestration layer, distinct from Ollama as the inference engine and Hermes as the execution/agent layer) was reconciled into this sprint. Most of its ambitious surface turned out to already be planned or shipped under different names — the Knowledge Graph (Sprint 0.6), Digital Twin (0.4.3j), Siris Inbox, contextual "Ask Siris"/"Explain this", the "Why?" provenance affordance (Explicit exclusions / rules below), Richer Morning Briefing (Sprint 1.0) and the tool-using SirisAgent itself (ADRs 091–094) all predate it. The genuinely new ideas are folded into the subsections below, plus a new speculative tier at the end for the furthest-out ones.
-
-### Ollama / local inference
-- [x] Ollama connector/provider with server-side configuration (ADR 057)
-- [x] SirisHydro answer synthesis grounded in retrieved evidence, fail-open when Ollama is unavailable (ADR 057)
-- [ ] Shared model routing for SirisHydro, SirisPM, briefings and semantic search
-- [ ] Per-module model/profile selection and context budgets
-- [ ] Task-based model routing — route each request to the right local model for the job (a fast/small model for classification-style lookups, a larger model for synthesis, a vision-capable model for images) instead of one fixed model for everything
-- [ ] Local multimodal vision — feed a photo/screenshot/diagram (a homelab rack photo, a network diagram, an engineering site photo) to a vision-capable Ollama model and get it described/analyzed against real SirisOS context, same fail-open/evidence-grounded contract as every other Ollama use in this app
-- [x] Model availability monitoring (ADR 058)
-- [ ] Preserve deterministic outputs beneath optional LLM rewriting
-- [x] SirisAI tool-using agent v1 — "ask anything" grounded in real SirisOS data, not free-form chat against Ollama's own training data: Ollama gets nine tools backed by already-shipped deterministic services (Strength Score, Training Level, muscle-group fatigue, weekly training load, Health summary, training conflict, achievements, recent runs/workouts) and decides which to call per question; every fact it states traces to a real tool result. Scoped to Training + Health for v1, not Homelab/Knowledge/Projects. Client-side conversation state, stateless per-call backend. New "Chat" tab on the Siris module alongside the existing Memory tab (ADR 091)
-- [x] Real-Ollama verification and prompt hardening — closed the gap ADR 091 flagged honestly (only ever tested against a fake client): installed Ollama locally, pulled `llama3.2:3b`, and confirmed the tool-calling plumbing against a real server (JSON parsing, multi-turn round-trip, real seeded data flowing through correctly). Live testing surfaced two real model-reliability gaps (answering out-of-scope questions anyway; blending one tool's numbers into a different metric's claim) and hardened the system prompt in response -- fixed both, with one narrower, documented remaining edge case (a tool's own "insufficient data" answer sometimes gets overridden by the refusal sentence) accepted rather than chased further (ADR 092)
-- [x] SirisAI Homelab tool scope — widened the agent from Training + Health to Training + Health + Homelab: two new tools (`get_docker_status`, `get_host_metrics`) wrapping the already-shipped `DockerMonitor`/`HostMetricsCollector` services, no new code beyond the established DI/dispatch pattern. Live-verified against the real local Ollama instance, including the honest case where this dev Mac has no Docker daemon or node-exporter reachable -- the agent correctly reported the real "unavailable" result rather than inventing container or metric data. `get_homelab_alerts` and Knowledge/Projects remain deliberately unscoped -- none has a clean service-layer object to wrap yet (ADR 093)
-- [x] SirisAI Homelab alerts tool — closes the gap ADR 093 deferred: extracted the `/api/v1/homelab/alerts` route handler's threshold/alert-scoring logic into a new `HomelabAlertService`, reused by the existing REST endpoint, the Recommendation Engine, and a new `get_homelab_alerts` SirisAgent tool (12th tool). Caught and fixed a real bug before shipping -- pre-binding the service at module import time broke existing tests that monkeypatch the route module's `collector`/`docker_monitor` singletons, since the service had already captured the original object references. Live-verified: the agent's answer for "any active homelab alerts?" matched the real REST endpoint's output exactly (ADR 094)
-- [x] Ollama model-tag resolution fix -- diagnosed live against Brad's actual production deployment after SirisAI failed on the iPhone app with "couldn't reach Ollama" despite Ollama itself being completely healthy. Root cause: `status()`'s model-matching is deliberately lenient (a configured bare name like "llama3.1" matches a pulled "llama3.1:8b"), but Ollama's own `/api/chat` has no such leniency and 404s on a bare name if nothing is pulled under that exact tag. `_resolve_model()` now looks up the real matching tag before every chat call
-- [x] SirisAI Knowledge + Projects tools -- closes the last gap every prior tool-scope ADR had flagged. New `KnowledgeService` (search + read-note) and a full `ProjectService` extraction, both hitting the exact "construct fresh per request, don't capture module globals in a singleton" bug ADR 094 already found once, reintroduced here before being caught again via monkeypatch-based tests in three other files. Live testing against a real local model then surfaced three separate real bugs: malformed merged tool-call arguments (now recovered from), a genuine multi-word search gap unrelated to any model (a natural phrase like "drainage design pipe grade" never appears verbatim in a note that separately says each half -- fixed with word-level scoring, benefiting the real Knowledge search UI too), and an unreliable small model at chaining search-then-read even after three rounds of prompt hardening. Rather than keep tuning wording, `search_knowledge` was redesigned to include the best-matching note's real content directly, so the common case is grounded in one call regardless of whether the model chains correctly -- confirmed 4/4 correct after the change, 0/4 before. Four new tools bring the total to 17, with no domain left explicitly unscoped (ADR 098)
-- [x] SirisAI chat persistence -- the conversation now survives navigating away or an app restart, saved to local storage after every message rather than living only in a `State` field. Two independent caps: only the 200 most recent turns are kept in storage, and only the most recent 20 are actually sent as context on each request regardless of how much history is on-screen -- otherwise a conversation revisited weeks later would silently send its entire history every time, a problem that couldn't exist while state reset on every restart. A "clear conversation" action resets both. Purely client-side, no backend change (ADR 100)
-
-### Siris Memory
-- [x] Siris Memory Service v1 — Facts, Preferences, Episodes, Decisions, Observations and Conversation memory classes; manual entry with free-text content + optional source, atomic JSON persistence, CRUD API filterable by class (ADR 061)
-- [x] Wired into the `Siris` module (previously a "planned for later" placeholder), reachable from More → Siris
-- [x] Structured (not free-text) provenance per memory record — `Memory.source` is now a typed `{source_type, source_id, source_label, confidence}` rather than a bare string, following the same target_type/target_id/resolved-label pattern `project_relationships.py` already established. Scoped to the three source kinds anything can actually produce today (`manual` free text, `conversation` from chat suggestions, `project` resolved and validated live against `ProjectService`) rather than pre-building resolution for object types with no caller yet. `confidence` is fixed at 1.0 everywhere for now, since every write path already requires human confirmation before saving. Old string-valued `source` records still load, wrapped as `manual` on read. Mobile's "Remember" dialog gained a real project picker in place of the old single free-text field (ADR 104)
-- [ ] Cross-object traversal (e.g. Project → calculation → standard → SirisHydro question → meeting note → decision) so SirisAI can answer "why did I decide X?", not just "what does X say?"
-- [x] Automatic capture from SirisAI conversations — after each chat reply, a dedicated Ollama extraction call proposes up to 3 candidate Facts/Preferences/Observations from the athlete's message alone (never Siris's reply -- see below), shown as dismissable "Siris noticed: ..." chips with explicit Save/Dismiss actions; nothing is ever auto-persisted. Live testing against the real model found SirisAgent's own scoped-topic refusal ("I can only answer questions about...") made the model treat the whole exchange as out-of-scope and return nothing, 100% reproducible -- rewording the extraction prompt to explicitly say "ignore Siris's reply" didn't fix it (same lesson as ADR 098: a small model's judgment failure needs a data-shape change, not more instructions), but dropping Siris's reply from the model's input entirely did, taking the refusal case from 0/5 to 5/5 correct. A separate live-testing catch: a fixed-length list on the mobile client silently crashed the Save/Dismiss buttons (`UnsupportedError: remove`), caught by clicking the actual buttons rather than only checking the chips rendered (ADR 103)
-- [ ] Distinct from, and complementary to, Knowledge (documents), Projects (structured relationships) and SirisHydro history (evidence-grounded Q&A) — Memory is Siris's own accumulated understanding, not a fourth copy of the same content
-
-### Universal Command Palette & contextual "Ask Siris"
-- [x] Cmd+K / Ctrl+K command palette reusing the global search endpoint (ADR 062) — arrow-key navigation, Enter to open, Escape to close, reachable from any screen, with a `⌘K`-hinted entry point in the desktop sidebar
-- [ ] Palette results blend live state, related Knowledge notes/projects and available actions for a single query (e.g. "plex" → status + notes + project + restart/logs actions)
-- [ ] Contextual "Ask Siris" / "Explain this" affordance on individual objects — server, project, calculation, standard, incident, Knowledge note — not only inside one dedicated chat screen
-- [ ] Keep a global Siris chat alongside contextual entry points, not instead of them
-- [ ] Converge the Command Palette (search/navigate) and the SirisAgent Chat tab (ADR 091) into one Cmd+K-reachable, page-aware AI surface open to every module — today they're two separate surfaces, and the agent is still scoped to Training/Health/Homelab rather than truly universal
-- [ ] Natural-language analytics — ask a question of any SirisOS dataset ("how has my resting HR trended since I started the new job") and get a deterministic answer with an auto-generated chart, generalizing the existing training-scoped Ask Siris (ADR 071) pattern beyond Training/Health
-
-### Siris Inbox
-- [ ] Unified attention queue distinct from Operations Center (investigate) and Notification Policies (alert) — Inbox is where Siris surfaces things it thinks deserve a human decision
-- [ ] Each item exposes why Siris noticed it → evidence → suggested action → dismiss/snooze/act
-- [ ] Sits between Notification Policies, the Incident Engine and the Operations Planner/recommendation engine below
-- [ ] Shadow Mode — observe repeated user actions over time (e.g. always turning off the same light at the same time) and surface the pattern as a proposed automation to approve, rather than SirisOS inventing automations unprompted
-
-### Explainable investigation
-- [ ] AI-narrated "what changed" digest — a natural-language summary layered on top of the deterministic per-object History Engine queries (0.4.3g), spanning multiple domains in one digest ("since yesterday: two containers updated, your resting HR rose 8%, a new PR on bench") rather than one object at a time
-- [ ] Incident Commander — extend the Incident Engine (0.4.3i) and Recommendation Engine (ADR 064) from flat evidence lists into an investigative root-cause narrative/timeline ("probable cause: X, because: [ordered evidence]"), still grounded in real dependency/evidence data per the Digital Twin causation rule below, never inferred
-- [ ] Explicit confidence levels (High/Moderate/Low) surfaced alongside any AI-narrated claim, extending the existing "Why?" provenance affordance rather than replacing it
-
-### Hermes Agent / server runtime
-- [ ] Optional Hermes Agent connector/runtime adapter
-- [ ] Integrate Hermes into SirisAI as tool-using server agent
-- [ ] Keep Hermes endpoint/authentication server-side
-- [ ] Permit Hermes to use Ollama without making Hermes mandatory for other AI features
-- [ ] SirisAI action broker with allow-listed operations
-- [ ] Explicit confirmation for destructive/high-impact actions
-- [ ] Never enable Hermes dangerous-command approval bypass
-- [ ] Audit prompts, approvals, commands/actions and results
-- [ ] Feed Operations Center incidents and Digital Twin context into tasks
-- [ ] Read-only diagnostics before write capabilities
-- [ ] Least-privilege Docker/service/file actions
-- [ ] Agent task/status/history surface
-
-### Broader intelligence / automation
-- [x] Recommendation Engine v1 — deterministic Observation → Recommendation → Evidence pipeline over `GET /api/v1/homelab/alerts`, with a pending/dismissed/acted lifecycle and an Operations Center panel (ADR 064). Cross-source correlation (the full Incident Engine's capabilities) and escalation-duration-aware rules remain future work — see ADR 064's Consequences
-- [ ] Extend recommendation sources beyond `homelab_alerts` once Incidents/Notification Policies have a real backend representation to evaluate
-- [x] Action Framework v1 — server-side capability registry (`docker.start`/`stop`/`restart`) bound to already-audited execution primitives, with server-enforced confirmation for medium-risk actions (ADR 065). Home Assistant device-control actions are now audited too, though not yet onboarded as capabilities
-- [x] Wire a Recommendation's `suggested_action` to a specific capability ID — `container-*-stopped`/`-unhealthy` alerts bind to `docker.start`/`docker.restart`, giving those recommendations a "Run" button in Operations Center that executes the real, audited capability and auto-marks the recommendation acted on success. Every other recommendation stays descriptive-only, honestly, rather than a capability being force-fit where none is registered (ADR 068)
-- [x] Bring Home Assistant device control into the capability registry — `home_assistant.control` (light/switch/input_boolean, low risk, no confirmation) and `home_assistant.cover_control` (covers, medium risk, confirmation required — garage doors etc. are more consequential than a light toggle). Also moved audit recording from the route handler into `HomeAssistantService.call_service()` itself so every caller gets it, not just the one that remembered to add it (ADR 096)
-- [x] Ollama's role is explaining a recommendation in natural language, not inventing it — `synthesized_rationale` optionally rephrases the deterministic rationale (third instance of the SirisHydro/Coach fail-open synthesis pattern), computed once at first detection rather than on every poll of the same still-open recommendation (ADR 097)
-- [ ] Playbook Engine — multi-step diagnostic/operational workflows (e.g. internet-outage or service-down triage). Siris walks the user through steps first; Hermes performs approved diagnostic steps later; full automation ("Siris, fix Plex") only once capabilities and approvals are proven — observability → recommendations → assisted operations → automation
-- [ ] Context Engine consumers
-- [ ] n8n integration
-- [ ] Event-driven Siris Automations
-- [ ] Human approval policies shared by Hermes and other automation
-- [ ] Specialist agent auto-routing — SirisAgent already scopes its tools by module (Training+Health+Homelab); extend this into named per-domain personas (e.g. a homelab-focused agent, a training-focused agent) that a single "ask anything" entry point routes to automatically, never a manual model/agent picker
-- [ ] Formal AI action-permission tiers — a stated Read Only / Recommend / Ask Before Acting / Trusted Automation scale, per capability rather than a single app-wide setting, formalizing what Action Framework's existing risk/confirmation metadata (ADR 065) already does implicitly, ahead of SirisAgent (currently read-only) ever gaining write tools
-- [ ] Sandbox / simulate-before-executing — show the predicted effect of a proposed action (especially a Hermes or Action Framework write) before it runs, reusing Digital Twin downstream-impact traversal where a dependency exists
-- [ ] Extend proactive, narrated recommendations beyond Homelab (ADR 064's current `homelab_alerts` source) into Training/Health/Engineering once each has a real backend signal to evaluate, rather than remaining a homelab-only pattern
-- [ ] Cross-domain reasoning as an explicit design target — SirisAgent's Training+Health+Homelab tool access today is already cross-domain in effect; state it as a goal so future tool/module additions (Engineering, Knowledge, Projects) are added with that connectivity in mind, not as isolated per-module silos
-- [x] ADR 029: SirisAI orchestration vs Hermes runtime vs Ollama inference
-
-### Experimental (explicitly speculative, not scheduled)
-- [ ] General-purpose prediction engine — trend extrapolation across any tracked SirisOS metric (homelab capacity, training load, backup growth), distinct from the narrow single-purpose Race Predictor in Sprint 0.9
-- [ ] Natural-language dashboard builder — describe a Mission Control widget in plain language and have SirisAI assemble it from already-existing data sources, rather than every widget being hand-built
-- [ ] SirisAI Developer Mode — SirisAI reads and reasons about the SirisOS codebase itself and proposes (never silently applies) code changes; the furthest-out idea in this section, gated on every safety mechanism above (permission tiers, sandbox, audit trail) actually existing first
-
-## Sprint 0.8 — Plugin SDK
-
-- [ ] External module contract
-- [ ] Plugin routes/widgets/notifications/briefing/search/actions/context providers
-- [ ] Versioned public APIs and compatibility policy
-
-## Sprint 0.9 — SirisRun & SirisGym Intelligence
-
-Running and Gym have been fully shipped, DB-backed modules since early in the project but never had a roadmap section of their own — this sprint gives them one, incorporating a dedicated brainstorm into a single training-intelligence direction rather than two apps that happen to live in the same shell. The signature goal (per the brainstorm's own framing): general fitness apps have great loggers; a self-hosted system's edge is saying *"your last five interval sessions performed best when they were at least 48 hours after legs, so I've moved Thursday's run to Friday"* — running, lifting, recovery and schedule informing each other, not living in silos. Running has no existing app Brad prefers, so it stays SirisOS-primary; Gym now imports from JEFIT instead (see Product philosophy above and the SirisGym section below) — the intelligence layer (Training Level, Strength Score, readiness) is the same regardless of which side logged the data.
-
-Suggested internal sequencing, adapted from the brainstorm's own recommended order to reflect what's already real: Progressive overload → PR/record tracking → weekly training load → Siris Coach summaries → Ask Siris training queries → conflict detection → adaptive planning → correlation/predictive features. Apple Health recovery data (HRV, sleep, resting HR) is a hard dependency for readiness-aware features (Run Readiness, deload detection, conflict detection) — see the "Apple Health ingestion" section above, which this sprint depends on rather than duplicates. HRV import and a first readiness score now exist (ADR 095); Run Readiness and deload detection remain unbuilt.
-
-### Baseline (already shipped, not part of this brainstorm)
-- [x] Gym session logging — exercise/weight/reps/RIR sets, workout notes, volume and Epley-estimated 1RM computed per set
-- [x] Workout templates with target sets/reps/RIR, prefilling a new workout
-- [x] Per-exercise rollups (`GET /gym/exercises`) — best weight, best e1RM, best set volume, full history, computed live each call
-- [x] ~~Client-side-only progressive overload heuristic~~ — replaced by Automatic Progressive Overload v1 below (ADR 066); noted here as the gap that motivated it
-- [x] Running session logging — distance, pace, heart rate, outdoor/treadmill, a per-run effort score and an EWMA fitness-score trend
-- [x] Live Apple Health snapshot (steps, resting HR, sleep, body mass, active energy, VO₂ max) via on-iPhone MCP pull — ephemeral only, nothing persisted or historized (see Apple Health ingestion above)
-
-### SirisGym
-
-Per the Product philosophy above, JEFIT is Brad's system of record for gym logging as of 2026-08-22 — SirisOS imports its CSV/file export rather than growing its own manual logging path further. The analytics below (Progressive Overload, PRs, Strength Score, Muscle Map, deload detection) all read from the same underlying session/set data regardless of whether it was manually logged or imported, so nothing here needs to be rebuilt — JEFIT import just needs to land in the same shape. The manual logging UI itself (session form, templates) stays functional but is no longer the primary intended input path once import exists.
-
-- [x] JEFIT CSV/file import v1 — `POST /gym/import/jefit` parses JEFIT's "Backup & Export" CSV into the existing `gym_workouts`/`gym_workout_sets` shape, so Progressive Overload, PRs, Strength Score, Muscle Map and Training Level all work on imported data unchanged. Idempotent re-import (JEFIT session id as external key), bulk-inserted (not a naive per-session loop — that hung past two minutes against a real 859-session file before being fixed). Live-verified against a real 6.5-year export through the running app. Manual logging stays available, no longer the primary input path (ADR 105)
-- [ ] Import-sourced sessions feed the readiness score alongside HRV/sleep, per Brad's explicit ask — needs a concrete design for how gym volume/intensity should adjust readiness, not just recovery metrics
-- [x] Automatic Progressive Overload v1 — deterministic backend suggestion (`GET /gym/exercises/{name}/suggestion`) reasoning from the exercise's own most recent session, with a stated reason and correct handling of the "struggled" case (dropping reps / RIR ≤ 1 → repeat the load, not increase it). Surfaced in the workout form's template prefill and a new "Next session suggestion" card on the Exercise Intelligence page (ADR 066)
-- [x] Personal Records v1 — a real PR-achieved event (heaviest weight, best estimated 1RM, best set volume, each checked independently per exercise) fires the moment a workout beats a prior best, with an ActivityService event and an understated in-app callout (ADR 067). Running PR tracking (fastest splits, longest run, best negative split) remains separate future work — `RunRecord` doesn't capture splits today
-- [x] Automatic deload detection v1 — per-exercise signal on the Exercise Intelligence page: falling first-set reps, rising RIR-implied effort and a declining e1RM trend, all required to show a genuine non-bouncing decline across the exercise's last 3 logged sessions before flagging. Falls back to e1RM + reps alone when RIR wasn't recorded for one of the sessions. Deliberately rare/high-confidence rather than chatty (ADR 078)
-- [x] Strength score v1 — self-relative only: each tagged exercise's current estimated 1RM compared to that same exercise's own all-time-best e1RM (never to another exercise, another athlete, or an external standard -- the exact comparison Training Level's shelved Strength sub-score lacked a basis for, ADR 074). Per-muscle-group score averages its own tagged exercises; the overall score averages muscle-group scores, not raw exercises, so a heavily-tagged group can't dominate. Surfaced as a `StrengthScoreCard` on the Gym screen, right after Muscle Map (ADR 085)
-- [x] Muscle map / weekly workload by muscle group v1 — athlete-assigned tagging (chest/back/legs/shoulders/arms/core, picked once per exercise, not inferred from exercise-name keywords) backs a weekly volume-by-muscle-group bar chart on the Gym screen. Unlocks Strength Score and Run Readiness, which both needed the same tagging and can now reuse it directly (ADR 083)
-- [x] Muscle map body diagram + fatigue estimate v2 — the bar chart became a front/back SVG body silhouette shaded by an estimated fatigue fraction per muscle group: self-relative decayed volume (today's own logged sets, weighted down to zero over a stated 3-day window) against that group's own historical baseline, so "fatigued" means heavy for that athlete, not an absolute number. Always shown with an explicit "estimate, not a physiological measurement" caveat and the raw volume number alongside the color, never color alone (ADR 084)
-- [x] Training volume heatmap v1 — daily calendar-style grid combining gym volume and running effort into one self-relative intensity per day (each modality expressed as a fraction of the athlete's own all-time best day, summed and capped), on both the Gym and Running screens. Muscle-group breakdown remains unbuilt -- no exercise taxonomy exists yet (ADR 080)
-- [ ] Smart rest timer that learns per-exercise-category rest duration from observed set-to-set performance dropoff
-- [ ] Set-by-set live coaching during a workout (next-set suggestion, rest-length nudge) — natural extension once Progressive Overload v1's reasoning is real
-- [ ] AI workout generator grounded in actual recent training (deterministic candidate selection first; Ollama's role, if any, is explaining the choice, not inventing the program — matching the SirisHydro/ADR 057 pattern)
-
-### SirisRun
-- [x] Personal running records v1 — longest run and lowest heart rate recorded at a comparable pace (±15 sec/km), both detected the moment a run is saved and surfaced with the same `🏆 New record` callout Gym Personal Records already uses. Fastest splits, best negative split and highest-elevation week remain explicitly deferred -- `RunRecord` captures no GPS/splits/elevation, so building them now would mean approximating rather than real evidence (ADR 079)
-- [ ] Race predictor from actual run history rather than a generic VO₂max formula, with an explainable "you're relatively stronger over X than Y" comparison
-- [x] Run readiness v1 — extends the existing "Can I train today?" Ask Siris pattern (ADR 081): "should I run"/"can I run" phrasing specifically now also checks the `legs` entry from the muscle-group fatigue estimate (ADR 084, threshold matches the Muscle Map UI's own "Fatigued" boundary) alongside the existing whole-body HRV/resting-HR check, and names whichever signal is actually the problem in one composed sentence. "Can I lift"/"can I train" phrasing is unaffected -- legs aren't assumed to be the limiting factor for lifting. No new endpoint or UI (ADR 086)
-- [ ] Post-run AI analysis grounded in pace/HR-drift/splits versus the runner's own recent history (second instance of the SirisHydro/ADR 057 deterministic-evidence-plus-optional-Ollama-synthesis pattern)
-- [ ] Running fitness score breakdown (aerobic/speed/endurance/consistency), replacing the single EWMA effort trend with an explainable multi-factor score
-- [ ] Live pace strategy for a goal time, and planned-vs-actual pacing comparison afterward
-- [ ] Route generator and shoe tracking/correlation — both depend on data SirisOS doesn't capture today (GPS/elevation, shoe per run) and need a capture-side decision before they're buildable
-
-### Unified training
-- [x] Weekly training load v1 — running (`effort_score`) and gym (`total_volume_kg`) weekly totals each expressed as a percentage of the athlete's own trailing 8-week baseline, summed into one `combined_index` (100 = a typical week). Requires at least 2 qualifying baseline weeks per modality before showing a ratio, so a new user correctly sees "not enough history yet" rather than a distorted number. Surfaced as a shared `TrainingLoadCard` on both the Gym and Running screens (ADR 069)
-- [x] Training conflict detection v1 — recovery-based: flags when HRV/resting heart rate is notably worse than your trailing baseline (Health Summary API) on a day you also trained, via a "Today" card on the Coach screen (ADR 073). The brainstorm's own literal example (heavy-leg-day-before-intervals sequencing) remains future work — it needs workout-name/run-intensity heuristics this v1 deliberately avoided in favour of a real signal with none
-- [ ] Smart weekly planner balancing recovery, running load and historical performance, with drag-to-rearrange
-- [x] "Can I train today?" / "Should I run tonight?" v1 — a new Ask Siris question pattern composing the existing Training Conflict Detection guidance and Weekly Training Load assessment into one answer; no new UI, no new inference, works through the existing free-text Ask Siris box (ADR 081)
-
-### Siris Coach and Ask Siris
-- [x] Siris Coach as a first-class section — "this week" shipped as a new `Coach` navigation destination (deterministic report; ADR 070). "Today" (readiness/recommendation) explicitly deferred at the time — the Health summary API and a first readiness score (ADR 095) now both exist; a planned/scheduled session for it to react to still doesn't
-- [x] Weekly coach report v1 — deterministic week-over-week deltas (running distance/count, gym volume/session count), new-bests-this-week, and the existing weekly training load assessment, composed into one headline sentence. Optional Ollama narrative synthesis on top is deliberately deferred to a follow-up slice (ADR 070) rather than built alongside v1
-- [x] Weekly coach report Ollama synthesis v1 — the deferred follow-up: `chat_client` rephrases the already-correct deterministic headline into one or two natural sentences, same fail-open contract as Ask Siris (`synthesized_headline` stays null whenever Ollama is unconfigured/unreachable/returns nothing usable). `CoachService` itself stays a pure deterministic function -- the Ollama call lives only in the route handler (ADR 090)
-- [x] Ask Siris natural-language training queries v1 — deterministic pattern matching (not an NLU classifier) over a fixed set of recognized question shapes (exercise progress/max, last-time-at-weight, most-improved-exercise, best-distance, training counts, weekly summary), each routed to the exact service call that answers it; optional Ollama rephrasing only after a deterministic answer already exists, never for fact-finding. Surfaced as an "Ask Siris" card on the Coach screen (ADR 071). "What's my strongest muscle group" and sleep/recovery correlation questions are out of scope -- they need data (exercise-to-muscle-group tagging, the Health summary API) that doesn't exist yet
-
-### Gamification (kept understated per the brainstorm's own instinct)
-- [x] Achievements v1 — 8 concrete, evidence-backed milestones (100kg club on bench/squat/deadlift/overhead press, Million Kilo Club lifetime volume, sub-25 5K, 8-consecutive-week consistency streak, 5-consecutive-session progressive-overload streak), each a real recorded fact crossing a real threshold, shown with progress toward the next unlock (ADR 074). "Climber" (elevation) excluded -- not captured by `RunRecord`
-- [x] Training level v1 — three dimensions, not the original four: Strength (reuses Strength Score's self-relative e1RM-vs-own-peak, ADR 085), Endurance (RunRecord's own 0-100 EWMA fitness trend), and a new self-relative Consistency score (last full week's training days vs. the athlete's own trailing 8-week average). Recovery stays deliberately deferred again -- no precedent exists for blending HRV and resting-HR baseline ratios into one number, and inventing one now would be exactly the fabrication ADR 074 declined to do. Any dimension without evidence shows `None`, never a fabricated 0. Surfaced as a Training Level card on the Coach screen (ADR 087)
-
-### Apple Watch / iPhone
-- [ ] Focused watch-face-style views (current set/target/rest during a workout; pace/target/HR/distance during a run) once a native or watchOS-companion surface exists — an iOS platform target now exists (see Deployment architecture, ADR 076), but no watchOS-companion surface does, so this remains gated on that decision, not just a screen redesign
-
-### Experimental (explicitly speculative, not scheduled)
-- [ ] Training Digital Twin — model the user over time to project outcomes of a proposed training change before they make it
-- [ ] Correlation Explorer — surface observed correlations between sleep/recovery/training variables and performance, always as correlation with its evidence shown, never presented as causation (matching the Digital Twin/incident-correlation rule already in force elsewhere in this document)
-- [ ] What-If Planner — simulate a proposed training-load change against current recovery data
-- [ ] Plateau Detective — when an exercise stalls, examine frequency/volume/intensity/sleep/bodyweight for likely explanations
-- [ ] Personal Fatigue Model — learn the user's own recovery timeline per training stimulus rather than applying a generic recovery window; the Muscle map's v2 fatigue estimate (ADR 084) is the fixed-window stand-in this would replace, not something it needs to coexist with
-- [ ] Auto Periodisation — build concurrent training blocks toward a stated dual goal (e.g. a strength number and a race time)
-
-## Sprint 1.0 — Personal Operating System
-
-Stable daily platform spanning Mission Control, Operations Center, Personal, Infrastructure, Engineering, Knowledge, Intelligence and Automation.
-
-- [ ] Richer Morning Briefing synthesizing Siris Score, homelab health/projections, calendar and active-project status into a natural-language summary — every sentence must remain traceable to evidence, matching the SirisHydro/Context provenance standard rather than becoming free-form generation
-- [ ] Health, Calendar and Tasks as first-class context providers and Briefing inputs
-
-The direction: observe → understand → remember → recommend → act. SirisOS should not become twenty dashboards bolted together; it should become the intelligence and control layer connecting them.
-
-## Explicit exclusions / rules
-
-- Proxmox is intentionally not part of this installation.
-- External credentials remain server-side.
-- `main` must remain deployable through `git pull && make up`.
-- Production Flutter uses same-origin API routing through the unified `sirisos` container; avoid host-specific compiled API URLs unless explicitly required for development.
-- Historical analytics must come from observed data, not polling-frequency guesses.
-- Incident correlation is not causation without dependency evidence.
-- Digital Twin causal/downstream claims require explicit dependencies.
-- Context claims require provider-backed provenance.
-- Engineering calculations must expose assumptions/units and must not claim standards compliance unless traceable authority profiles justify it.
-- Licensed standards remain private local documents; SirisOS does not scrape or redistribute protected standards content.
-- SirisHydro source-supported claims require exact evidence provenance and must not invent missing clauses/values.
-- Provenance is a SirisOS-wide UX standard, not one feature's behavior: any AI-adjacent claim (recommendation, projection, Briefing sentence, Memory-derived answer) should expose a "Why?" affordance to its underlying evidence/data/confidence, matching the standard already set by SirisHydro and Context.
-- Standards document IDs are immutable evidence identities; replacement creates a linked new revision rather than overwriting historical source material.
-- Semantic/vector retrieval may improve recall but must preserve exact page provenance and a deterministic lexical fallback.
-- Knowledge vault access remains read-only until a write/editing design is explicitly approved; ambiguous wikilinks must not be silently resolved.
-- Pull requests should pass backend, Flutter and production-container CI before merge except for explicit emergency hotfixes.
-- SirisOS complements Helmarr (media), Neo Server (homelab remote control) and JEFIT (gym) rather than rebuilding their control surfaces — media/homelab stay monitor-and-diagnose, gym stays import-and-analyze. See "Product philosophy" above.
+- If another Siris app or Brad's preferred app owns a domain, SirisOS links
+  to it, monitors it and surfaces its data. SirisOS does not rebuild it.
+- SirisAI is the only assistant and Second Brain is the only notes store.
+  SirisOS has no LLM, agent or memory of its own.
+- Engineering tools (SirisHydro, calculators, Standards, Projects) stay
+  native in SirisOS, because nothing else owns them.
+- Provenance is part of the UX. Every widget names the app its data came
+  from and links back to it.
+
+## Hub rebuild (October 2026)
+
+### Phase 0: Architecture ✅
+- [x] ADR 106: SirisOS is the hub, plus the connector contract, removals and port
+- [x] README and roadmap rewritten; pre-hub docs archived
+
+### Phase 1: Connector gateway
+- [ ] Connector contract, registry, concurrent status with per-connector timeout and cache
+- [ ] SirisAI + Second Brain: status, HUD widget, chat SSE passthrough, conversations, brain search/capture/today
+- [ ] APD PM: service login, project and due-task widget
+- [ ] Engineering Reviewer: health (LLM availability) and recent-reviews widget
+- [ ] Engineering Archive: `/api/external/status` widget (review queue, totals)
+- [ ] GVW Timesheets: health and version
+- [ ] CMP Capabilities: service login and `stats/me` widget
+- [ ] Helmarr, JEFIT and Neo Server launch tiles
+- [ ] Tests against mocked HTTP for every connector
+
+### Phase 2: Liquid Glass PWA shell
+- [ ] `apps/web` (Vite + React + TS); Docker build stage and CI job
+- [ ] Glass design system: materials, specular edges, dock, sheets, light/dark, reduced-transparency fallback
+- [ ] Login, home screen (tiles and widgets), app detail sheet
+- [ ] Assistant sheet streaming from SirisAI, with tool-confirmation flow
+- [ ] Second Brain search and quick capture
+- [ ] PWA manifest and icons (installable on iPhone)
+
+### Phase 3: Engineering module in React
+- [ ] SirisHydro (evidence, synthesis status, history)
+- [ ] Calculator library
+- [ ] Standards Library (upload and search)
+- [ ] Projects (with calculations and citations)
+
+### Phase 4: Removal
+- [ ] Delete the Flutter app (`apps/mobile`)
+- [ ] Delete the backend modules superseded by SirisAI, Second Brain, JEFIT and Neo Server (ADR 106 §4)
+- [ ] Leave their Postgres tables in place
+
+### Phase 5: Deploy (on the LAN)
+- [ ] Move to `SIRISOS_PORT` (8094)
+- [ ] Create service accounts: APD PM VIEWER, CMP user, Archive read key
+- [ ] Verify every connector against the live apps on `192.168.0.100`
+
+## After the rebuild
+
+- Widgets you can configure and rearrange on the home screen.
+- Notifications aggregated from every app (SirisAI events, Archive review
+  queue, APD PM overdue tasks).
+- A command palette that searches across apps (Second Brain, APD PM search,
+  Archive search).
+- More widgets for Neo Server and media apps, if they expose an API that's
+  reachable from the server.
+- SirisHydro answer synthesis routed through SirisAI's model router instead
+  of SirisOS's own Ollama call.
