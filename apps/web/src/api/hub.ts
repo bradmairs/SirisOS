@@ -12,6 +12,7 @@ export const hub = {
 
 export const brain = {
   search: (q: string, limit = 12) => api<BrainHit[]>(`/api/v1/brain/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  map: () => request("/api/v1/brain/map.html").then((r) => r.text()),
   today: () => api<{ date: string; items: { title: string; action: string }[] }>("/api/v1/brain/today"),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[] }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
