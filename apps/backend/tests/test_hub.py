@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import date, datetime, timedelta, timezone
 
@@ -313,3 +314,18 @@ def test_sirisai_auth_failure_surfaces_as_bad_gateway(client, monkeypatch):
     response = client.get("/api/v1/brain/today", headers=AUTH)
     assert response.status_code == 502
     reset_hub({})
+
+
+def test_check_cli_reports_each_app_and_fails_on_problems(apps):
+    from app.hub import check
+
+    lines, healthy = asyncio.run(check.run(ENV))
+    text = "\n".join(lines)
+    assert "✓ SirisAI" in text and "widget ok" in text
+    assert "· Helmarr" in text
+    assert healthy is True
+
+    apps.down.add("gvw")
+    lines, healthy = asyncio.run(check.run(ENV))
+    assert healthy is False
+    assert any(line.startswith("✗ GVW Timesheets") for line in lines)

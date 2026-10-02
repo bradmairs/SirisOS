@@ -54,6 +54,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 
 ### Phase 5: Deploy (on the LAN)
 - [x] `SIRISOS_PORT` (default 8094) wired through compose, Makefile and scripts
+- [x] `make hub-check` checks every connector against the live apps; checklist in [`deploy-hub.md`](deploy-hub.md)
 - [ ] Pick up the new port on the server
 - [ ] Create service accounts: APD PM VIEWER, CMP user, Archive read key
 - [ ] Verify every connector against the live apps on `192.168.0.100`
