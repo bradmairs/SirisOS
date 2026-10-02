@@ -64,7 +64,11 @@ export function Assistant() {
   const abort = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }), [messages]);
+  // Braces matter: newer browsers return a Promise from scrollIntoView, and
+  // React would call a returned value as the effect's cleanup.
+  useEffect(() => {
+    endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
+  }, [messages]);
 
   const run = useCallback(async (events: (signal: AbortSignal) => AsyncGenerator<ChatEvent>) => {
     const controller = new AbortController();

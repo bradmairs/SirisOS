@@ -30,7 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 /** Each app's glyph colour on its glass icon. */
 const HUES: Record<string, string> = {
-  sirisai: "#ff3b44",
+  sirisai: "#5fd3ff",
   "second-brain": "#a78bfa",
   "apd-pm": "#60a5fa",
   reviewer: "#fbbf24",
