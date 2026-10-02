@@ -67,3 +67,26 @@
 /* Content inside glass sits above the sheen layer. */
 .widget > *, .sheet > *, .login__card > *, .dock > * { position: relative; z-index: 2; }
 .button > * { position: relative; z-index: 2; }
+
+/* engineering */
+.back-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); text-decoration: none; font-weight: 600; font-size: 15px; margin: 0 0 8px -4px; }
+.icon-link { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--ink-3); cursor: pointer; position: relative; z-index: 2; }
+.icon-link:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.excerpt { font-size: 14.5px; line-height: 1.5; color: var(--ink-2); white-space: pre-wrap; }
+.page-text { white-space: pre-wrap; font-family: var(--font); font-size: 14px; line-height: 1.55; max-height: 50dvh; overflow: auto; margin: 0; padding: 14px; border-radius: var(--r-md); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.tool-card { display: flex; align-items: center; gap: 14px; padding: 18px; text-decoration: none; color: var(--ink); animation: rise 0.6s var(--spring) both; }
+.tool-card > * { position: relative; z-index: 2; }
+.tool-card__icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; flex: none; }
+.tool-card__icon svg { width: 24px; height: 24px; }
+.tool-card__title { display: block; font-weight: 650; font-size: 17px; }
+.tool-card__detail { display: block; color: var(--ink-3); font-size: 13.5px; margin-top: 2px; }
+.calc-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.calc-field__input { position: relative; display: block; }
+.calc-field__input .field { height: 46px; padding-right: 64px; font-variant-numeric: tabular-nums; }
+.calc-field__unit { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-weight: 500; pointer-events: none; }
+.chip--button { border: 0; cursor: pointer; text-transform: capitalize; }
+.chip--active { background: var(--accent); color: var(--accent-ink); }
+.linked { position: relative; }
+.linked__remove { position: absolute; top: 12px; right: 12px; }
+.file-field { padding-top: 13px; }
+select.field { appearance: none; }
