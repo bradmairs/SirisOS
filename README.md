@@ -37,7 +37,7 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
                                           │    └─ Helmarr / JEFIT / Neo Server (launch tiles)
                                           └─ engineering module
                                                SirisHydro · calculators · Standards · Projects
- postgres (separate container)
+ postgres (kept only to preserve pre-hub data; unused)
 ```
 
 The browser only talks to SirisOS. Each app's credentials stay on the
@@ -80,11 +80,14 @@ cd apps/web && npm test && npm run build
 
 ## Repository layout
 
-- `apps/backend`: FastAPI. `app/hub/` is the connector gateway; the
-  engineering module is `app/api/sirishydro.py`,
-  `engineering_calculations.py`, `engineering_standards.py` and
-  `projects.py`.
-- `apps/web`: the React/TypeScript PWA and its Liquid Glass design system.
+- `apps/backend`: FastAPI. `app/main.py` handles health and sign-in,
+  `app/hub/` is the connector gateway, and `app/api/` is the engineering
+  module (SirisHydro, calculations, standards, projects and their
+  relationships). Engineering data is JSON and PDFs under `data/app` and
+  `data/standards`.
+- `apps/web`: the React/TypeScript PWA. `src/glass/` is the Liquid Glass
+  design system, `src/screens/` the screens, and `src/engineering/` the
+  calculator library.
 - `docs/adr`: one ADR per decision. The newest is 106.
 - `deploy/`: nginx and supervisord config for the single app container.
 

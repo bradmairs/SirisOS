@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from app.api import engineering_calculations, engineering_standards, knowledge, projects
+from app.api import engineering_calculations, engineering_standards, projects
 from app.services.project_service import ProjectNotFoundError, ProjectService, ProjectStoreUnavailableError
 
 router = APIRouter(prefix="/api/v1/projects", tags=["project-relationships"])
@@ -33,7 +33,7 @@ class ProjectRelationshipRecord(BaseModel):
 
 
 class ProjectRelationshipCreateRequest(BaseModel):
-    target_type: TargetType = "knowledge_note"
+    target_type: TargetType = "calculation"
     target_id: str = Field(min_length=1, max_length=1000)
     kind: RelationshipKind = "contains"
 
@@ -118,10 +118,12 @@ def _require_project(project_id: str) -> projects.ProjectRecord:
 
 
 def _canonical_knowledge_target(target_id: str) -> tuple[str, str]:
-    path = knowledge._safe_note_path(target_id.strip())
-    text = knowledge._read_text(path)
-    summary = knowledge._summary(path, text)
-    return summary.path, summary.title
+    # Notes moved to Siris Second Brain (ADR 106). Links made before then
+    # stay listed with their stored label; new ones can't be created.
+    raise HTTPException(
+        status_code=422,
+        detail="Knowledge notes now live in Second Brain; link calculations or standards instead.",
+    )
 
 
 def _standard_label(metadata: dict) -> str:

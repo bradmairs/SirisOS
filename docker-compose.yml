@@ -5,57 +5,20 @@ services:
       dockerfile: Dockerfile
     container_name: sirisos
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      DOCKER_HOST: tcp://docker-proxy:2375
-      NODE_EXPORTER_URL: http://node-exporter:9100/metrics
-      SIRISOS_ENV: ${SIRISOS_ENV:-development}
       SIRISOS_ADMIN_USERNAME: ${SIRISOS_ADMIN_USERNAME:-brad}
       SIRISOS_ADMIN_PASSWORD: ${SIRISOS_ADMIN_PASSWORD:-change-this-password}
       SIRISOS_JWT_SECRET: ${SIRISOS_JWT_SECRET:-replace-with-a-long-random-secret}
       SIRISOS_JWT_EXPIRY_HOURS: ${SIRISOS_JWT_EXPIRY_HOURS:-24}
-      SIRISOS_CPU_WARNING_PERCENT: ${SIRISOS_CPU_WARNING_PERCENT:-80}
-      SIRISOS_CPU_CRITICAL_PERCENT: ${SIRISOS_CPU_CRITICAL_PERCENT:-95}
-      SIRISOS_MEMORY_WARNING_PERCENT: ${SIRISOS_MEMORY_WARNING_PERCENT:-80}
-      SIRISOS_MEMORY_CRITICAL_PERCENT: ${SIRISOS_MEMORY_CRITICAL_PERCENT:-95}
-      SIRISOS_DISK_WARNING_PERCENT: ${SIRISOS_DISK_WARNING_PERCENT:-80}
-      SIRISOS_DISK_CRITICAL_PERCENT: ${SIRISOS_DISK_CRITICAL_PERCENT:-90}
-      HOME_ASSISTANT_URL: ${HOME_ASSISTANT_URL:-}
-      HOME_ASSISTANT_TOKEN: ${HOME_ASSISTANT_TOKEN:-}
-      PROMETHEUS_URL: ${PROMETHEUS_URL:-}
-      GRAFANA_URL: ${GRAFANA_URL:-}
-      GRAFANA_TOKEN: ${GRAFANA_TOKEN:-}
-      GRAFANA_RENDERING_ENABLED: ${GRAFANA_RENDERING_ENABLED:-false}
-      UNIFI_URL: ${UNIFI_URL:-}
-      UNIFI_API_KEY: ${UNIFI_API_KEY:-}
-      UNIFI_SITE_ID: ${UNIFI_SITE_ID:-}
-      UNIFI_VERIFY_SSL: ${UNIFI_VERIFY_SSL:-false}
-      SYNOLOGY_URL: ${SYNOLOGY_URL:-}
-      SYNOLOGY_USERNAME: ${SYNOLOGY_USERNAME:-}
-      SYNOLOGY_PASSWORD: ${SYNOLOGY_PASSWORD:-}
-      SYNOLOGY_VERIFY_SSL: ${SYNOLOGY_VERIFY_SSL:-false}
-      NUT_HOST: ${NUT_HOST:-}
-      NUT_PORT: ${NUT_PORT:-3493}
-      NUT_UPS_NAME: ${NUT_UPS_NAME:-}
-      NUT_TIMEOUT_SECONDS: ${NUT_TIMEOUT_SECONDS:-4}
-      PLEX_URL: ${PLEX_URL:-}
-      PLEX_TOKEN: ${PLEX_TOKEN:-}
+      # Engineering module (SirisHydro answer synthesis is optional).
       OLLAMA_URL: ${OLLAMA_URL:-}
       SIRISOS_OLLAMA_CHAT_MODEL: ${SIRISOS_OLLAMA_CHAT_MODEL:-}
       SIRISOS_OLLAMA_CHAT_TIMEOUT_SECONDS: ${SIRISOS_OLLAMA_CHAT_TIMEOUT_SECONDS:-30}
-      SIRISOS_KNOWLEDGE_EMBEDDING_MODEL: ${SIRISOS_KNOWLEDGE_EMBEDDING_MODEL:-}
-      SIRISOS_KNOWLEDGE_SEMANTIC_TIMEOUT_SECONDS: ${SIRISOS_KNOWLEDGE_SEMANTIC_TIMEOUT_SECONDS:-20}
-      SIRISOS_KNOWLEDGE_SEMANTIC_MAX_NOTES: ${SIRISOS_KNOWLEDGE_SEMANTIC_MAX_NOTES:-500}
-      SIRISOS_HEALTH_INGEST_TOKEN: ${SIRISOS_HEALTH_INGEST_TOKEN:-}
-      SIRISOS_TIMEZONE: ${SIRISOS_TIMEZONE:-Australia/Melbourne}
       SIRISOS_STANDARDS_PATH: /app/data/standards
       SIRISOS_STANDARDS_MAX_UPLOAD_MB: ${SIRISOS_STANDARDS_MAX_UPLOAD_MB:-100}
       SIRISOS_STANDARDS_OCR_ENABLED: ${SIRISOS_STANDARDS_OCR_ENABLED:-true}
       SIRISOS_STANDARDS_OCR_LANGUAGE: ${SIRISOS_STANDARDS_OCR_LANGUAGE:-eng}
       SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS: ${SIRISOS_STANDARDS_OCR_TIMEOUT_SECONDS:-300}
       SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS: ${SIRISOS_STANDARDS_MIN_NATIVE_TEXT_CHARS:-40}
-      SIRISOS_KNOWLEDGE_VAULT_PATH: /app/data/knowledge
-      SIRISOS_KNOWLEDGE_MAX_NOTE_KB: ${SIRISOS_KNOWLEDGE_MAX_NOTE_KB:-1024}
-      SIRISOS_KNOWLEDGE_MAX_SCAN_FILES: ${SIRISOS_KNOWLEDGE_MAX_SCAN_FILES:-5000}
       # Hub connectors (ADR 106). Blank = tile shows "not configured".
       SIRISOS_HUB_VERIFY_SSL: ${SIRISOS_HUB_VERIFY_SSL:-true}
       SIRISAI_URL: ${SIRISAI_URL:-}
@@ -87,14 +50,6 @@ services:
       - ./data/logs:/app/logs
       - ./data/app:/app/data
       - ./data/standards:/app/data/standards
-      - ${SIRISOS_KNOWLEDGE_HOST_PATH:-./data/knowledge}:/app/data/knowledge:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      docker-proxy:
-        condition: service_started
-      node-exporter:
-        condition: service_started
     healthcheck:
       test:
         - CMD
@@ -107,38 +62,9 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  node-exporter:
-    image: prom/node-exporter:v1.9.1
-    container_name: sirisos-node-exporter
-    command:
-      - --path.procfs=/host/proc
-      - --path.sysfs=/host/sys
-      - --path.rootfs=/rootfs
-      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
-    pid: host
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro,rslave
-    expose:
-      - "9100"
-    restart: unless-stopped
-
-  docker-proxy:
-    image: ghcr.io/tecnativa/docker-socket-proxy:latest
-    container_name: sirisos-docker-proxy
-    environment:
-      CONTAINERS: 1
-      INFO: 1
-      PING: 1
-      VERSION: 1
-      POST: 1
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    expose:
-      - "2375"
-    restart: unless-stopped
-
+  # Postgres is no longer used by SirisOS (ADR 106). It stays defined so the
+  # pre-hub data in ./data/postgres is kept and reachable until it is
+  # deliberately exported or dropped.
   postgres:
     image: postgres:17-alpine
     container_name: sirisos-postgres

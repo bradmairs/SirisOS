@@ -46,10 +46,11 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Standards Library (upload and search)
 - [x] Projects (with calculations and citations)
 
-### Phase 4: Removal
-- [ ] Delete the Flutter app (`apps/mobile`)
-- [ ] Delete the backend modules superseded by SirisAI, Second Brain, JEFIT and Neo Server (ADR 106 §4)
-- [ ] Leave their Postgres tables in place
+### Phase 4: Removal ✅
+- [x] Delete the Flutter app (`apps/mobile`)
+- [x] Delete the backend modules superseded by SirisAI, Second Brain, JEFIT and Neo Server (ADR 106 §4), their tests, and the docker-proxy and node-exporter containers
+- [x] Leave their Postgres tables in place: the container stays defined, and SirisOS no longer depends on it
+- [x] Existing project links to knowledge notes stay listed; new ones are refused
 
 ### Phase 5: Deploy (on the LAN)
 - [x] `SIRISOS_PORT` (default 8094) wired through compose, Makefile and scripts

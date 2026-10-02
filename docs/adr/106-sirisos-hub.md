@@ -126,7 +126,15 @@ The following come out of the backend and are not ported to React:
 - **The Flutter app** (`apps/mobile`).
 
 Database tables those modules created are **left in place, not dropped**.
-Nothing is deleted from Postgres. A later decision can export or drop them.
+Nothing is deleted from Postgres. The `postgres` service stays in
+`docker-compose.yml` so `./data/postgres` remains intact and reachable, but
+SirisOS no longer connects to it or depends on it. A later decision can
+export or drop it. The docker-proxy and node-exporter containers, which only
+fed homelab monitoring, are removed.
+
+Project relationships to knowledge notes made before this ADR stay listed
+with their stored label. New ones are refused, because notes live in Second
+Brain now.
 
 ### 5. Port
 

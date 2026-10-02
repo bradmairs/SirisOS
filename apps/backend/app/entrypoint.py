@@ -1,48 +1,22 @@
 from app.main import app
 
-from app.api.actions import router as actions_router
-from app.api.activity import router as activity_router
-from app.api.digital_twin import router as digital_twin_router
 from app.api.engineering_calculations import router as engineering_calculations_router
-from app.api.health import router as health_router
-from app.api.history import router as history_router
-from app.api.incidents import router as incidents_router
-from app.api.infrastructure import router as infrastructure_router
-from app.api.intelligence import router as intelligence_router
-from app.api.knowledge import router as knowledge_router
-from app.api.knowledge_context import router as knowledge_context_router
+from app.api.engineering_standards import router as engineering_standards_router
 from app.api.project_relationships import router as project_relationships_router
 from app.api.projects import router as projects_router
-from app.api.recommendations import router as recommendations_router
-from app.api.search import router as search_router
-from app.api.siris_agent import router as siris_agent_router
-from app.api.siris_memory import router as siris_memory_router
-from app.api.synology import router as synology_router
+from app.api.sirishydro import router as sirishydro_router
 from app.hub.api import router as hub_router
 
-# The legacy app.main owns core auth/dashboard/homelab routes. Newer feature
-# modules are mounted here so production startup has one explicit registry and
-# CI can guard against silently shipping an unregistered API module.
+# app.main owns health and sign-in. Every feature router is mounted here so
+# production startup has one explicit registry, and CI can guard against
+# shipping an unregistered API module (ADR 106: hub + engineering module).
 for router in (
-    actions_router,
-    activity_router,
-    digital_twin_router,
+    hub_router,
     engineering_calculations_router,
-    health_router,
-    history_router,
-    incidents_router,
-    infrastructure_router,
-    intelligence_router,
-    knowledge_router,
-    knowledge_context_router,
+    engineering_standards_router,
+    sirishydro_router,
     projects_router,
     project_relationships_router,
-    recommendations_router,
-    search_router,
-    siris_agent_router,
-    siris_memory_router,
-    synology_router,
-    hub_router,
 ):
     app.include_router(router)
 
