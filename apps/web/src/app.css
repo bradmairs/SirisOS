@@ -90,3 +90,12 @@
 .linked__remove { position: absolute; top: 12px; right: 12px; }
 .file-field { padding-top: 13px; }
 select.field { appearance: none; }
+.brain-map { margin-top: 22px; min-height: 0; padding-bottom: 12px; }
+.brain-map__frame { display: block; width: 100%; height: min(62dvh, 620px); border: 0; border-radius: var(--r-md); background: #04050c; }
+.brain-map__empty { display: grid; place-items: center; height: 160px; text-align: center; }
+.brain-map--full { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; background: #04050c; }
+.brain-map--full .brain-map__frame { flex: 1; height: auto; border-radius: 0; }
+.brain-map__bar { display: flex; align-items: center; gap: 4px; margin: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px; padding: 4px 6px 4px 18px; }
+.brain-map__bar > * { position: relative; z-index: 2; }
+.brain-map__title { font-weight: 650; }
+body.no-scroll { overflow: hidden; }

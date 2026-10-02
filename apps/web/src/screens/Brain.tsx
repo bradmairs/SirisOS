@@ -3,6 +3,7 @@ import { Brain as BrainIcon, Check, Search } from "lucide-react";
 import { brain } from "../api/hub";
 import type { BrainHit } from "../api/types";
 import { Glass } from "../components/Glass";
+import { BrainMap } from "./BrainMap";
 
 export function Brain() {
   const [q, setQ] = useState("");
@@ -88,7 +89,9 @@ export function Brain() {
           </div>
         </>
       ) : (
-        <div className="widget-grid" style={{ marginTop: 22 }}>
+        <>
+        <BrainMap />
+        <div className="widget-grid" style={{ marginTop: 14 }}>
           <Glass as="form" className="widget" onSubmit={save} aria-label="Quick capture">
             <div className="widget__head">Quick capture</div>
             <textarea className="field" rows={3} placeholder="A thought, a link, a task…" value={capture} onChange={(e) => setCapture(e.target.value)} aria-label="Capture text" />
@@ -125,6 +128,7 @@ export function Brain() {
             )}
           </Glass>
         </div>
+        </>
       )}
     </>
   );

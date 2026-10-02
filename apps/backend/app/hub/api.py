@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
@@ -58,7 +58,7 @@ def _sirisai(hub: Hub = Depends(get_hub)) -> SirisAIConnector:
     return connector
 
 
-async def _forward(connector: SirisAIConnector, method: str, path: str, **kwargs: Any) -> Any:
+async def _forward(connector: SirisAIConnector, method: str, path: str, *, raw: bool = False, **kwargs: Any) -> Any:
     try:
         async with make_client(timeout=60.0) as client:
             response = await client.request(method, f"{connector.base_url}{path}", headers=connector.headers(), **kwargs)
@@ -71,6 +71,8 @@ async def _forward(connector: SirisAIConnector, method: str, path: str, **kwargs
             detail = response.text
         status = 502 if response.status_code in (401, 403) else response.status_code
         raise HTTPException(status_code=status, detail=f"SirisAI: {detail}")
+    if raw:
+        return response.text
     if response.status_code == 204 or not response.content:
         return None
     return response.json()
@@ -159,6 +161,13 @@ async def brain_search(
 @router.get("/brain/today", tags=["brain"])
 async def brain_today(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/brain/today")
+
+
+@router.get("/brain/map.html", tags=["brain"], response_class=HTMLResponse)
+async def brain_map(connector: SirisAIConnector = Depends(_sirisai)) -> HTMLResponse:
+    """The Second Brain's living mind map, drawn fresh from the vault by SirisAI.
+    The PWA renders it in a sandboxed iframe, so it never sees the SirisAI key."""
+    return HTMLResponse(await _forward(connector, "GET", "/siris/brain/map.html", raw=True))
 
 
 class CaptureRequest(BaseModel):

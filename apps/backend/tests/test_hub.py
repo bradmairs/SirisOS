@@ -105,6 +105,8 @@ class FakeApps:
                 "parcels": [{"id": 1}],
                 "brain": [{"title": "Pump curves", "action": "learned"}],
             })
+        if path == "/siris/brain/map.html":
+            return httpx.Response(200, text="<title>Siris Brain Map</title><canvas id=stage></canvas>")
         if path == "/siris/brain/today":
             return httpx.Response(200, json={"date": "2026-10-02", "items": [{"title": "Pump curves", "action": "learned"}]})
         if path == "/siris/brain/search":
@@ -284,6 +286,9 @@ def test_brain_proxies(client, apps):
     saved = client.post("/api/v1/brain/capture", headers=AUTH, json={"text": "Remember the pump curves"})
     assert saved.json()["saved"] is True
     assert client.post("/api/v1/brain/capture", headers=AUTH, json={"text": " "}).status_code == 422
+    mind_map = client.get("/api/v1/brain/map.html", headers=AUTH)
+    assert mind_map.headers["content-type"].startswith("text/html")
+    assert "Siris Brain Map" in mind_map.text
 
 
 def test_assistant_proxies(client, apps):
