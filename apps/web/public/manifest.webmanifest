@@ -1,0 +1,13 @@
+{
+  "name": "SirisOS",
+  "short_name": "SirisOS",
+  "description": "The home screen for the Siris apps.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0708",
+  "theme_color": "#0b0708",
+  "icons": [
+    { "src": "/siris-icon.png", "sizes": "290x290", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -17,6 +17,8 @@ This README is the project handover and [`docs/roadmap.md`](docs/roadmap.md)
 is the checklist. Update both whenever scope or status changes. The
 pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
 
+![SirisOS home screen](docs/img/hub-home.png)
+
 ## Architecture
 
 ```text
@@ -71,7 +73,7 @@ and is the address the launch link opens on your device.
 
 ```bash
 make backend     # Postgres + API on :8000
-make dev         # Vite dev server for apps/web, proxied to the API
+make dev         # API container + Vite dev server for apps/web (proxies /api)
 cd apps/backend && pytest -q
 cd apps/web && npm test && npm run build
 ```

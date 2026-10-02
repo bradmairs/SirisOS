@@ -1,26 +1,12 @@
-FROM ghcr.io/cirruslabs/flutter:stable AS web-build
+FROM node:22-alpine AS web-build
 
-ARG SIRISOS_HOST_DISPLAY_NAME="Linux Server"
-ARG SIRISOS_UPS_DISPLAY_NAME="Server UPS"
-ARG SIRISOS_OBSIDIAN_URL=""
+WORKDIR /src/apps/web
 
-WORKDIR /src/apps/mobile
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-COPY apps/mobile/pubspec.yaml apps/mobile/analysis_options.yaml ./
-COPY apps/mobile/lib ./lib
-COPY apps/mobile/assets ./assets
-
-RUN flutter config --enable-web \
-    && flutter create --platforms=web . \
-    && cp assets/branding/siris_os_favicon.png web/siris-os-favicon.png \
-    && sed -i 's#href="favicon.png"#href="siris-os-favicon.png" type="image/png"#' web/index.html \
-    && flutter pub get \
-    && flutter build web --release \
-       --pwa-strategy=none \
-       --dart-define=SIRISOS_API_URL= \
-       --dart-define=SIRISOS_HOST_DISPLAY_NAME="${SIRISOS_HOST_DISPLAY_NAME}" \
-       --dart-define=SIRISOS_UPS_DISPLAY_NAME="${SIRISOS_UPS_DISPLAY_NAME}" \
-       --dart-define=SIRISOS_OBSIDIAN_URL="${SIRISOS_OBSIDIAN_URL}"
+COPY apps/web/ ./
+RUN npm run build
 
 FROM python:3.13-slim AS runtime
 
@@ -44,7 +30,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /app/requirements.txt
 
 COPY apps/backend/app /app/app
-COPY --from=web-build /src/apps/mobile/build/web /usr/share/nginx/html
+COPY --from=web-build /src/apps/web/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/sites-available/default
 COPY deploy/supervisord.conf /etc/supervisor/conf.d/sirisos.conf
 

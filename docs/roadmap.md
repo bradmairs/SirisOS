@@ -32,13 +32,13 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Helmarr, JEFIT and Neo Server launch tiles
 - [x] Tests against mocked HTTP for every connector
 
-### Phase 2: Liquid Glass PWA shell
-- [ ] `apps/web` (Vite + React + TS); Docker build stage and CI job
-- [ ] Glass design system: materials, specular edges, dock, sheets, light/dark, reduced-transparency fallback
-- [ ] Login, home screen (tiles and widgets), app detail sheet
-- [ ] Assistant sheet streaming from SirisAI, with tool-confirmation flow
-- [ ] Second Brain search and quick capture
-- [ ] PWA manifest and icons (installable on iPhone)
+### Phase 2: Liquid Glass PWA shell ✅
+- [x] `apps/web` (Vite + React + TS); Docker build stage and CI job
+- [x] Glass design system: materials, specular edges, dock, sheets, light/dark, reduced-transparency fallback
+- [x] Login, home screen (tiles and widgets), app detail sheet
+- [x] Assistant sheet streaming from SirisAI, with tool-confirmation flow
+- [x] Second Brain search and quick capture
+- [x] PWA manifest and icons (installable on iPhone)
 
 ### Phase 3: Engineering module in React
 - [ ] SirisHydro (evidence, synthesis status, history)

@@ -1,0 +1,94 @@
+export type AppState = "ok" | "degraded" | "down" | "unconfigured";
+export type Tone = "neutral" | "good" | "warning" | "critical";
+export type Category = "assistant" | "work" | "engineering" | "life";
+
+export interface AppStatus {
+  state: AppState;
+  detail: string;
+  latency_ms: number | null;
+  version: string | null;
+  checked_at: string;
+}
+
+export interface Metric {
+  label: string;
+  value: string;
+  tone: Tone;
+}
+
+export interface WidgetItem {
+  title: string;
+  subtitle: string;
+  url: string | null;
+  tone: Tone;
+}
+
+export interface Widget {
+  title: string;
+  metrics: Metric[];
+  items: WidgetItem[];
+  empty: string;
+  updated_at: string;
+}
+
+export type WidgetResult = Widget | { error: string };
+
+export interface HubApp {
+  id: string;
+  name: string;
+  category: Category;
+  icon: string;
+  description: string;
+  launch_url: string | null;
+  launch_only: boolean;
+  configured: boolean;
+  status: AppStatus;
+  widget?: WidgetResult | null;
+}
+
+export interface PendingToolCall {
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface ToolCallResult {
+  name: string;
+  arguments: Record<string, unknown>;
+  result: unknown;
+}
+
+export interface ChatResponse {
+  conversation_id: string;
+  response: string | null;
+  tool_call: ToolCallResult | null;
+  confirmation_required: PendingToolCall | null;
+  plan: ToolCallResult[] | null;
+  used_planner: boolean;
+}
+
+export type ChatEvent =
+  | { type: "status"; message: string }
+  | { type: "thinking"; delta: string }
+  | { type: "content"; delta: string }
+  | { type: "tool_start"; name: string; arguments: Record<string, unknown> }
+  | { type: "tool_end"; name: string; status: "ok" | "error" | "needs_confirmation" }
+  | { type: "final"; response: ChatResponse }
+  | { type: "error"; status: number; detail: string };
+
+export interface ConversationSummary {
+  conversation_id: string;
+  started_with: string;
+  last_at: string;
+}
+
+export interface BrainHit {
+  title: string;
+  path?: string;
+  type?: string;
+  tags?: string[];
+  excerpts?: string[];
+}
+
+export function isWidget(w: WidgetResult | null | undefined): w is Widget {
+  return !!w && !("error" in w);
+}
