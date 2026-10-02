@@ -10,36 +10,40 @@
   color-scheme: dark;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
 
-  --accent: #ff3b44;
-  --accent-strong: #e3262f;
-  --accent-ink: #ffffff;
+  /* Dark by default, in the SirisAI HUD palette: near-black with ice-blue light. */
+  --accent: #5fd3ff;
+  --accent-strong: #26a9e0;
+  --accent-ink: #03121c;
+  --accent-2: #8af5c8;
+  --accent-glow: rgba(95, 211, 255, 0.45);
 
-  --ink: rgba(255, 255, 255, 0.96);
-  --ink-2: rgba(255, 255, 255, 0.72);
-  --ink-3: rgba(255, 255, 255, 0.5);
-  --ink-inverse: #140c0d;
+  --ink: #e4f3fc;
+  --ink-2: rgba(220, 238, 250, 0.74);
+  --ink-3: #7c93a6;
+  --ink-inverse: #05080d;
 
-  --bg: #0b0708;
-  --wall-1: #b3121c;
-  --wall-2: #ff6a2b;
-  --wall-3: #5b2bd9;
-  --wall-4: #0a6f8a;
+  --bg: #010203;
+  --wall-1: #0b3a5c;
+  --wall-2: #1586b8;
+  --wall-3: #071b2c;
+  --wall-4: #0d5770;
 
-  --glass-fill: rgba(255, 255, 255, 0.075);
-  --glass-fill-strong: rgba(30, 20, 22, 0.55);
-  --glass-fill-clear: rgba(255, 255, 255, 0.03);
-  --glass-blur: 28px;
-  --glass-sat: 190%;
-  --glass-rim-hi: rgba(255, 255, 255, 0.55);
-  --glass-rim-lo: rgba(255, 255, 255, 0.06);
-  --glass-sheen: rgba(255, 255, 255, 0.16);
-  --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.12), 0 12px 40px rgba(0, 0, 0, 0.35);
-  --glass-solid: #221719;
+  --glass-fill: rgba(10, 18, 26, 0.55);
+  --glass-fill-strong: rgba(4, 9, 14, 0.82);
+  --glass-fill-clear: rgba(10, 18, 26, 0.25);
+  --glass-blur: 26px;
+  --glass-sat: 160%;
+  --glass-rim-hi: rgba(150, 222, 255, 0.5);
+  --glass-rim-lo: rgba(96, 200, 255, 0.07);
+  --glass-sheen: rgba(95, 211, 255, 0.07);
+  --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.4), 0 14px 44px rgba(0, 0, 0, 0.6);
+  --glass-solid: #08111a;
+  --hairline: rgba(96, 200, 255, 0.14);
 
-  --good: #34d399;
-  --warning: #fbbf24;
-  --critical: #ff5a5f;
-  --neutral: rgba(255, 255, 255, 0.55);
+  --good: #8af5c8;
+  --warning: #ffb547;
+  --critical: #ff6b6b;
+  --neutral: rgba(124, 147, 166, 0.85);
 
   --r-xl: 34px;
   --r-lg: 26px;
@@ -56,56 +60,35 @@
   --ease: cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --ink: rgba(20, 12, 13, 0.94);
-    --ink-2: rgba(20, 12, 13, 0.66);
-    --ink-3: rgba(20, 12, 13, 0.45);
-    --ink-inverse: #ffffff;
-    --bg: #f4efef;
-    --wall-1: #ff8a8f;
-    --wall-2: #ffc69a;
-    --wall-3: #b9a6ff;
-    --wall-4: #8fdcef;
-    --glass-fill: rgba(255, 255, 255, 0.42);
-    --glass-fill-strong: rgba(255, 255, 255, 0.7);
-    --glass-fill-clear: rgba(255, 255, 255, 0.18);
-    --glass-rim-hi: rgba(255, 255, 255, 0.95);
-    --glass-rim-lo: rgba(255, 255, 255, 0.25);
-    --glass-sheen: rgba(255, 255, 255, 0.5);
-    --glass-shadow: 0 1px 1px rgba(60, 20, 25, 0.06), 0 12px 36px rgba(60, 20, 25, 0.14);
-    --glass-solid: #fbf8f8;
-    --good: #059669;
-    --warning: #b45309;
-    --critical: #d11a2a;
-    --neutral: rgba(20, 12, 13, 0.5);
-  }
-}
-
+/* Light is opt-in only (data-theme="light"); the OS setting no longer switches it. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --ink: rgba(20, 12, 13, 0.94);
-  --ink-2: rgba(20, 12, 13, 0.66);
-  --ink-3: rgba(20, 12, 13, 0.45);
+  --accent: #0a84c6;
+  --accent-strong: #0670a8;
+  --accent-ink: #ffffff;
+  --accent-glow: rgba(10, 132, 198, 0.3);
+  --ink: rgba(6, 18, 28, 0.94);
+  --ink-2: rgba(6, 18, 28, 0.66);
+  --ink-3: rgba(6, 18, 28, 0.45);
   --ink-inverse: #ffffff;
-  --bg: #f4efef;
-  --wall-1: #ff8a8f;
-  --wall-2: #ffc69a;
-  --wall-3: #b9a6ff;
-  --wall-4: #8fdcef;
+  --bg: #eef4f8;
+  --wall-1: #8fd3f5;
+  --wall-2: #b7e9ff;
+  --wall-3: #c9d8e8;
+  --wall-4: #a6e8dc;
   --glass-fill: rgba(255, 255, 255, 0.42);
-  --glass-fill-strong: rgba(255, 255, 255, 0.7);
+  --glass-fill-strong: rgba(255, 255, 255, 0.72);
   --glass-fill-clear: rgba(255, 255, 255, 0.18);
   --glass-rim-hi: rgba(255, 255, 255, 0.95);
   --glass-rim-lo: rgba(255, 255, 255, 0.25);
   --glass-sheen: rgba(255, 255, 255, 0.5);
-  --glass-shadow: 0 1px 1px rgba(60, 20, 25, 0.06), 0 12px 36px rgba(60, 20, 25, 0.14);
-  --glass-solid: #fbf8f8;
-  --good: #059669;
+  --glass-shadow: 0 1px 1px rgba(10, 40, 60, 0.06), 0 12px 36px rgba(10, 40, 60, 0.14);
+  --glass-solid: #f7fbfd;
+  --hairline: rgba(6, 18, 28, 0.1);
+  --good: #047857;
   --warning: #b45309;
-  --critical: #d11a2a;
-  --neutral: rgba(20, 12, 13, 0.5);
+  --critical: #c81e2c;
+  --neutral: rgba(6, 18, 28, 0.5);
 }
 
 * {
@@ -153,7 +136,7 @@ a {
   position: fixed;
   inset: -20vmax;
   z-index: -1;
-  background: var(--bg);
+  background: radial-gradient(ellipse 55% 40% at 50% 30%, #08131d 0%, var(--bg) 72%);
   overflow: hidden;
   pointer-events: none;
 }
@@ -163,8 +146,8 @@ a {
   width: 70vmax;
   height: 70vmax;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.55;
+  filter: blur(110px);
+  opacity: 0.2;
   animation: drift 38s var(--ease) infinite alternate;
 }
 
@@ -176,11 +159,18 @@ a {
 .wallpaper__grain {
   position: absolute;
   inset: 0;
-  opacity: 0.025;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.8) 1px, transparent 1px);
-  background-size: 3px 3px;
-  mix-blend-mode: overlay;
+  opacity: 0.5;
+  /* A faint HUD grid with a vignette, so the glass has something to refract. */
+  background-image:
+    linear-gradient(rgba(95, 211, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 211, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 85%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 85%);
 }
+
+:root[data-theme="light"] .wallpaper__grain { opacity: 0.2; }
+:root[data-theme="light"] .wallpaper { background: var(--bg); }
 
 @keyframes drift {
   0% { transform: translate3d(0, 0, 0) scale(1); }
@@ -242,8 +232,9 @@ a {
 .glass--md { border-radius: var(--r-md); }
 
 .glass--tint {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 78%, white 0%), var(--accent-strong));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 88%, white 12%), var(--accent-strong));
   color: var(--accent-ink);
+  box-shadow: var(--glass-shadow), 0 0 22px var(--accent-glow);
 }
 
 .glass--interactive {
@@ -254,7 +245,7 @@ a {
 }
 
 .glass--interactive:hover {
-  background-color: color-mix(in srgb, var(--glass-fill) 100%, white 6%);
+  background-color: color-mix(in srgb, var(--glass-fill) 100%, var(--accent) 8%);
 }
 
 .glass--interactive:active {
@@ -322,9 +313,9 @@ a {
   margin: 28px 4px 12px;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--accent);
 }
 
 /* --------------------------------------------------------------------- dock */
@@ -364,6 +355,7 @@ a {
 
 .dock__item[aria-current="page"] {
   color: var(--accent);
+  text-shadow: 0 0 12px var(--accent-glow);
 }
 
 /* The "lens" that sits under the active tab. */
@@ -372,8 +364,8 @@ a {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--ink) 9%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(150, 222, 255, 0.35), inset 0 -1px 0 rgba(95, 211, 255, 0.08), 0 0 18px rgba(95, 211, 255, 0.18);
   z-index: -1;
   animation: lens-in 0.45s var(--spring);
 }
@@ -394,7 +386,7 @@ a {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 3, 6, 0.55);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   animation: fade-in 0.25s var(--ease);
@@ -462,13 +454,15 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--ink-2);
-  font-size: 13px;
+  color: var(--accent);
+  font-size: 11.5px;
   font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .widget__head svg { width: 16px; height: 16px; }
-.widget__head .widget__source { margin-left: auto; color: var(--ink-3); font-weight: 500; text-decoration: none; }
+.widget__head .widget__source { margin-left: auto; color: var(--ink-3); font-weight: 500; text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12.5px; }
 .widget__head .widget__source:hover { color: var(--ink); }
 
 .metrics {
