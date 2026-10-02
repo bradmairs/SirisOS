@@ -11,13 +11,9 @@ __pycache__/
 .venv/
 venv/
 
-# Flutter / Dart
-.dart_tool/
-.packages
-.pub-cache/
-build/
-.flutter-plugins
-.flutter-plugins-dependencies
+# Web
+node_modules/
+apps/web/dist/
 
 # SirisOS runtime data
 /data/*

@@ -1,63 +1,34 @@
 # SirisOS API
 
-Base URL during local development: `http://localhost:8000`
+Interactive docs are served at `/docs` (OpenAPI at `/openapi.json`). Every
+`/api/v1` route except sign-in needs `Authorization: Bearer <token>` from
+`POST /api/v1/auth/login`.
 
-Interactive OpenAPI documentation is available at `/docs` while the service is running.
+## System
 
-## System endpoints
+| Route | Purpose |
+| --- | --- |
+| `GET /` | Name and version |
+| `GET /health` | Liveness (used by the container healthcheck) |
+| `POST /api/v1/auth/login` | `{username, password}` → `{access_token, expires_in, username}` |
+| `GET /api/v1/auth/me` | The signed-in user |
 
-### `GET /`
+## Engineering module
 
-Returns basic API metadata.
+| Route | Purpose |
+| --- | --- |
+| `GET /api/v1/engineering/sirishydro/evidence?question=&limit=` | Cited evidence from the standards library, plus an optional Ollama-synthesized answer |
+| `GET /api/v1/engineering/sirishydro/history` · `DELETE …/history/{id}` | Past SirisHydro questions |
+| `GET /api/v1/engineering/standards?query=&authority=&include_archived=&limit=` | Search documents and page text |
+| `POST /api/v1/engineering/standards` (multipart) · `POST …/{id}/replace` | Upload a PDF / a new revision |
+| `DELETE /api/v1/engineering/standards/{id}` · `POST …/{id}/restore` | Archive / restore |
+| `GET /api/v1/engineering/standards/{id}/pages/{page}` · `GET …/{id}/file` | Indexed page text / the PDF |
+| `GET, POST /api/v1/engineering/calculations` · `GET, DELETE …/{id}` | Saved calculator results |
+| `GET, POST /api/v1/projects` · `GET, PATCH …/{id}` · `GET, PUT …/current` | Engineering projects and the current project |
+| `GET, POST /api/v1/projects/{id}/relationships` · `DELETE …/{rid}` · `GET …/{id}/graph` | Links to calculations and standards |
 
-### `GET /health`
-
-Returns the current API health state.
-
-## Dashboard endpoints
-
-### `GET /api/v1/dashboard`
-
-Returns the combined payload used by the Flutter home dashboard. The Homelab card is populated from the local Docker host; the remaining cards are placeholders until their integrations are implemented.
-
-## Homelab endpoints
-
-### `GET /api/v1/homelab/docker`
-
-Returns a read-only snapshot of the Docker host, including:
-
-- Docker availability
-- Total, running, stopped, and unhealthy counts
-- Container name
-- Image
-- Runtime state and status
-- Docker health-check state, when configured
-
-Example response:
-
-```json
-{
-  "available": true,
-  "total": 8,
-  "running": 8,
-  "stopped": 0,
-  "unhealthy": 0,
-  "containers": [
-    {
-      "name": "plex",
-      "image": "lscr.io/linuxserver/plex:latest",
-      "state": "running",
-      "status": "running",
-      "health": null
-    }
-  ],
-  "error": null
-}
-```
-
-## Docker socket security
-
-The development Compose stack mounts `/var/run/docker.sock` into the API container as read-only. The Docker socket is still a highly privileged interface, even with a read-only bind mount. Do not expose the SirisOS API publicly without authentication, network controls, and a more restricted Docker access strategy such as a socket proxy.
+Project links to knowledge notes made before ADR 106 are still listed;
+new ones are refused (notes live in Second Brain).
 
 ## Hub (ADR 106)
 
