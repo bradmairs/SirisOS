@@ -53,7 +53,10 @@ make up          # builds the PWA + API image and starts the stack on :8094
 ```
 
 Copy `.env.example` to `.env` and fill in the connector section. Any app
-left blank shows as "not configured" and is otherwise ignored.
+left blank shows as "not configured" and is otherwise ignored. Then run
+`make hub-check` to test every connection from inside the container. The
+first-time move to the hub build is covered step by step in
+[`docs/deploy-hub.md`](docs/deploy-hub.md).
 
 | Variable | Purpose |
 | --- | --- |
