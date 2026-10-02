@@ -86,6 +86,8 @@ class ConfirmRequest(BaseModel):
     conversation_id: str
     tool_name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
+    # Continue a planner turn past the confirmed step (SirisAI ConfirmToolRequest).
+    use_planner: bool = False
 
 
 async def _stream(connector: SirisAIConnector, path: str, body: dict[str, Any]) -> StreamingResponse:
