@@ -19,6 +19,9 @@ if [[ ! -f .env ]]; then
   echo "Created .env from .env.example"
 fi
 
+PORT="$(grep -E '^SIRISOS_PORT=' .env | tail -1 | cut -d= -f2 || true)"
+PORT="${PORT:-8094}"
+
 mkdir -p data/postgres data/logs data/backups data/uploads data/standards
 
 echo "Starting SirisOS application and backend dependencies..."
@@ -26,9 +29,9 @@ docker compose up --build -d --remove-orphans sirisos
 
 echo "Waiting for SirisOS to become healthy..."
 for attempt in {1..60}; do
-  if curl --fail --silent http://localhost:6464/health >/dev/null 2>&1; then
-    echo "SirisOS backend is healthy via http://localhost:6464"
-    echo "API documentation: http://localhost:6464/docs"
+  if curl --fail --silent http://localhost:${PORT}/health >/dev/null 2>&1; then
+    echo "SirisOS backend is healthy via http://localhost:${PORT}"
+    echo "API documentation: http://localhost:${PORT}/docs"
     exit 0
   fi
   sleep 2

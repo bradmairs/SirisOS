@@ -21,16 +21,16 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] ADR 106: SirisOS is the hub, plus the connector contract, removals and port
 - [x] README and roadmap rewritten; pre-hub docs archived
 
-### Phase 1: Connector gateway
-- [ ] Connector contract, registry, concurrent status with per-connector timeout and cache
-- [ ] SirisAI + Second Brain: status, HUD widget, chat SSE passthrough, conversations, brain search/capture/today
-- [ ] APD PM: service login, project and due-task widget
-- [ ] Engineering Reviewer: health (LLM availability) and recent-reviews widget
-- [ ] Engineering Archive: `/api/external/status` widget (review queue, totals)
-- [ ] GVW Timesheets: health and version
-- [ ] CMP Capabilities: service login and `stats/me` widget
-- [ ] Helmarr, JEFIT and Neo Server launch tiles
-- [ ] Tests against mocked HTTP for every connector
+### Phase 1: Connector gateway ✅
+- [x] Connector contract, registry, concurrent status with per-connector timeout and cache
+- [x] SirisAI + Second Brain: status, HUD widget, chat SSE passthrough, conversations, brain search/capture/today
+- [x] APD PM: service login, project and due-task widget
+- [x] Engineering Reviewer: health (LLM availability) and recent-reviews widget
+- [x] Engineering Archive: `/api/external/status` widget (review queue, totals)
+- [x] GVW Timesheets: health and version
+- [x] CMP Capabilities: service login and `stats/me` widget
+- [x] Helmarr, JEFIT and Neo Server launch tiles
+- [x] Tests against mocked HTTP for every connector
 
 ### Phase 2: Liquid Glass PWA shell
 - [ ] `apps/web` (Vite + React + TS); Docker build stage and CI job
@@ -52,7 +52,8 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [ ] Leave their Postgres tables in place
 
 ### Phase 5: Deploy (on the LAN)
-- [ ] Move to `SIRISOS_PORT` (8094)
+- [x] `SIRISOS_PORT` (default 8094) wired through compose, Makefile and scripts
+- [ ] Pick up the new port on the server
 - [ ] Create service accounts: APD PM VIEWER, CMP user, Archive read key
 - [ ] Verify every connector against the live apps on `192.168.0.100`
 

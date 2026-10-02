@@ -58,3 +58,23 @@ Example response:
 ## Docker socket security
 
 The development Compose stack mounts `/var/run/docker.sock` into the API container as read-only. The Docker socket is still a highly privileged interface, even with a read-only bind mount. Do not expose the SirisOS API publicly without authentication, network controls, and a more restricted Docker access strategy such as a socket proxy.
+
+## Hub (ADR 106)
+
+All routes require the SirisOS bearer token.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/v1/hub/apps?widgets=&fresh=` | Every app tile: `id`, `name`, `category`, `icon`, `launch_url`, `configured`, `status {state, detail, latency_ms, version, checked_at}`, optional `widget` |
+| `GET /api/v1/hub/apps/{id}` | One app with its widget |
+| `GET /api/v1/hub/widgets` | Widgets for every reachable app: `{title, metrics[{label,value,tone}], items[{title,subtitle,url,tone}], empty, updated_at}`, or `{error}` |
+| `POST /api/v1/assistant/chat/stream` | SirisAI `/siris/chat/stream`, relayed as Server-Sent Events |
+| `POST /api/v1/assistant/chat/confirm/stream` | SirisAI tool confirmation, streamed |
+| `GET /api/v1/assistant/conversations[/{id}]` | SirisAI conversation history |
+| `GET /api/v1/assistant/hud` | SirisAI HUD summary |
+| `GET /api/v1/brain/search?q=` · `GET /api/v1/brain/today` · `POST /api/v1/brain/capture` | Second Brain via SirisAI |
+
+`state` is `ok`, `degraded` (reachable, but wrong credentials or a missing
+dependency such as an LLM), `down` (unreachable or timed out) or
+`unconfigured`. Statuses and widgets are cached for 20 seconds; pass
+`fresh=true` to bypass the cache.
