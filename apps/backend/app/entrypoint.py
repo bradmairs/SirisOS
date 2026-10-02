@@ -18,6 +18,7 @@ from app.api.search import router as search_router
 from app.api.siris_agent import router as siris_agent_router
 from app.api.siris_memory import router as siris_memory_router
 from app.api.synology import router as synology_router
+from app.hub.api import router as hub_router
 
 # The legacy app.main owns core auth/dashboard/homelab routes. Newer feature
 # modules are mounted here so production startup has one explicit registry and
@@ -41,6 +42,7 @@ for router in (
     siris_agent_router,
     siris_memory_router,
     synology_router,
+    hub_router,
 ):
     app.include_router(router)
 

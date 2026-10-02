@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+PORT := $(or $(shell grep -E '^SIRISOS_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2),8094)
 
 .PHONY: help up dev dev-web backend stop restart logs status clean rebuild-app
 
@@ -21,8 +22,8 @@ up:
 	@mkdir -p data/postgres data/logs data/backups data/uploads data/standards data/knowledge data/app
 	@docker compose up --build -d --remove-orphans
 	@echo ""
-	@echo "SirisOS: http://192.168.0.100:6464"
-	@echo "API docs: http://192.168.0.100:6464/docs"
+	@echo "SirisOS: http://192.168.0.100:$(PORT)"
+	@echo "API docs: http://192.168.0.100:$(PORT)/docs"
 
 dev: dev-web
 
@@ -49,7 +50,7 @@ logs:
 status:
 	@docker compose ps
 	@echo ""
-	@curl --fail --silent http://localhost:6464/health || true
+	@curl --fail --silent http://localhost:$(PORT)/health || true
 	@echo ""
 
 clean:
