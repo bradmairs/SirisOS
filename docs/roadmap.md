@@ -40,11 +40,11 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Second Brain search and quick capture
 - [x] PWA manifest and icons (installable on iPhone)
 
-### Phase 3: Engineering module in React
-- [ ] SirisHydro (evidence, synthesis status, history)
-- [ ] Calculator library
-- [ ] Standards Library (upload and search)
-- [ ] Projects (with calculations and citations)
+### Phase 3: Engineering module in React ✅
+- [x] SirisHydro (evidence, synthesis status, history)
+- [x] Calculator library
+- [x] Standards Library (upload and search)
+- [x] Projects (with calculations and citations)
 
 ### Phase 4: Removal
 - [ ] Delete the Flutter app (`apps/mobile`)
