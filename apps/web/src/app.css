@@ -1,0 +1,69 @@
+/* Screen-level layout on top of the glass design system. */
+
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* login */
+.login {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + 24px) var(--gutter) calc(var(--safe-bottom) + 24px);
+}
+.login__card { width: min(400px, 100%); padding: 32px 26px 28px; gap: 14px; }
+.login__logo { width: 132px; margin: 0 auto 2px; border-radius: 28px; display: block; box-shadow: 0 10px 40px rgba(227, 38, 47, 0.35); }
+.login__tagline { text-align: center; margin: 0 0 8px; color: var(--ink-2); font-weight: 500; }
+
+/* ask / search bar */
+.ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 20px;
+  color: var(--ink-2);
+  cursor: text;
+}
+.ask-bar svg { width: 20px; height: 20px; flex: none; color: var(--accent); position: relative; z-index: 2; }
+.ask-bar__input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; font-size: 17px; position: relative; z-index: 2; }
+.ask-bar__input::placeholder { color: var(--ink-3); }
+
+/* app sheet */
+.app-sheet__head { display: flex; gap: 16px; align-items: center; }
+.app-sheet__name { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* chat */
+.chat { display: flex; flex-direction: column; min-height: calc(100dvh - var(--dock-h) - var(--safe-bottom) - 80px); }
+.chat__log { flex: 1; display: flex; flex-direction: column; gap: 10px; padding-bottom: 96px; }
+.chat__empty { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; padding: 12vh 12px 0; }
+.bubble-row { display: flex; animation: rise 0.45s var(--spring) both; }
+.bubble-row--user { justify-content: flex-end; }
+.bubble { max-width: min(78%, 640px); padding: 11px 16px; border-radius: 22px; }
+.bubble--user { border-bottom-right-radius: 8px; }
+.bubble--assistant { border-bottom-left-radius: 8px; }
+.bubble__text { white-space: pre-wrap; overflow-wrap: anywhere; position: relative; z-index: 2; }
+.bubble__status { font-size: 13px; color: var(--ink-3); margin-top: 4px; position: relative; z-index: 2; }
+.confirm { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); position: relative; z-index: 2; }
+.confirm__args { margin: 0 0 10px; padding: 10px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--ink) 6%, transparent); font-size: 12px; max-height: 160px; overflow: auto; }
+
+.composer {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + var(--dock-h) + 26px);
+  width: min(720px, calc(100vw - 2 * var(--gutter)));
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 20px;
+  z-index: 25;
+}
+.composer__input { flex: 1; border: 0; outline: none; background: none; resize: none; font-size: 16px; padding: 8px 0; max-height: 140px; position: relative; z-index: 2; }
+.composer__input::placeholder { color: var(--ink-3); }
+
+.item--button { width: 100%; background: none; border: 0; text-align: left; cursor: pointer; }
+.item--button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+
+/* Content inside glass sits above the sheen layer. */
+.widget > *, .sheet > *, .login__card > *, .dock > * { position: relative; z-index: 2; }
+.button > * { position: relative; z-index: 2; }

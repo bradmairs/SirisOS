@@ -7,7 +7,7 @@ help:
 	@echo "SirisOS commands"
 	@echo ""
 	@echo "  make up          Build and start the complete SirisOS stack"
-	@echo "  make dev         Start backend and Flutter hot-reload web server"
+	@echo "  make dev         Start backend and the Vite hot-reload web server"
 	@echo "  make dev-web     Alias for make dev"
 	@echo "  make backend     Start backend services only for local development"
 	@echo "  make rebuild-app Rebuild only the unified SirisOS application container"
@@ -15,7 +15,7 @@ help:
 	@echo "  make restart     Rebuild and restart the complete stack"
 	@echo "  make logs        Follow all service logs"
 	@echo "  make status      Show service status and SirisOS health"
-	@echo "  make clean       Stop services and remove Flutter build output"
+	@echo "  make clean       Stop services and remove web build output"
 
 up:
 	@test -f .env || cp .env.example .env
@@ -55,4 +55,4 @@ status:
 
 clean:
 	@docker compose down --remove-orphans
-	@cd apps/mobile && flutter clean
+	@rm -rf apps/web/dist

@@ -8,3 +8,5 @@ apps/mobile/web
 apps/backend/__pycache__
 **/__pycache__
 **/*.pyc
+apps/web/node_modules
+apps/web/dist
