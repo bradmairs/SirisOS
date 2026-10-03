@@ -211,6 +211,15 @@ async def brain_today(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/brain/today")
 
 
+@router.get("/brain/insights", tags=["brain"])
+async def brain_insights(
+    days: int = Query(30, ge=7, le=365),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> Any:
+    """How the Second Brain is growing and what needs attention, worked out by the vault's engine."""
+    return await _forward(connector, "GET", "/siris/brain/insights", params={"days": days})
+
+
 @router.get("/brain/map.html", tags=["brain"], response_class=HTMLResponse)
 async def brain_map(connector: SirisAIConnector = Depends(_sirisai)) -> HTMLResponse:
     """The Second Brain's living mind map, drawn fresh from the vault by SirisAI.

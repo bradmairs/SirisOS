@@ -3,6 +3,7 @@ import { Brain as BrainIcon, Check, Search } from "lucide-react";
 import { brain } from "../api/hub";
 import type { BrainHit } from "../api/types";
 import { Glass } from "../components/Glass";
+import { BrainInsights } from "./BrainInsights";
 import { BrainMap } from "./BrainMap";
 
 export function Brain() {
@@ -128,6 +129,7 @@ export function Brain() {
             )}
           </Glass>
         </div>
+        <BrainInsights />
         </>
       )}
     </>

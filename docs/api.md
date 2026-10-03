@@ -43,7 +43,7 @@ All routes require the SirisOS bearer token.
 | `POST /api/v1/assistant/chat/confirm/stream` | SirisAI tool confirmation, streamed |
 | `GET /api/v1/assistant/conversations[/{id}]` | SirisAI conversation history |
 | `GET /api/v1/assistant/hud` | SirisAI HUD summary |
-| `GET /api/v1/brain/search?q=` · `GET /api/v1/brain/today` · `POST /api/v1/brain/capture` | Second Brain via SirisAI |
+| `GET /api/v1/brain/search?q=` · `GET /api/v1/brain/today` · `GET /api/v1/brain/insights?days=30` · `POST /api/v1/brain/capture` | Second Brain via SirisAI (insights: growth, topics, deadlines, overdue tasks, idle projects, links to make) |
 
 `state` is `ok`, `degraded` (reachable, but wrong credentials or a missing
 dependency such as an LLM), `down` (unreachable or timed out) or

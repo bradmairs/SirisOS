@@ -230,6 +230,23 @@ body.no-scroll { overflow: hidden; }
 @keyframes orb-pulse { 50% { box-shadow: 0 0 90px rgba(95, 211, 255, 0.85), inset 0 0 50px rgba(95, 211, 255, 0.9); } }
 @keyframes beat { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
+/* Second Brain insights */
+.insights__highlights { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); }
+.insights__list .item { align-items: flex-start; }
+.insights__list .item__dot { margin-top: 7px; }
+.insights__list .item__title, .insights__list .item__subtitle { white-space: normal; }
+.insights__topics { display: flex; flex-wrap: wrap; gap: 8px; }
+.activity { margin: 16px 0 0; }
+.activity__readout { font-size: 13px; color: var(--ink-2); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.activity__bars { display: flex; align-items: flex-end; gap: 2px; height: 64px; border-bottom: 1px solid var(--hairline); }
+.activity__slot { flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; cursor: default; }
+.activity__bar { width: 100%; max-width: 14px; border-radius: 4px 4px 0 0; background: var(--brain); transition: opacity 0.15s; }
+.activity__tick { width: 100%; max-width: 14px; height: 2px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.activity__bars:hover .activity__bar { opacity: 0.45; }
+.activity__bars:hover .activity__slot--active .activity__bar { opacity: 1; }
+.activity__axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11.5px; color: var(--ink-3); }
+@media (prefers-reduced-motion: reduce) { .activity__bar { transition: none; } }
+
 /* ------------------------------------------------------------------ Links */
 .links-summary { margin: 14px 6px 0; font-size: 13.5px; }
 .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }

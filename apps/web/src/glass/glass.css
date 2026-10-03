@@ -12,6 +12,7 @@
 
   /* Dark by default, in the SirisAI HUD palette: near-black with ice-blue light. */
   --accent: #5fd3ff;
+  --brain: #9b72f7; /* Second Brain data marks (validated against #000) */
   --accent-strong: #26a9e0;
   --accent-ink: #03121c;
   --accent-2: #8af5c8;
@@ -64,6 +65,7 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --accent: #0a84c6;
+  --brain: #7c3aed;
   --accent-strong: #0670a8;
   --accent-ink: #ffffff;
   --accent-glow: rgba(10, 132, 198, 0.3);

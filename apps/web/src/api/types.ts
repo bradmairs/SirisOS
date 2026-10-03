@@ -89,6 +89,33 @@ export interface BrainHit {
   excerpts?: string[];
 }
 
+/** The vault engine's `brain.py insights`, via SirisAI's /siris/brain/insights. */
+export interface BrainInsights {
+  date: string;
+  highlights: string[];
+  summary: {
+    notes: number;
+    links: number;
+    learned_by_siris: number;
+    links_per_note: number;
+    this_week: number;
+    previous_week: number;
+    streak_days: number;
+    open_tasks: number;
+    inbox: number;
+  };
+  activity: { date: string; notes: number }[];
+  topics: { tag: string; notes: number; previous: number }[];
+  hubs: { title: string; links: number }[];
+  orphans: string[];
+  stale_projects: { title: string; last_activity: string; days_idle: number }[];
+  deadlines: { title: string; due: string; days_left: number }[];
+  overdue_tasks: { task: string; note: string; due: string; days_late: number }[];
+  inbox: { count: number; oldest: string | null };
+  gaps: Record<string, number>;
+  suggested_links: { a: string; b: string; score: number; why: string }[];
+}
+
 export function isWidget(w: WidgetResult | null | undefined): w is Widget {
   return !!w && !("error" in w);
 }
