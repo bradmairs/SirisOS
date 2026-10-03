@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, Wrench, X } from "lucide-react";
 import { assistant, brain } from "../api/hub";
@@ -107,13 +107,28 @@ export function Assistant() {
     setMessages((m) => [...m, { role: "assistant", text: "", streaming: true, status: "Connecting" }]);
     const update = (fn: (m: Message) => Message) =>
       setMessages((all) => [...all.slice(0, -1), fn(all[all.length - 1])]);
+    // Fold stream events into the message at most once per frame: a fast
+    // model emits many tokens per frame, and rendering each one is wasted work.
+    let queue: ChatEvent[] = [];
+    let frame = 0;
+    const flush = () => {
+      frame = 0;
+      const batch = queue;
+      queue = [];
+      if (batch.length) update((m) => batch.reduce(applyEvent, m));
+    };
     try {
       for await (const event of events(controller.signal)) {
         if (event.type === "final") setConversationId(event.response.conversation_id);
-        update((m) => applyEvent(m, event));
+        queue.push(event);
+        if (!frame) frame = nextFrame(flush);
       }
+      cancelFrame(frame);
+      flush();
       update((m) => (m.streaming ? { ...m, streaming: false, status: undefined } : m));
     } catch (err) {
+      cancelFrame(frame);
+      flush();
       const aborted = controller.signal.aborted;
       update((m) => ({ ...m, streaming: false, status: undefined, error: aborted ? undefined : err instanceof Error ? err.message : "Siris is unavailable." }));
     } finally {
@@ -142,6 +157,11 @@ export function Assistant() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Stable callbacks for the memoised bubbles, always calling the latest handlers.
+  const handlers = useRef({ saveToBrain: (_i: number) => {}, confirm: (_i: number, _a: boolean) => {} });
+  const onSave = useCallback((i: number) => handlers.current.saveToBrain(i), []);
+  const onConfirm = useCallback((i: number, approve: boolean) => handlers.current.confirm(i, approve), []);
 
   function confirm(index: number, approve: boolean) {
     const message = messages[index];
@@ -275,6 +295,8 @@ export function Assistant() {
     send(input);
   }
 
+  handlers.current = { saveToBrain, confirm };
+
   return (
     <div className="siris">
     <div className="chat siris__main">
@@ -335,53 +357,7 @@ export function Assistant() {
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`bubble-row bubble-row--${m.role}`}>
-            <Glass variant={m.role === "user" ? "tint" : "regular"} shape="md" className={`bubble bubble--${m.role}`}>
-              {m.tools && m.tools.length > 0 && (
-                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginBottom: m.text ? 8 : 0 }}>
-                  {m.tools.map((t, j) => (
-                    <span key={j} className="chip">
-                      <Wrench size={12} aria-hidden="true" /> {t.name}
-                      {t.status === "error" && <span className="tone-critical">failed</span>}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {m.voice && m.role === "user" && <Mic size={13} className="bubble__voice" aria-label="Spoken" />}
-              {m.text && <div className="bubble__text">{m.text}</div>}
-              {m.streaming && m.status && <div className="bubble__status">{m.status}…</div>}
-              {m.error && <div className="tone-critical bubble__status">{m.error}</div>}
-              {m.role === "assistant" && !m.streaming && m.text && (
-                <div className="bubble__actions">
-                  {m.saved ? (
-                    <span className="tone-good bubble__saved">
-                      <Check size={13} aria-hidden="true" /> Saved to Second Brain
-                    </span>
-                  ) : (
-                    <button type="button" className="icon-link" onClick={() => saveToBrain(i)} aria-label="Save to Second Brain" title="Save to Second Brain">
-                      <BookmarkPlus size={15} aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
-              )}
-              {m.pending && (
-                <div className="confirm">
-                  <p style={{ margin: "0 0 8px" }}>
-                    Siris wants to run <strong>{m.pending.name}</strong>
-                  </p>
-                  <pre className="confirm__args">{JSON.stringify(m.pending.arguments, null, 2)}</pre>
-                  <div className="row">
-                    <Glass as="button" variant="tint" shape="pill" interactive className="button button--small" onClick={() => confirm(i, true)}>
-                      <Check aria-hidden="true" /> Allow
-                    </Glass>
-                    <Glass as="button" shape="pill" interactive className="button button--small" onClick={() => confirm(i, false)}>
-                      <X aria-hidden="true" /> Cancel
-                    </Glass>
-                  </div>
-                </div>
-              )}
-            </Glass>
-          </div>
+          <Bubble key={i} m={m} index={i} onSave={onSave} onConfirm={onConfirm} />
         ))}
         <div ref={endRef} />
       </div>
@@ -505,3 +481,75 @@ export function Assistant() {
     </div>
   );
 }
+
+/** One chat bubble. Memoised: typing in the composer or streaming the latest
+ * reply re-renders only the bubble that changed, not the whole conversation. */
+const Bubble = memo(function Bubble({
+  m,
+  index,
+  onSave,
+  onConfirm,
+}: {
+  m: Message;
+  index: number;
+  onSave: (index: number) => void;
+  onConfirm: (index: number, approve: boolean) => void;
+}) {
+  return (
+        <div className={`bubble-row bubble-row--${m.role}`}>
+          <Glass variant={m.role === "user" ? "tint" : "regular"} shape="md" className={`bubble bubble--${m.role}`}>
+            {m.tools && m.tools.length > 0 && (
+              <div className="row" style={{ flexWrap: "wrap", gap: 6, marginBottom: m.text ? 8 : 0 }}>
+                {m.tools.map((t, j) => (
+                  <span key={j} className="chip">
+                    <Wrench size={12} aria-hidden="true" /> {t.name}
+                    {t.status === "error" && <span className="tone-critical">failed</span>}
+                  </span>
+                ))}
+              </div>
+            )}
+            {m.voice && m.role === "user" && <Mic size={13} className="bubble__voice" aria-label="Spoken" />}
+            {m.text && <div className="bubble__text">{m.text}</div>}
+            {m.streaming && m.status && <div className="bubble__status">{m.status}…</div>}
+            {m.error && <div className="tone-critical bubble__status">{m.error}</div>}
+            {m.role === "assistant" && !m.streaming && m.text && (
+              <div className="bubble__actions">
+                {m.saved ? (
+                  <span className="tone-good bubble__saved">
+                    <Check size={13} aria-hidden="true" /> Saved to Second Brain
+                  </span>
+                ) : (
+                  <button type="button" className="icon-link" onClick={() => onSave(index)} aria-label="Save to Second Brain" title="Save to Second Brain">
+                    <BookmarkPlus size={15} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )}
+            {m.pending && (
+              <div className="confirm">
+                <p style={{ margin: "0 0 8px" }}>
+                  Siris wants to run <strong>{m.pending.name}</strong>
+                </p>
+                <pre className="confirm__args">{JSON.stringify(m.pending.arguments, null, 2)}</pre>
+                <div className="row">
+                  <Glass as="button" variant="tint" shape="pill" interactive className="button button--small" onClick={() => onConfirm(index, true)}>
+                    <Check aria-hidden="true" /> Allow
+                  </Glass>
+                  <Glass as="button" shape="pill" interactive className="button button--small" onClick={() => onConfirm(index, false)}>
+                    <X aria-hidden="true" /> Cancel
+                  </Glass>
+                </div>
+              </div>
+            )}
+          </Glass>
+        </div>
+  );
+});
+
+const nextFrame = (fn: () => void): number =>
+  typeof requestAnimationFrame === "function" ? requestAnimationFrame(fn) : window.setTimeout(fn, 16);
+const cancelFrame = (id: number) => {
+  if (!id) return;
+  if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(id);
+  window.clearTimeout(id);
+};

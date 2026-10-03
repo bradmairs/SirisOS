@@ -1,34 +1,17 @@
 import { useEffect, useState } from "react";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, Package, ShieldCheck } from "lucide-react";
 import { assistant } from "../api/hub";
+import { useResource } from "../api/resource";
 import type { HubApp, Hud } from "../api/types";
 import { Glass } from "../components/Glass";
 
 const HUD_REFRESH_MS = 60_000;
 
-/** SirisAI's HUD summary (weather, server, calendar, activity), refreshed every minute. */
+/** SirisAI's HUD summary (weather, server, calendar, activity), refreshed
+ * every minute and shared by Home and the Siris screen. */
 export function useHud() {
-  const [hud, setHud] = useState<Hud | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let live = true;
-    const load = () =>
-      assistant
-        .hud()
-        .then((h) => {
-          if (!live) return;
-          setHud(h);
-          setFailed(false);
-        })
-        .catch(() => live && setFailed(true));
-    load();
-    const timer = window.setInterval(() => document.visibilityState === "visible" && load(), HUD_REFRESH_MS);
-    return () => {
-      live = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-  return { hud, failed };
+  const { data, error } = useResource<Hud>("sirisai:hud", () => assistant.hud(), { refreshMs: HUD_REFRESH_MS });
+  return { hud: data ?? null, failed: !data && !!error };
 }
 
 function Card({ title, Icon, wide, delay = 0, children }: { title: string; Icon: typeof Clock3; wide?: boolean; delay?: number; children: React.ReactNode }) {

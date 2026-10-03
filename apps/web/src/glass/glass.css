@@ -141,22 +141,28 @@ a {
   background: var(--bg);
   overflow: hidden;
   pointer-events: none;
+  /* Painted once and never invalidated by the rest of the page. */
+  contain: strict;
 }
 
+/* Soft colour pools. They used to be blurred, endlessly drifting layers, but
+ * an animated backdrop makes every glass panel above it re-blur on every
+ * frame (the main source of scroll jank and battery drain on iPhone). A
+ * radial gradient gives the same soft edge with no filter and no motion, so
+ * the glass samples a static image. */
 .wallpaper__blob {
   position: absolute;
   width: 70vmax;
   height: 70vmax;
   border-radius: 50%;
-  filter: blur(120px);
+  background: radial-gradient(closest-side, var(--blob), transparent);
   opacity: 0.06;
-  animation: drift 38s var(--ease) infinite alternate;
 }
 
-.wallpaper__blob:nth-child(1) { background: var(--wall-1); top: 0; left: 5%; }
-.wallpaper__blob:nth-child(2) { background: var(--wall-2); top: 35%; left: 55%; animation-duration: 46s; animation-delay: -10s; opacity: 0.4; }
-.wallpaper__blob:nth-child(3) { background: var(--wall-3); top: 55%; left: -5%; animation-duration: 52s; animation-delay: -22s; opacity: 0.45; }
-.wallpaper__blob:nth-child(4) { background: var(--wall-4); top: -10%; left: 60%; animation-duration: 60s; animation-delay: -30s; opacity: 0.3; }
+.wallpaper__blob:nth-child(1) { --blob: var(--wall-1); top: 0; left: 5%; }
+.wallpaper__blob:nth-child(2) { --blob: var(--wall-2); top: 35%; left: 55%; opacity: 0.4; }
+.wallpaper__blob:nth-child(3) { --blob: var(--wall-3); top: 55%; left: -5%; opacity: 0.45; }
+.wallpaper__blob:nth-child(4) { --blob: var(--wall-4); top: -10%; left: 60%; opacity: 0.3; }
 
 .wallpaper__grain {
   position: absolute;
@@ -173,12 +179,6 @@ a {
 
 :root[data-theme="light"] .wallpaper__grain { opacity: 0.2; }
 :root[data-theme="light"] .wallpaper { background: var(--bg); }
-
-@keyframes drift {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(6vmax, -4vmax, 0) scale(1.12); }
-  100% { transform: translate3d(-5vmax, 5vmax, 0) scale(0.94); }
-}
 
 /* ----------------------------------------------------------------- material */
 
@@ -243,7 +243,6 @@ a {
   cursor: pointer;
   border: 0;
   transition: transform 0.35s var(--spring), background-color 0.2s var(--ease), box-shadow 0.25s var(--ease);
-  will-change: transform;
 }
 
 .glass--interactive:hover {

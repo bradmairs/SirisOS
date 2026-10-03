@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 
 from app.services.engineering_standards_evidence import EngineeringEvidence, evidence_from_hit
 from app.services.engineering_standards_search import rank_pages
+from app.services.json_cache import load_json
 from app.services.ollama_service import chat_client
 
 router = APIRouter(prefix="/api/v1/engineering/sirishydro", tags=["engineering"])
@@ -110,7 +112,7 @@ def assemble_evidence(question: str, limit: int = 6) -> list[EngineeringEvidence
 
     for metadata_path in LIBRARY_ROOT.glob("*/metadata.json"):
         try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata = load_json(metadata_path)
         except (OSError, json.JSONDecodeError):
             continue
         # Historical revisions remain directly retrievable for old citations,
@@ -123,7 +125,7 @@ def assemble_evidence(question: str, limit: int = 6) -> list[EngineeringEvidence
         if not index_path.exists():
             continue
         try:
-            pages = json.loads(index_path.read_text(encoding="utf-8"))
+            pages = load_json(index_path)
         except (OSError, json.JSONDecodeError):
             continue
         if not isinstance(pages, list):
@@ -245,7 +247,7 @@ async def sirishydro_evidence(
     if len(question_value) < 2:
         raise HTTPException(status_code=422, detail="Enter an engineering question to retrieve evidence.")
 
-    evidence = assemble_evidence(question_value, limit=limit)
+    evidence = await asyncio.to_thread(assemble_evidence, question_value, limit)
     sufficient = bool(evidence)
     guidance = (
         "Evidence found using local hybrid retrieval. Review the cited pages before relying on tables, figures, equations or layout-sensitive requirements."

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 
 from app.services.engineering_standards_ocr import extract_standard_pages
 from app.services.engineering_standards_search import rank_pages
+from app.services.json_cache import load_json
 
 router = APIRouter(prefix="/api/v1/engineering/standards", tags=["engineering"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
@@ -101,7 +103,7 @@ def _load_pages(document_id: str) -> list[dict]:
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="This standard has no searchable text index.")
     try:
-        value = json.loads(index_path.read_text(encoding="utf-8"))
+        value = load_json(index_path)
     except (OSError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=500, detail="The standards text index is unreadable.") from exc
     return value if isinstance(value, list) else []
@@ -221,6 +223,12 @@ async def search_standards(
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> StandardSearchResponse:
     _authenticate(authorization)
+    # Disk reads and scoring run off the event loop so a search never stalls
+    # hub tiles or a streaming chat reply.
+    return await asyncio.to_thread(_search, query, authority, include_archived, limit)
+
+
+def _search(query: str, authority: str | None, include_archived: bool, limit: int) -> StandardSearchResponse:
     LIBRARY_ROOT.mkdir(parents=True, exist_ok=True)
     hits: list[StandardSearchHit] = []
     query_value = query.strip()
@@ -228,7 +236,7 @@ async def search_standards(
 
     for metadata_path in sorted(LIBRARY_ROOT.glob("*/metadata.json")):
         try:
-            metadata = _normalise_metadata(json.loads(metadata_path.read_text(encoding="utf-8")))
+            metadata = _normalise_metadata(load_json(metadata_path))
         except (OSError, json.JSONDecodeError):
             continue
         if not include_archived and not metadata["active"]:
@@ -245,7 +253,7 @@ async def search_standards(
             _, _, index_path = _paths(document.id)
             if index_path.exists():
                 try:
-                    pages = json.loads(index_path.read_text(encoding="utf-8"))
+                    pages = load_json(index_path)
                 except (OSError, json.JSONDecodeError):
                     pages = []
                 remaining = max(0, min(5, limit - len(hits)))
@@ -270,7 +278,12 @@ async def upload_standard(
 ) -> StandardDocumentResponse:
     _authenticate(authorization)
     filename, data = await _read_pdf(file)
-    return _response(_store_document(filename=filename, data=data, title=title, authority=authority, reference=reference, edition=edition))
+    # Text extraction (and OCR for scanned PDFs, up to minutes) runs in a
+    # worker thread so the rest of SirisOS stays responsive meanwhile.
+    stored = await asyncio.to_thread(
+        _store_document, filename=filename, data=data, title=title, authority=authority, reference=reference, edition=edition
+    )
+    return _response(stored)
 
 
 @router.post("/{document_id}/replace", response_model=StandardDocumentResponse, status_code=201)
@@ -288,7 +301,8 @@ async def replace_standard(
     if not old["active"]:
         raise HTTPException(status_code=409, detail="Only the active revision can be replaced.")
     filename, data = await _read_pdf(file)
-    new = _store_document(
+    new = await asyncio.to_thread(
+        _store_document,
         filename=filename,
         data=data,
         title=(title or old["title"]),

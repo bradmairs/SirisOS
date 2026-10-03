@@ -1,3 +1,5 @@
+import { clearResources } from "./resource";
+
 const TOKEN_KEY = "sirisos.token";
 const USER_KEY = "sirisos.user";
 
@@ -29,6 +31,8 @@ export const session = {
   clear() {
     storage()?.removeItem(TOKEN_KEY);
     storage()?.removeItem(USER_KEY);
+    // Never show the previous session's data to the next sign-in.
+    clearResources();
   },
 };
 

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CalendarClock, Hourglass, Link2, Sparkles, TrendingUp } from "lucide-react";
 import { brain } from "../api/hub";
+import { useResource } from "../api/resource";
 import type { BrainInsights as Insights } from "../api/types";
 import { Glass } from "../components/Glass";
 
@@ -69,12 +70,10 @@ function List({ items }: { items: { key: string; title: string; subtitle: string
 }
 
 export function BrainInsights() {
-  const [data, setData] = useState<Insights | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    brain.insights().then(setData).catch((err) => setError(err instanceof Error ? err.message : "Insights failed."));
-  }, []);
+  // Insights scan the whole vault, so keep the last result for a few minutes.
+  const res = useResource<Insights>("brain:insights", () => brain.insights(), { staleMs: 300_000 });
+  const data = res.data ?? null;
+  const error = data ? null : res.error;
 
   if (error) {
     return (
