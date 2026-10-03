@@ -118,6 +118,10 @@ class FakeApps:
             return httpx.Response(200, text="<title>Siris Brain Map</title><canvas id=stage></canvas>")
         if path == "/siris/brain/today":
             return httpx.Response(200, json={"date": "2026-10-02", "items": [{"title": "Pump curves", "action": "learned"}]})
+        if path == "/siris/brain/insights":
+            days = int(request.url.params["days"])
+            return httpx.Response(200, json={"date": "2026-10-03", "highlights": ["3 notes learned or updated this week."],
+                                             "activity": [{"date": "2026-10-03", "notes": 1}] * days})
         if path == "/siris/brain/search":
             return httpx.Response(200, json=[{"title": "Pump curves", "path": "Notes/Pump curves.md", "q": request.url.params["q"]}])
         if path == "/siris/brain/capture":
@@ -182,6 +186,7 @@ def _by_id(payload: dict) -> dict:
 def test_hub_requires_login(client, apps):
     assert client.get("/api/v1/hub/apps").status_code == 401
     assert client.get("/api/v1/brain/today").status_code == 401
+    assert client.get("/api/v1/brain/insights").status_code == 401
 
 
 def test_all_configured_apps_report_ok(client, apps):
@@ -292,6 +297,10 @@ def test_reviewer_without_llm_is_degraded(client, monkeypatch):
 def test_brain_proxies(client, apps):
     assert client.get("/api/v1/brain/search?q=pumps", headers=AUTH).json()[0]["q"] == "pumps"
     assert client.get("/api/v1/brain/today", headers=AUTH).json()["items"][0]["title"] == "Pump curves"
+    insights = client.get("/api/v1/brain/insights?days=14", headers=AUTH).json()
+    assert insights["highlights"] == ["3 notes learned or updated this week."] and len(insights["activity"]) == 14
+    assert len(client.get("/api/v1/brain/insights", headers=AUTH).json()["activity"]) == 30
+    assert client.get("/api/v1/brain/insights?days=2", headers=AUTH).status_code == 422
     saved = client.post("/api/v1/brain/capture", headers=AUTH, json={"text": "Remember the pump curves"})
     assert saved.json()["saved"] is True
     assert client.post("/api/v1/brain/capture", headers=AUTH, json={"text": " "}).status_code == 422

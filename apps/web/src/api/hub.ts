@@ -1,7 +1,7 @@
 import { api, json, request } from "./client";
 import { readEvents } from "./sse";
 import { readNdjson, type VoiceEvent } from "./voice";
-import type { BrainHit, ChatEvent, ConversationSummary, HubApp, Hud, PendingToolCall } from "./types";
+import type { BrainHit, BrainInsights, ChatEvent, ConversationSummary, HubApp, Hud, PendingToolCall } from "./types";
 
 export const hub = {
   apps: (opts: { widgets?: boolean; fresh?: boolean } = {}) =>
@@ -15,6 +15,7 @@ export const brain = {
   search: (q: string, limit = 12) => api<BrainHit[]>(`/api/v1/brain/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   map: () => request("/api/v1/brain/map.html").then((r) => r.text()),
   today: () => api<{ date: string; items: { title: string; action: string }[] }>("/api/v1/brain/today"),
+  insights: (days = 30) => api<BrainInsights>(`/api/v1/brain/insights?days=${days}`),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[] }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
 };
