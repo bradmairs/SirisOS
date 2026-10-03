@@ -92,3 +92,26 @@ export interface BrainHit {
 export function isWidget(w: WidgetResult | null | undefined): w is Widget {
   return !!w && !("error" in w);
 }
+
+/** SirisAI's /siris/hud/summary, as proxied at /api/v1/assistant/hud. Every block is optional. */
+export interface Hud {
+  time?: string;
+  system?: {
+    cpu_percent: number;
+    cpu_count?: number;
+    memory?: { total_gb: number; used_gb: number; percent_used: number };
+    disk?: Record<string, { total_gb: number; used_gb: number; percent_used: number }>;
+    temperatures_celsius?: Record<string, number>;
+  } | null;
+  weather?: {
+    temperature_c: number;
+    humidity_percent?: number | null;
+    wind_speed_kmh?: number | null;
+    precipitation_mm?: number | null;
+    conditions: string;
+  } | null;
+  next_events?: { summary: string; start: string }[];
+  parcels?: Record<string, unknown>[];
+  autonomy?: { time: string; local_time: string; tool: string; what: string; why?: string; outcome: string }[];
+  brain?: { title: string; action: string }[] | null;
+}

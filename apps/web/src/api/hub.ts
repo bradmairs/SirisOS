@@ -1,6 +1,6 @@
 import { api, json, request } from "./client";
 import { readEvents } from "./sse";
-import type { BrainHit, ChatEvent, ConversationSummary, HubApp, PendingToolCall } from "./types";
+import type { BrainHit, ChatEvent, ConversationSummary, HubApp, Hud, PendingToolCall } from "./types";
 
 export const hub = {
   apps: (opts: { widgets?: boolean; fresh?: boolean } = {}) =>
@@ -19,6 +19,7 @@ export const brain = {
 };
 
 export const assistant = {
+  hud: () => api<Hud>("/api/v1/assistant/hud"),
   conversations: (limit = 20) => api<ConversationSummary[]>(`/api/v1/assistant/conversations?limit=${limit}`),
   conversation: (id: string) =>
     api<{ role: string; content: string | null; tool_name: string | null; created_at: string }[]>(

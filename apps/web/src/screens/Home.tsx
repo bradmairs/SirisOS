@@ -9,6 +9,7 @@ import { AppIcon } from "../components/AppIcon";
 import { Glass } from "../components/Glass";
 import { WidgetCard } from "../components/WidgetCard";
 import { AppSheet } from "./AppSheet";
+import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ParcelsWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
 
 const REFRESH_MS = 60_000;
 
@@ -75,6 +76,7 @@ export function AppGrid({ apps, onOpen }: { apps: HubApp[]; onOpen: (app: HubApp
 
 export function Home() {
   const { apps, error, refreshing, reload } = useApps(true);
+  const { hud } = useHud();
   const [open, setOpen] = useState<HubApp | null>(null);
   const [ask, setAsk] = useState("");
   const navigate = useNavigate();
@@ -117,6 +119,14 @@ export function Home() {
         </p>
       )}
 
+      <h2 className="section-title">Now</h2>
+      <div className="widget-grid">
+        <ClockWidget />
+        {hud?.weather && <WeatherWidget weather={hud.weather} delay={40} />}
+        {hud?.system && <ServerWidget system={hud.system} delay={80} />}
+        {apps && <AppHealthWidget apps={apps} delay={120} />}
+      </div>
+
       {apps === null && !error ? (
         <div className="widget-grid" style={{ marginTop: 22 }}>
           {[0, 1, 2].map((i) => (
@@ -129,16 +139,15 @@ export function Home() {
         </div>
       ) : (
         <>
-          {widgets.length > 0 && (
-            <>
-              <h2 className="section-title">Today</h2>
-              <div className="widget-grid">
-                {widgets.map((app, i) => (
-                  <WidgetCard key={app.id} app={app} delay={i * 50} />
-                ))}
-              </div>
-            </>
-          )}
+          <h2 className="section-title">Today</h2>
+          <div className="widget-grid">
+            {hud?.next_events && <ComingUpWidget events={hud.next_events} />}
+            {widgets.map((app, i) => (
+              <WidgetCard key={app.id} app={app} delay={i * 50} />
+            ))}
+            {hud?.autonomy && <ActivityWidget entries={hud.autonomy} />}
+            {hud?.parcels && hud.parcels.length > 0 && <ParcelsWidget parcels={hud.parcels} />}
+          </div>
           {apps && apps.length > 0 && (
             <>
               <h2 className="section-title">Apps</h2>
