@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
-import { ArrowUp, Check, History, Plus, Square, Wrench, X } from "lucide-react";
-import { assistant } from "../api/hub";
+import { Link, useSearchParams } from "react-router-dom";
+import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, Wrench, X } from "lucide-react";
+import { assistant, brain } from "../api/hub";
 import type { ChatEvent, ChatResponse, ConversationSummary, PendingToolCall } from "../api/types";
+import { ReplyPlayer, micUnavailableReason, startRecording, type Recording } from "../api/voice";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
+import { SirisOrb, type OrbState } from "../components/SirisOrb";
+import { Ring, useHud } from "./HudWidgets";
 
 export interface Message {
   role: "user" | "assistant";
@@ -15,6 +18,10 @@ export interface Message {
   usedPlanner?: boolean;
   error?: string;
   streaming?: boolean;
+  /** Spoken rather than typed. */
+  voice?: boolean;
+  /** Saved to the Second Brain inbox from this screen. */
+  saved?: boolean;
 }
 
 /** Folds one stream event into the assistant message being written. */
@@ -64,6 +71,29 @@ export function Assistant() {
   const abort = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
+  // Voice, as on SirisAI's HUD.
+  const [orb, setOrb] = useState<OrbState>("idle");
+  const [hint, setHint] = useState("Tap to talk");
+  const [voice, setVoice] = useState<{ stt: boolean; tts: boolean } | null>(null);
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const player = useRef<ReplyPlayer | null>(null);
+  if (player.current === null) player.current = new ReplyPlayer();
+
+  // What the Second Brain picked up today, refreshed after each turn.
+  const [learned, setLearned] = useState<{ title: string; action: string }[] | null>(null);
+  const refreshLearned = useCallback(() => {
+    brain.today().then((r) => setLearned(r.items)).catch(() => setLearned(null));
+  }, []);
+  const { hud } = useHud();
+
+  useEffect(() => {
+    assistant.voice().then(setVoice).catch(() => setVoice({ stt: false, tts: false }));
+    refreshLearned();
+    const p = player.current!;
+    p.onSpeaking = (speaking) => speaking && setOrb("speaking");
+    return () => p.stop();
+  }, [refreshLearned]);
+
   // Braces matter: newer browsers return a Promise from scrollIntoView, and
   // React would call a returned value as the effect's cleanup.
   useEffect(() => {
@@ -89,8 +119,9 @@ export function Assistant() {
     } finally {
       setBusy(false);
       abort.current = null;
+      refreshLearned();
     }
-  }, []);
+  }, [refreshLearned]);
 
   const send = useCallback(
     (prompt: string) => {
@@ -121,6 +152,104 @@ export function Assistant() {
     else setMessages((all) => [...all, { role: "assistant", text: `Okay, I won't run ${call.name}.` }]);
   }
 
+  const voiceBlocked = micUnavailableReason() ?? (voice && !voice.stt ? "SirisAI's speech-to-text isn't set up (SIRISAI_STT_PROVIDER), so Siris can't hear yet. You can still type." : null);
+
+  async function talk() {
+    const p = player.current!;
+    if (recording) {
+      recording.stop();
+      return;
+    }
+    if (orb === "speaking") {
+      p.stop();
+      setOrb("idle");
+      setHint("Tap to talk");
+      return;
+    }
+    if (busy) return;
+    if (voiceBlocked) {
+      setHint(voiceBlocked);
+      return;
+    }
+    p.unlock();
+    let rec: Recording;
+    try {
+      rec = await startRecording();
+    } catch (err) {
+      setHint(`Microphone unavailable: ${err instanceof Error ? err.message : "permission denied"}`);
+      return;
+    }
+    setRecording(rec);
+    setOrb("listening");
+    setHint("Listening…");
+    const wav = await rec.done;
+    setRecording(null);
+    await converse(wav);
+  }
+
+  async function converse(wav: Blob) {
+    const p = player.current!;
+    const controller = new AbortController();
+    abort.current = controller;
+    setBusy(true);
+    setOrb("thinking");
+    setHint("Thinking…");
+    let expectsReply = false;
+    let started = false;
+    const update = (fn: (m: Message) => Message) => setMessages((all) => [...all.slice(0, -1), fn(all[all.length - 1])]);
+    try {
+      for await (const event of assistant.converse({ audio: wav }, conversationId, controller.signal)) {
+        if (event.type === "transcript") {
+          if (!event.text) {
+            setHint("I didn't catch that. Tap to try again");
+            break;
+          }
+          started = true;
+          setMessages((m) => [...m, { role: "user", text: event.text, voice: true }, { role: "assistant", text: "", streaming: true, status: "Thinking", voice: true }]);
+        } else if (event.type === "sentence" && started) {
+          update((m) => ({ ...m, text: m.text ? `${m.text} ${event.text}` : event.text, status: undefined }));
+          if (event.audio) p.play(event.audio);
+        } else if ((event.type === "tool_start" || event.type === "tool_end") && started) {
+          update((m) => applyEvent(m, event.type === "tool_start" ? { type: "tool_start", name: event.name, arguments: {} } : { type: "tool_end", name: event.name, status: (event.status as "ok") ?? "ok" }));
+        } else if (event.type === "final") {
+          if (event.conversation_id) setConversationId(event.conversation_id);
+          expectsReply = !!event.expects_reply;
+          if (started) update((m) => ({ ...m, text: m.text || event.response || "", streaming: false, status: undefined }));
+        } else if (event.type === "error") {
+          if (started) update((m) => ({ ...m, streaming: false, status: undefined, error: event.detail }));
+          else setHint(event.detail);
+        }
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) setHint(err instanceof Error ? err.message : "Siris is unavailable.");
+    } finally {
+      if (started) update((m) => (m.streaming ? { ...m, streaming: false, status: undefined } : m));
+      setBusy(false);
+      abort.current = null;
+      refreshLearned();
+    }
+    await p.finished();
+    setOrb("idle");
+    setHint((h) => (h === "Thinking…" ? (expectsReply ? "Tap to answer" : "Tap to talk") : h));
+  }
+
+  /** Files a reply (and what was asked) into the Second Brain inbox. */
+  async function saveToBrain(index: number) {
+    const answer = messages[index];
+    const asked = [...messages.slice(0, index)].reverse().find((m) => m.role === "user")?.text ?? "";
+    try {
+      await brain.capture({
+        title: `Siris: ${(asked || answer.text).slice(0, 70)}`,
+        text: asked ? `**Asked:** ${asked}\n\n${answer.text}` : answer.text,
+        tags: ["siris", "sirisos"],
+      });
+      setMessages((all) => all.map((m, i) => (i === index ? { ...m, saved: true } : m)));
+      refreshLearned();
+    } catch (err) {
+      setMessages((all) => all.map((m, i) => (i === index ? { ...m, error: err instanceof Error ? err.message : "Couldn't save to the Second Brain." } : m)));
+    }
+  }
+
   async function openHistory() {
     setHistory([]);
     try {
@@ -147,7 +276,8 @@ export function Assistant() {
   }
 
   return (
-    <div className="chat">
+    <div className="siris">
+    <div className="chat siris__main">
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">SirisAI</p>
@@ -174,10 +304,27 @@ export function Assistant() {
         </div>
       </header>
 
+      <section className={`siris__stage ${messages.length ? "siris__stage--compact" : ""}`} aria-label="Voice">
+        <SirisOrb
+          state={orb}
+          analyser={recording?.analyser}
+          size={messages.length ? 104 : 210}
+          onClick={talk}
+          label={recording ? "Stop listening" : orb === "speaking" ? "Stop speaking" : "Talk to Siris"}
+        />
+        <div className="siris__status">
+          <p className="siris__hint" role="status">{hint}</p>
+          <Link to="/brain" className="brain-chip">
+            <BrainIcon size={14} aria-hidden="true" />
+            {learned ? `${learned.length} learned today` : "Second Brain"} · grows from every chat
+          </Link>
+        </div>
+      </section>
+
       <div className="chat__log" aria-live="polite">
         {messages.length === 0 && (
-          <div className="chat__empty">
-            <p className="muted">Ask about your day, your home, your projects or anything in your Second Brain.</p>
+          <div className="chat__empty siris__empty">
+            <p className="muted">Talk or type. Ask about your day, your home, your projects or anything in your Second Brain.</p>
             <div className="row" style={{ flexWrap: "wrap", justifyContent: "center" }}>
               {["What's on today?", "Brief me", "What did I learn this week?"].map((s) => (
                 <Glass key={s} as="button" shape="pill" interactive className="button button--small" onClick={() => send(s)}>
@@ -200,9 +347,23 @@ export function Assistant() {
                   ))}
                 </div>
               )}
+              {m.voice && m.role === "user" && <Mic size={13} className="bubble__voice" aria-label="Spoken" />}
               {m.text && <div className="bubble__text">{m.text}</div>}
               {m.streaming && m.status && <div className="bubble__status">{m.status}…</div>}
               {m.error && <div className="tone-critical bubble__status">{m.error}</div>}
+              {m.role === "assistant" && !m.streaming && m.text && (
+                <div className="bubble__actions">
+                  {m.saved ? (
+                    <span className="tone-good bubble__saved">
+                      <Check size={13} aria-hidden="true" /> Saved to Second Brain
+                    </span>
+                  ) : (
+                    <button type="button" className="icon-link" onClick={() => saveToBrain(i)} aria-label="Save to Second Brain" title="Save to Second Brain">
+                      <BookmarkPlus size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
               {m.pending && (
                 <div className="confirm">
                   <p style={{ margin: "0 0 8px" }}>
@@ -240,6 +401,15 @@ export function Assistant() {
           }}
           aria-label="Message Siris"
         />
+        <button
+          type="button"
+          className={`icon-link composer__mic ${recording ? "composer__mic--on" : ""}`}
+          onClick={talk}
+          aria-label={recording ? "Stop listening" : "Talk to Siris"}
+          title={voiceBlocked ?? "Talk to Siris"}
+        >
+          <Mic size={18} aria-hidden="true" />
+        </button>
         {busy ? (
           <Glass as="button" type="button" variant="tint" shape="pill" interactive className="button button--icon button--small" onClick={() => abort.current?.abort()} aria-label="Stop">
             <Square aria-hidden="true" />
@@ -272,6 +442,66 @@ export function Assistant() {
           )}
         </Sheet>
       )}
+    </div>
+
+    <aside className="siris__rail" aria-label="Siris status">
+      <Glass as="section" className="widget" aria-label="Second Brain today">
+        <header className="widget__head">
+          <BrainIcon aria-hidden="true" />
+          <span>Second Brain</span>
+          <Link className="widget__source" to="/brain">Open</Link>
+        </header>
+        {learned === null ? (
+          <p className="muted">The Second Brain isn't reachable.</p>
+        ) : learned.length === 0 ? (
+          <p className="muted">Nothing new yet today. Tonight Siris turns today's conversations into notes.</p>
+        ) : (
+          <ul className="items">
+            {learned.slice(0, 6).map((item) => (
+              <li key={item.title} className="item">
+                <span className="item__dot" style={{ background: "#a78bfa" }} aria-hidden="true" />
+                <span className="item__text">
+                  <div className="item__title">{item.title}</div>
+                  <div className="item__subtitle">{item.action}</div>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Glass>
+      {hud?.system && (
+        <Glass as="section" className="widget" aria-label="Systems">
+          <header className="widget__head">
+            <Cpu aria-hidden="true" />
+            <span>Systems</span>
+          </header>
+          <div className="rings">
+            <Ring label="CPU" percent={hud.system.cpu_percent} />
+            {hud.system.memory && <Ring label="Memory" percent={hud.system.memory.percent_used} />}
+            {hud.system.disk?.["/"] && <Ring label="Disk" percent={hud.system.disk["/"].percent_used} />}
+          </div>
+        </Glass>
+      )}
+      {hud?.autonomy && hud.autonomy.length > 0 && (
+        <Glass as="section" className="widget" aria-label="Recent activity">
+          <header className="widget__head">
+            <Activity aria-hidden="true" />
+            <span>Recent activity</span>
+          </header>
+          <ul className="items hud-log">
+            {hud.autonomy.slice(-4).reverse().map((e, i) => (
+              <li key={`${e.time}-${i}`} className="item">
+                <span className="hud-log__time">{e.local_time}</span>
+                <span className="item__text">
+                  <div className="item__title">{e.what}</div>
+                  <div className="item__subtitle">{e.outcome}</div>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Glass>
+      )}
+    </aside>
     </div>
   );
 }

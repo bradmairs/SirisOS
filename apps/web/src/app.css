@@ -168,3 +168,64 @@ body.no-scroll { overflow: hidden; }
 .item__dot.state-degraded, .item__dot.state-down { box-shadow: 0 0 8px currentColor; }
 .login__logo { width: auto; margin: 0 auto 6px; border-radius: 0; box-shadow: none; display: flex; justify-content: center; }
 .metrics--compact .metric__value { font-size: 21px; white-space: nowrap; }
+
+/* ------------------------------------------------------------- Siris HUD */
+.siris { display: block; }
+.siris__rail { display: none; }
+@media (min-width: 1280px) {
+  .siris { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; }
+  .siris__rail { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 20px; padding-top: 84px; }
+  .siris__rail .widget { min-height: 0; }
+}
+@media (min-width: 960px) {
+  /* No dock on wide screens: the composer sits at the foot of the chat column. */
+  .composer { position: sticky; left: auto; transform: none; bottom: calc(var(--safe-bottom) + 20px); width: 100%; margin-top: auto; }
+  .chat { min-height: calc(100dvh - 60px); }
+  .chat__log { padding-bottom: 24px; }
+}
+.composer__mic { width: 38px; height: 38px; align-self: center; color: var(--accent); }
+.composer__mic--on { color: var(--accent-2); text-shadow: 0 0 10px var(--accent-2); animation: beat 1.2s ease-in-out infinite; }
+
+.siris__stage { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 4vh 0 8px; transition: padding 0.4s var(--ease); }
+.siris__stage--compact { flex-direction: row; justify-content: center; gap: 18px; padding: 0 0 16px; }
+.siris__status { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.siris__stage--compact .siris__status { align-items: flex-start; text-align: left; }
+.siris__hint { margin: 0; color: var(--ink-2); font-size: 15px; max-width: 34ch; }
+.siris__empty { padding-top: 2vh; }
+.brain-chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: var(--r-pill);
+  border: 1px solid rgba(167, 139, 250, 0.3); color: #c4b5fd; background: rgba(167, 139, 250, 0.07);
+  font-size: 12.5px; font-weight: 550; text-decoration: none;
+}
+.brain-chip:hover { background: rgba(167, 139, 250, 0.14); }
+.bubble__voice { float: right; margin: 3px 0 0 8px; opacity: 0.6; position: relative; z-index: 2; }
+.bubble__actions { display: flex; justify-content: flex-end; margin: 4px -8px -6px 0; position: relative; z-index: 2; }
+.bubble__actions .icon-link { width: 28px; height: 28px; }
+.bubble__saved { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 4px 6px; }
+
+.orb-wrap { position: relative; flex: none; transition: width 0.4s var(--spring), height 0.4s var(--spring); }
+.orb-wave { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.orb-ring { position: absolute; border-radius: 50%; pointer-events: none; }
+.orb-ring--outer { inset: 2%; border: 1px solid rgba(95, 211, 255, 0.16); }
+.orb-ring--inner { inset: 8%; border: 1.5px solid transparent; border-top-color: rgba(95, 211, 255, 0.7); border-bottom-color: rgba(95, 211, 255, 0.35); filter: drop-shadow(0 0 6px rgba(95, 211, 255, 0.6)); }
+.orb {
+  position: absolute; inset: 16%; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: radial-gradient(circle at 50% 50%, #c9f4ff 0%, #5fd3ff 18%, #0d3550 55%, #06131d 72%);
+  box-shadow: 0 0 40px rgba(95, 211, 255, 0.45), inset 0 0 30px rgba(95, 211, 255, 0.5);
+  transition: transform 0.2s var(--ease), box-shadow 0.3s var(--ease);
+}
+.orb:active { transform: scale(0.96); }
+.orb:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
+.orb--listening { box-shadow: 0 0 70px rgba(138, 245, 200, 0.75), inset 0 0 40px rgba(138, 245, 200, 0.7); }
+@media (prefers-reduced-motion: no-preference) {
+  .orb-ring--inner { animation: orb-spin 9s linear infinite; }
+  .orb--idle { animation: orb-breathe 4.5s ease-in-out infinite; }
+  .orb--thinking { animation: orb-hue 2.4s linear infinite; }
+  .orb--speaking { animation: orb-pulse 1.2s ease-in-out infinite; }
+  .orb-wrap:has(.orb--thinking) .orb-ring--inner { animation-duration: 1.6s; }
+}
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-breathe { 50% { box-shadow: 0 0 56px rgba(95, 211, 255, 0.6), inset 0 0 36px rgba(95, 211, 255, 0.6); } }
+@keyframes orb-hue { to { filter: hue-rotate(360deg); } }
+@keyframes orb-pulse { 50% { box-shadow: 0 0 90px rgba(95, 211, 255, 0.85), inset 0 0 50px rgba(95, 211, 255, 0.9); } }
+@keyframes beat { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

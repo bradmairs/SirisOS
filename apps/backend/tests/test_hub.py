@@ -97,7 +97,16 @@ class FakeApps:
 
     def sirisai(self, request: httpx.Request, path: str) -> httpx.Response:
         if path == "/siris/status":
-            return httpx.Response(200, json={"llm_provider": "ollama"})
+            return httpx.Response(200, json={"llm_provider": "ollama", "stt_provider": "openai_compatible", "tts_provider": "none"})
+        if path == "/siris/voice/converse":
+            body = request.content.decode(errors="replace")
+            heard = "a recording" if 'name="file"' in body else "typed"
+            events = [
+                {"type": "transcript", "text": heard},
+                {"type": "sentence", "text": "Hello.", "audio": None},
+                {"type": "final", "conversation_id": "v1", "response": "Hello.", "expects_reply": False},
+            ]
+            return httpx.Response(200, content="".join(json.dumps(e) + "\n" for e in events).encode(), headers={"content-type": "application/x-ndjson"})
         if path == "/siris/hud/summary":
             return httpx.Response(200, json={
                 "weather": {"temperature_c": 17.6, "conditions": "Partly cloudy"},
@@ -304,6 +313,28 @@ def test_chat_stream_relays_sirisai_events(client, apps):
     events = [json.loads(line[6:]) for line in body.splitlines() if line.startswith("data: ")]
     assert [e["type"] for e in events] == ["status", "content", "final"]
     assert events[-1]["response"]["conversation_id"] == "c9"
+
+
+def test_voice_status_and_converse_relay(client, apps):
+    assert client.get("/api/v1/assistant/voice", headers=AUTH).json() == {"stt": True, "tts": False}
+
+    def events(response):
+        return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+
+    spoken = client.post(
+        "/api/v1/assistant/voice/converse",
+        headers=AUTH,
+        files={"file": ("turn.wav", b"RIFF....WAVE", "audio/wav")},
+        data={"conversation_id": "v0"},
+    )
+    assert spoken.status_code == 200
+    assert spoken.headers["content-type"].startswith("application/x-ndjson")
+    assert [e["type"] for e in events(spoken)] == ["transcript", "sentence", "final"]
+    assert events(spoken)[0]["text"] == "a recording"
+
+    typed = client.post("/api/v1/assistant/voice/converse", headers=AUTH, data={"text": "hi", "synthesize": "false"})
+    assert events(typed)[0]["text"] == "typed"
+    assert client.post("/api/v1/assistant/voice/converse", headers=AUTH, data={"text": " "}).status_code == 422
 
 
 def test_assistant_unconfigured_is_503(client):

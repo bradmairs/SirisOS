@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -92,11 +92,20 @@ class ConfirmRequest(BaseModel):
     use_planner: bool = False
 
 
-async def _stream(connector: SirisAIConnector, path: str, body: dict[str, Any]) -> StreamingResponse:
+async def _stream(
+    connector: SirisAIConnector,
+    path: str,
+    body: dict[str, Any],
+    *,
+    files: dict[str, Any] | None = None,
+    media_type: str = "text/event-stream",
+) -> StreamingResponse:
     client = make_client(timeout=httpx.Timeout(10.0, read=None))
+    # JSON for chat; multipart form fields (plus an optional recording) for voice.
+    payload: dict[str, Any] = {"data": body, "files": files} if files is not None else {"json": body}
     try:
         upstream = await client.send(
-            client.build_request("POST", f"{connector.base_url}{path}", headers=connector.headers(), json=body),
+            client.build_request("POST", f"{connector.base_url}{path}", headers=connector.headers(), **payload),
             stream=True,
         )
     except httpx.HTTPError as exc:
@@ -118,7 +127,7 @@ async def _stream(connector: SirisAIConnector, path: str, body: dict[str, Any]) 
 
     return StreamingResponse(
         relay(),
-        media_type="text/event-stream",
+        media_type=media_type,
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
@@ -142,6 +151,45 @@ async def conversations(limit: int = Query(20, ge=1, le=50), connector: SirisAIC
 @router.get("/assistant/conversations/{conversation_id}", tags=["assistant"])
 async def conversation(conversation_id: str, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", f"/siris/conversations/{conversation_id}")
+
+
+@router.get("/assistant/voice", tags=["assistant"])
+async def voice_status(connector: SirisAIConnector = Depends(_sirisai)) -> dict[str, bool]:
+    """Whether SirisAI can hear (speech-to-text) and speak (text-to-speech)."""
+    status = await _forward(connector, "GET", "/siris/status") or {}
+    enabled = lambda key: bool(status.get(key)) and status.get(key) != "none"  # noqa: E731
+    return {"stt": enabled("stt_provider"), "tts": enabled("tts_provider")}
+
+
+MAX_RECORDING_BYTES = 10 * 1024 * 1024
+
+
+@router.post("/assistant/voice/converse", tags=["assistant"])
+async def voice_converse(
+    file: UploadFile | None = File(None),
+    text: str | None = Form(None),
+    conversation_id: str | None = Form(None),
+    synthesize: bool = Form(True),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> StreamingResponse:
+    """SirisAI's POST /siris/voice/converse (one spoken turn), relayed as-is:
+    newline-delimited JSON with the transcript, then each reply sentence with
+    its audio, then a final event. It's the same conversation store as chat,
+    so spoken turns feed the Second Brain's nightly dream too."""
+    if file is None and not (text or "").strip():
+        raise HTTPException(status_code=422, detail="Send a recording as 'file' or text as 'text'.")
+    form = {"synthesize": "true" if synthesize else "false"}
+    if text:
+        form["text"] = text
+    if conversation_id:
+        form["conversation_id"] = conversation_id
+    files = None
+    if file is not None:
+        audio = await file.read(MAX_RECORDING_BYTES + 1)
+        if len(audio) > MAX_RECORDING_BYTES:
+            raise HTTPException(status_code=413, detail="Recording is too long.")
+        files = {"file": (file.filename or "sirisos.wav", audio, file.content_type or "audio/wav")}
+    return await _stream(connector, "/siris/voice/converse", form, files=files or {}, media_type="application/x-ndjson")
 
 
 @router.get("/assistant/hud", tags=["assistant"])
