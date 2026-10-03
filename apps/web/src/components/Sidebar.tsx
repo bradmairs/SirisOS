@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Brain, House, LogOut, Ruler, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Brain, House, LayoutGrid, LogOut, Ruler, Sparkles, X } from "lucide-react";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
 import { Logo } from "./Logo";
@@ -10,6 +10,7 @@ export const NAV = [
   { to: "/", label: "Home", Icon: House, end: true },
   { to: "/assistant", label: "Siris", Icon: Sparkles, end: false },
   { to: "/brain", label: "Brain", Icon: Brain, end: false },
+  { to: "/links", label: "Links", Icon: LayoutGrid, end: false },
   { to: "/engineering", label: "Engineering", Icon: Ruler, end: false },
 ];
 
