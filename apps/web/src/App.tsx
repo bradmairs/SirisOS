@@ -10,6 +10,7 @@ import { Assistant } from "./screens/Assistant";
 import { Brain } from "./screens/Brain";
 import { Engineering } from "./screens/Engineering";
 import { Home, useApps } from "./screens/Home";
+import { Links } from "./screens/Links";
 import { Login } from "./screens/Login";
 
 export function App() {
@@ -44,6 +45,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/" element={<Home />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/brain" element={<Brain />} />
+          <Route path="/links" element={<Links />} />
           <Route path="/engineering/*" element={<Engineering />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
