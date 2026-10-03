@@ -12,6 +12,7 @@ def test_entrypoint_registers_modular_platform_routers() -> None:
     entrypoint = (root / "apps" / "backend" / "app" / "entrypoint.py").read_text(encoding="utf-8")
     required = (
         "hub_router",
+        "links_router",
         "engineering_calculations_router",
         "engineering_standards_router",
         "sirishydro_router",
