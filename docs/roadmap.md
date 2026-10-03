@@ -60,6 +60,13 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [ ] Create service accounts: APD PM VIEWER, CMP user, Archive read key
 - [ ] Verify every connector against the live apps on `192.168.0.100`
 
+## Performance ✅ (ADR 107)
+- [x] Static wallpaper (no animated blur under the glass); compositor-only orb glow; no permanent GPU layers
+- [x] Shared stale-while-revalidate data cache: one request per key across screens, instant revisits, background-paused polling
+- [x] Lazy screens with idle prefetch, separate React chunk, gzip
+- [x] Chat streaming batched per frame; memoised bubbles
+- [x] API: OCR/search/SirisHydro off the event loop, parsed-index cache, pooled hub client, request coalescing, stale-while-revalidate, parallel status + widget
+
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.

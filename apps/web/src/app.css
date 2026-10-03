@@ -215,19 +215,22 @@ body.no-scroll { overflow: hidden; }
   transition: transform 0.2s var(--ease), box-shadow 0.3s var(--ease);
 }
 .orb:active { transform: scale(0.96); }
+/* The breathing/speaking glow lives on its own layer and only its opacity
+ * animates, which the GPU composites without repainting the orb. */
+.orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: 0; pointer-events: none; box-shadow: 0 0 56px rgba(95, 211, 255, 0.6), inset 0 0 36px rgba(95, 211, 255, 0.6); }
+.orb--speaking::after { box-shadow: 0 0 90px rgba(95, 211, 255, 0.85), inset 0 0 50px rgba(95, 211, 255, 0.9); }
 .orb:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
 .orb--listening { box-shadow: 0 0 70px rgba(138, 245, 200, 0.75), inset 0 0 40px rgba(138, 245, 200, 0.7); }
 @media (prefers-reduced-motion: no-preference) {
   .orb-ring--inner { animation: orb-spin 9s linear infinite; }
-  .orb--idle { animation: orb-breathe 4.5s ease-in-out infinite; }
+  .orb--idle::after { animation: orb-glow 4.5s ease-in-out infinite; }
   .orb--thinking { animation: orb-hue 2.4s linear infinite; }
-  .orb--speaking { animation: orb-pulse 1.2s ease-in-out infinite; }
+  .orb--speaking::after { animation: orb-glow 1.2s ease-in-out infinite; }
   .orb-wrap:has(.orb--thinking) .orb-ring--inner { animation-duration: 1.6s; }
 }
 @keyframes orb-spin { to { transform: rotate(360deg); } }
-@keyframes orb-breathe { 50% { box-shadow: 0 0 56px rgba(95, 211, 255, 0.6), inset 0 0 36px rgba(95, 211, 255, 0.6); } }
+@keyframes orb-glow { 50% { opacity: 1; } }
 @keyframes orb-hue { to { filter: hue-rotate(360deg); } }
-@keyframes orb-pulse { 50% { box-shadow: 0 0 90px rgba(95, 211, 255, 0.85), inset 0 0 50px rgba(95, 211, 255, 0.9); } }
 @keyframes beat { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
 /* Second Brain insights */
@@ -269,3 +272,4 @@ body.no-scroll { overflow: hidden; }
 .link-tile__dot--up { background: var(--good); opacity: 1; box-shadow: 0 0 8px var(--good); }
 .link-tile__dot--down { background: var(--critical); opacity: 1; }
 .links-add { margin: 22px auto 0; display: flex; }
+.screen-fallback { display: flex; flex-direction: column; gap: 16px; padding: 8px 4px; }

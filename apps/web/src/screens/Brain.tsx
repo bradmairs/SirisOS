@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Brain as BrainIcon, Check, Search } from "lucide-react";
 import { brain } from "../api/hub";
+import { useResource } from "../api/resource";
 import type { BrainHit } from "../api/types";
 import { Glass } from "../components/Glass";
 import { BrainInsights } from "./BrainInsights";
@@ -11,13 +12,10 @@ export function Brain() {
   const [hits, setHits] = useState<BrainHit[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [today, setToday] = useState<{ title: string; action: string }[] | null>(null);
+  const todayRes = useResource("brain:today", () => brain.today(), { refreshMs: 120_000 });
+  const today = todayRes.data?.items ?? null;
   const [capture, setCapture] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
-
-  useEffect(() => {
-    brain.today().then((r) => setToday(r.items)).catch((err) => setError(err.message));
-  }, []);
 
   useEffect(() => {
     const query = q.trim();
@@ -47,6 +45,7 @@ export function Brain() {
       const isUrl = /^https?:\/\/\S+$/.test(text);
       const result = await brain.capture(isUrl ? { url: text } : { text });
       setSaved(result.title);
+      todayRes.reload().catch(() => undefined);
       setCapture("");
       window.setTimeout(() => setSaved(null), 3000);
     } catch (err) {

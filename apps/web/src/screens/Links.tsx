@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { Check, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { links as api, newId, type LinkGroup, type LinkItem, type LinkStatus, type LinksDocument } from "../api/links";
+import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 
@@ -8,23 +9,21 @@ const STATUS_REFRESH_MS = 60_000;
 
 /** The launchpad for every self-hosted app: SirisOS's replacement for Homarr. */
 export function Links() {
-  const [doc, setDoc] = useState<LinksDocument | null>(null);
-  const [status, setStatus] = useState<Record<string, LinkStatus>>({});
-  const [error, setError] = useState<string | null>(null);
+  // Cached across visits: the launchpad renders instantly on return.
+  const docRes = useResource<LinksDocument>("links:doc", () => api.get(), { staleMs: 30_000 });
+  const statusRes = useResource<Record<string, LinkStatus>>("links:status", () => api.status(), { refreshMs: STATUS_REFRESH_MS });
+  const doc = docRes.data ?? null;
+  const status = statusRes.data ?? {};
+  const setDoc = docRes.mutate;
+  const [saveError, setError] = useState<string | null>(null);
+  const error = saveError ?? (doc ? null : docRes.error);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<{ link: LinkItem; group: string; isNew: boolean } | null>(null);
 
   const loadStatus = useCallback(() => {
-    api.status().then(setStatus).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    api.get().then(setDoc).catch((err) => setError(err instanceof Error ? err.message : "Couldn't load links."));
-    loadStatus();
-    const timer = window.setInterval(() => document.visibilityState === "visible" && loadStatus(), STATUS_REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [loadStatus]);
+    statusRes.reload().catch(() => {});
+  }, [statusRes]);
 
   const groups = useMemo(() => {
     const term = q.trim().toLowerCase();

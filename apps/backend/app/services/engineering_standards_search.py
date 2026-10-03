@@ -61,10 +61,10 @@ def semantic_terms(query: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(expanded))
 
 
-def _score_page(text: str, query: str) -> tuple[int, int]:
+def _score_page(text: str, query: str, terms: tuple[str, ...] | None = None, related: tuple[str, ...] | None = None) -> tuple[int, int]:
     lowered = text.lower()
     phrase = query.strip().lower()
-    terms = query_terms(query)
+    terms = query_terms(query) if terms is None else terms
 
     lexical_score = 0
     phrase_count = lowered.count(phrase)
@@ -81,7 +81,7 @@ def _score_page(text: str, query: str) -> tuple[int, int]:
 
     semantic_score = 0
     matched_semantic_terms = 0
-    for term in semantic_terms(query):
+    for term in semantic_terms(query) if related is None else related:
         count = lowered.count(term)
         if count:
             matched_semantic_terms += 1
@@ -98,10 +98,13 @@ def rank_pages(pages: list[dict], query: str, limit: int = 5) -> list[RankedText
     if not phrase or not terms:
         return []
 
+    # Term extraction and concept expansion depend only on the query, so do
+    # them once rather than once per page.
+    related = semantic_terms(query)
     hits: list[RankedTextHit] = []
     for item in pages:
         text = str(item.get("text") or "")
-        lexical_score, semantic_score = _score_page(text, query)
+        lexical_score, semantic_score = _score_page(text, query, terms, related)
         score = lexical_score + semantic_score
         if score:
             hits.append(

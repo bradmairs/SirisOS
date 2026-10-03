@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.hub.connectors.sirisai import SirisAIConnector
-from app.hub.service import Hub, get_hub, make_client
+from app.hub.service import Hub, get_hub, make_client, shared_client
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
 
@@ -32,8 +32,7 @@ async def get_app(app_id: str, fresh: bool = False, hub: Hub = Depends(get_hub))
     connector = hub.get(app_id)
     if connector is None:
         raise HTTPException(status_code=404, detail="Unknown app.")
-    async with make_client() as client:
-        return await hub.app(connector, client, fresh=fresh, with_widget=True)
+    return await hub.app(connector, fresh=fresh, with_widget=True)
 
 
 @router.get("/hub/widgets", tags=["hub"])
@@ -60,8 +59,9 @@ def _sirisai(hub: Hub = Depends(get_hub)) -> SirisAIConnector:
 
 async def _forward(connector: SirisAIConnector, method: str, path: str, *, raw: bool = False, **kwargs: Any) -> Any:
     try:
-        async with make_client(timeout=60.0) as client:
-            response = await client.request(method, f"{connector.base_url}{path}", headers=connector.headers(), **kwargs)
+        response = await shared_client().request(
+            method, f"{connector.base_url}{path}", headers=connector.headers(), timeout=60.0, **kwargs
+        )
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
     if response.status_code >= 400:

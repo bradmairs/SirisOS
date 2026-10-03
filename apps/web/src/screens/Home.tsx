@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { hub } from "../api/hub";
+import { useResource } from "../api/resource";
 import { session } from "../api/client";
 import type { HubApp } from "../api/types";
 import { isWidget } from "../api/types";
@@ -21,38 +22,12 @@ export function greeting(date = new Date()): string {
   return "Good evening";
 }
 
-export function useApps(widgets: boolean) {
-  const [apps, setApps] = useState<HubApp[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(
-    async (fresh = false) => {
-      setRefreshing(true);
-      try {
-        setApps(await hub.apps({ widgets, fresh }));
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't reach SirisOS.");
-      } finally {
-        setRefreshing(false);
-      }
-    },
-    [widgets],
-  );
-
-  useEffect(() => {
-    load();
-    const timer = window.setInterval(() => document.visibilityState === "visible" && load(), REFRESH_MS);
-    const onVisible = () => document.visibilityState === "visible" && load();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [load]);
-
-  return { apps, error, refreshing, reload: load };
+/** Every app tile with its widget. One shared, polled request serves the
+ * sidebar, Home and Engineering (see api/resource.ts). */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useApps(_widgets = true) {
+  const { data, error, loading, reload } = useResource("hub:apps", (fresh) => hub.apps({ widgets: true, fresh }), { refreshMs: REFRESH_MS });
+  return { apps: data ?? null, error: data ? null : error, refreshing: loading, reload: (fresh = false) => reload(fresh).catch(() => undefined) };
 }
 
 export function AppGrid({ apps, onOpen }: { apps: HubApp[]; onOpen: (app: HubApp) => void }) {
