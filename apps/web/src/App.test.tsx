@@ -37,4 +37,25 @@ describe("<App />", () => {
     expect(await screen.findByRole("form", { name: "Sign in" })).toBeInTheDocument();
     expect(localStorage.getItem("sirisos.token")).toBeNull();
   });
+
+  it("shows the sidebar with the logo, app links and sign out", async () => {
+    signIn("brad");
+    mockFetch({
+      "/api/v1/hub/apps": () =>
+        jsonResponse({
+          apps: [
+            { id: "gvw", name: "GVW Timesheets", category: "work", icon: "clock", description: "", launch_url: "http://gvw", launch_only: false, configured: true,
+              status: { state: "ok", detail: "", latency_ms: 3, version: null, checked_at: "" } },
+          ],
+        }),
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const menu = await screen.findByRole("complementary", { name: "Menu" });
+    expect(menu).toHaveTextContent("SIRISOS");
+    expect(await screen.findByRole("link", { name: /GVW Timesheets/ })).toHaveAttribute("href", "http://gvw");
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("form", { name: "Sign in" })).toBeInTheDocument();
+    expect(localStorage.getItem("sirisos.token")).toBeNull();
+  });
 });

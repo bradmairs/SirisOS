@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight } from "lucide-react";
 import { login } from "../api/client";
 import { Glass } from "../components/Glass";
+import { Logo } from "../components/Logo";
 
 export function Login({ onLogin }: { onLogin: (user: string) => void }) {
   const [username, setUsername] = useState("");
@@ -25,7 +26,7 @@ export function Login({ onLogin }: { onLogin: (user: string) => void }) {
   return (
     <main className="login">
       <Glass as="form" variant="strong" shape="xl" className="login__card stack" onSubmit={submit} aria-label="Sign in">
-        <img src="/siris-logo.png" alt="SirisOS" className="login__logo" />
+        <div className="login__logo"><Logo size={64} /></div>
         <p className="login__tagline">Your apps, one glass.</p>
         <label className="sr-only" htmlFor="username">Username</label>
         <input id="username" className="field" placeholder="Username" autoComplete="username" autoCapitalize="none" value={username} onChange={(e) => setUsername(e.target.value)} required />

@@ -66,4 +66,38 @@ describe("<Home />", () => {
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("Database offline");
   });
+
+  it("adds HUD widgets from SirisAI: weather, server, calendar and activity", async () => {
+    signIn("brad");
+    mockFetch({
+      "/api/v1/hub/apps": () => jsonResponse({ apps: APPS }),
+      "/api/v1/assistant/hud": () =>
+        jsonResponse({
+          weather: { temperature_c: 14.7, humidity_percent: 91, wind_speed_kmh: 16.7, precipitation_mm: 0.8, conditions: "thunderstorm" },
+          system: {
+            cpu_percent: 3.2, cpu_count: 12,
+            memory: { total_gb: 16.6, used_gb: 6.4, percent_used: 38.4 },
+            disk: { "/": { total_gb: 490, used_gb: 210.6, percent_used: 45.3 } },
+            temperatures_celsius: { "coretemp:Package id 0": 40 },
+          },
+          next_events: [{ summary: "Site meeting", start: "2026-10-03T09:30:00+10:00" }],
+          autonomy: [{ time: "", local_time: "22:38", tool: "geofence_reminder_check", what: "geofence reminder check", outcome: "done" }],
+          parcels: [],
+        }),
+    });
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("15°")).toBeInTheDocument();
+    expect(screen.getByText("thunderstorm")).toBeInTheDocument();
+    const server = screen.getByRole("region", { name: "Home server" });
+    expect(within(server).getByText("38%")).toBeInTheDocument();
+    expect(within(server).getByText(/CPU package 40°C/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Coming up" })).toHaveTextContent("Site meeting");
+    expect(screen.getByRole("region", { name: "Siris activity" })).toHaveTextContent("Geofence reminder check");
+    expect(screen.getByRole("region", { name: "Siris apps" })).toHaveTextContent("Need attention");
+    expect(screen.queryByRole("region", { name: "Parcels" })).not.toBeInTheDocument();
+  });
 });
