@@ -37,7 +37,6 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
                                           │    └─ Helmarr / JEFIT / Neo Server (launch tiles)
                                           └─ engineering module
                                                SirisHydro · calculators · Standards · Projects
- postgres (kept only to preserve pre-hub data; unused)
 ```
 
 The browser only talks to SirisOS. Each app's credentials stay on the
@@ -75,7 +74,7 @@ and is the address the launch link opens on your device.
 ## Development
 
 ```bash
-make backend     # Postgres + API on :8000
+make backend     # API on :8000
 make dev         # API container + Vite dev server for apps/web (proxies /api)
 cd apps/backend && pytest -q
 cd apps/web && npm test && npm run build

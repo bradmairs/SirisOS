@@ -22,7 +22,7 @@ fi
 PORT="$(grep -E '^SIRISOS_PORT=' .env | tail -1 | cut -d= -f2 || true)"
 PORT="${PORT:-8094}"
 
-mkdir -p data/postgres data/logs data/standards data/app
+mkdir -p data/logs data/standards data/app
 
 echo "Starting SirisOS application and backend dependencies..."
 docker compose up --build -d --remove-orphans sirisos

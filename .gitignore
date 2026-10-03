@@ -18,8 +18,6 @@ apps/web/dist/
 # SirisOS runtime data
 /data/*
 !/data/README.md
-!/data/postgres/
-!/data/postgres/.gitkeep
 !/data/logs/
 !/data/logs/.gitkeep
 !/data/backups/

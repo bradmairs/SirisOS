@@ -20,7 +20,7 @@ help:
 
 up:
 	@test -f .env || cp .env.example .env
-	@mkdir -p data/postgres data/logs data/standards data/app
+	@mkdir -p data/logs data/standards data/app
 	@docker compose up --build -d --remove-orphans
 	@echo ""
 	@echo "SirisOS: http://192.168.0.100:$(PORT)"
