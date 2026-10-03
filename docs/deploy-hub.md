@@ -15,7 +15,7 @@ Edit `.env`. Start from `.env.example`, which now lists only the settings
 SirisOS reads:
 
 - `SIRISOS_PORT=8094`. `6464` now belongs to dad-joke-of-the-day.
-- Keep your existing `SIRISOS_ADMIN_*`, `SIRISOS_JWT_SECRET`, `POSTGRES_*`,
+- Keep your existing `SIRISOS_ADMIN_*`, `SIRISOS_JWT_SECRET`,
   `OLLAMA_URL` and `SIRISOS_OLLAMA_CHAT_MODEL`.
 - Fill in the connector block (next section).
 
@@ -66,9 +66,9 @@ everything except voice.
 
 ## What's left behind
 
-- The `postgres` container still runs with the pre-hub data (gym, running,
-  health, homelab history). Nothing reads it. Once you're sure nothing there
-  is needed, export it (`docker compose exec postgres pg_dump -U sirisos
-  sirisos > pre-hub.sql`), then remove the service.
+- The pre-hub Postgres (gym, running, health and homelab history) was
+  exported and removed on 3 October 2026. On the server, the dump and the raw
+  data folder are in `~/Docker_ss/SirisOS-pre-hub`. To read it again, restore
+  the dump into any Postgres 17 container.
 - `data/knowledge` (the old read-only vault mount) is no longer used; the
   vault is Second Brain's.
