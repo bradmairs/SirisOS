@@ -24,6 +24,7 @@ up:
 	@docker compose up --build -d --remove-orphans
 	@echo ""
 	@echo "SirisOS: http://192.168.0.100:$(PORT)"
+	@echo "SirisOS (https, for voice): https://192.168.0.100:$(or $(shell grep -E '^SIRISOS_HTTPS_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2),8444)"
 	@echo "API docs: http://192.168.0.100:$(PORT)/docs"
 
 dev: dev-web

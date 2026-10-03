@@ -58,8 +58,11 @@ Then open `http://192.168.0.100:8094`, sign in, and check:
 
 ## 4. Install on iPhone
 
-In Safari, open `http://192.168.0.100:8094`, then Share → **Add to Home
-Screen**. It opens full-screen like an app.
+In Safari, open `https://192.168.0.100:8444` and accept the certificate
+warning once. Then use Share → **Add to Home Screen**, and it opens
+full-screen like an app. Use the https address so the Siris voice orb can
+reach the microphone; `http://192.168.0.100:8094` still works for
+everything except voice.
 
 ## What's left behind
 

@@ -1,0 +1,17 @@
+# HTTPS front end for SirisOS, the same pattern as SirisAI's (caddy/Caddyfile
+# in bradmairs/SirisAI): a self-signed certificate (tls internal) because
+# SirisOS stays on the LAN. Browsers only allow the microphone on a secure
+# page, so the Siris voice orb needs this; plain http on SIRISOS_PORT keeps
+# working for everything else.
+#
+# The first visit from each device shows a certificate warning: accept it
+# once. default_sni is needed because devices reach this by bare IP, and
+# TLS sends no server name for an IP address.
+{
+	default_sni 192.168.0.100
+}
+
+192.168.0.100:8444, localhost:8444 {
+	tls internal
+	reverse_proxy sirisos:6464
+}
