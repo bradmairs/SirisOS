@@ -10,6 +10,7 @@ from app.hub.connectors.gvw import GVWConnector
 from app.hub.connectors.launch import HelmarrConnector, JefitConnector, NeoServerConnector
 from app.hub.connectors.reviewer import ReviewerConnector
 from app.hub.connectors.sirisai import SecondBrainConnector, SirisAIConnector
+from app.hub.connectors.sirisdrone import SirisDroneConnector
 
 # Home-screen order.
 CONNECTOR_TYPES: tuple[type[Connector], ...] = (
@@ -20,6 +21,7 @@ CONNECTOR_TYPES: tuple[type[Connector], ...] = (
     ArchiveConnector,
     GVWConnector,
     CMPConnector,
+    SirisDroneConnector,
     JefitConnector,
     HelmarrConnector,
     NeoServerConnector,

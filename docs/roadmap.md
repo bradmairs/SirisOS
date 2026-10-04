@@ -29,6 +29,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Engineering Archive: `/api/external/status` widget (review queue, totals)
 - [x] GVW Timesheets: health and version
 - [x] CMP Capabilities: service login and `stats/me` widget
+- [x] SirisDrone: library and export-queue widget
 - [x] Helmarr, JEFIT and Neo Server launch tiles
 - [x] Tests against mocked HTTP for every connector
 

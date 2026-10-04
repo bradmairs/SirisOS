@@ -29,6 +29,7 @@ ENV = {
     "CMP_URL": "http://cmp:8093",
     "CMP_EMAIL": "brad@example.com",
     "CMP_PASSWORD": "pw",
+    "SIRISDRONE_URL": "http://drone:8096",
     "JEFIT_URL": "jefit://",
 }
 
@@ -93,6 +94,16 @@ class FakeApps:
                 return httpx.Response(200, json={"id": "u1"})
             if path == "/api/stats/me":
                 return httpx.Response(200, json={"byProficiency": {"ADVANCED": 4}, "totalRated": 22, "projectCount": 9})
+        if host == "drone":
+            if path == "/api/config":
+                return httpx.Response(200, json={"output_roots": [{"name": "NAS", "path": "/nas/exports", "available": True}]})
+            if path == "/api/media":
+                return httpx.Response(200, json=[{"id": "a", "kind": "photo"}, {"id": "b", "kind": "photo"}, {"id": "c", "kind": "video"}])
+            if path == "/api/jobs":
+                return httpx.Response(200, json=[
+                    {"id": "j1", "name": "DJI_0435.MP4", "status": "running", "progress": 0.42},
+                    {"id": "j2", "name": "DJI_0568.jpg", "status": "done", "progress": 1.0},
+                ])
         return httpx.Response(404, json={"detail": "not found"})
 
     def sirisai(self, request: httpx.Request, path: str) -> httpx.Response:
@@ -192,7 +203,7 @@ def test_hub_requires_login(client, apps):
 def test_all_configured_apps_report_ok(client, apps):
     apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
     assert list(apps_)[:2] == ["sirisai", "second-brain"]
-    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "cmp", "jefit"):
+    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "cmp", "sirisdrone", "jefit"):
         assert apps_[app_id]["status"]["state"] == "ok", (app_id, apps_[app_id]["status"])
     assert apps_["gvw"]["status"]["version"] == "1.0.0"
     assert apps_["second-brain"]["launch_url"] == "https://siris.local/brain"
@@ -256,6 +267,27 @@ def test_widgets_are_normalised(client, apps):
 
     assert {"label": "Skills rated", "value": "22", "tone": "neutral"} in widgets["cmp"]["metrics"]
     assert widgets["second-brain"]["items"][0]["title"] == "Pump curves"
+
+    drone = {m["label"]: m for m in widgets["sirisdrone"]["metrics"]}
+    assert (drone["Photos"]["value"], drone["Videos"]["value"]) == ("2", "1")
+    assert drone["Exporting"] == {"label": "Exporting", "value": "1", "tone": "warning"}
+    assert drone["NAS"]["tone"] == "good"
+    assert widgets["sirisdrone"]["items"][0] == {"title": "Exporting DJI_0435.MP4", "subtitle": "running · 42%", "url": None, "tone": "neutral"}
+
+
+def test_sirisdrone_sends_basic_auth_when_set(client, monkeypatch):
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("authorization"))
+        return httpx.Response(200, json={"output_roots": []})
+
+    monkeypatch.setattr(service, "transport", httpx.MockTransport(handler))
+    reset_hub({"SIRISDRONE_URL": "http://drone:8096", "SIRISDRONE_USERNAME": "brad", "SIRISDRONE_PASSWORD": "pw"})
+    apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
+    assert apps_["sirisdrone"]["status"]["state"] == "ok"
+    assert seen and all(h == httpx.BasicAuth("brad", "pw")._auth_header for h in seen)
+    reset_hub({})
 
 
 def test_status_is_cached_until_fresh_requested(client, apps):
