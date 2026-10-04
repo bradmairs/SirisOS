@@ -228,6 +228,27 @@ async def brain_not_related(pair: BrainPair, connector: SirisAIConnector = Depen
     return await _forward(connector, "POST", "/siris/brain/not-related", json=pair.model_dump())
 
 
+@router.post("/brain/unlink", tags=["brain"])
+async def brain_unlink(pair: BrainPair, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Disconnect two notes both ways; nothing automatic links them again."""
+    return await _forward(connector, "POST", "/siris/brain/unlink", json=pair.model_dump())
+
+
+@router.post("/brain/autolink", tags=["brain"])
+async def brain_autolink(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Link the pairs the brain is confident about now, instead of at the nightly tidy."""
+    return await _forward(connector, "POST", "/siris/brain/autolink")
+
+
+@router.get("/brain/note", tags=["brain"])
+async def brain_note(
+    title: str = Query(min_length=1, max_length=200),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> Any:
+    """One note with its links and backlinks, to review or unlink its connections."""
+    return await _forward(connector, "GET", "/siris/brain/note", params={"title": title})
+
+
 @router.get("/brain/insights", tags=["brain"])
 async def brain_insights(
     days: int = Query(30, ge=7, le=365),

@@ -68,6 +68,12 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Chat streaming batched per frame; memoised bubbles
 - [x] API: OCR/search/SirisHydro off the event loop, parsed-index cache, pooled hub client, request coalescing, stale-while-revalidate, parallel status + widget
 
+## Second Brain linking ✅ (October 2026)
+- [x] Confident pairs are linked automatically: the threshold starts at 80% and calibrates itself from your link and not-related decisions (Siris-Second-Brain `autolink`, run in SirisAI's nightly upkeep or with "Link now")
+- [x] "Could be linked" lists only the unsure pairs, with a confidence
+- [x] "Linked automatically" panel to review and undo recent auto links
+- [x] Unlink any connection from a note's Connections in Brain search; the pair is never auto-linked again
+
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.

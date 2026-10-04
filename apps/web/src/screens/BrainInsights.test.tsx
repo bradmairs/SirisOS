@@ -112,3 +112,56 @@ describe("<BrainInsights />", () => {
     await waitFor(() => expect(calls.filter((c) => c.url === "/api/v1/brain/not-related")).toHaveLength(2));
   });
 });
+
+describe("automatic links", () => {
+  const AUTO: Insights = {
+    ...INSIGHTS,
+    suggested_links: [{ a: "Valves", b: "Pump Stations", score: 0.74, confidence: 74, why: "74% similar in meaning" }],
+    auto_linked: [{ a: "Pump Stations", b: "Wet Wells", confidence: 91, date: "2026-10-03" }],
+    pending_auto_links: 4,
+    link_thresholds: { method: "embeddings", auto_min: 0.78, suggest_min: 0.6, basis: "calibrated", decisions: { linked: 249, not_related: 202, scored: 300 } },
+  };
+
+  it("explains the threshold, links pending pairs on demand and undoes an auto link", async () => {
+    signIn();
+    let served = AUTO;
+    const calls = mockFetch({
+      "/api/v1/brain/insights": () => jsonResponse(served),
+      "/api/v1/brain/autolink": () => {
+        served = { ...AUTO, pending_auto_links: 0 };
+        return jsonResponse({ linked: [{ a: "x", b: "y", confidence: 90 }, { a: "p", b: "q", confidence: 85 }], deferred: 2 });
+      },
+      "/api/v1/brain/unlink": (_u, init) => {
+        served = { ...served, auto_linked: [] };
+        const { a, b } = JSON.parse(init.body as string);
+        return jsonResponse({ action: "unlinked", a, b });
+      },
+    });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+
+    expect(await screen.findByText(/Siris links notes that are 78% alike or more by itself \(tuned from your 451 link decisions\)/)).toBeInTheDocument();
+    expect(screen.getByText("Pump Stations ↔ Wet Wells")).toBeInTheDocument();
+    expect(screen.getByText(/91% match/)).toBeInTheDocument();
+    expect(screen.getByText("Could be linked: your call")).toBeInTheDocument();
+    expect(screen.getByText("4 confident links waiting for tonight's tidy.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /link now/i }));
+    expect(await screen.findByText("Linked 2 pairs of notes, 2 more next time")).toBeInTheDocument();
+    expect(calls.some((c) => c.url === "/api/v1/brain/autolink" && c.init.method === "POST")).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Unlink Pump Stations and Wet Wells" }));
+    expect(await screen.findByText("Unlinked Pump Stations and Wet Wells; Siris won't link them again")).toBeInTheDocument();
+    const unlink = calls.find((c) => c.url === "/api/v1/brain/unlink")!;
+    expect(JSON.parse(unlink.init.body as string)).toEqual({ a: "Pump Stations", b: "Wet Wells" });
+    await waitFor(() => expect(screen.queryByText("Pump Stations ↔ Wet Wells")).not.toBeInTheDocument());
+  });
+
+  it("says when auto-linking is off", async () => {
+    signIn();
+    mockFetch({ "/api/v1/brain/insights": () => jsonResponse({ ...AUTO, auto_linked: [], pending_auto_links: 0,
+      link_thresholds: { ...AUTO.link_thresholds!, auto_min: null, basis: "auto-linking turned off" } }) });
+    render(<BrainInsights />);
+    expect(await screen.findByText("Auto-linking is turned off; every pair waits for you.")).toBeInTheDocument();
+  });
+});

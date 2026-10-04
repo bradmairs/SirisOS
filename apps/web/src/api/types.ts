@@ -113,7 +113,26 @@ export interface BrainInsights {
   overdue_tasks: { task: string; note: string; due: string; days_late: number }[];
   inbox: { count: number; oldest: string | null };
   gaps: Record<string, number>;
-  suggested_links: { a: string; b: string; score: number; why: string }[];
+  /** Only the unsure pairs: confident ones are linked automatically. */
+  suggested_links: { a: string; b: string; score: number; confidence?: number | null; why: string }[];
+  /** Links Siris made itself in the last two weeks that are still in place. */
+  auto_linked?: { a: string; b: string; confidence: number | null; date: string }[];
+  /** Confident pairs waiting for the next tidy (or "Link now"). */
+  pending_auto_links?: number;
+  link_thresholds?: {
+    method: "embeddings" | "words";
+    auto_min: number | null;
+    suggest_min: number;
+    basis: string;
+    decisions: { linked: number; not_related: number; scored: number };
+  };
+}
+
+export interface BrainNote {
+  title: string;
+  path: string;
+  links: string[];
+  backlinks: string[];
 }
 
 export function isWidget(w: WidgetResult | null | undefined): w is Widget {

@@ -115,6 +115,16 @@ class FakeApps:
             })
         if path == "/siris/brain/map.html":
             return httpx.Response(200, text="<title>Siris Brain Map</title><canvas id=stage></canvas>")
+        if path == "/siris/brain/unlink":
+            body = json.loads(request.content)
+            return httpx.Response(200, json={"action": "unlinked", **body})
+        if path == "/siris/brain/autolink":
+            return httpx.Response(200, json={"linked": [{"a": "A", "b": "B", "confidence": 88}], "deferred": 0})
+        if path == "/siris/brain/note":
+            title = request.url.params["title"]
+            if title != "SirisOS":
+                return httpx.Response(404, json={"detail": f"No note called {title!r}."})
+            return httpx.Response(200, json={"title": "SirisOS", "path": "x", "links": ["SirisAI"], "backlinks": []})
         if path in ("/siris/brain/link", "/siris/brain/not-related"):
             body = json.loads(request.content)
             if body["b"] == "Nope":
@@ -435,3 +445,13 @@ def test_cmp_capabilities_is_not_part_of_the_hub(client, monkeypatch):
     ids = {a["id"] for a in client.get("/api/v1/hub/apps", headers=AUTH).json()["apps"]}
     assert "cmp" not in ids
     reset_hub({})
+
+
+def test_brain_unlink_autolink_and_note_proxies(client, apps):
+    r = client.post("/api/v1/brain/unlink", headers=AUTH, json={"a": "SirisOS", "b": "Apple Health"})
+    assert r.json() == {"action": "unlinked", "a": "SirisOS", "b": "Apple Health"}
+    assert client.post("/api/v1/brain/unlink", headers=AUTH, json={"a": "", "b": "x"}).status_code == 422
+    assert client.post("/api/v1/brain/autolink", headers=AUTH).json()["linked"][0]["confidence"] == 88
+    assert client.get("/api/v1/brain/note?title=SirisOS", headers=AUTH).json()["links"] == ["SirisAI"]
+    assert client.get("/api/v1/brain/note?title=Nope", headers=AUTH).status_code == 404
+    assert client.post("/api/v1/brain/autolink").status_code == 401

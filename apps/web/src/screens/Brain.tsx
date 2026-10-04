@@ -6,6 +6,7 @@ import type { BrainHit } from "../api/types";
 import { Glass } from "../components/Glass";
 import { BrainInsights } from "./BrainInsights";
 import { BrainMap } from "./BrainMap";
+import { NoteConnections } from "./NoteConnections";
 
 export function Brain() {
   const [q, setQ] = useState("");
@@ -84,6 +85,7 @@ export function Brain() {
                   <p key={i} className="muted" style={{ margin: 0 }}>{x}</p>
                 ))}
                 {hit.path && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{hit.path}</p>}
+                <NoteConnections title={hit.title} />
               </Glass>
             ))}
           </div>
