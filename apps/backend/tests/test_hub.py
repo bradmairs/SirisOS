@@ -127,6 +127,11 @@ class FakeApps:
             })
         if path == "/siris/brain/map.html":
             return httpx.Response(200, text="<title>Siris Brain Map</title><canvas id=stage></canvas>")
+        if path in ("/siris/brain/link", "/siris/brain/not-related"):
+            body = json.loads(request.content)
+            if body["b"] == "Nope":
+                return httpx.Response(422, json={"detail": "No note called 'Nope'"})
+            return httpx.Response(200, json={"action": "linked" if path.endswith("link") else "dismissed", **body})
         if path == "/siris/brain/today":
             return httpx.Response(200, json={"date": "2026-10-02", "items": [{"title": "Pump curves", "action": "learned"}]})
         if path == "/siris/brain/insights":
@@ -422,3 +427,14 @@ def test_bare_public_domains_become_https_links(client):
     assert apps["apd-pm"]["launch_url"] == "https://pm.example.org"
     assert apps["second-brain"]["launch_url"] == "https://siris.example.org/brain"
     reset_hub({})
+
+
+def test_brain_link_and_not_related_proxies(client, apps):
+    linked = client.post("/api/v1/brain/link", headers=AUTH, json={"a": "Pump curves", "b": "Pumps"})
+    assert linked.json() == {"action": "linked", "a": "Pump curves", "b": "Pumps"}
+    dismissed = client.post("/api/v1/brain/not-related", headers=AUTH, json={"a": "Finances", "b": "Health"})
+    assert dismissed.json()["action"] == "dismissed"
+    missing = client.post("/api/v1/brain/link", headers=AUTH, json={"a": "Pumps", "b": "Nope"})
+    assert missing.status_code == 422 and "No note called 'Nope'" in missing.json()["detail"]
+    assert client.post("/api/v1/brain/link", headers=AUTH, json={"a": "", "b": "x"}).status_code == 422
+    assert client.post("/api/v1/brain/link", json={"a": "a", "b": "b"}).status_code == 401
