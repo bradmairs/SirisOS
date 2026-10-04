@@ -38,7 +38,6 @@ const HUES: Record<string, string> = {
   reviewer: "#fbbf24",
   archive: "#2dd4bf",
   gvw: "#4ade80",
-  cmp: "#818cf8",
   sirisdrone: "#38bdf8",
   jefit: "#fb923c",
   helmarr: "#f472b6",

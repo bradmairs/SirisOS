@@ -26,9 +26,6 @@ ENV = {
     "ARCHIVE_URL": "http://archive:8091",
     "ARCHIVE_API_KEY": "ea_key",
     "GVW_URL": "http://gvw:8092",
-    "CMP_URL": "http://cmp:8093",
-    "CMP_EMAIL": "brad@example.com",
-    "CMP_PASSWORD": "pw",
     "SIRISDRONE_URL": "http://drone:8096",
     "JEFIT_URL": "jefit://",
 }
@@ -85,15 +82,6 @@ class FakeApps:
             })
         if host == "gvw" and path == "/healthz":
             return httpx.Response(200, json={"status": "ok", "version": "1.0.0"})
-        if host == "cmp":
-            if path == "/api/auth/login":
-                return httpx.Response(200, json={"token": "cmp-jwt", "user": {}})
-            if request.headers.get("authorization") != "Bearer cmp-jwt":
-                return httpx.Response(401, json={"error": "Missing bearer token"})
-            if path == "/api/auth/me":
-                return httpx.Response(200, json={"id": "u1"})
-            if path == "/api/stats/me":
-                return httpx.Response(200, json={"byProficiency": {"ADVANCED": 4}, "totalRated": 22, "projectCount": 9})
         if host == "drone":
             if path == "/api/config":
                 return httpx.Response(200, json={"output_roots": [{"name": "NAS", "path": "/nas/exports", "available": True}]})
@@ -208,7 +196,7 @@ def test_hub_requires_login(client, apps):
 def test_all_configured_apps_report_ok(client, apps):
     apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
     assert list(apps_)[:2] == ["sirisai", "second-brain"]
-    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "cmp", "sirisdrone", "jefit"):
+    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "sirisdrone", "jefit"):
         assert apps_[app_id]["status"]["state"] == "ok", (app_id, apps_[app_id]["status"])
     assert apps_["gvw"]["status"]["version"] == "1.0.0"
     assert apps_["second-brain"]["launch_url"] == "https://siris.local/brain"
@@ -270,7 +258,6 @@ def test_widgets_are_normalised(client, apps):
     assert reviews["items"][0]["url"] == "http://reviewer:8082/#/review/r1"
     assert {"label": "In progress", "value": "1", "tone": "neutral"} in reviews["metrics"]
 
-    assert {"label": "Skills rated", "value": "22", "tone": "neutral"} in widgets["cmp"]["metrics"]
     assert widgets["second-brain"]["items"][0]["title"] == "Pump curves"
 
     drone = {m["label"]: m for m in widgets["sirisdrone"]["metrics"]}
@@ -438,3 +425,13 @@ def test_brain_link_and_not_related_proxies(client, apps):
     assert missing.status_code == 422 and "No note called 'Nope'" in missing.json()["detail"]
     assert client.post("/api/v1/brain/link", headers=AUTH, json={"a": "", "b": "x"}).status_code == 422
     assert client.post("/api/v1/brain/link", json={"a": "a", "b": "b"}).status_code == 401
+
+
+def test_cmp_capabilities_is_not_part_of_the_hub(client, monkeypatch):
+    # Work-only app, removed from SirisOS on request: even leftover CMP_* settings
+    # in .env must not bring the tile back.
+    monkeypatch.setattr(service, "transport", httpx.MockTransport(FakeApps()))
+    reset_hub({**ENV, "CMP_URL": "http://cmp:8093", "CMP_EMAIL": "b@example.com", "CMP_PASSWORD": "pw"})
+    ids = {a["id"] for a in client.get("/api/v1/hub/apps", headers=AUTH).json()["apps"]}
+    assert "cmp" not in ids
+    reset_hub({})
