@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BrainInsights } from "./BrainInsights";
 import type { BrainInsights as Insights } from "../api/types";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
@@ -61,5 +62,53 @@ describe("<BrainInsights />", () => {
     mockFetch({ "/api/v1/brain/insights": () => jsonResponse({ detail: "SirisAI: No second brain configured. Set SIRISAI_BRAIN_PATH." }, 404) });
     render(<BrainInsights />);
     expect(await screen.findByText(/SIRISAI_BRAIN_PATH/)).toBeInTheDocument();
+  });
+
+  it("links a suggested pair, then refreshes so the next suggestion moves up", async () => {
+    signIn();
+    const two = { ...INSIGHTS, suggested_links: [
+      { a: "Nicole Mairs", b: "Ryan Mairs", score: 0.85, why: "similar meaning" },
+      { a: "Finances", b: "Health", score: 0.83, why: "similar meaning" },
+    ] };
+    let served = two;
+    const calls = mockFetch({
+      "/api/v1/brain/insights": () => jsonResponse(served),
+      "/api/v1/brain/link": (_u, init) => {
+        served = { ...two, suggested_links: [two.suggested_links[1], { a: "Creativity", b: "Learning", score: 0.8, why: "similar meaning" }] };
+        const { a, b } = JSON.parse(init.body as string);
+        return jsonResponse({ action: "linked", a, b });
+      },
+    });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+    await user.click(await screen.findByRole("button", { name: "Link Nicole Mairs and Ryan Mairs" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Linked Nicole Mairs and Ryan Mairs");
+    const sent = calls.find((c) => c.url === "/api/v1/brain/link")!;
+    expect(JSON.parse(sent.init.body as string)).toEqual({ a: "Nicole Mairs", b: "Ryan Mairs" });
+    expect(screen.queryByText("Nicole Mairs ↔ Ryan Mairs")).not.toBeInTheDocument();
+    expect(await screen.findByText("Creativity ↔ Learning")).toBeInTheDocument();
+  });
+
+  it("dismisses a pair as not related, and shows an error in place if it fails", async () => {
+    signIn();
+    const pairs = { ...INSIGHTS, suggested_links: [{ a: "Finances", b: "Health", score: 0.83, why: "similar meaning" }] };
+    let fail = true;
+    const calls = mockFetch({
+      "/api/v1/brain/insights": () => jsonResponse(pairs),
+      "/api/v1/brain/not-related": () =>
+        fail ? jsonResponse({ detail: "SirisAI: No note called 'Health'" }, 422) : jsonResponse({ action: "dismissed", a: "Finances", b: "Health" }),
+    });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+    const dismiss = await screen.findByRole("button", { name: "Finances and Health aren't related" });
+    await user.click(dismiss);
+    expect(await screen.findByText("SirisAI: No note called 'Health'")).toBeInTheDocument();
+    expect(screen.getByText("Finances ↔ Health")).toBeInTheDocument();
+
+    fail = false;
+    await user.click(screen.getByRole("button", { name: "Finances and Health aren't related" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Won't suggest Finances and Health again");
+    await waitFor(() => expect(calls.filter((c) => c.url === "/api/v1/brain/not-related")).toHaveLength(2));
   });
 });

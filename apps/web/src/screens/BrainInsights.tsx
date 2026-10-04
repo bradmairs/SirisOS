@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarClock, Hourglass, Link2, Sparkles, TrendingUp } from "lucide-react";
+import { CalendarClock, Check, Hourglass, Link2, Sparkles, TrendingUp, X } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainInsights as Insights } from "../api/types";
@@ -69,10 +69,71 @@ function List({ items }: { items: { key: string; title: string; subtitle: string
   );
 }
 
+type Pair = Insights["suggested_links"][number];
+
+/** "Could be linked": link the two notes, or say they aren't related. Either way the
+ *  suggestion goes, and the list refreshes so the next best one moves up. */
+function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string | null; onDone: (pair: Pair, text: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  async function act(pair: Pair, kind: "link" | "unrelate") {
+    const key = `${pair.a}|${pair.b}`;
+    setBusy(key);
+    setErrors((e) => ({ ...e, [key]: "" }));
+    try {
+      if (kind === "link") await brain.link(pair.a, pair.b);
+      else await brain.notRelated(pair.a, pair.b);
+      onDone(pair, kind === "link" ? `Linked ${pair.a} and ${pair.b}` : `Won't suggest ${pair.a} and ${pair.b} again`);
+    } catch (err) {
+      setErrors((e) => ({ ...e, [key]: err instanceof Error ? err.message : "That didn't work." }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      {done && (
+        <p className="tone-good suggest__done" role="status">
+          <Check size={14} aria-hidden="true" /> {done}
+        </p>
+      )}
+      {pairs.length === 0 && <p className="muted" style={{ margin: 0 }}>No more suggestions for now.</p>}
+      <ul className="items insights__list">
+        {pairs.map((p) => {
+          const key = `${p.a}|${p.b}`;
+          return (
+            <li key={key} className="item suggest">
+              <span className="item__dot" style={{ background: "var(--brain)" }} aria-hidden="true" />
+              <span className="item__text">
+                <div className="item__title">{p.a} ↔ {p.b}</div>
+                <div className="item__subtitle">{errors[key] ? <span className="tone-critical">{errors[key]}</span> : p.why}</div>
+              </span>
+              <span className="suggest__actions">
+                <button type="button" className="chip chip--button suggest__link" disabled={busy !== null}
+                  onClick={() => act(p, "link")} aria-label={`Link ${p.a} and ${p.b}`}>
+                  <Link2 size={13} aria-hidden="true" /> {busy === key ? "…" : "Link"}
+                </button>
+                <button type="button" className="icon-link" disabled={busy !== null}
+                  onClick={() => act(p, "unrelate")} aria-label={`${p.a} and ${p.b} aren't related`} title="Not related">
+                  <X size={15} aria-hidden="true" />
+                </button>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
 export function BrainInsights() {
   // Insights scan the whole vault, so keep the last result for a few minutes.
   const res = useResource<Insights>("brain:insights", () => brain.insights(), { staleMs: 300_000 });
   const data = res.data ?? null;
+  const { mutate, reload } = res;
+  const [linkDone, setLinkDone] = useState<string | null>(null);
   const error = data ? null : res.error;
 
   if (error) {
@@ -156,10 +217,18 @@ export function BrainInsights() {
           </Glass>
         )}
 
-        {data.suggested_links.length > 0 && (
+        {(data.suggested_links.length > 0 || linkDone) && (
           <Glass className="widget">
             <div className="widget__head"><Link2 aria-hidden="true" /> Could be linked</div>
-            <List items={data.suggested_links.map((p) => ({ key: `${p.a}|${p.b}`, title: `${p.a} ↔ ${p.b}`, subtitle: p.why }))} />
+            <SuggestedLinks
+              pairs={data.suggested_links}
+              done={linkDone}
+              onDone={(pair, text) => {
+                setLinkDone(text);
+                mutate({ ...data, suggested_links: data.suggested_links.filter((p) => p !== pair) });
+                reload(true).catch(() => undefined);
+              }}
+            />
           </Glass>
         )}
 

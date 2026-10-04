@@ -16,6 +16,8 @@ export const brain = {
   map: () => request("/api/v1/brain/map.html").then((r) => r.text()),
   today: () => api<{ date: string; items: { title: string; action: string }[] }>("/api/v1/brain/today"),
   insights: (days = 30) => api<BrainInsights>(`/api/v1/brain/insights?days=${days}`),
+  link: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/link", json({ a, b })),
+  notRelated: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/not-related", json({ a, b })),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[] }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
 };

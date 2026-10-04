@@ -211,6 +211,23 @@ async def brain_today(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/brain/today")
 
 
+class BrainPair(BaseModel):
+    a: str = Field(min_length=1, max_length=200)
+    b: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/brain/link", tags=["brain"])
+async def brain_link(pair: BrainPair, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Accept a "could be linked" suggestion: the two notes are linked both ways."""
+    return await _forward(connector, "POST", "/siris/brain/link", json=pair.model_dump())
+
+
+@router.post("/brain/not-related", tags=["brain"])
+async def brain_not_related(pair: BrainPair, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Dismiss a "could be linked" suggestion so it isn't suggested again."""
+    return await _forward(connector, "POST", "/siris/brain/not-related", json=pair.model_dump())
+
+
 @router.get("/brain/insights", tags=["brain"])
 async def brain_insights(
     days: int = Query(30, ge=7, le=365),

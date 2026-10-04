@@ -273,3 +273,10 @@ body.no-scroll { overflow: hidden; }
 .link-tile__dot--down { background: var(--critical); opacity: 1; }
 .links-add { margin: 22px auto 0; display: flex; }
 .screen-fallback { display: flex; flex-direction: column; gap: 16px; padding: 8px 4px; }
+
+/* Brain insights: acting on "could be linked" suggestions */
+.suggest { align-items: center; }
+.suggest__actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.suggest__link { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; color: var(--accent); }
+.suggest__link:disabled, .suggest__actions .icon-link:disabled { opacity: 0.45; cursor: default; }
+.suggest__done { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 13px; }
