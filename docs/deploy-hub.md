@@ -30,6 +30,7 @@ SirisOS reads:
 | Engineering Archive | Settings → API keys → new key with **read** scope | `ARCHIVE_URL=http://192.168.0.100:8091`, `ARCHIVE_API_KEY=ea_…` |
 | GVW Timesheets | Nothing (health only) | `GVW_URL=http://192.168.0.100:8092` |
 | CMP Capabilities | Your own login (the widget shows *your* capability stats) | `CMP_URL=http://192.168.0.100:8093`, `CMP_EMAIL`, `CMP_PASSWORD` |
+| SirisDrone | Nothing, unless its `SIRIS_USER`/`SIRIS_PASSWORD` login is on | `SIRISDRONE_URL=http://192.168.0.100:8096` (+ `SIRISDRONE_USERNAME/PASSWORD`) |
 | JEFIT, Helmarr, Neo Server | Nothing | `JEFIT_URL`, `HELMARR_URL`, `NEO_SERVER_URL`: a web URL or the app's URL scheme |
 
 Inside the container, `192.168.0.100` reaches the other apps' published
