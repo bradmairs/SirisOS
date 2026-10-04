@@ -7,6 +7,7 @@ for the home screen. Credentials never leave the server.
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -95,8 +96,15 @@ class Connector:
         return self.setting("URL").rstrip("/")
 
     @property
+    def public_url(self) -> str:
+        """*_PUBLIC_URL as a full address. A bare domain ("pm.example.org")
+        would otherwise be a relative link and open SirisOS itself, so it
+        gets https://. App schemes such as jefit:// are left alone."""
+        return with_scheme(self.setting("PUBLIC_URL"))
+
+    @property
     def launch_url(self) -> str | None:
-        return self.setting("PUBLIC_URL") or self.base_url or self.default_launch_url
+        return self.public_url or self.base_url or self.default_launch_url
 
     @property
     def configured(self) -> bool:
@@ -165,3 +173,12 @@ def raise_for_status(response: httpx.Response) -> None:
 
 def _ms(started: float) -> int:
     return int((time.perf_counter() - started) * 1000)
+
+
+def with_scheme(url: str) -> str:
+    """'pm.example.org' -> 'https://pm.example.org'; full URLs and app schemes unchanged."""
+    url = url.strip()
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", url):
+        return url if url.endswith("://") else url.rstrip("/")
+    url = url.strip("/")
+    return f"https://{url}" if url else ""
