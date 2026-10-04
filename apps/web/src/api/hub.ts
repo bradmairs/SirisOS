@@ -1,7 +1,7 @@
 import { api, json, request } from "./client";
 import { readEvents } from "./sse";
 import { readNdjson, type VoiceEvent } from "./voice";
-import type { BrainHit, BrainInsights, ChatEvent, ConversationSummary, HubApp, Hud, PendingToolCall } from "./types";
+import type { BrainHit, BrainInsights, BrainNote, ChatEvent, ConversationSummary, HubApp, Hud, PendingToolCall } from "./types";
 
 export const hub = {
   apps: (opts: { widgets?: boolean; fresh?: boolean } = {}) =>
@@ -18,6 +18,9 @@ export const brain = {
   insights: (days = 30) => api<BrainInsights>(`/api/v1/brain/insights?days=${days}`),
   link: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/link", json({ a, b })),
   notRelated: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/not-related", json({ a, b })),
+  unlink: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/unlink", json({ a, b })),
+  autolink: () => api<{ linked: { a: string; b: string; confidence: number | null }[]; deferred: number }>("/api/v1/brain/autolink", { method: "POST" }),
+  note: (title: string) => api<BrainNote>(`/api/v1/brain/note?title=${encodeURIComponent(title)}`),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[] }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
 };

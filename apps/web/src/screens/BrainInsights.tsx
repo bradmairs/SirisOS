@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarClock, Check, Hourglass, Link2, Sparkles, TrendingUp, X } from "lucide-react";
+import { CalendarClock, Check, Hourglass, Link2, Sparkles, TrendingUp, Unlink, WandSparkles, X } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainInsights as Insights } from "../api/types";
@@ -128,6 +128,95 @@ function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string |
   );
 }
 
+type Thresholds = NonNullable<Insights["link_thresholds"]>;
+
+/** How auto-linking is set, in a sentence: "Siris links pairs that are 80% alike or more…". */
+export function thresholdSentence(t: Thresholds | undefined): string {
+  if (!t) return "";
+  if (t.auto_min === null) {
+    return t.basis === "auto-linking turned off"
+      ? "Auto-linking is turned off; every pair waits for you."
+      : "Without meaning-based similarity, Siris only suggests links.";
+  }
+  const pct = Math.round(t.auto_min * 100);
+  const why =
+    t.basis === "calibrated"
+      ? `tuned from your ${t.decisions.linked + t.decisions.not_related} link decisions`
+      : t.basis === "raised above a rejected pair"
+        ? "raised above a pair you said wasn't related"
+        : "the starting point; it tunes itself as you decide on suggestions";
+  return `Siris links notes that are ${pct}% alike or more by itself (${why}).`;
+}
+
+
+/** Links Siris made on its own: glance over them, and undo any that are wrong. Undoing
+ *  unlinks both notes and stops Siris from ever linking them again. */
+function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pairs = data.auto_linked ?? [];
+  const pending = data.pending_auto_links ?? 0;
+
+  async function run(key: string, fn: () => Promise<string>) {
+    setBusy(key);
+    setError(null);
+    try {
+      onChanged(await fn());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <p className="muted suggest__hint">{thresholdSentence(data.link_thresholds)}</p>
+      {pending > 0 && (
+        <div className="row suggest__pending">
+          <span className="item__text">{plural(pending, "confident link")} waiting for tonight's tidy.</span>
+          <button type="button" className="chip chip--button suggest__link" disabled={busy !== null}
+            onClick={() => run("all", async () => {
+              const r = await brain.autolink();
+              return `Linked ${plural(r.linked.length, "pair")} of notes${r.deferred ? `, ${r.deferred} more next time` : ""}`;
+            })}>
+            <WandSparkles size={13} aria-hidden="true" /> {busy === "all" ? "…" : "Link now"}
+          </button>
+        </div>
+      )}
+      {error && <p className="tone-critical" style={{ margin: 0 }}>{error}</p>}
+      {pairs.length === 0 ? (
+        pending === 0 && <p className="muted" style={{ margin: 0 }}>Nothing linked automatically in the last two weeks.</p>
+      ) : (
+        <ul className="items insights__list">
+          {pairs.map((p) => {
+            const key = `${p.a}|${p.b}`;
+            return (
+              <li key={key} className="item suggest">
+                <span className="item__dot" style={{ background: "var(--brain)" }} aria-hidden="true" />
+                <span className="item__text">
+                  <div className="item__title">{p.a} ↔ {p.b}</div>
+                  <div className="item__subtitle">{p.confidence ? `${p.confidence}% match · ` : ""}{dayLabel(p.date)}</div>
+                </span>
+                <span className="suggest__actions">
+                  <button type="button" className="chip chip--button" disabled={busy !== null}
+                    onClick={() => run(key, async () => {
+                      await brain.unlink(p.a, p.b);
+                      return `Unlinked ${p.a} and ${p.b}; Siris won't link them again`;
+                    })}
+                    aria-label={`Unlink ${p.a} and ${p.b}`}>
+                    <Unlink size={13} aria-hidden="true" /> {busy === key ? "…" : "Unlink"}
+                  </button>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
+  );
+}
+
 export function BrainInsights() {
   // Insights scan the whole vault, so keep the last result for a few minutes.
   const res = useResource<Insights>("brain:insights", () => brain.insights(), { staleMs: 300_000 });
@@ -217,9 +306,22 @@ export function BrainInsights() {
           </Glass>
         )}
 
+        {(data.link_thresholds || (data.auto_linked?.length ?? 0) > 0) && (
+          <Glass className="widget">
+            <div className="widget__head"><WandSparkles style={{ color: "var(--brain)" }} aria-hidden="true" /> Linked automatically</div>
+            <AutoLinks
+              data={data}
+              onChanged={(text) => {
+                setLinkDone(text);
+                reload(true).catch(() => undefined);
+              }}
+            />
+          </Glass>
+        )}
+
         {(data.suggested_links.length > 0 || linkDone) && (
           <Glass className="widget">
-            <div className="widget__head"><Link2 aria-hidden="true" /> Could be linked</div>
+            <div className="widget__head"><Link2 aria-hidden="true" /> Could be linked: your call</div>
             <SuggestedLinks
               pairs={data.suggested_links}
               done={linkDone}

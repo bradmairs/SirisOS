@@ -44,6 +44,9 @@ All routes require the SirisOS bearer token.
 | `GET /api/v1/assistant/conversations[/{id}]` | SirisAI conversation history |
 | `GET /api/v1/assistant/hud` | SirisAI HUD summary |
 | `GET /api/v1/brain/search?q=` · `GET /api/v1/brain/today` · `GET /api/v1/brain/insights?days=30` · `POST /api/v1/brain/capture` | Second Brain via SirisAI (insights: growth, topics, deadlines, overdue tasks, idle projects, links to make) |
+| `POST /api/v1/brain/link` · `POST /api/v1/brain/not-related` · `POST /api/v1/brain/unlink` (`{a, b}`) | Link two notes, dismiss a suggestion, or disconnect two notes (never auto-linked again) |
+| `POST /api/v1/brain/autolink` | Link the pairs the brain is confident about now, rather than at the nightly tidy |
+| `GET /api/v1/brain/note?title=` | A note's links and backlinks |
 
 `state` is `ok`, `degraded` (reachable, but wrong credentials or a missing
 dependency such as an LLM), `down` (unreachable or timed out) or
