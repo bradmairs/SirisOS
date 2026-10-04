@@ -61,7 +61,7 @@ class SecondBrainConnector(SirisAIConnector):
 
     @property
     def launch_url(self) -> str | None:
-        root = self.setting("PUBLIC_URL") or self.base_url
+        root = self.public_url or self.base_url
         return f"{root.rstrip('/')}/brain" if root else None
 
     async def check(self, client: httpx.AsyncClient) -> str | None:

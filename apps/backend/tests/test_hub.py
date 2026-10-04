@@ -406,3 +406,19 @@ def test_check_cli_reports_each_app_and_fails_on_problems(apps):
     lines, healthy = asyncio.run(check.run(ENV))
     assert healthy is False
     assert any(line.startswith("✗ GVW Timesheets") for line in lines)
+
+
+def test_bare_public_domains_become_https_links(client):
+    from app.hub.connectors.base import with_scheme
+
+    assert with_scheme("pm.example.org") == "https://pm.example.org"
+    assert with_scheme("https://pm.example.org/") == "https://pm.example.org"
+    assert with_scheme("http://10.0.0.5:8080") == "http://10.0.0.5:8080"
+    assert with_scheme("jefit://") == "jefit://"
+    assert with_scheme("") == ""
+
+    reset_hub({**ENV, "APD_PM_PUBLIC_URL": "pm.example.org", "SIRISAI_PUBLIC_URL": "siris.example.org"})
+    apps = {a["id"]: a for a in client.get("/api/v1/hub/apps", headers=AUTH).json()["apps"]}
+    assert apps["apd-pm"]["launch_url"] == "https://pm.example.org"
+    assert apps["second-brain"]["launch_url"] == "https://siris.example.org/brain"
+    reset_hub({})
