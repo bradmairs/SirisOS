@@ -28,7 +28,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Engineering Reviewer: health (LLM availability) and recent-reviews widget
 - [x] Engineering Archive: `/api/external/status` widget (review queue, totals)
 - [x] GVW Timesheets: health and version
-- [x] CMP Capabilities: service login and `stats/me` widget
+- [x] ~~CMP Capabilities: service login and `stats/me` widget~~ (removed 2026-10-04: work-only)
 - [x] SirisDrone: library and export-queue widget
 - [x] Helmarr, JEFIT and Neo Server launch tiles
 - [x] Tests against mocked HTTP for every connector
@@ -58,7 +58,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] `SIRISOS_PORT` (default 8094) wired through compose, Makefile and scripts
 - [x] `make hub-check` checks every connector against the live apps; checklist in [`deploy-hub.md`](deploy-hub.md)
 - [ ] Pick up the new port on the server
-- [ ] Create service accounts: APD PM VIEWER, CMP user, Archive read key
+- [ ] Create service accounts: APD PM VIEWER, Archive read key
 - [ ] Verify every connector against the live apps on `192.168.0.100`
 
 ## Performance ✅ (ADR 107)

@@ -33,7 +33,6 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
                                           │    ├─ Engineering Reviewer :8082
                                           │    ├─ Engineering Archive :8091 (X-API-Key)
                                           │    ├─ GVW Timesheets :8092    (health)
-                                          │    ├─ CMP Capabilities :8093  (service login)
                                           │    ├─ SirisDrone :8096        (library + exports)
                                           │    └─ Helmarr / JEFIT / Neo Server (launch tiles)
                                           └─ engineering module
@@ -66,7 +65,6 @@ first-time move to the hub build is covered step by step in
 | `REVIEWER_URL` (+ optional `REVIEWER_USERNAME`/`REVIEWER_PASSWORD`) | Engineering Reviewer |
 | `ARCHIVE_URL`, `ARCHIVE_API_KEY` | Engineering Archive (a `read`-scope key) |
 | `GVW_URL` | GVW Timesheets |
-| `CMP_URL`, `CMP_EMAIL`, `CMP_PASSWORD` | CMP Capabilities |
 | `SIRISDRONE_URL` (+ optional `SIRISDRONE_USERNAME`/`SIRISDRONE_PASSWORD`) | SirisDrone Studio |
 | `HELMARR_URL`, `JEFIT_URL`, `NEO_SERVER_URL` | Launch targets. App URL schemes are fine |
 

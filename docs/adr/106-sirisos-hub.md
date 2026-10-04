@@ -5,6 +5,11 @@
 Accepted (2026-10-02). Supersedes the scope, though not the individual
 decisions, of ADRs 001–105. The superseded features are listed below.
 
+Amended 2026-10-04: the CMP Capabilities Database connector was removed at
+Brad's request. It is a work tool, and SirisOS is for his own life. It is
+still listed in the tables below as part of the original decision. Leftover
+`CMP_*` settings in `.env` are ignored.
+
 ## Context
 
 When SirisOS was revived in October 2026, Brad already ran a family of

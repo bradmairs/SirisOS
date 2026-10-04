@@ -5,7 +5,6 @@ from typing import Mapping
 from app.hub.connectors.apd_pm import APDPMConnector
 from app.hub.connectors.archive import ArchiveConnector
 from app.hub.connectors.base import Connector
-from app.hub.connectors.cmp import CMPConnector
 from app.hub.connectors.gvw import GVWConnector
 from app.hub.connectors.launch import HelmarrConnector, JefitConnector, NeoServerConnector
 from app.hub.connectors.reviewer import ReviewerConnector
@@ -20,7 +19,6 @@ CONNECTOR_TYPES: tuple[type[Connector], ...] = (
     ReviewerConnector,
     ArchiveConnector,
     GVWConnector,
-    CMPConnector,
     SirisDroneConnector,
     JefitConnector,
     HelmarrConnector,
