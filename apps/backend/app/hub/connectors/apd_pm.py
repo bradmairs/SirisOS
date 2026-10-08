@@ -5,10 +5,11 @@ dedicated (ideally VIEWER) service account and replays the cookie."""
 from __future__ import annotations
 
 from datetime import date, datetime
+from urllib.parse import quote
 
 import httpx
 
-from app.hub.connectors.base import Connector, ConnectorError, Metric, Widget, WidgetItem, raise_for_status
+from app.hub.connectors.base import Connector, ConnectorError, Metric, SearchHit, Widget, WidgetItem, raise_for_status
 
 COOKIE_NAME = "apd_token"
 OPEN_STATUSES = {"PLANNING", "DESIGN", "TENDER", "CONSTRUCTION", "PROJECT_COMPLETION", "DEFECTS_LIABILITY"}
@@ -105,6 +106,31 @@ class APDPMConnector(SessionLoginMixin, Connector):
             items=items,
             empty="No tasks with due dates",
         )
+
+
+    async def search(self, client: httpx.AsyncClient, query: str) -> list[SearchHit]:
+        # APD PM's own cross-register search (every register plus projects).
+        found = await self.authed_json(client, f"/api/search?q={quote(query)}")
+        hits = []
+        for r in found.get("results") or []:
+            tab = RESULT_TAB.get(str(r.get("type")))
+            url = None
+            if self.launch_url and r.get("projectId"):
+                url = f"{self.launch_url}/projects/{r['projectId']}" + (f"?tab={tab}" if tab and tab != "overview" else "")
+            detail = " · ".join(str(x) for x in (r.get("typeLabel"), r.get("projectName") if r.get("type") != "project" else None, r.get("subtitle")) if x)
+            hits.append(SearchHit(title=str(r.get("title") or ""), subtitle=detail, url=url, kind=str(r.get("type") or "")))
+        return hits
+
+
+# Which project tab each register lives on (APD PM's GlobalSearch resultHref).
+RESULT_TAB = {
+    "risk": "quality", "action": "overview", "rfi": "quality", "defect": "quality", "variation": "budget",
+    "document": "quality", "correspondence": "quality", "subcontractor": "budget", "tender": "budget",
+    "task": "schedule", "milestone": "schedule", "eot": "schedule", "checklist": "schedule", "contract": "budget",
+    "paymentClaim": "budget", "insurance": "budget", "permit": "budget", "performanceReview": "budget",
+    "environmentalMonitoring": "quality", "safetyInspection": "quality", "sqe": "quality", "siteVisit": "site",
+    "enquiry": "site", "archiveLink": "site", "lessonLearned": "site", "trainingRecord": "site", "toolboxTalk": "site",
+}
 
 
 def _date(value: object) -> date | None:

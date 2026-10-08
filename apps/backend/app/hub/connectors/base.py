@@ -63,6 +63,19 @@ class Widget:
         return asdict(self)
 
 
+@dataclass
+class SearchHit:
+    """One result from an app's own search, normalised for SirisOS search (ADR 109)."""
+
+    title: str
+    subtitle: str = ""
+    url: str | None = None
+    kind: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"title": self.title, "subtitle": self.subtitle, "url": self.url, "kind": self.kind}
+
+
 class ConnectorError(Exception):
     """A failure worth showing on the tile, e.g. "unauthorised"."""
 
@@ -152,6 +165,10 @@ class Connector:
 
     async def widget(self, client: httpx.AsyncClient) -> Widget | None:
         return None
+
+    async def search(self, client: httpx.AsyncClient, query: str) -> list[SearchHit]:
+        """The app's own search, if it has one SirisOS can call (ADR 109)."""
+        raise NotImplementedError
 
     # -- helpers -----------------------------------------------------------
 
