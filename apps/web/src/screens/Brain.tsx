@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Brain as BrainIcon, Check, Search } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
@@ -17,6 +18,13 @@ export function Brain() {
   const today = todayRes.data?.items ?? null;
   const [capture, setCapture] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
+
+  // Search everything opens a note here with ?q=.
+  const [params] = useSearchParams();
+  useEffect(() => {
+    const wanted = params.get("q");
+    if (wanted) setQ(wanted);
+  }, [params]);
 
   useEffect(() => {
     const query = q.trim();

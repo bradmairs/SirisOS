@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BookOpen, Droplets, RotateCcw, Trash2 } from "lucide-react";
 import { hydro, type EvidenceResponse, type HydroHistory } from "../../api/engineering";
 import { Glass } from "../../components/Glass";
@@ -17,6 +18,17 @@ export function Hydro() {
   useEffect(() => {
     loadHistory();
   }, []);
+
+  // Search everything re-asks a past question with ?q=.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const wanted = params.get("q");
+    if (wanted) {
+      setParams({}, { replace: true });
+      ask(wanted);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   async function ask(q: string) {
     if (q.trim().length < 2) return;

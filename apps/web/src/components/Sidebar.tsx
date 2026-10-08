@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Brain, House, LayoutGrid, LogOut, Ruler, Sparkles, Sunrise, X } from "lucide-react";
+import { ArrowUpRight, Brain, House, LayoutGrid, LogOut, Ruler, Search, Sparkles, Sunrise, X } from "lucide-react";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
 import { Logo } from "./Logo";
@@ -25,12 +25,14 @@ export function Sidebar({
   open,
   onClose,
   onSignOut,
+  onSearch,
 }: {
   apps: HubApp[] | null;
   user: string | null;
   open: boolean;
   onClose: () => void;
   onSignOut: () => void;
+  onSearch?: () => void;
 }) {
   const location = useLocation();
   useEffect(() => {
@@ -55,6 +57,14 @@ export function Sidebar({
             <X size={18} aria-hidden="true" />
           </button>
         </div>
+
+        {onSearch && (
+          <button type="button" className="sidebar__search" onClick={onSearch}>
+            <Search size={16} aria-hidden="true" />
+            <span>Search</span>
+            <kbd className="sidebar__kbd" aria-hidden="true">{isMac() ? "⌘K" : "Ctrl K"}</kbd>
+          </button>
+        )}
 
         <nav className="sidebar__nav" aria-label="Screens">
           {NAV.map(({ to, label, Icon, end }) => (
@@ -99,4 +109,8 @@ export function Sidebar({
       </Glass>
     </>
   );
+}
+
+function isMac(): boolean {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 }

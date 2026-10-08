@@ -158,6 +158,16 @@ export function Assistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Search everything opens a past conversation with ?c=.
+  useEffect(() => {
+    const c = params.get("c");
+    if (c) {
+      setParams({}, { replace: true });
+      resume(c).catch(() => undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   // Stable callbacks for the memoised bubbles, always calling the latest handlers.
   const handlers = useRef({ saveToBrain: (_i: number) => {}, confirm: (_i: number, _a: boolean) => {} });
   const onSave = useCallback((i: number) => handlers.current.saveToBrain(i), []);

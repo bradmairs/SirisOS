@@ -322,3 +322,58 @@ body.no-scroll { overflow: hidden; }
 .brief-done { display: flex; justify-content: center; margin-top: 28px; }
 .brief-done .button { height: 52px; padding: 0 30px; font-size: 16px; }
 @media (max-width: 480px) { .brief-entry span { display: none; } .brief-entry { width: 36px; padding: 0; } }
+
+/* ------------------------------------------------------- search everything (ADR 109) */
+.topbar__search { margin-left: auto; width: 38px; height: 38px; color: var(--ink-2); }
+.sidebar__search {
+  display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; margin: 2px 0 10px; padding: 0 10px 0 12px;
+  border: 0; border-radius: var(--r-sm); cursor: pointer; font: inherit; font-size: 14px; color: var(--ink-3);
+  background: color-mix(in srgb, var(--ink) 6%, transparent); box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.sidebar__search:hover { color: var(--ink); background: rgba(95, 211, 255, 0.08); }
+.sidebar__search span { flex: 1; text-align: left; }
+.sidebar__kbd, .search__foot kbd {
+  font: inherit; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px; color: var(--ink-3);
+  background: color-mix(in srgb, var(--ink) 8%, transparent); box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.search-scrim { z-index: 70; align-items: flex-start; padding: calc(var(--safe-top) + 10px) 10px 10px; }
+@media (min-width: 760px) { .search-scrim { align-items: flex-start; padding-top: 11vh; } }
+.search {
+  width: min(680px, 100%); max-height: min(78dvh, 720px); display: flex; flex-direction: column; overflow: hidden;
+  animation: search-in 0.38s var(--spring);
+}
+.search > * { position: relative; z-index: 2; }
+@keyframes search-in { from { transform: translateY(-12px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.search__bar { display: flex; align-items: center; gap: 12px; padding: 16px 16px 14px 20px; border-bottom: 1px solid var(--hairline); }
+.search__bar > svg { width: 21px; height: 21px; flex: none; color: var(--accent); }
+.search__input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: 19px; font-weight: 450; color: var(--ink); }
+.search__input::placeholder { color: var(--ink-3); }
+.search__esc {
+  border: 0; cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 8px; border-radius: 8px;
+  color: var(--ink-3); background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.search__results { overflow-y: auto; overscroll-behavior: contain; padding: 6px 8px 10px; }
+.search__group { padding-top: 8px; }
+.search__group-title {
+  display: flex; align-items: center; gap: 7px; margin: 4px 12px 4px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent);
+}
+.search__hit {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+}
+.search__hit--active { background: rgba(95, 211, 255, 0.11); box-shadow: inset 0 0 0 1px rgba(95, 211, 255, 0.22); }
+.search__hit-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.search__hit-title { font-size: 15px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search__hit-sub { font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search__hit mark { background: none; color: var(--accent); font-weight: 650; }
+.search__hit-go { flex: none; color: var(--ink-3); }
+.search__note { margin: 10px 12px 4px; font-size: 13px; }
+.search__foot {
+  display: flex; align-items: center; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--hairline);
+  font-size: 11.5px; color: var(--ink-3);
+}
+.search__foot kbd { margin-right: 3px; }
+@media (max-width: 640px), (hover: none) { .search__foot { display: none; } .search__input { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { .search { animation: none; } }

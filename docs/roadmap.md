@@ -80,13 +80,17 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Opens by itself 4–9 am until closed; dismissal is shared across devices; `/brief` any time
 - [ ] Check the news feeds and tool sections against the live server
 
+## Search everything ✅ (ADR 109)
+- [x] ⌘K / Ctrl+K palette: screens and calculators instantly; apps, home-screen widgets, links, Second Brain, Siris chats, APD PM, Engineering Archive, Reviewer, Standards, projects and SirisHydro from `/api/v1/search`
+- [x] Connector `search()` contract; per-source timeout, failures listed
+- [x] Deep links: `/assistant?c=`, `/brain?q=`, `/engineering/standards?q=`, `/engineering/hydro?q=`
+- [ ] Check APD PM and Archive search against the live apps
+
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.
 - Notifications aggregated from every app (SirisAI events, Archive review
   queue, APD PM overdue tasks).
-- A command palette that searches across apps (Second Brain, APD PM search,
-  Archive search).
 - More widgets for Neo Server and media apps, if they expose an API that's
   reachable from the server.
 - SirisHydro answer synthesis routed through SirisAI's model router instead

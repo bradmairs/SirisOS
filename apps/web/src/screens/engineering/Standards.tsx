@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ExternalLink, FileUp, RefreshCcw, Search } from "lucide-react";
 import { standards, type StandardDocument, type StandardHit } from "../../api/engineering";
 import { Glass } from "../../components/Glass";
@@ -13,6 +14,11 @@ export function Standards() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<{ id: string; page: number } | null>(null);
   const [upload, setUpload] = useState<{ replace?: StandardDocument } | null>(null);
+  const [params] = useSearchParams();
+  useEffect(() => {
+    const wanted = params.get("q");
+    if (wanted) setQuery(wanted);
+  }, [params]);
 
   const load = useCallback(async () => {
     try {

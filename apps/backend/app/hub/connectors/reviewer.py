@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from app.hub.connectors.base import Connector, ConnectorError, Metric, Widget, WidgetItem
+from app.hub.connectors.base import Connector, ConnectorError, Metric, SearchHit, Widget, WidgetItem
 
 SEVERE = ("critical", "major", "high")
 
@@ -53,3 +53,14 @@ class ReviewerConnector(Connector):
             items=items,
             empty="No reviews yet",
         )
+
+    async def search(self, client: httpx.AsyncClient, query: str) -> list[SearchHit]:
+        # No search API; the review list is short, so match its names here.
+        words = query.lower().split()
+        reviews = await self.get_json(client, "/api/reviews")
+        return [
+            SearchHit(title=str(r.get("name")), subtitle=f"Review · {r.get('status')}",
+                      url=f"{self.launch_url}/#/review/{r.get('id')}" if self.launch_url else None, kind="review")
+            for r in reviews
+            if all(w in str(r.get("name") or "").lower() for w in words)
+        ]

@@ -18,6 +18,11 @@ close it. It shows your day, the news picked from your Second Brain
 interests, and anything that needs a look
 ([ADR 108](docs/adr/108-daily-brief.md)).
 
+Press **⌘K** (or **Ctrl+K**, or the search button) to **search everything**:
+apps, widgets, links, Second Brain notes, Siris chats, APD PM, the Archive,
+the Reviewer and the engineering library, all in one list
+([ADR 109](docs/adr/109-search-everything.md)).
+
 This README is the project handover and [`docs/roadmap.md`](docs/roadmap.md)
 is the checklist. Update both whenever scope or status changes. The
 pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
@@ -89,14 +94,14 @@ cd apps/web && npm test && npm run build
 ## Repository layout
 
 - `apps/backend`: FastAPI. `app/main.py` handles health and sign-in,
-  `app/hub/` is the connector gateway, `app/brief/` the daily brief, and `app/api/` is the engineering
+  `app/hub/` is the connector gateway, `app/brief/` the daily brief, `app/search/` search everything, and `app/api/` is the engineering
   module (SirisHydro, calculations, standards, projects and their
   relationships). Engineering data is JSON and PDFs under `data/app` and
   `data/standards`.
 - `apps/web`: the React/TypeScript PWA. `src/glass/` is the Liquid Glass
   design system, `src/screens/` the screens, and `src/engineering/` the
   calculator library.
-- `docs/adr`: one ADR per decision. The newest is 108.
+- `docs/adr`: one ADR per decision. The newest is 109.
 - `deploy/`: nginx and supervisord config for the single app container.
 
 ## Status

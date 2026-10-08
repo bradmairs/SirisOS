@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import httpx
 
-from app.hub.connectors.base import Connector, Metric, Widget, WidgetItem
+from app.hub.connectors.base import Connector, Metric, SearchHit, Widget, WidgetItem
 
 
 class ArchiveConnector(Connector):
@@ -52,3 +52,22 @@ class ArchiveConnector(Connector):
             ],
             items=items,
         )
+
+    async def search(self, client: httpx.AsyncClient, query: str) -> list[SearchHit]:
+        # The Archive's API-key search: assets, media (EXIF, tags, AI captions) and files (incl. OCR text).
+        found = await self.get_json(client, "/api/external/search", params={"q": query})
+        base = self.launch_url
+        hits = []
+        for a in found.get("assets") or []:
+            hits.append(SearchHit(title=str(a.get("name")), subtitle=" · ".join(x for x in ("Asset", a.get("assetType")) if x),
+                                  url=f"{base}/assets/{a['id']}" if base else None, kind="asset"))
+        for m in found.get("media") or []:
+            where = (m.get("asset") or {}).get("name") or m.get("locationName")
+            when = str(m.get("capturedAt") or "")[:10]
+            hits.append(SearchHit(title=str(m.get("fileName")), subtitle=" · ".join(x for x in (str(m.get("kind") or "Media").capitalize(), where, when) if x),
+                                  url=f"{base}/media/{m['id']}" if base else None, kind="media"))
+        for f in found.get("files") or []:
+            where = (f.get("asset") or {}).get("name")
+            hits.append(SearchHit(title=str(f.get("fileName")), subtitle=" · ".join(x for x in ("File", f.get("category"), where) if x),
+                                  url=f"{base}/files" if base else None, kind="file"))
+        return hits
