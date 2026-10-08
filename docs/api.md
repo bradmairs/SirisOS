@@ -47,6 +47,8 @@ All routes require the SirisOS bearer token.
 | `POST /api/v1/brain/link` · `POST /api/v1/brain/not-related` · `POST /api/v1/brain/unlink` (`{a, b}`) | Link two notes, dismiss a suggestion, or disconnect two notes (never auto-linked again) |
 | `POST /api/v1/brain/autolink` | Link the pairs the brain is confident about now, rather than at the nightly tidy |
 | `GET /api/v1/brain/note?title=` | A note's links and backlinks |
+| `GET /api/v1/brief?fresh=` | The daily brief (ADR 108): `greeting`, `headline[]`, `weather {now, today}`, `schedule[]`, `tasks[]`, `todo[]`, `email {unread, important[]}`, `health[]`, `home[]`, `apps_attention[]`, `brain`, `news {topics[{topic, stories[{title, url, source, published, matches}]}], interests_from}`, `unavailable[]`, `status`. Cached 10 minutes |
+| `GET /api/v1/brief/status` · `POST /api/v1/brief/dismiss` | `{date, show, dismissed_today, from, until}`: whether the brief should open itself now; dismiss it for today (all devices) |
 
 `state` is `ok`, `degraded` (reachable, but wrong credentials or a missing
 dependency such as an LLM), `down` (unreachable or timed out) or

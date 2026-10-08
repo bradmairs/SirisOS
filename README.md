@@ -13,6 +13,11 @@ management. JEFIT owns the gym, Helmarr owns media and Neo Server owns the
 homelab. SirisOS links to all of them, monitors them and surfaces their
 data. See [ADR 106](docs/adr/106-sirisos-hub.md).
 
+Every morning a **daily brief** opens by itself until 9 am, or until you
+close it. It shows your day, the news picked from your Second Brain
+interests, and anything that needs a look
+([ADR 108](docs/adr/108-daily-brief.md)).
+
 This README is the project handover and [`docs/roadmap.md`](docs/roadmap.md)
 is the checklist. Update both whenever scope or status changes. The
 pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
@@ -67,6 +72,7 @@ first-time move to the hub build is covered step by step in
 | `GVW_URL` | GVW Timesheets |
 | `SIRISDRONE_URL` (+ optional `SIRISDRONE_USERNAME`/`SIRISDRONE_PASSWORD`) | SirisDrone Studio |
 | `HELMARR_URL`, `JEFIT_URL`, `NEO_SERVER_URL` | Launch targets. App URL schemes are fine |
+| `SIRISOS_TIMEZONE`, `SIRISOS_BRIEF_FROM_HOUR`, `SIRISOS_BRIEF_UNTIL_HOUR` | When the daily brief opens by itself (default 4–9 am, Australia/Melbourne) |
 
 Each app also has a `*_PUBLIC_URL`. It defaults to the same value as `*_URL`
 and is the address the launch link opens on your device.
@@ -83,14 +89,14 @@ cd apps/web && npm test && npm run build
 ## Repository layout
 
 - `apps/backend`: FastAPI. `app/main.py` handles health and sign-in,
-  `app/hub/` is the connector gateway, and `app/api/` is the engineering
+  `app/hub/` is the connector gateway, `app/brief/` the daily brief, and `app/api/` is the engineering
   module (SirisHydro, calculations, standards, projects and their
   relationships). Engineering data is JSON and PDFs under `data/app` and
   `data/standards`.
 - `apps/web`: the React/TypeScript PWA. `src/glass/` is the Liquid Glass
   design system, `src/screens/` the screens, and `src/engineering/` the
   calculator library.
-- `docs/adr`: one ADR per decision. The newest is 106.
+- `docs/adr`: one ADR per decision. The newest is 108.
 - `deploy/`: nginx and supervisord config for the single app container.
 
 ## Status

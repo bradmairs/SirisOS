@@ -284,3 +284,41 @@ body.no-scroll { overflow: hidden; }
 .connections__body { width: 100%; display: flex; flex-direction: column; gap: 6px; }
 .suggest__hint { margin: 0 0 4px; font-size: 13px; }
 .suggest__pending { gap: 10px; margin: 2px 0 6px; font-size: 14px; }
+
+/* -------------------------------------------------------- daily brief (ADR 108) */
+.brief-overlay {
+  position: fixed; inset: 0; z-index: 60; overflow-y: auto; overscroll-behavior: contain; outline: none;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  animation: fade-in 0.35s var(--ease);
+}
+.brief-overlay__inner {
+  max-width: 1180px; margin: 0 auto;
+  padding: calc(var(--safe-top) + 22px) var(--gutter) calc(var(--safe-bottom) + 40px);
+  animation: sheet-up 0.55s var(--spring);
+}
+@media (prefers-reduced-transparency: reduce) { .brief-overlay { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.brief-eyebrow-icon { vertical-align: -2px; margin-right: 6px; color: var(--accent); }
+.brief-view .item__title, .brief-view .item__subtitle { white-space: normal; overflow-wrap: anywhere; }
+.brief-view .item { align-items: flex-start; }
+.brief-view .item__dot { margin-top: 8px; }
+.brief-hero {
+  padding: 18px 22px 20px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: var(--glass-shadow), 0 0 28px color-mix(in srgb, var(--accent-glow) 45%, transparent);
+  display: flex; flex-direction: column; gap: 12px; animation: rise 0.6s var(--spring) both; }
+.brief-hero > * { position: relative; z-index: 2; }
+.brief-hero__lines { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.brief-hero__lines li { font-size: clamp(16px, 2.4vw, 19px); line-height: 1.4; font-weight: 500; padding-left: 18px; position: relative; }
+.brief-hero__lines li::before {
+  content: ""; position: absolute; left: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent-glow);
+}
+.brief-story { align-items: flex-start; }
+.brief-story__title { display: block; font-size: 15px; font-weight: 550; line-height: 1.35; }
+.brief-story__match { color: var(--brain); }
+.brief-story__out { flex: none; margin-top: 3px; color: var(--ink-3); }
+.brief-link { color: var(--accent); font-weight: 600; font-size: 14px; text-decoration: none; margin-top: auto; }
+.brief-footnote { margin: 12px 6px 0; font-size: 13px; }
+.brief-done { display: flex; justify-content: center; margin-top: 28px; }
+.brief-done .button { height: 52px; padding: 0 30px; font-size: 16px; }
+@media (max-width: 480px) { .brief-entry span { display: none; } .brief-entry { width: 36px; padding: 0; } }

@@ -74,6 +74,12 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] "Linked automatically" panel to review and undo recent auto links
 - [x] Unlink any connection from a note's Connections in Brain search; the pair is never auto-linked again
 
+## Daily brief ✅ (ADR 108)
+- [x] `GET /api/v1/brief`: weather, schedule, tasks, to-dos, email, home, health, apps needing a look and the Second Brain, from SirisAI's read-only tools, insights and the hub
+- [x] News for Brad: topics from the "Daily Briefing Preferences" note, ranked by the interests linked from his notes (Google News + ABC RSS)
+- [x] Opens by itself 4–9 am until closed; dismissal is shared across devices; `/brief` any time
+- [ ] Check the news feeds and tool sections against the live server
+
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.

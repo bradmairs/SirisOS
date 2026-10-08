@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { RefreshCw, Sparkles } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { RefreshCw, Sparkles, Sunrise } from "lucide-react";
 import { hub } from "../api/hub";
 import { useResource } from "../api/resource";
 import { session } from "../api/client";
@@ -77,9 +77,14 @@ export function Home() {
             {session.user() ? `, ${capitalise(session.user()!)}` : ""}
           </h1>
         </div>
-        <Glass as="button" shape="pill" interactive className="button button--icon" onClick={() => reload(true)} aria-label="Refresh">
-          <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" />
-        </Glass>
+        <div className="row">
+          <Glass as={Link} to="/brief" shape="pill" interactive className="button button--small brief-entry" aria-label="Today's brief">
+            <Sunrise aria-hidden="true" /> <span>Today's brief</span>
+          </Glass>
+          <Glass as="button" shape="pill" interactive className="button button--icon" onClick={() => reload(true)} aria-label="Refresh">
+            <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" />
+          </Glass>
+        </div>
       </header>
 
       <Glass as="form" shape="pill" className="ask-bar" onSubmit={submitAsk} role="search">
