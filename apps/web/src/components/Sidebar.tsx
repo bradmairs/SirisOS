@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Brain, House, LayoutGrid, LogOut, Ruler, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Brain, House, LayoutGrid, LogOut, Ruler, Sparkles, Sunrise, X } from "lucide-react";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
 import { Logo } from "./Logo";
@@ -63,6 +63,10 @@ export function Sidebar({
               <span>{label}</span>
             </NavLink>
           ))}
+          <NavLink to="/brief" className="sidebar__link">
+            <Sunrise size={19} aria-hidden="true" />
+            <span>Today's brief</span>
+          </NavLink>
         </nav>
 
         {launchable.length > 0 && (
