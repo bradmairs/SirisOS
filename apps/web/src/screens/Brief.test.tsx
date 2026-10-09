@@ -16,7 +16,7 @@ const BRIEF: Brief = {
   greeting: "Good morning, Brad",
   headline: ["21° today, showers, 70% chance of rain: take a jacket.", "2 things on today, starting with Site meeting at 9:30 am."],
   weather: { now: { temperature_c: 9.4, conditions: "Clear" }, today: { high_c: 21.4, low_c: 8, conditions: "Showers", rain_chance_percent: 70 } },
-  schedule: [{ title: "Site meeting", time: "9:30 am", location: "Shepparton" }],
+  schedule: [{ title: "Site meeting", time: "9:30 am", location: "Shepparton", calendar: "Gmail" }],
   tasks: [{ title: "Send RFI", detail: "Pump station · 2 days late", tone: "critical", source: "Second Brain" }],
   todo: ["Bins out"],
   email: { unread: 4, important: [{ from: "Jane Smith", subject: "Pump quote" }] },
@@ -59,7 +59,7 @@ describe("<BriefView />", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Good morning, Brad" })).toBeInTheDocument();
     const glance = screen.getByRole("region", { name: "At a glance" });
     expect(within(glance).getByText(/take a jacket/)).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Schedule" })).getByText("9:30 am · Shepparton")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Schedule" })).getByText("9:30 am · Gmail · Shepparton")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Tasks" })).getByText("Bins out")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Email" })).getByText("Pump quote")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Needs a look" })).getByText("Engineering Archive")).toBeInTheDocument();
