@@ -289,6 +289,9 @@ export function BriefView({ onClose }: { onClose?: () => void }) {
             </p>
           )}
 
+          {brief.guest_mode && (
+            <p className="muted brief-footnote">Guest mode is on, so your calendar, email, health and notes are left out.</p>
+          )}
           {brief.unavailable.length > 0 && (
             <p className="muted brief-footnote">Couldn't reach: {brief.unavailable.join(", ")}. Those sections are left out.</p>
           )}

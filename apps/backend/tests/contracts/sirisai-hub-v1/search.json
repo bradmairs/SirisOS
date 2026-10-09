@@ -1,0 +1,22 @@
+{
+  "query": "Hazen-Williams",
+  "hits": [
+    {
+      "kind": "note",
+      "title": "Hazen-Williams",
+      "snippet": "Friction headloss for water mains; C of 140 for new PVC.",
+      "ref": "Hazen-Williams",
+      "when": null,
+      "note_type": "concept"
+    },
+    {
+      "kind": "memory",
+      "title": "Brad's drainage reports use Hazen-Williams for water mains",
+      "snippet": "",
+      "ref": "1",
+      "when": "2026-10-09T07:41:23.471455",
+      "note_type": null
+    }
+  ],
+  "unavailable": []
+}

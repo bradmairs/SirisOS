@@ -11,7 +11,9 @@ import { Glass } from "../components/Glass";
 import { WidgetCard } from "../components/WidgetCard";
 import { AppSheet } from "./AppSheet";
 import { CareerWidget } from "./CareerWidget";
-import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ParcelsWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
+import { InboxPanel } from "../components/Inbox";
+import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
+import { CamerasWidget, CarWidget, EnergyWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
 
 const REFRESH_MS = 60_000;
 
@@ -27,8 +29,15 @@ export function greeting(date = new Date()): string {
  * sidebar, Home and Engineering (see api/resource.ts). */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function useApps(_widgets = true) {
-  const { data, error, loading, reload } = useResource("hub:apps", (fresh) => hub.apps({ widgets: true, fresh }), { refreshMs: REFRESH_MS });
-  return { apps: data ?? null, error: data ? null : error, refreshing: loading, reload: (fresh = false) => reload(fresh).catch(() => undefined) };
+  const { data, error, loading, reload } = useResource("hub:apps", (fresh) => hub.appsWithGuest({ widgets: true, fresh }), { refreshMs: REFRESH_MS });
+  return {
+    apps: data?.apps ?? null,
+    // SirisAI's guest mode (ADR 110): personal widgets are already left out by the hub.
+    guest: !!data?.guest_mode,
+    error: data ? null : error,
+    refreshing: loading,
+    reload: (fresh = false) => reload(fresh).catch(() => undefined),
+  };
 }
 
 export function AppGrid({ apps, onOpen }: { apps: HubApp[]; onOpen: (app: HubApp) => void }) {
@@ -51,8 +60,10 @@ export function AppGrid({ apps, onOpen }: { apps: HubApp[]; onOpen: (app: HubApp
 }
 
 export function Home() {
-  const { apps, error, refreshing, reload } = useApps(true);
+  const { apps, guest, error, refreshing, reload } = useApps(true);
   const { hud } = useHud();
+  const { widgets: siris, reload: reloadSiris } = useSirisWidgets();
+  const hideMine = guest || !!siris?.guest_mode;
   const [open, setOpen] = useState<HubApp | null>(null);
   const [ask, setAsk] = useState("");
   const navigate = useNavigate();
@@ -93,6 +104,11 @@ export function Home() {
         <input className="ask-bar__input" placeholder="Ask Siris anything…" value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask Siris" />
       </Glass>
 
+      {hideMine && (
+        <p className="guest-banner" role="status">Guest mode is on: your calendar, email, health and notes are hidden.</p>
+      )}
+      <InboxPanel />
+
       {error && <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{error}</div>}
       {attention > 0 && (
         <p className="muted" style={{ margin: "14px 6px 0" }}>
@@ -122,14 +138,25 @@ export function Home() {
         <>
           <h2 className="section-title">Today</h2>
           <div className="widget-grid">
-            {hud?.next_events && <ComingUpWidget events={hud.next_events} />}
-            <CareerWidget delay={30} />
+            {hud?.next_events && !hideMine && <ComingUpWidget events={hud.next_events} />}
+            {!hideMine && <CareerWidget delay={30} />}
             {widgets.map((app, i) => (
               <WidgetCard key={app.id} app={app} delay={i * 50} />
             ))}
             {hud?.autonomy && <ActivityWidget entries={hud.autonomy} />}
-            {hud?.parcels && hud.parcels.length > 0 && <ParcelsWidget parcels={hud.parcels} />}
+            {siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} />}
           </div>
+          {siris && (siris.protocols.length > 0 || siris.cameras.length > 0 || siris.car || siris.energy) && (
+            <>
+              <h2 className="section-title">Home</h2>
+              <div className="widget-grid">
+                {siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} />}
+                {siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} />}
+                {siris.car && <CarWidget car={siris.car} />}
+                {siris.energy && <EnergyWidget energy={siris.energy} />}
+              </div>
+            </>
+          )}
           {apps && apps.length > 0 && (
             <>
               <h2 className="section-title">Apps</h2>

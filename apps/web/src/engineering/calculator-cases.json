@@ -1,0 +1,1029 @@
+[
+  {
+    "calculator": "fullPipe",
+    "inputs": {
+      "d": 0.45,
+      "n": 0.013,
+      "s": 0.005
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.202 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "202 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.27 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "fullPipe",
+    "inputs": {
+      "d": 0.6165,
+      "n": 0.013,
+      "s": 0.00685
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.546 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "546 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.83 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "fullPipe",
+    "inputs": {
+      "d": 0.2745,
+      "n": 0.013,
+      "s": 0.00305
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.042 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "42 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "0.71 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "partFullPipe",
+    "inputs": {
+      "d": 0.6,
+      "y": 0.3,
+      "n": 0.013,
+      "s": 0.005
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.217 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "217 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.54 m/s"
+      },
+      {
+        "label": "Flow area",
+        "value": "0.141 m²"
+      }
+    ]
+  },
+  {
+    "calculator": "partFullPipe",
+    "inputs": {
+      "d": 0.822,
+      "y": 0.411,
+      "n": 0.013,
+      "s": 0.00685
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.588 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "588 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "2.22 m/s"
+      },
+      {
+        "label": "Flow area",
+        "value": "0.265 m²"
+      }
+    ]
+  },
+  {
+    "calculator": "partFullPipe",
+    "inputs": {
+      "d": 0.366,
+      "y": 0.183,
+      "n": 0.013,
+      "s": 0.00305
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.045 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "45 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "0.86 m/s"
+      },
+      {
+        "label": "Flow area",
+        "value": "0.053 m²"
+      }
+    ]
+  },
+  {
+    "calculator": "minimumGrade",
+    "inputs": {
+      "d": 0.45,
+      "n": 0.013,
+      "q": 0.2
+    },
+    "results": [
+      {
+        "label": "Required slope",
+        "value": "0.00492"
+      },
+      {
+        "label": "Required grade",
+        "value": "0.492%"
+      },
+      {
+        "label": "Equivalent",
+        "value": "1 in 203"
+      }
+    ]
+  },
+  {
+    "calculator": "minimumGrade",
+    "inputs": {
+      "d": 0.6165,
+      "n": 0.013,
+      "q": 0.274
+    },
+    "results": [
+      {
+        "label": "Required slope",
+        "value": "0.00172"
+      },
+      {
+        "label": "Required grade",
+        "value": "0.172%"
+      },
+      {
+        "label": "Equivalent",
+        "value": "1 in 580"
+      }
+    ]
+  },
+  {
+    "calculator": "minimumGrade",
+    "inputs": {
+      "d": 0.2745,
+      "n": 0.013,
+      "q": 0.122
+    },
+    "results": [
+      {
+        "label": "Required slope",
+        "value": "0.02556"
+      },
+      {
+        "label": "Required grade",
+        "value": "2.556%"
+      },
+      {
+        "label": "Equivalent",
+        "value": "1 in 39"
+      }
+    ]
+  },
+  {
+    "calculator": "rectangularChannel",
+    "inputs": {
+      "b": 1,
+      "y": 0.3,
+      "n": 0.015,
+      "s": 0.005
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.463 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "463 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.54 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "rectangularChannel",
+    "inputs": {
+      "b": 1.37,
+      "y": 0.411,
+      "n": 0.015,
+      "s": 0.00685
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "1.255 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "1255 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "2.23 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "rectangularChannel",
+    "inputs": {
+      "b": 0.61,
+      "y": 0.183,
+      "n": 0.015,
+      "s": 0.00305
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.097 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "97 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "0.87 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "trapezoidalChannel",
+    "inputs": {
+      "b": 1,
+      "y": 0.5,
+      "z": 2,
+      "n": 0.03,
+      "s": 0.005
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "1.077 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "1077 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.08 m/s"
+      },
+      {
+        "label": "Flow area",
+        "value": "1.000 m²"
+      }
+    ]
+  },
+  {
+    "calculator": "trapezoidalChannel",
+    "inputs": {
+      "b": 1.37,
+      "y": 0.685,
+      "z": 2.74,
+      "n": 0.03,
+      "s": 0.00685
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "3.411 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "3411 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.53 m/s"
+      },
+      {
+        "label": "Flow area",
+        "value": "2.224 m²"
+      }
+    ]
+  },
+  {
+    "calculator": "trapezoidalChannel",
+    "inputs": {
+      "b": 0.61,
+      "y": 0.305,
+      "z": 1.22,
+      "n": 0.03,
+      "s": 0.00305
+    },
+    "results": [
+      {
+        "label": "Flow",
+        "value": "0.183 m³/s"
+      },
+      {
+        "label": "Flow",
+        "value": "183 L/s"
+      },
+      {
+        "label": "Velocity",
+        "value": "0.61 m/s"
+      },
+      {
+        "label": "Flow area",
+        "value": "0.300 m²"
+      }
+    ]
+  },
+  {
+    "calculator": "criticalDepth",
+    "inputs": {
+      "q": 0.5,
+      "b": 1
+    },
+    "results": [
+      {
+        "label": "Critical depth",
+        "value": "0.294 m"
+      },
+      {
+        "label": "Critical velocity",
+        "value": "1.70 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "criticalDepth",
+    "inputs": {
+      "q": 0.685,
+      "b": 1.37
+    },
+    "results": [
+      {
+        "label": "Critical depth",
+        "value": "0.294 m"
+      },
+      {
+        "label": "Critical velocity",
+        "value": "1.70 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "criticalDepth",
+    "inputs": {
+      "q": 0.305,
+      "b": 0.61
+    },
+    "results": [
+      {
+        "label": "Critical depth",
+        "value": "0.294 m"
+      },
+      {
+        "label": "Critical velocity",
+        "value": "1.70 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "rationalMethod",
+    "inputs": {
+      "c": 0.8,
+      "i": 100,
+      "a": 1
+    },
+    "results": [
+      {
+        "label": "Peak flow",
+        "value": "0.222 m³/s"
+      },
+      {
+        "label": "Peak flow",
+        "value": "222 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "rationalMethod",
+    "inputs": {
+      "c": 0.8,
+      "i": 137,
+      "a": 1.37
+    },
+    "results": [
+      {
+        "label": "Peak flow",
+        "value": "0.417 m³/s"
+      },
+      {
+        "label": "Peak flow",
+        "value": "417 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "rationalMethod",
+    "inputs": {
+      "c": 0.8,
+      "i": 61,
+      "a": 0.61
+    },
+    "results": [
+      {
+        "label": "Peak flow",
+        "value": "0.083 m³/s"
+      },
+      {
+        "label": "Peak flow",
+        "value": "83 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "detention",
+    "inputs": {
+      "qi": 0.2,
+      "qo": 0.1,
+      "t": 30
+    },
+    "results": [
+      {
+        "label": "Required storage",
+        "value": "180.0 m³"
+      },
+      {
+        "label": "Excess flow",
+        "value": "100 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "detention",
+    "inputs": {
+      "qi": 0.274,
+      "qo": 0.137,
+      "t": 41.1
+    },
+    "results": [
+      {
+        "label": "Required storage",
+        "value": "337.8 m³"
+      },
+      {
+        "label": "Excess flow",
+        "value": "137 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "detention",
+    "inputs": {
+      "qi": 0.122,
+      "qo": 0.061,
+      "t": 18.3
+    },
+    "results": [
+      {
+        "label": "Required storage",
+        "value": "67.0 m³"
+      },
+      {
+        "label": "Excess flow",
+        "value": "61 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "weir",
+    "inputs": {
+      "cd": 0.62,
+      "b": 1,
+      "h": 0.3
+    },
+    "results": [
+      {
+        "label": "Discharge",
+        "value": "0.301 m³/s"
+      },
+      {
+        "label": "Discharge",
+        "value": "301 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "weir",
+    "inputs": {
+      "cd": 0.62,
+      "b": 1.37,
+      "h": 0.411
+    },
+    "results": [
+      {
+        "label": "Discharge",
+        "value": "0.661 m³/s"
+      },
+      {
+        "label": "Discharge",
+        "value": "661 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "weir",
+    "inputs": {
+      "cd": 0.62,
+      "b": 0.61,
+      "h": 0.183
+    },
+    "results": [
+      {
+        "label": "Discharge",
+        "value": "0.087 m³/s"
+      },
+      {
+        "label": "Discharge",
+        "value": "87 L/s"
+      }
+    ]
+  },
+  {
+    "calculator": "orifice",
+    "inputs": {
+      "cd": 0.62,
+      "d": 0.15,
+      "h": 1
+    },
+    "results": [
+      {
+        "label": "Discharge",
+        "value": "0.049 m³/s"
+      },
+      {
+        "label": "Discharge",
+        "value": "49 L/s"
+      },
+      {
+        "label": "Jet velocity",
+        "value": "2.75 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "orifice",
+    "inputs": {
+      "cd": 0.62,
+      "d": 0.2055,
+      "h": 1.37
+    },
+    "results": [
+      {
+        "label": "Discharge",
+        "value": "0.107 m³/s"
+      },
+      {
+        "label": "Discharge",
+        "value": "107 L/s"
+      },
+      {
+        "label": "Jet velocity",
+        "value": "3.21 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "orifice",
+    "inputs": {
+      "cd": 0.62,
+      "d": 0.0915,
+      "h": 0.61
+    },
+    "results": [
+      {
+        "label": "Discharge",
+        "value": "0.014 m³/s"
+      },
+      {
+        "label": "Discharge",
+        "value": "14 L/s"
+      },
+      {
+        "label": "Jet velocity",
+        "value": "2.14 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "hazenWilliams",
+    "inputs": {
+      "q": 0.05,
+      "d": 0.2,
+      "l": 100,
+      "c": 140
+    },
+    "results": [
+      {
+        "label": "Friction headloss",
+        "value": "1.12 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.59 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "hazenWilliams",
+    "inputs": {
+      "q": 0.0685,
+      "d": 0.274,
+      "l": 137,
+      "c": 191.8
+    },
+    "results": [
+      {
+        "label": "Friction headloss",
+        "value": "0.33 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.16 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "hazenWilliams",
+    "inputs": {
+      "q": 0.0305,
+      "d": 0.122,
+      "l": 61,
+      "c": 85.4
+    },
+    "results": [
+      {
+        "label": "Friction headloss",
+        "value": "7.56 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "2.61 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "darcyWeisbach",
+    "inputs": {
+      "q": 0.05,
+      "d": 0.2,
+      "l": 100,
+      "e": 0.045
+    },
+    "results": [
+      {
+        "label": "Friction headloss",
+        "value": "1.06 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.59 m/s"
+      },
+      {
+        "label": "Reynolds number",
+        "value": "317042"
+      },
+      {
+        "label": "Darcy friction factor",
+        "value": "0.0164"
+      }
+    ]
+  },
+  {
+    "calculator": "darcyWeisbach",
+    "inputs": {
+      "q": 0.0685,
+      "d": 0.274,
+      "l": 137,
+      "e": 0.06165
+    },
+    "results": [
+      {
+        "label": "Friction headloss",
+        "value": "0.56 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.16 m/s"
+      },
+      {
+        "label": "Reynolds number",
+        "value": "317042"
+      },
+      {
+        "label": "Darcy friction factor",
+        "value": "0.0164"
+      }
+    ]
+  },
+  {
+    "calculator": "darcyWeisbach",
+    "inputs": {
+      "q": 0.0305,
+      "d": 0.122,
+      "l": 61,
+      "e": 0.02745
+    },
+    "results": [
+      {
+        "label": "Friction headloss",
+        "value": "2.85 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "2.61 m/s"
+      },
+      {
+        "label": "Reynolds number",
+        "value": "317042"
+      },
+      {
+        "label": "Darcy friction factor",
+        "value": "0.0164"
+      }
+    ]
+  },
+  {
+    "calculator": "minorLoss",
+    "inputs": {
+      "q": 0.05,
+      "d": 0.2,
+      "k": 1.5
+    },
+    "results": [
+      {
+        "label": "Minor headloss",
+        "value": "0.194 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.59 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "minorLoss",
+    "inputs": {
+      "q": 0.0685,
+      "d": 0.274,
+      "k": 2.055
+    },
+    "results": [
+      {
+        "label": "Minor headloss",
+        "value": "0.141 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "1.16 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "minorLoss",
+    "inputs": {
+      "q": 0.0305,
+      "d": 0.122,
+      "k": 0.915
+    },
+    "results": [
+      {
+        "label": "Minor headloss",
+        "value": "0.318 m"
+      },
+      {
+        "label": "Velocity",
+        "value": "2.61 m/s"
+      }
+    ]
+  },
+  {
+    "calculator": "pumpPower",
+    "inputs": {
+      "q": 0.05,
+      "h": 20,
+      "e": 75
+    },
+    "results": [
+      {
+        "label": "Hydraulic power",
+        "value": "9.81 kW"
+      },
+      {
+        "label": "Estimated input power",
+        "value": "13.08 kW"
+      }
+    ]
+  },
+  {
+    "calculator": "pumpPower",
+    "inputs": {
+      "q": 0.0685,
+      "h": 27.4,
+      "e": 75
+    },
+    "results": [
+      {
+        "label": "Hydraulic power",
+        "value": "18.41 kW"
+      },
+      {
+        "label": "Estimated input power",
+        "value": "24.54 kW"
+      }
+    ]
+  },
+  {
+    "calculator": "pumpPower",
+    "inputs": {
+      "q": 0.0305,
+      "h": 12.2,
+      "e": 75
+    },
+    "results": [
+      {
+        "label": "Hydraulic power",
+        "value": "3.65 kW"
+      },
+      {
+        "label": "Estimated input power",
+        "value": "4.87 kW"
+      }
+    ]
+  },
+  {
+    "calculator": "buoyancy",
+    "inputs": {
+      "od": 0.55,
+      "id": 0.45,
+      "l": 1,
+      "pd": 2400,
+      "c": 0.75,
+      "g": 10
+    },
+    "results": [
+      {
+        "label": "Buoyant force",
+        "value": "2.3 kN"
+      },
+      {
+        "label": "Resisting force",
+        "value": "6.0 kN"
+      },
+      {
+        "label": "Factor of safety",
+        "value": "2.56"
+      },
+      {
+        "label": "Screening result",
+        "value": "Resisting > uplift"
+      }
+    ]
+  },
+  {
+    "calculator": "buoyancy",
+    "inputs": {
+      "od": 0.7535,
+      "id": 0.6165,
+      "l": 1.37,
+      "pd": 3288,
+      "c": 0.75,
+      "g": 13.7
+    },
+    "results": [
+      {
+        "label": "Buoyant force",
+        "value": "6.0 kN"
+      },
+      {
+        "label": "Resisting force",
+        "value": "17.1 kN"
+      },
+      {
+        "label": "Factor of safety",
+        "value": "2.86"
+      },
+      {
+        "label": "Screening result",
+        "value": "Resisting > uplift"
+      }
+    ]
+  },
+  {
+    "calculator": "buoyancy",
+    "inputs": {
+      "od": 0.3355,
+      "id": 0.2745,
+      "l": 0.61,
+      "pd": 1464,
+      "c": 0.75,
+      "g": 6.1
+    },
+    "results": [
+      {
+        "label": "Buoyant force",
+        "value": "0.5 kN"
+      },
+      {
+        "label": "Resisting force",
+        "value": "1.2 kN"
+      },
+      {
+        "label": "Factor of safety",
+        "value": "2.25"
+      },
+      {
+        "label": "Screening result",
+        "value": "Resisting > uplift"
+      }
+    ]
+  },
+  {
+    "calculator": "partFullPipe",
+    "inputs": {
+      "d": 0.3,
+      "y": 0.45,
+      "n": 0.013,
+      "s": 0.005
+    },
+    "error": "depth cannot exceed diameter"
+  },
+  {
+    "calculator": "rationalMethod",
+    "inputs": {
+      "c": 1.4,
+      "i": 100,
+      "a": 1
+    },
+    "error": "runoffCoefficient must be between 0 and 1"
+  },
+  {
+    "calculator": "fullPipe",
+    "inputs": {
+      "d": 0,
+      "n": 0.013,
+      "s": 0.005
+    },
+    "error": "diameter must be greater than zero"
+  },
+  {
+    "calculator": "buoyancy",
+    "inputs": {
+      "od": 0.45,
+      "id": 0.55,
+      "l": 1,
+      "pd": 2400,
+      "c": 0.75,
+      "g": 10
+    },
+    "error": "insideDiameter must be less than outsideDiameter"
+  },
+  {
+    "calculator": "pumpPower",
+    "inputs": {
+      "q": 0.05,
+      "h": 20,
+      "e": 120
+    },
+    "error": "efficiencyPercent must be > 0 and <= 100"
+  }
+]

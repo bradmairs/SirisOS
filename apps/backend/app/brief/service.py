@@ -4,12 +4,16 @@ app SirisOS knows about, and decides whether it should open by itself.
 Sources (each best-effort, with its own timeout; a dead one blanks only its
 own section, and is listed in `unavailable`):
 
-- SirisAI: HUD (weather now, parcels, car), and its read-only tools run
-  directly (no LLM, nothing added to a conversation): today's forecast, the
-  calendar, Home Assistant to-dos, unread email, health. The `daily_briefing`
-  skill is deliberately not used: it clears SirisAI's queued notifications.
-- Second Brain (via SirisAI): insights (overdue tasks, deadlines, inbox,
-  auto-links) and the notes that shape the news (see news.py).
+- SirisAI: its hub contract's brief (`GET /siris/hub/v1/brief`, ADR 110) --
+  weather, calendar, to-dos, email, health, car, parcels, power, the Second
+  Brain's tasks and links, and the attention count -- as data, in one call,
+  in a shape both repos test against (tests/contracts/sirisai-hub-v1/). An
+  older SirisAI without the contract (404) gets the previous path: its HUD
+  plus its read-only tools run by name, and brain insights. The
+  `daily_briefing` skill is never used: it clears SirisAI's queued
+  notifications.
+- Second Brain (via SirisAI): the notes that shape the news (see news.py).
+- Guest mode (SirisAI's): personal sections arrive empty and the brief says so.
 - Hub: APD PM's due tasks, and any app that's down or needs attention.
 - News: see news.py.
 
@@ -188,6 +192,44 @@ def _career() -> dict[str, Any] | None:
         "next_steps": ov["next_steps"][:3],
         "goals": [{"title": g["title"], "target_date": g["target_date"]} for g in ov["goals"][:3]],
     }
+def parts_from_hub(brief: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """SirisAI's hub v1 brief, as the parts compose() reads (the same parts
+    the older per-tool path produces), plus the sections it reported failed."""
+    weather = brief.get("weather") or {}
+    parts: dict[str, Any] = {
+        "hud": {
+            "weather": weather.get("now"),
+            "parcels": brief.get("parcels") or [],
+            "car": brief.get("car"),
+        },
+        "forecast": [weather["today"]] if weather.get("today") else None,
+        "calendar": [{"summary": e.get("title"), "start": e.get("start"), "location": e.get("location"), "calendar": e.get("calendar")}
+                     for e in brief.get("calendar") or []],
+        "todo": [{"items": [{"summary": t.get("summary")} for t in brief.get("todo") or []]}],
+        "email": None,
+        "health": brief.get("health") or {},
+        "energy": brief.get("energy"),
+        "attention": brief.get("attention"),
+        "guest_mode": bool(brief.get("guest_mode")),
+    }
+    email = brief.get("email")
+    if isinstance(email, dict):
+        important = [{"from": m.get("sender"), "subject": m.get("subject"), "important": True} for m in email.get("important") or []]
+        others = [{"from": "", "subject": "", "important": False}] * max(0, int(email.get("unread") or 0) - len(important))
+        parts["email"] = important + others
+    brain = brief.get("brain")
+    if isinstance(brain, dict):
+        parts["insights"] = {
+            "summary": {"inbox": brain.get("inbox", 0)},
+            "overdue_tasks": brain.get("overdue_tasks") or [],
+            "deadlines": brain.get("deadlines") or [],
+            "auto_linked": [{}] * int(brain.get("auto_linked") or 0),
+            "pending_auto_links": brain.get("pending_auto_links", 0),
+            "suggested_links": [{}] * int(brain.get("unsure_links") or 0),
+            "highlights": brain.get("highlights") or [],
+            "topics": [{"tag": t} for t in brain.get("topics") or []],
+        }
+    return parts, list(brief.get("unavailable") or [])
 
 
 def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -> dict[str, Any]:
@@ -237,6 +279,13 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
     car = hud.get("car")
     if isinstance(car, dict) and car.get("summary"):
         home.append(car["summary"] + (" Low and not plugged in." if car.get("low_battery") else ""))
+    energy = parts.get("energy")
+    if isinstance(energy, dict) and energy.get("configured"):
+        if energy.get("cheap_now"):
+            home.append("Power is cheap right now" + (f": {energy['reasons'][0]}" if energy.get("reasons") else "") + ".")
+        if energy.get("waiting_jobs"):
+            n = energy["waiting_jobs"]
+            home.append(f"{n} job{'s' if n != 1 else ''} waiting for cheap power.")
 
     health_lines = []
     metrics = health.get("metrics") or {}
@@ -258,7 +307,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
     if today_fc:
         line = f"{round(today_fc['high_c'])}° today, {str(today_fc.get('conditions', '')).lower()}" if today_fc.get("high_c") is not None else str(today_fc.get("conditions", ""))
         if (today_fc.get("rain_chance_percent") or 0) >= 40:
-            line += f", {today_fc['rain_chance_percent']}% chance of rain: take a jacket"
+            line += f", {round(today_fc['rain_chance_percent'])}% chance of rain: take a jacket"
         lines.append(line + ".")
     elif now_wx and now_wx.get("temperature_c") is not None:
         lines.append(f"{round(now_wx['temperature_c'])}° and {str(now_wx.get('conditions', '')).lower()} right now.")
@@ -278,6 +327,10 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         lines.append(f"{attention[0]['name']} needs a look ({attention[0]['state']}).")
     if brain["inbox"]:
         lines.append(f"{brain['inbox']} thing{'s' if brain['inbox'] != 1 else ''} waiting in the Second Brain inbox.")
+    attention_counts = parts.get("attention") if isinstance(parts.get("attention"), dict) else None
+    if attention_counts and attention_counts.get("urgent"):
+        n = attention_counts["urgent"]
+        lines.insert(0, f"{n} urgent thing{'s' if n != 1 else ''} in your inbox.")
 
     return {
         "date": at.date().isoformat(),
@@ -296,6 +349,8 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "brain": brain,
         "career": parts.get("career"),
         "news": parts.get("news") or {"topics": []},
+        "attention": attention_counts,
+        "guest_mode": bool(parts.get("guest_mode")),
         "unavailable": sorted(set(failed)),
         "status": status(at),
     }
@@ -325,8 +380,17 @@ class BriefService:
             async def insights() -> Any:
                 return await ai.get("/siris/brain/insights", days=7)
 
-            jobs: dict[str, Awaitable[Any]] = {"apps": hub.apps(with_widgets=True)}
+            hub_brief = None
             if ai:
+                try:
+                    hub_brief = await asyncio.wait_for(ai.get("/siris/hub/v1/brief"), SOURCE_TIMEOUT + 2)
+                except Exception as exc:  # noqa: BLE001 - fall back to the per-tool path below
+                    logger.info("SirisAI hub brief unavailable (%s); using its tools directly", exc)
+
+            jobs: dict[str, Awaitable[Any]] = {"apps": hub.apps(with_widgets=True)}
+            if ai and isinstance(hub_brief, dict):
+                pass
+            elif ai:
                 jobs.update({
                     "hud": ai.get("/siris/hud/summary"),
                     "forecast": ai.tool("weather_forecast", days=1),
@@ -339,6 +403,10 @@ class BriefService:
             names = list(jobs)
             values = await asyncio.gather(*(_safe(n, jobs[n], failed) for n in names))
             parts = dict(zip(names, values))
+            if isinstance(hub_brief, dict):
+                from_hub, hub_failed = parts_from_hub(hub_brief)
+                parts.update(from_hub)
+                failed.extend(hub_failed)
 
             hot = [t["tag"] for t in ((parts.get("insights") or {}).get("topics") or []) if isinstance(t, dict)]
 

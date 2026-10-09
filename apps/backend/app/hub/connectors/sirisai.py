@@ -20,8 +20,19 @@ class SirisAIConnector(Connector):
     env_prefix = "SIRISAI"
 
     def headers(self) -> dict[str, str]:
+        """The API key, plus who SirisOS is (ADR 110): `X-Siris-Client` names
+        SirisOS in SirisAI's audit log ("... in SirisOS"), and `X-Siris-User`
+        (SIRISAI_USER, opt-in) makes per-user data -- health, memories --
+        follow the person signed in here. Left unset, requests act as
+        SirisAI's default user, as before."""
+        out = {"X-Siris-Client": "SirisOS"}
         key = self.setting("API_KEY")
-        return {"Authorization": f"Bearer {key}"} if key else {}
+        if key:
+            out["Authorization"] = f"Bearer {key}"
+        user = self.setting("USER")
+        if user:
+            out["X-Siris-User"] = user
+        return out
 
     async def check(self, client: httpx.AsyncClient) -> str | None:
         status = await self.get_json(client, "/siris/status")

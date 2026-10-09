@@ -86,6 +86,19 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Deep links: `/assistant?c=`, `/brain?q=`, `/engineering/standards?q=`, `/engineering/hydro?q=`
 - [ ] Check APD PM and Archive search against the live apps
 
+## SirisAI integration v1 ✅ (ADR 110)
+- [x] SirisAI's hub contract (`/siris/hub/v1`): schema and examples copied in, tested here; 404 falls back to the old calls
+- [x] Daily brief from one contract call (fixed "70.0% chance of rain" on the way)
+- [x] Search: Second Brain, chats and memories from one SirisAI call
+- [x] Inbox: SirisAI's attention feed (alerts, approvals, suggestions, reviews) + apps down, APD PM overdue, Archive queue; live stream; server-side dismissals
+- [x] Home: protocols with preview, confirm and undo; cameras with "What's there?"; car; power; parcels
+- [x] Guest mode hides personal widgets and brief sections
+- [x] `X-Siris-Client` on every SirisAI call; opt-in `SIRISAI_USER`
+- [x] SirisAI's service key opens only the read/compute routes
+- [x] Calculators server-side, with 50 parity cases shared by both suites
+- [x] SirisHydro synthesis through SirisAI's model router (own Ollama as fallback)
+- [ ] Set `SIRISOS_SERVICE_KEY` / `SIRISAI_SIRISOS_SERVICE_KEY` on the server and check SirisAI's engineering tools live
+
 ## Career ✅ (ADR 111)
 - [x] Career tab: overview, CPD, pathways (EA membership, CPEng, NER, Victorian registration), Stage 2 competency evidence, goals
 - [x] CPD imported from Engineers Australia's export (CSV or Excel), re-importable without duplicates; rolling 3-year totals against the 150-hour requirement and its minimums
@@ -98,9 +111,5 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.
-- Notifications aggregated from every app (SirisAI events, Archive review
-  queue, APD PM overdue tasks).
 - More widgets for Neo Server and media apps, if they expose an API that's
   reachable from the server.
-- SirisHydro answer synthesis routed through SirisAI's model router instead
-  of SirisOS's own Ollama call.

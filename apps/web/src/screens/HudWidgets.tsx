@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, CalendarClock, Clock3, CloudSun, Cpu, Package, ShieldCheck } from "lucide-react";
+import { Activity, CalendarClock, Clock3, CloudSun, Cpu, ShieldCheck } from "lucide-react";
 import { assistant } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { HubApp, Hud } from "../api/types";
@@ -145,24 +145,6 @@ export function ActivityWidget({ entries, delay }: { entries: NonNullable<Hud["a
           ))}
         </ul>
       )}
-    </Card>
-  );
-}
-
-export function ParcelsWidget({ parcels, delay }: { parcels: NonNullable<Hud["parcels"]>; delay?: number }) {
-  return (
-    <Card title="Parcels" Icon={Package} delay={delay}>
-      <ul className="items">
-        {parcels.slice(0, 4).map((p, i) => (
-          <li key={i} className="item">
-            <span className="item__dot" aria-hidden="true" />
-            <span className="item__text">
-              <div className="item__title">{String(p.description ?? p.name ?? p.carrier ?? "Parcel")}</div>
-              {p.status != null && <div className="item__subtitle">{String(p.status)}</div>}
-            </span>
-          </li>
-        ))}
-      </ul>
     </Card>
   );
 }

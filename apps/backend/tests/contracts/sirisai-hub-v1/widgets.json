@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-10-09T07:41:23.437372+00:00",
+  "guest_mode": false,
+  "hidden": [],
+  "car": {
+    "name": "the car",
+    "summary": "24%, 96 km range, locked, at home",
+    "battery_percent": 24.0,
+    "range": 96.0,
+    "range_unit": "km",
+    "charging": false,
+    "plugged_in": false,
+    "locked": true,
+    "location": "home",
+    "low_battery": true
+  },
+  "parcels": [
+    {
+      "id": 1,
+      "label": "New drill",
+      "status": "InTransit",
+      "status_text": "in transit",
+      "carrier": "",
+      "eta": "2026-10-10",
+      "last_event": null
+    }
+  ],
+  "energy": {
+    "configured": true,
+    "cheap_now": false,
+    "reasons": [],
+    "solar_watts": null,
+    "price": null,
+    "next_cheap_window": "2026-10-10T00:00:00+00:00",
+    "waiting_jobs": 0
+  },
+  "protocols": [
+    {
+      "name": "lockdown",
+      "description": "Secure the house: lock every lock, close garage doors and gates, lights on at night, tell everyone.",
+      "builtin": true,
+      "steps": [
+        "Lock every lock",
+        "Close garage doors and gates",
+        "All lights on (deterrent)"
+      ]
+    },
+    {
+      "name": "away",
+      "description": "Everyone's out: lights and media off, doors locked, garage closed.",
+      "builtin": true,
+      "steps": [
+        "Lights off",
+        "Media off",
+        "Lock every lock",
+        "Close garage doors and gates"
+      ]
+    },
+    {
+      "name": "guest",
+      "description": "Visitors over: guest mode on for 24 hours (no personal info volunteered), guest Wi-Fi on.",
+      "builtin": true,
+      "steps": [
+        "Guest mode on"
+      ]
+    },
+    {
+      "name": "guest_off",
+      "description": "Visitors gone: guest mode off, guest Wi-Fi off.",
+      "builtin": true,
+      "steps": [
+        "Guest mode off"
+      ]
+    }
+  ],
+  "last_protocol": null,
+  "cameras": [],
+  "autonomy": {
+    "summary": "In the last 24 hours I took 1 action on my own.",
+    "items": [
+      {
+        "time": "2026-10-09T07:41:23.412639+00:00",
+        "local_time": "07:41",
+        "what": "Restarted plex",
+        "why": "self-healing: watched container 'plex' is down",
+        "tool": "docker_restart_container",
+        "outcome": "done",
+        "verified": true
+      }
+    ]
+  },
+  "attention": {
+    "open": 0,
+    "urgent": 0
+  },
+  "unavailable": []
+}

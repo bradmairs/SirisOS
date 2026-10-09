@@ -9,8 +9,6 @@ services:
       SIRISOS_ADMIN_PASSWORD: ${SIRISOS_ADMIN_PASSWORD:-change-this-password}
       SIRISOS_JWT_SECRET: ${SIRISOS_JWT_SECRET:-replace-with-a-long-random-secret}
       SIRISOS_JWT_EXPIRY_HOURS: ${SIRISOS_JWT_EXPIRY_HOURS:-24}
-      # SirisAI's read-only key (app/service_key.py); blank = off.
-      SIRISOS_SERVICE_KEY: ${SIRISOS_SERVICE_KEY:-}
       # Engineering module (SirisHydro answer synthesis is optional).
       OLLAMA_URL: ${OLLAMA_URL:-}
       SIRISOS_OLLAMA_CHAT_MODEL: ${SIRISOS_OLLAMA_CHAT_MODEL:-}
@@ -31,6 +29,11 @@ services:
       SIRISAI_URL: ${SIRISAI_URL:-}
       SIRISAI_API_KEY: ${SIRISAI_API_KEY:-}
       SIRISAI_PUBLIC_URL: ${SIRISAI_PUBLIC_URL:-}
+      # ADR 110: who to act as in SirisAI (opt-in), and the key SirisAI uses
+      # to read the engineering library and app states here.
+      SIRISAI_USER: ${SIRISAI_USER:-}
+      SIRISOS_SERVICE_KEY: ${SIRISOS_SERVICE_KEY:-}
+      SIRISOS_ATTENTION_STATE_PATH: /app/data/attention-state.json
       APD_PM_URL: ${APD_PM_URL:-}
       APD_PM_PUBLIC_URL: ${APD_PM_PUBLIC_URL:-}
       APD_PM_EMAIL: ${APD_PM_EMAIL:-}

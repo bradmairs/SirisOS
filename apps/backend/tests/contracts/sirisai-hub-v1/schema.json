@@ -1,0 +1,1894 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SirisAI hub contract",
+  "version": "1",
+  "endpoints": {
+    "info": {
+      "$ref": "#/$defs/HubInfo"
+    },
+    "brief": {
+      "$ref": "#/$defs/Brief"
+    },
+    "widgets": {
+      "$ref": "#/$defs/Widgets"
+    },
+    "search": {
+      "$ref": "#/$defs/SearchResults"
+    },
+    "attention": {
+      "$ref": "#/$defs/AttentionList"
+    },
+    "attention_act_request": {
+      "$ref": "#/$defs/AttentionActRequest"
+    },
+    "attention_act": {
+      "$ref": "#/$defs/AttentionActResult"
+    },
+    "attention_event": {
+      "$ref": "#/$defs/AttentionEvent"
+    },
+    "protocol_preview": {
+      "$ref": "#/$defs/ProtocolPreview"
+    },
+    "protocol_run_request": {
+      "$ref": "#/$defs/ProtocolRunRequest"
+    },
+    "protocol_run": {
+      "$ref": "#/$defs/ProtocolRunResult"
+    },
+    "camera_look_request": {
+      "$ref": "#/$defs/CameraLookRequest"
+    },
+    "camera_look": {
+      "$ref": "#/$defs/CameraLook"
+    },
+    "llm_complete_request": {
+      "$ref": "#/$defs/LLMCompleteRequest"
+    },
+    "llm_complete": {
+      "$ref": "#/$defs/LLMCompleteResult"
+    }
+  },
+  "$defs": {
+    "AttentionActRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "AttentionActRequest",
+      "type": "object"
+    },
+    "AttentionActResult": {
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/AttentionItem"
+        },
+        "result": {
+          "default": null,
+          "title": "Result"
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "title": "AttentionActResult",
+      "type": "object"
+    },
+    "AttentionAction": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Pass to POST .../attention/{item}/act.",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "style": {
+          "default": "secondary",
+          "enum": [
+            "primary",
+            "secondary",
+            "danger"
+          ],
+          "title": "Style",
+          "type": "string"
+        },
+        "confirm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "If set, ask the user this before acting.",
+          "title": "Confirm"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "AttentionAction",
+      "type": "object"
+    },
+    "AttentionCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "open": {
+          "default": 0,
+          "title": "Open",
+          "type": "integer"
+        },
+        "urgent": {
+          "default": 0,
+          "title": "Urgent",
+          "type": "integer"
+        }
+      },
+      "title": "AttentionCounts",
+      "type": "object"
+    },
+    "AttentionEvent": {
+      "additionalProperties": false,
+      "description": "One message on GET /siris/hub/v1/attention/stream (an SSE `data:` line).\n`snapshot` comes first with every open item; then `upsert` / `remove`.",
+      "properties": {
+        "type": {
+          "enum": [
+            "snapshot",
+            "upsert",
+            "remove"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AttentionItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/AttentionCounts"
+        }
+      },
+      "required": [
+        "type",
+        "counts"
+      ],
+      "title": "AttentionEvent",
+      "type": "object"
+    },
+    "AttentionItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "key": {
+          "description": "Stable identity of the underlying thing (a suggestion, a job, an alert).",
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "alert",
+            "confirm",
+            "suggestion",
+            "review",
+            "waiting",
+            "notice"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "urgent",
+            "attention",
+            "info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "body": {
+          "default": "",
+          "title": "Body",
+          "type": "string"
+        },
+        "source": {
+          "description": "What raised it, e.g. 'intruder_check', 'routines', 'habits'.",
+          "title": "Source",
+          "type": "string"
+        },
+        "link": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A hint where to look, e.g. 'brain:links' or 'cameras:front_door'.",
+          "title": "Link"
+        },
+        "actions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AttentionAction"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "done",
+            "dismissed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "kind",
+        "severity",
+        "title",
+        "source",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "AttentionItem",
+      "type": "object"
+    },
+    "AttentionList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/AttentionItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/AttentionCounts"
+        }
+      },
+      "required": [
+        "items",
+        "counts"
+      ],
+      "title": "AttentionList",
+      "type": "object"
+    },
+    "Autonomy": {
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AutonomyItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "Autonomy",
+      "type": "object"
+    },
+    "AutonomyItem": {
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "title": "Time",
+          "type": "string"
+        },
+        "local_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Time"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "why": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Why"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "outcome": {
+          "default": "done",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verified"
+        }
+      },
+      "required": [
+        "time",
+        "what",
+        "tool"
+      ],
+      "title": "AutonomyItem",
+      "type": "object"
+    },
+    "BrainSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "inbox": {
+          "default": 0,
+          "title": "Inbox",
+          "type": "integer"
+        },
+        "overdue_tasks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OverdueTask"
+          },
+          "title": "Overdue Tasks",
+          "type": "array"
+        },
+        "deadlines": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Deadline"
+          },
+          "title": "Deadlines",
+          "type": "array"
+        },
+        "auto_linked": {
+          "default": 0,
+          "title": "Auto Linked",
+          "type": "integer"
+        },
+        "pending_auto_links": {
+          "default": 0,
+          "title": "Pending Auto Links",
+          "type": "integer"
+        },
+        "unsure_links": {
+          "default": 0,
+          "title": "Unsure Links",
+          "type": "integer"
+        },
+        "highlights": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Highlights",
+          "type": "array"
+        },
+        "topics": {
+          "default": [],
+          "description": "Tags growing in the vault lately, most active first.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "title": "BrainSummary",
+      "type": "object"
+    },
+    "Brief": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "hidden": {
+          "description": "Sections left out because guest mode is on.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Hidden",
+          "type": "array"
+        },
+        "weather": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Weather"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "calendar": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CalendarEvent"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar"
+        },
+        "todo": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/TodoItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Todo"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmailSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "health": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HealthSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "car": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CarSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "parcels": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ParcelSummary"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parcels"
+        },
+        "energy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnergySummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "brain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BrainSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attention": {
+          "$ref": "#/$defs/AttentionCounts"
+        },
+        "unavailable": {
+          "description": "Configured sections that failed this time (each fails alone).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Unavailable",
+          "type": "array"
+        }
+      },
+      "required": [
+        "generated_at",
+        "guest_mode",
+        "hidden",
+        "attention",
+        "unavailable"
+      ],
+      "title": "Brief",
+      "type": "object"
+    },
+    "CalendarEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO date-time, or a bare date for all-day events.",
+          "title": "Start"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "all_day": {
+          "default": false,
+          "title": "All Day",
+          "type": "boolean"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "CalendarEvent",
+      "type": "object"
+    },
+    "CameraLook": {
+      "additionalProperties": false,
+      "properties": {
+        "camera": {
+          "title": "Camera",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question"
+        }
+      },
+      "required": [
+        "camera",
+        "description"
+      ],
+      "title": "CameraLook",
+      "type": "object"
+    },
+    "CameraLookRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question"
+        }
+      },
+      "title": "CameraLookRequest",
+      "type": "object"
+    },
+    "CarSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "battery_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Battery Percent"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range"
+        },
+        "range_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range Unit"
+        },
+        "charging": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Charging"
+        },
+        "plugged_in": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plugged In"
+        },
+        "locked": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locked"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "low_battery": {
+          "default": false,
+          "title": "Low Battery",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "summary"
+      ],
+      "title": "CarSummary",
+      "type": "object"
+    },
+    "Deadline": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "days_left": {
+          "title": "Days Left",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "title",
+        "days_left"
+      ],
+      "title": "Deadline",
+      "type": "object"
+    },
+    "EmailSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "unread": {
+          "title": "Unread",
+          "type": "integer"
+        },
+        "important": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ImportantEmail"
+          },
+          "title": "Important",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unread"
+      ],
+      "title": "EmailSummary",
+      "type": "object"
+    },
+    "EnergySummary": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "cheap_now": {
+          "title": "Cheap Now",
+          "type": "boolean"
+        },
+        "reasons": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "solar_watts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solar Watts"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price"
+        },
+        "next_cheap_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cheap Window"
+        },
+        "waiting_jobs": {
+          "default": 0,
+          "title": "Waiting Jobs",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "configured",
+        "cheap_now"
+      ],
+      "title": "EnergySummary",
+      "type": "object"
+    },
+    "ForecastDay": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "conditions": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conditions"
+        },
+        "high_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High C"
+        },
+        "low_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low C"
+        },
+        "rain_chance_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rain Chance Percent"
+        },
+        "precipitation_mm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Precipitation Mm"
+        }
+      },
+      "title": "ForecastDay",
+      "type": "object"
+    },
+    "HealthMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "latest": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Day"
+        },
+        "week_average": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Week Average"
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline"
+        }
+      },
+      "title": "HealthMetric",
+      "type": "object"
+    },
+    "HealthSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "metrics": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HealthMetric"
+          },
+          "default": {},
+          "title": "Metrics",
+          "type": "object"
+        },
+        "notes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "title": "HealthSummary",
+      "type": "object"
+    },
+    "HubInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "const": "1",
+          "default": "1",
+          "title": "Contract",
+          "type": "string"
+        },
+        "app": {
+          "const": "SirisAI",
+          "default": "SirisAI",
+          "title": "App",
+          "type": "string"
+        },
+        "user": {
+          "description": "Who the request is acting as (X-Siris-User, or 'default').",
+          "title": "User",
+          "type": "string"
+        },
+        "guest_mode": {
+          "description": "While on, personal sections are left out and should be hidden by the client too.",
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "guest_until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guest Until"
+        },
+        "features": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "description": "Which optional integrations are configured, by name.",
+          "title": "Features",
+          "type": "object"
+        },
+        "personal_sections": {
+          "description": "Brief/widget sections that are personal (hidden in guest mode).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Personal Sections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "user",
+        "guest_mode",
+        "features",
+        "personal_sections"
+      ],
+      "title": "HubInfo",
+      "type": "object"
+    },
+    "ImportantEmail": {
+      "additionalProperties": false,
+      "properties": {
+        "sender": {
+          "description": "Display name, falling back to the address.",
+          "title": "Sender",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "why": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Why",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sender",
+        "subject"
+      ],
+      "title": "ImportantEmail",
+      "type": "object"
+    },
+    "LLMCompleteRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "description": "Who is asking and why, e.g. 'sirishydro'. Logged.",
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Task",
+          "type": "string"
+        },
+        "system": {
+          "default": "",
+          "maxLength": 8000,
+          "title": "System",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 48000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "general",
+                "fast"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        }
+      },
+      "required": [
+        "task",
+        "prompt"
+      ],
+      "title": "LLMCompleteRequest",
+      "type": "object"
+    },
+    "LLMCompleteResult": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        }
+      },
+      "required": [
+        "text",
+        "role"
+      ],
+      "title": "LLMCompleteResult",
+      "type": "object"
+    },
+    "LastProtocolRun": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Protocol"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "undone": {
+          "default": false,
+          "title": "Undone",
+          "type": "boolean"
+        },
+        "can_undo": {
+          "default": false,
+          "title": "Can Undo",
+          "type": "boolean"
+        }
+      },
+      "title": "LastProtocolRun",
+      "type": "object"
+    },
+    "OverdueTask": {
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "days_late": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Days Late"
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "title": "OverdueTask",
+      "type": "object"
+    },
+    "ParcelSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "status_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status Text"
+        },
+        "carrier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Carrier"
+        },
+        "eta": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Eta"
+        },
+        "last_event": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Event"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ParcelSummary",
+      "type": "object"
+    },
+    "ProtocolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "builtin": {
+          "default": false,
+          "title": "Builtin",
+          "type": "boolean"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ProtocolInfo",
+      "type": "object"
+    },
+    "ProtocolPreview": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/ProtocolStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "steps"
+      ],
+      "title": "ProtocolPreview",
+      "type": "object"
+    },
+    "ProtocolRunRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmed": {
+          "default": false,
+          "description": "Protocols change locks, covers and modes: the user must confirm first.",
+          "title": "Confirmed",
+          "type": "boolean"
+        }
+      },
+      "title": "ProtocolRunRequest",
+      "type": "object"
+    },
+    "ProtocolRunResult": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ran": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Ran",
+          "type": "array"
+        },
+        "skipped": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "failed": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Failed",
+          "type": "array"
+        },
+        "can_undo": {
+          "default": false,
+          "title": "Can Undo",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ProtocolRunResult",
+      "type": "object"
+    },
+    "ProtocolStep": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "would_run": {
+          "title": "Would Run",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "label",
+        "tool",
+        "would_run"
+      ],
+      "title": "ProtocolStep",
+      "type": "object"
+    },
+    "SearchHit": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "note",
+            "chat",
+            "memory"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "snippet": {
+          "default": "",
+          "title": "Snippet",
+          "type": "string"
+        },
+        "ref": {
+          "description": "Note title, conversation id or memory id: what the client deep-links with.",
+          "title": "Ref",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "note_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note Type"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "ref"
+      ],
+      "title": "SearchHit",
+      "type": "object"
+    },
+    "SearchResults": {
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "title": "Query",
+          "type": "string"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/SearchHit"
+          },
+          "title": "Hits",
+          "type": "array"
+        },
+        "unavailable": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Unavailable",
+          "type": "array"
+        }
+      },
+      "required": [
+        "query",
+        "hits"
+      ],
+      "title": "SearchResults",
+      "type": "object"
+    },
+    "TodoItem": {
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "list": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "List"
+        },
+        "due": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Due"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "TodoItem",
+      "type": "object"
+    },
+    "Weather": {
+      "additionalProperties": false,
+      "properties": {
+        "now": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WeatherNow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "today": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForecastDay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Weather",
+      "type": "object"
+    },
+    "WeatherNow": {
+      "additionalProperties": false,
+      "properties": {
+        "temperature_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature C"
+        },
+        "conditions": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conditions"
+        },
+        "humidity_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Humidity Percent"
+        },
+        "wind_kmh": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wind Kmh"
+        }
+      },
+      "title": "WeatherNow",
+      "type": "object"
+    },
+    "Widgets": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "hidden": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hidden",
+          "type": "array"
+        },
+        "car": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CarSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "parcels": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ParcelSummary"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parcels"
+        },
+        "energy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnergySummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "protocols": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProtocolInfo"
+          },
+          "title": "Protocols",
+          "type": "array"
+        },
+        "last_protocol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LastProtocolRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cameras": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Cameras",
+          "type": "array"
+        },
+        "autonomy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Autonomy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attention": {
+          "$ref": "#/$defs/AttentionCounts"
+        },
+        "unavailable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unavailable",
+          "type": "array"
+        }
+      },
+      "required": [
+        "generated_at",
+        "guest_mode",
+        "hidden",
+        "attention",
+        "unavailable"
+      ],
+      "title": "Widgets",
+      "type": "object"
+    }
+  }
+}

@@ -1,6 +1,4 @@
-"""Service access for SirisAI. This module is taken unchanged from SirisAI's
-SirisOS integration patch (SirisAI deploy/patches/sirisos-adr110.patch,
-"ADR 110" there), with the career reads added to SERVICE_ROUTES.
+"""Service access for SirisAI (ADR 110).
 
 SirisAI is the only assistant, but the engineering library lives here, so
 SirisAI needs to read it: `Authorization: Bearer <SIRISOS_SERVICE_KEY>`.

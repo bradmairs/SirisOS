@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
+import httpx
 import jwt
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 from pydantic import BaseModel
@@ -236,6 +237,32 @@ def _record_history(
         pass
 
 
+async def synthesize(context_text: str) -> str | None:
+    """The cited answer, from SirisAI's model router when SirisAI is
+    configured (ADR 110: one model connection, audited there as task
+    'sirishydro'), else from SirisOS's own Ollama settings as before. Either
+    failing just means no synthesis: the evidence is still returned."""
+    from app.hub.connectors.sirisai import SirisAIConnector
+    from app.hub.service import get_hub, shared_client
+
+    connector = get_hub().get("sirisai")
+    if isinstance(connector, SirisAIConnector) and connector.configured:
+        try:
+            response = await shared_client().post(
+                f"{connector.base_url}/siris/hub/v1/llm/complete",
+                headers=connector.headers(),
+                json={"task": "sirishydro", "system": SYNTHESIS_SYSTEM_PROMPT, "prompt": context_text[:48000]},
+                timeout=90.0,
+            )
+            if response.status_code == 200:
+                text = (response.json().get("text") or "").strip()
+                if text:
+                    return text
+        except (httpx.HTTPError, ValueError):
+            pass
+    return await chat_client.complete(system=SYNTHESIS_SYSTEM_PROMPT, prompt=context_text)
+
+
 @router.get("/evidence", response_model=SirisHydroEvidenceResponse)
 async def sirishydro_evidence(
     authorization: Annotated[str | None, Header()] = None,
@@ -255,11 +282,7 @@ async def sirishydro_evidence(
         else "The private standards library did not establish this question. Upload or index the relevant source rather than relying on an invented standards answer."
     )
     context_text = _context_text(question_value, evidence)
-    synthesized_answer = (
-        await chat_client.complete(system=SYNTHESIS_SYSTEM_PROMPT, prompt=context_text)
-        if sufficient
-        else None
-    )
+    synthesized_answer = await synthesize(context_text) if sufficient else None
     _record_history(question_value, sufficient, evidence, synthesized_answer)
     return SirisHydroEvidenceResponse(
         question=question_value,
