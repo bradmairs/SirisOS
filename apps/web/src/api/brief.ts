@@ -30,7 +30,7 @@ export interface Brief {
     now: { temperature_c?: number; conditions?: string } | null;
     today: { high_c?: number; low_c?: number; conditions?: string; rain_chance_percent?: number } | null;
   };
-  schedule: { title: string; time: string; start?: string | null; location?: string | null }[];
+  schedule: { title: string; time: string; start?: string | null; location?: string | null; calendar?: string | null }[];
   tasks: { title: string; detail?: string | null; tone: Tone; source: string }[];
   todo: string[];
   email: { unread: number; important: { from: string; subject: string }[] } | null;

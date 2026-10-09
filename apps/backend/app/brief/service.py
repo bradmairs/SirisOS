@@ -151,16 +151,25 @@ async def _safe(name: str, work: Awaitable[Any], failed: list[str]) -> Any:
         return None
 
 
+# Media schedules from Home Assistant aren't Brad's day (SirisAI filters
+# them too; this covers an older SirisAI).
+MEDIA_CALENDARS = ("sonarr", "radarr", "lidarr", "readarr")
+
+
 def _calendar(events: Any) -> list[dict[str, Any]]:
     out = []
     for e in events if isinstance(events, list) else []:
         if not isinstance(e, dict):
             continue
+        calendar = str(e.get("calendar") or "")
+        if any(m in calendar.lower() for m in MEDIA_CALENDARS):
+            continue
         title = e.get("summary") or e.get("title") or e.get("message") or "Event"
         start = e.get("start")
         if isinstance(start, dict):  # Home Assistant shape: {"dateTime"} or {"date"}
             start = start.get("dateTime") or start.get("date")
-        out.append({"title": str(title), "time": _time(start), "start": start, "location": e.get("location")})
+        out.append({"title": str(title), "time": _time(start), "start": start, "location": e.get("location"),
+                    "calendar": calendar or None})
     return sorted(out, key=lambda e: (e["time"] != "All day", str(e.get("start") or "")))
 
 

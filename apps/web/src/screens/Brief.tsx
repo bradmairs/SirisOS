@@ -170,7 +170,7 @@ export function BriefView({ onClose }: { onClose?: () => void }) {
               {brief.schedule.length ? (
                 <ul className="items">
                   {brief.schedule.map((e, i) => (
-                    <Row key={`${e.title}-${i}`} title={e.title} subtitle={[e.time, e.location].filter(Boolean).join(" · ")} />
+                    <Row key={`${e.title}-${i}`} title={e.title} subtitle={[e.time, e.calendar, e.location].filter(Boolean).join(" · ")} />
                   ))}
                 </ul>
               ) : (

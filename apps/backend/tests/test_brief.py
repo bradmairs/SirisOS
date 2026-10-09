@@ -197,8 +197,9 @@ def test_compose_writes_the_headline_from_every_source(state) -> None:
                 "parcels": [{"label": "Bunnings order", "status_text": "out for delivery"}],
                 "car": {"summary": "Car at 18%.", "low_battery": True}},
         "forecast": [{"high_c": 21.4, "low_c": 8, "conditions": "Showers", "rain_chance_percent": 70}],
-        "calendar": [{"summary": "School pickup", "start": "2026-10-08"},
-                     {"summary": "Site meeting", "start": "2026-10-08T09:30:00+11:00", "location": "Shepparton"}],
+        "calendar": [{"summary": "School pickup", "start": "2026-10-08", "calendar": "iCloud Family"},
+                     {"summary": "Site meeting", "start": "2026-10-08T09:30:00+11:00", "location": "Shepparton", "calendar": "Gmail"},
+                     {"summary": "The Bear S04E01", "start": "2026-10-08T20:00:00+11:00", "calendar": "Sonarr"}],
         "todo": [{"name": "Shopping", "items": [{"summary": "Milk"}, {"summary": ""}]}],
         "email": [{"from": "Jane Smith <jane@x.com>", "subject": "Pump quote", "important": True},
                   {"from": "news@x.com", "subject": "Newsletter", "important": False}],
@@ -223,7 +224,8 @@ def test_compose_writes_the_headline_from_every_source(state) -> None:
         "Engineering Archive needs a look (down).",
         "3 things waiting in the Second Brain inbox.",
     ]
-    assert [e["title"] for e in brief["schedule"]] == ["School pickup", "Site meeting"]
+    assert [e["title"] for e in brief["schedule"]] == ["School pickup", "Site meeting"]  # no Sonarr
+    assert [e["calendar"] for e in brief["schedule"]] == ["iCloud Family", "Gmail"]
     assert [t["source"] for t in brief["tasks"]] == ["Second Brain", "Second Brain", "Project Management"]
     assert brief["todo"] == ["Milk"]
     assert brief["email"] == {"unread": 2, "important": [{"from": "Jane Smith", "subject": "Pump quote"}]}

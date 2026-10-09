@@ -28,7 +28,7 @@ is cached for 10 minutes; pass `?fresh=true` to rebuild it.
 | Section | Source |
 | --- | --- |
 | Weather now / today | SirisAI HUD; the `weather_forecast` tool |
-| Schedule | `calendar_upcoming_events` (CalDAV), or `home_assistant_get_calendar_events` if CalDAV isn't set up |
+| Schedule | `calendar_upcoming_events`: Gmail (secret iCal address) and iCloud (CalDAV), merged by SirisAI ("Connecting your calendars" in its README); `home_assistant_get_calendar_events` only if neither is set up. Sonarr/Radarr/Lidarr/Readarr calendars are never shown, and each event names its calendar |
 | Tasks | Second Brain insights (overdue tasks, deadlines within 7 days) and APD PM's overdue or due-soon items |
 | To-do | `home_assistant_get_todo_items` |
 | Email | `email_list_unread` (last day; important ones listed) |
