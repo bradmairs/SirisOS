@@ -1,4 +1,4 @@
-"""CPD from Engineers Australia (ADR 110).
+"""CPD from Engineers Australia (ADR 111).
 
 Brad logs CPD once, in Engineers Australia's portal ("Record my CPD"). It
 has no API, but it exports the record: filter by date, then export as a

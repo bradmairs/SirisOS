@@ -6,12 +6,13 @@ import { Glass } from "./Glass";
 import { Logo } from "./Logo";
 import { hueFor, iconFor } from "./icons";
 
-export const NAV: { to: string; label: string; short?: string; Icon: typeof House; end: boolean }[] = [
+/** Every screen, in the sidebar. `dock: false` keeps one off the phone tab bar, which fits five. */
+export const NAV: { to: string; label: string; Icon: typeof House; end: boolean; dock?: boolean }[] = [
   { to: "/", label: "Home", Icon: House, end: true },
   { to: "/assistant", label: "Siris", Icon: Sparkles, end: false },
   { to: "/brain", label: "Brain", Icon: Brain, end: false },
   { to: "/links", label: "Links", Icon: LayoutGrid, end: false },
-  { to: "/engineering", label: "Engineering", short: "Eng", Icon: Ruler, end: false },
+  { to: "/engineering", label: "Engineering", Icon: Ruler, end: false, dock: false },
   { to: "/career", label: "Career", Icon: Award, end: false },
 ];
 

@@ -1,4 +1,4 @@
-"""The career document (ADR 110): one JSON file, written atomically, seeded
+"""The career document (ADR 111): one JSON file, written atomically, seeded
 from defaults.py the first time it's read.
 
 What Brad edits here (pathway progress, goals, evidence) lives in this file.

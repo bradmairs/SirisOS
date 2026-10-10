@@ -1,4 +1,4 @@
-# ADR 110: Career development module
+# ADR 111: Career development module
 
 ## Status
 
@@ -103,6 +103,24 @@ October 2026. Each pathway links to its body's page so it can be checked.
   then. There's no live sync, because there's no API to sync with.
 - The export's real column names are unverified. The importer is
   deliberately loose, and its error message says which columns it expected.
-- Planned next: a SirisAI tool so Siris can answer "how's my CPD?" and
-  "what's my next chartership step?", and drafting competency claims from
-  tagged evidence into Second Brain notes.
+- Planned next: drafting competency claims from tagged evidence into
+  Second Brain notes.
+
+## Amendment (2026-10-10)
+
+### SirisAI reads the career record
+
+SirisAI's `career_cpd_status` and `career_chartership_status` tools call
+`GET /api/v1/career` with SirisOS's service key (`SIRISOS_SERVICE_KEY`,
+the same value as SirisAI's `SIRISAI_SIRISOS_SERVICE_KEY`).
+
+`app/service_key.py` is taken unchanged from SirisAI's SirisOS integration
+patch, plus the two career reads. It opens only the allowlisted read and
+compute routes, never anything that changes data.
+
+### Dock
+
+The phone dock holds five items: Home, Siris, Brain, Links and Career.
+Engineering stays in the menu and search. On phones (640 px wide and
+under), the dock spans the screen and its items share the width evenly,
+so it can't run off the edge. A 430 px Pro Max showed that it could.

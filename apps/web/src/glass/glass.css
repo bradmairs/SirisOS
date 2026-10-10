@@ -376,10 +376,14 @@ a {
   to { transform: scale(1); opacity: 1; }
 }
 
-@media (max-width: 420px) {
-  .dock__item { min-width: 0; padding: 0 12px; flex: 1; font-size: 10.5px; letter-spacing: 0; }
-  .dock { gap: 0; }
+/* Phones: the dock spans the screen and its items share it evenly, so it
+   never runs off the edge whatever the width (a Pro Max is 430px). */
+@media (max-width: 640px) {
+  .dock { width: calc(100vw - 2 * var(--gutter)); gap: 0; }
+  .dock__item { min-width: 0; padding: 0 6px; flex: 1 1 0; letter-spacing: 0; }
+  .dock__item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+@media (max-width: 380px) { .dock__item { font-size: 10.5px; } }
 
 /* -------------------------------------------------------------------- sheet */
 
