@@ -1,4 +1,4 @@
-"""Career module (ADR 110): Engineers Australia CPD import, the rolling
+"""Career module (ADR 111): Engineers Australia CPD import, the rolling
 three-year summary, pathways, evidence and goals."""
 
 from __future__ import annotations
@@ -211,3 +211,27 @@ def test_search_and_brief_see_career(client, career_file) -> None:
     brief = brief_service._career()
     assert brief["cpd"]["records"] == 5 and brief["goals"] == [{"title": "Chartered by mid 2027", "target_date": None}]
     assert brief["next_steps"][0]["detail"] == "Engineers Australia membership"
+
+
+def test_sirisai_service_key_reads_but_never_writes(client, career_file, monkeypatch) -> None:
+    key = "k" * 32  # the key must be 24+ characters
+    service = {"Authorization": f"Bearer {key}"}
+    # Off until it's set, and refused when too short to be a real secret.
+    assert client.get("/api/v1/career/overview", headers=service).status_code == 401
+    monkeypatch.setenv("SIRISOS_SERVICE_KEY", "short")
+    assert client.get("/api/v1/career/overview", headers={"Authorization": "Bearer short"}).status_code == 401
+
+    monkeypatch.setenv("SIRISOS_SERVICE_KEY", key)
+    assert client.get("/api/v1/career/overview", headers=service).status_code == 200
+    assert client.get("/api/v1/career", headers=service).status_code == 200
+    assert client.get("/api/v1/hub/apps", headers=service).status_code == 200
+    doc = client.get("/api/v1/career", headers=service).json()["document"]
+    edit = {k: doc[k] for k in ("profile", "pathways", "evidence", "goals")}
+    assert client.put("/api/v1/career", json=edit, headers=service).status_code == 403
+    files = {"file": ("ea.csv", EA_CSV.encode(), "text/csv")}
+    assert client.post("/api/v1/career/cpd/import", files=files, headers=service).status_code == 403
+    assert client.get("/api/v1/career", headers={"Authorization": "Bearer wrong-key-wrong-key-wrong"}).status_code == 401
+    # Only allowlisted reads: not the brief, not anything else.
+    assert client.get("/api/v1/brief/status", headers=service).status_code == 403
+    # Brad's own session still writes.
+    assert client.put("/api/v1/career", json=edit, headers=AUTH).status_code == 200

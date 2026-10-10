@@ -4,7 +4,7 @@ import { career, type CareerOverview } from "../api/career";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 
-/** Home: CPD in the last 3 years and the next career step (ADR 110). */
+/** Home: CPD in the last 3 years and the next career step (ADR 111). */
 export function CareerWidget({ delay = 0 }: { delay?: number }) {
   const { data } = useResource<CareerOverview>("career:overview", () => career.overview(), { staleMs: 60_000 });
   if (!data) return null;

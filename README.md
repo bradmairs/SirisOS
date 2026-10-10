@@ -27,7 +27,7 @@ The **Career** tab tracks the path to Chartered (CPEng), the National
 Engineering Register and registration in Victoria. It maps evidence to the
 16 Stage 2 competencies, keeps goals and next steps, and shows CPD against
 the 150-hour requirement. CPD is imported from Engineers Australia's own
-export, so it's only ever logged there ([ADR 110](docs/adr/110-career.md)).
+export, so it's only ever logged there ([ADR 111](docs/adr/111-career.md)).
 
 This README is the project handover and [`docs/roadmap.md`](docs/roadmap.md)
 is the checklist. Update both whenever scope or status changes. The

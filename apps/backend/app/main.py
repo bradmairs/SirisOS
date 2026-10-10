@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.auth import JWT_ALGORITHM, CurrentUser
+from app.service_key import ServiceKeyMiddleware
 
 API_VERSION = "1.0.0"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
@@ -48,6 +49,8 @@ app = FastAPI(
     version=API_VERSION,
 )
 
+# SirisAI's service key opens a few read/compute routes (app/service_key.py).
+app.add_middleware(ServiceKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -9,6 +9,8 @@ services:
       SIRISOS_ADMIN_PASSWORD: ${SIRISOS_ADMIN_PASSWORD:-change-this-password}
       SIRISOS_JWT_SECRET: ${SIRISOS_JWT_SECRET:-replace-with-a-long-random-secret}
       SIRISOS_JWT_EXPIRY_HOURS: ${SIRISOS_JWT_EXPIRY_HOURS:-24}
+      # SirisAI's read-only key (app/service_key.py); blank = off.
+      SIRISOS_SERVICE_KEY: ${SIRISOS_SERVICE_KEY:-}
       # Engineering module (SirisHydro answer synthesis is optional).
       OLLAMA_URL: ${OLLAMA_URL:-}
       SIRISOS_OLLAMA_CHAT_MODEL: ${SIRISOS_OLLAMA_CHAT_MODEL:-}

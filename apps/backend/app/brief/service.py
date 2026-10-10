@@ -174,7 +174,7 @@ def _calendar(events: Any) -> list[dict[str, Any]]:
 
 
 def _career() -> dict[str, Any] | None:
-    """CPD and the next career step (ADR 110), from SirisOS's own career file."""
+    """CPD and the next career step (ADR 111), from SirisOS's own career file."""
     from app.career import api as career_api, store as career_store
 
     try:

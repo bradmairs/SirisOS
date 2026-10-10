@@ -222,7 +222,7 @@ def engineering_source(query: str) -> list[dict[str, Any]]:
 
 
 def career_source(query: str) -> list[dict[str, Any]]:
-    """Goals, competency evidence, pathway steps and CPD activities (ADR 110)."""
+    """Goals, competency evidence, pathway steps and CPD activities (ADR 111)."""
     from app.career import store as career_store
 
     doc = career_store.load()

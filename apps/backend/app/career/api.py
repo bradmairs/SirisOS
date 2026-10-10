@@ -1,4 +1,4 @@
-"""Career API (ADR 110): pathways to Chartered and registration, competency
+"""Career API (ADR 111): pathways to Chartered and registration, competency
 evidence, goals, and CPD imported from Engineers Australia."""
 
 from __future__ import annotations

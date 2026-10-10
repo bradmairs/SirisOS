@@ -378,7 +378,7 @@ body.no-scroll { overflow: hidden; }
 @media (max-width: 640px), (hover: none) { .search__foot { display: none; } .search__input { font-size: 17px; } }
 @media (prefers-reduced-motion: reduce) { .search { animation: none; } }
 
-/* ------------------------------------------------------------- career (ADR 110) */
+/* ------------------------------------------------------------- career (ADR 111) */
 .career-views { flex-wrap: wrap; gap: 8px; margin: -6px 4px 4px; }
 .career-wrap { white-space: normal !important; overflow-wrap: anywhere; }
 .item__text > span.item__title, .item__text > span.item__subtitle { display: block; }
@@ -423,7 +423,3 @@ body.no-scroll { overflow: hidden; }
 .career-select { height: 36px; width: auto; min-width: 190px; padding: 0 12px; font-size: 13.5px; }
 .career-goal--quiet { opacity: 0.6; }
 @media (max-width: 640px) { .career-cpd .career-cpd__cat { width: 100%; } .career-select { width: 100%; } }
-
-/* Six dock items: long labels give way on narrow phones. */
-.dock__label--short { display: none; }
-@media (max-width: 420px) { .dock__label--long { display: none; } .dock__label--short { display: inline; } }
