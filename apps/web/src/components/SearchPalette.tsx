@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { useNavigate } from "react-router-dom";
 import {
   ArrowUpRight,
+  Award,
   Brain,
   Calculator,
   Clock3,
@@ -33,6 +34,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   ruler: Ruler,
   calculator: Calculator,
   goto: CornerDownLeft,
+  award: Award,
 };
 
 const SCREENS: { title: string; subtitle: string; url: string; words?: string }[] = [
@@ -42,6 +44,10 @@ const SCREENS: { title: string; subtitle: string; url: string; words?: string }[
   { title: "Calculators", subtitle: "Engineering", url: "/engineering/calculators", words: "calc" },
   { title: "Standards Library", subtitle: "Engineering", url: "/engineering/standards", words: "pdf guidelines" },
   { title: "Projects", subtitle: "Engineering", url: "/engineering/projects", words: "" },
+  { title: "CPD", subtitle: "Career", url: "/career?view=cpd", words: "engineers australia hours continuing professional development" },
+  { title: "Chartered pathway", subtitle: "Career", url: "/career?view=pathways", words: "cpeng chartership ner registration rpe victoria" },
+  { title: "Competencies", subtitle: "Career", url: "/career?view=competencies", words: "stage 2 elements evidence" },
+  { title: "Career goals", subtitle: "Career", url: "/career?view=goals", words: "next steps" },
 ];
 
 export function words(q: string): string[] {

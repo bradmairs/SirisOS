@@ -86,6 +86,14 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Deep links: `/assistant?c=`, `/brain?q=`, `/engineering/standards?q=`, `/engineering/hydro?q=`
 - [ ] Check APD PM and Archive search against the live apps
 
+## Career ✅ (ADR 110)
+- [x] Career tab: overview, CPD, pathways (EA membership, CPEng, NER, Victorian registration), Stage 2 competency evidence, goals
+- [x] CPD imported from Engineers Australia's export (CSV or Excel), re-importable without duplicates; rolling 3-year totals against the 150-hour requirement and its minimums
+- [x] Home widget, daily brief card, search results
+- [ ] Check the importer against a real Engineers Australia export
+- [ ] SirisAI tool: CPD status and next chartership step in chat
+- [ ] Draft competency claims from tagged evidence into the Second Brain
+
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.

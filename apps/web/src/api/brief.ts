@@ -38,6 +38,11 @@ export interface Brief {
   home: string[];
   apps_attention: { name: string; state: string; detail: string }[];
   brain: { inbox: number; auto_linked: number; pending_links: number; unsure_links: number; highlights: string[] };
+  career?: {
+    cpd: { total: number; required: number; records: number; expiring_90_days: number };
+    next_steps: { title: string; detail: string; kind: string }[];
+    goals: { title: string; target_date: string | null }[];
+  } | null;
   news: { topics: { topic: string; stories: BriefStory[] }[]; interests_from?: string; feeds_failed?: number; feeds_total?: number };
   unavailable: string[];
   status: BriefStatus;

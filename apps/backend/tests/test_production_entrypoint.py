@@ -14,6 +14,7 @@ def test_entrypoint_registers_modular_platform_routers() -> None:
         "hub_router",
         "brief_router",
         "search_router",
+        "career_router",
         "links_router",
         "engineering_calculations_router",
         "engineering_standards_router",

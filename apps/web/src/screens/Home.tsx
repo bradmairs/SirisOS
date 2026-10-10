@@ -10,6 +10,7 @@ import { AppIcon } from "../components/AppIcon";
 import { Glass } from "../components/Glass";
 import { WidgetCard } from "../components/WidgetCard";
 import { AppSheet } from "./AppSheet";
+import { CareerWidget } from "./CareerWidget";
 import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ParcelsWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
 
 const REFRESH_MS = 60_000;
@@ -122,6 +123,7 @@ export function Home() {
           <h2 className="section-title">Today</h2>
           <div className="widget-grid">
             {hud?.next_events && <ComingUpWidget events={hud.next_events} />}
+            <CareerWidget delay={30} />
             {widgets.map((app, i) => (
               <WidgetCard key={app.id} app={app} delay={i * 50} />
             ))}

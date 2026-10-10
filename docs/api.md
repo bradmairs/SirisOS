@@ -50,6 +50,9 @@ All routes require the SirisOS bearer token.
 | `GET /api/v1/brief?fresh=` | The daily brief (ADR 108): `greeting`, `headline[]`, `weather {now, today}`, `schedule[]`, `tasks[]`, `todo[]`, `email {unread, important[]}`, `health[]`, `home[]`, `apps_attention[]`, `brain`, `news {topics[{topic, stories[{title, url, source, published, matches}]}], interests_from}`, `unavailable[]`, `status`. Cached 10 minutes |
 | `GET /api/v1/brief/status` · `POST /api/v1/brief/dismiss` | `{date, show, dismissed_today, from, until}`: whether the brief should open itself now; dismiss it for today (all devices) |
 | `GET /api/v1/search?q=` | Search everything (ADR 109): `{query, groups[{id, label, icon, best, hits[{title, subtitle, url, external, kind, app_id, score}]}], failed[], took_ms}`. Two characters minimum; each source has a 4 s timeout |
+| `GET /api/v1/career` · `GET /api/v1/career/overview` | Career (ADR 110): `{document, overview}`. The document holds profile, pathways and steps, Stage 2 elements, evidence, goals and CPD records. The overview has CPD totals over the rolling 3 years, pathway progress, competency counts and gaps, goals and `next_steps` |
+| `PUT /api/v1/career` | Save the profile, pathways, evidence and goals (never CPD) |
+| `POST /api/v1/career/cpd/import` (multipart `file`) · `PUT /api/v1/career/cpd/{id}/category` | Import Engineers Australia's CPD export (CSV or .xlsx; re-importing never duplicates). Correct a guessed category (`null` restores the guess) |
 
 `state` is `ok`, `degraded` (reachable, but wrong credentials or a missing
 dependency such as an LLM), `down` (unreachable or timed out) or

@@ -221,6 +221,30 @@ def engineering_source(query: str) -> list[dict[str, Any]]:
     return out
 
 
+def career_source(query: str) -> list[dict[str, Any]]:
+    """Goals, competency evidence, pathway steps and CPD activities (ADR 110)."""
+    from app.career import store as career_store
+
+    doc = career_store.load()
+    out = []
+    for g in doc.goals:
+        if matches(query, g.title, g.next_step, g.note):
+            out.append(hit(query, g.title, "Goal" + (f" · next: {g.next_step}" if g.next_step else ""), url="/career?view=goals", kind="goal"))
+    for e in doc.evidence:
+        if matches(query, e.title, e.summary):
+            out.append(hit(query, e.title, f"Evidence · elements {', '.join(e.elements) or 'none yet'}",
+                           url="/career?view=competencies", kind="evidence", extra=(e.summary,)))
+    for p in doc.pathways:
+        for s in p.steps:
+            if matches(query, s.title, s.detail, s.note, p.name):
+                out.append(hit(query, s.title, f"{p.name} · {s.status}", url="/career?view=pathways", kind="step", extra=(s.detail,)))
+    for r in doc.cpd.records:
+        if matches(query, r.title, r.provider, r.type):
+            out.append(hit(query, r.title, " · ".join(x for x in ("CPD", r.date or "", f"{r.hours:g} h", r.provider) if x),
+                           url="/career?view=cpd", kind="cpd"))
+    return out
+
+
 # -- the search ----------------------------------------------------------------
 
 GROUPS: list[tuple[str, str, str]] = [
@@ -230,6 +254,7 @@ GROUPS: list[tuple[str, str, str]] = [
     ("chats", "Siris chats", "sparkles"),
     ("widgets", "On your home screen", "gauge"),
     ("links", "Links", "link"),
+    ("career", "Career", "award"),
     ("engineering", "Engineering", "ruler"),
 ]
 
@@ -260,6 +285,7 @@ async def search(hub: Hub, query: str) -> dict[str, Any]:
         "widgets": _run("On your home screen", lambda: widgets_source(hub, query), failed),
         "links": _run("Links", lambda: links_source(query), failed, blocking=True),
         "engineering": _run("Engineering", lambda: engineering_source(query), failed, blocking=True),
+        "career": _run("Career", lambda: career_source(query), failed, blocking=True),
     }
     connector = hub.get("sirisai")
     if isinstance(connector, SirisAIConnector) and connector.configured:
