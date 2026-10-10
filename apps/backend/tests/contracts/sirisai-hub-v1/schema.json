@@ -653,6 +653,19 @@
           ],
           "default": null,
           "title": "Location"
+        },
+        "calendar": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which calendar it's on, e.g. Gmail or an iCloud calendar's name.",
+          "title": "Calendar"
         }
       },
       "required": [

@@ -124,6 +124,8 @@ def test_the_contract_brief_becomes_the_daily_brief(ai) -> None:
         "2 things waiting in the Second Brain inbox.",
     ]
     assert brief["email"] == {"unread": 2, "important": [{"from": "Dana Lee", "subject": "Drainage report comments"}]}
+    # Each event names its calendar (Gmail, an iCloud calendar), shown in the schedule.
+    assert [(e["title"], e["calendar"]) for e in brief["schedule"]] == [("Bin night", "Home"), ("Site visit, Werribee", "Work")]
     assert brief["todo"] == ["Milk"] and brief["health"][0] == "Slept 6.1 h"
     assert brief["home"][0] == "Parcel: New drill in transit"
     assert "24%" in brief["home"][1] and brief["home"][1].endswith("Low and not plugged in.")
