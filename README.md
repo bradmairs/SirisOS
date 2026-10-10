@@ -117,6 +117,7 @@ cd apps/web && npm test && npm run build
 - `apps/web`: the React/TypeScript PWA. `src/glass/` is the Liquid Glass
   design system, `src/screens/` the screens, and `src/engineering/` the
   calculator library.
+- `docs/brand.md`: the logo (the lightning-bolt S, with the original kept; `scripts/use-logo.sh` switches).
 - `docs/adr`: one ADR per decision. The newest is 111.
 - `apps/backend/tests/contracts/sirisai-hub-v1`: SirisAI's hub contract, copied by `scripts/sync-sirisai-contract.sh`.
 - `deploy/`: nginx and supervisord config for the single app container.
