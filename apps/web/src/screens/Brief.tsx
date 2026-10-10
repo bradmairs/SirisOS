@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
+  Award,
   Brain,
   CalendarDays,
   CloudSun,
@@ -226,6 +227,23 @@ export function BriefView({ onClose }: { onClose?: () => void }) {
                     <Row key={a.name} title={a.name} subtitle={a.detail || a.state} tone={a.state === "down" ? "critical" : "warning"} />
                   ))}
                 </ul>
+              </Card>
+            )}
+
+            {brief.career && (brief.career.cpd.records > 0 || brief.career.next_steps.length > 0) && (
+              <Card title="Career" Icon={Award} delay={220}>
+                {brief.career.cpd.records > 0 && (
+                  <p className="muted" style={{ margin: 0 }}>
+                    {Math.round(brief.career.cpd.total)} of {brief.career.cpd.required} CPD hours in the last 3 years
+                    {brief.career.cpd.expiring_90_days > 0 ? `; ${Math.round(brief.career.cpd.expiring_90_days)} h drop out within 90 days` : ""}.
+                  </p>
+                )}
+                <ul className="items">
+                  {brief.career.next_steps.map((s, i) => (
+                    <Row key={`${s.title}-${i}`} title={s.title} subtitle={s.detail} tone={s.kind === "cpd" ? "warning" : "neutral"} />
+                  ))}
+                </ul>
+                <Link to="/career" className="brief-link" onClick={onClose}>Open Career</Link>
               </Card>
             )}
 

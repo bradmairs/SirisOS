@@ -173,6 +173,23 @@ def _calendar(events: Any) -> list[dict[str, Any]]:
     return sorted(out, key=lambda e: (e["time"] != "All day", str(e.get("start") or "")))
 
 
+def _career() -> dict[str, Any] | None:
+    """CPD and the next career step (ADR 110), from SirisOS's own career file."""
+    from app.career import api as career_api, store as career_store
+
+    try:
+        ov = career_api.overview(career_store.load())
+    except Exception as exc:  # noqa: BLE001 - an unreadable file never breaks the brief
+        logger.info("Brief career section unavailable: %s", exc)
+        return None
+    cpd = ov["cpd"]
+    return {
+        "cpd": {"total": cpd["total"], "required": cpd["required"], "records": cpd["records"], "expiring_90_days": cpd["expiring_90_days"]},
+        "next_steps": ov["next_steps"][:3],
+        "goals": [{"title": g["title"], "target_date": g["target_date"]} for g in ov["goals"][:3]],
+    }
+
+
 def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -> dict[str, Any]:
     hud = parts.get("hud") or {}
     forecast = parts.get("forecast")
@@ -277,6 +294,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "home": home,
         "apps_attention": attention,
         "brain": brain,
+        "career": parts.get("career"),
         "news": parts.get("news") or {"topics": []},
         "unavailable": sorted(set(failed)),
         "status": status(at),
@@ -327,6 +345,7 @@ class BriefService:
             async def no_note(_: str) -> str | None:
                 return None
 
+            parts["career"] = _career()
             parts["news"] = await _safe(
                 "news",
                 news_service.stories(shared_client(), ai.note_body if ai else no_note, hot, fresh=fresh),

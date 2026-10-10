@@ -6,10 +6,17 @@ import { NAV } from "./Sidebar";
 export function Dock() {
   return (
     <Glass as="nav" shape="pill" className="dock" aria-label="Main">
-      {NAV.map(({ to, label, Icon, end }) => (
-        <NavLink key={to} to={to} end={end} className="dock__item">
+      {NAV.map(({ to, label, short, Icon, end }) => (
+        <NavLink key={to} to={to} end={end} className="dock__item" aria-label={label}>
           <Icon size={22} strokeWidth={2} aria-hidden="true" />
-          <span>{label}</span>
+          {short ? (
+            <>
+              <span className="dock__label--long">{label}</span>
+              <span className="dock__label--short" aria-hidden="true">{short}</span>
+            </>
+          ) : (
+            <span>{label}</span>
+          )}
         </NavLink>
       ))}
     </Glass>

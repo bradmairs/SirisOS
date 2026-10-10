@@ -377,3 +377,53 @@ body.no-scroll { overflow: hidden; }
 .search__foot kbd { margin-right: 3px; }
 @media (max-width: 640px), (hover: none) { .search__foot { display: none; } .search__input { font-size: 17px; } }
 @media (prefers-reduced-motion: reduce) { .search { animation: none; } }
+
+/* ------------------------------------------------------------- career (ADR 110) */
+.career-views { flex-wrap: wrap; gap: 8px; margin: -6px 4px 4px; }
+.career-wrap { white-space: normal !important; overflow-wrap: anywhere; }
+.item__text > span.item__title, .item__text > span.item__subtitle { display: block; }
+.career-bar { display: block; height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 9%, transparent); overflow: hidden; }
+.career-bar__fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); transition: width 0.6s var(--ease); }
+.career-bar__fill--good { background: var(--good); box-shadow: none; }
+.career-mins { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.career-mins li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; row-gap: 4px; align-items: center; }
+.career-mins__label { font-size: 13px; color: var(--ink-2); grid-column: 1; }
+.career-mins__value { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; grid-column: 2; grid-row: 1; text-align: right; }
+.career-mins .career-bar { grid-column: 1 / -1; }
+.career-path__next { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-3); }
+.career-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; }
+.career-cell {
+  display: grid; place-items: center; min-width: 28px; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 650;
+  font-variant-numeric: tabular-nums; color: var(--ink-3); background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.career-cell--1 { color: var(--ink); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.career-cell--2 { color: var(--ink); background: color-mix(in srgb, var(--accent) 40%, transparent); }
+.career-cell--3 { color: var(--accent-ink); background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+.career-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.career-step { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--hairline); }
+.career-step:first-child { border-top: 0; }
+.career-step--done .career-step__title { color: var(--ink-2); }
+.career-step--na { opacity: 0.55; }
+.career-step__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-top: 5px; }
+.career-step__title { font-size: 15px; font-weight: 600; }
+.career-chip { height: 22px; font-size: 11.5px; margin-left: 6px; vertical-align: 1px; }
+.career-note {
+  width: 100%; border: 0; outline: none; background: none; padding: 4px 0; font-size: 13.5px; color: var(--ink-2);
+  border-bottom: 1px dashed transparent;
+}
+.career-note:hover, .career-note:focus { border-bottom-color: var(--hairline); }
+.career-note::placeholder { color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
+.career-element { padding: 8px 0; border-top: 1px solid var(--hairline); }
+.career-element:first-child { border-top: 0; }
+.career-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.career-evidence .chip { height: auto; min-height: 28px; padding: 5px 12px; text-transform: none; text-align: left; }
+.career-cpd { align-items: center; flex-wrap: wrap; }
+.career-cpd__hours { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
+.career-select { height: 36px; width: auto; min-width: 190px; padding: 0 12px; font-size: 13.5px; }
+.career-goal--quiet { opacity: 0.6; }
+@media (max-width: 640px) { .career-cpd .career-cpd__cat { width: 100%; } .career-select { width: 100%; } }
+
+/* Six dock items: long labels give way on narrow phones. */
+.dock__label--short { display: none; }
+@media (max-width: 420px) { .dock__label--long { display: none; } .dock__label--short { display: inline; } }
