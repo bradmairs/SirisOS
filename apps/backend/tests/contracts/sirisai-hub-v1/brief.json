@@ -1,0 +1,132 @@
+{
+  "generated_at": "2026-10-09T07:41:23.498691+00:00",
+  "guest_mode": false,
+  "hidden": [],
+  "weather": {
+    "now": {
+      "temperature_c": 17.4,
+      "conditions": "Partly cloudy",
+      "humidity_percent": 61.0,
+      "wind_kmh": 11.0
+    },
+    "today": {
+      "date": "2026-10-09",
+      "conditions": "Slight rain",
+      "high_c": 19.0,
+      "low_c": 9.0,
+      "rain_chance_percent": 70.0,
+      "precipitation_mm": 4.2
+    }
+  },
+  "calendar": [
+    {
+      "title": "Bin night",
+      "start": "2026-10-09",
+      "end": "2026-10-10",
+      "all_day": true,
+      "location": null
+    },
+    {
+      "title": "Site visit, Werribee",
+      "start": "2026-10-09T10:30:00+11:00",
+      "end": "2026-10-09T12:00:00+11:00",
+      "all_day": false,
+      "location": "Werribee"
+    }
+  ],
+  "todo": [
+    {
+      "summary": "Milk",
+      "list": "todo.shopping",
+      "due": null
+    }
+  ],
+  "email": {
+    "unread": 2,
+    "important": [
+      {
+        "sender": "Dana Lee",
+        "subject": "Drainage report comments",
+        "why": [
+          "from a frequent contact"
+        ]
+      }
+    ]
+  },
+  "health": {
+    "metrics": {
+      "sleep_hours": {
+        "latest": 6.1,
+        "day": "2026-10-09",
+        "week_average": 7.0,
+        "baseline": 7.3
+      }
+    },
+    "notes": [
+      "slept 6.1h -- 1.2h under your usual"
+    ]
+  },
+  "car": {
+    "name": "the car",
+    "summary": "24%, 96 km range, locked, at home",
+    "battery_percent": 24.0,
+    "range": 96.0,
+    "range_unit": "km",
+    "charging": false,
+    "plugged_in": false,
+    "locked": true,
+    "location": "home",
+    "low_battery": true
+  },
+  "parcels": [
+    {
+      "id": 1,
+      "label": "New drill",
+      "status": "InTransit",
+      "status_text": "in transit",
+      "carrier": "",
+      "eta": "2026-10-10",
+      "last_event": null
+    }
+  ],
+  "energy": {
+    "configured": true,
+    "cheap_now": false,
+    "reasons": [],
+    "solar_watts": null,
+    "price": null,
+    "next_cheap_window": "2026-10-10T00:00:00+00:00",
+    "waiting_jobs": 0
+  },
+  "brain": {
+    "inbox": 2,
+    "overdue_tasks": [
+      {
+        "task": "Send Werribee levels to Dana",
+        "note": "Werribee Drainage",
+        "days_late": 2
+      }
+    ],
+    "deadlines": [
+      {
+        "title": "Werribee Drainage",
+        "days_left": 3
+      }
+    ],
+    "auto_linked": 1,
+    "pending_auto_links": 1,
+    "unsure_links": 1,
+    "highlights": [
+      "You added 6 notes this week, most about stormwater."
+    ],
+    "topics": [
+      "stormwater",
+      "ai"
+    ]
+  },
+  "attention": {
+    "open": 2,
+    "urgent": 1
+  },
+  "unavailable": []
+}

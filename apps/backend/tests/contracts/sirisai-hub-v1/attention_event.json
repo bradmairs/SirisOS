@@ -1,0 +1,61 @@
+{
+  "type": "snapshot",
+  "items": [
+    {
+      "id": 2,
+      "key": "push:example",
+      "kind": "alert",
+      "severity": "urgent",
+      "title": "SirisAI: plex needs you",
+      "body": "plex is down and a restart didn't fix it.",
+      "source": "self-healing",
+      "link": null,
+      "actions": [
+        {
+          "id": "acknowledge",
+          "label": "Got it",
+          "style": "primary",
+          "confirm": null
+        }
+      ],
+      "status": "open",
+      "outcome": null,
+      "created_at": "2026-10-09T07:41:23.489726+00:00",
+      "updated_at": "2026-10-09T07:41:23.489781+00:00"
+    },
+    {
+      "id": 4,
+      "key": "brain:inbox",
+      "kind": "review",
+      "severity": "info",
+      "title": "2 notes in the Second Brain inbox",
+      "body": "New notes wait in 00-Inbox until they're sorted.",
+      "source": "second-brain",
+      "link": "brain:inbox",
+      "actions": [],
+      "status": "open",
+      "outcome": null,
+      "created_at": "2026-10-09T07:41:23.508821+00:00",
+      "updated_at": "2026-10-09T07:41:23.508874+00:00"
+    },
+    {
+      "id": 3,
+      "key": "brain:links",
+      "kind": "review",
+      "severity": "info",
+      "title": "Second Brain links to review",
+      "body": "1 link about to be made automatically; 1 pair that could be linked.",
+      "source": "second-brain",
+      "link": "brain:links",
+      "actions": [],
+      "status": "open",
+      "outcome": null,
+      "created_at": "2026-10-09T07:41:23.507273+00:00",
+      "updated_at": "2026-10-09T07:41:23.507344+00:00"
+    }
+  ],
+  "counts": {
+    "open": 3,
+    "urgent": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "lockdown",
+  "ran": [
+    "Lock every lock",
+    "Close garage doors and gates"
+  ],
+  "skipped": [
+    "All lights on (deterrent) (it's daytime)"
+  ],
+  "failed": [],
+  "can_undo": true
+}

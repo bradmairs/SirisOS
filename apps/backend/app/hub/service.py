@@ -154,5 +154,8 @@ def get_hub() -> Hub:
 
 def reset_hub(env: Mapping[str, str] | None = None, **kwargs: Any) -> Hub:
     global _hub
+    from app.hub import guest
+
+    guest.reset()
     _hub = Hub(os.environ if env is None else env, **kwargs)
     return _hub

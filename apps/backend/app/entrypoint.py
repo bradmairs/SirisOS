@@ -1,10 +1,12 @@
 from app.main import app
 
 from app.api.engineering_calculations import router as engineering_calculations_router
+from app.api.engineering_calculators import router as engineering_calculators_router
 from app.api.engineering_standards import router as engineering_standards_router
 from app.api.project_relationships import router as project_relationships_router
 from app.api.projects import router as projects_router
 from app.api.sirishydro import router as sirishydro_router
+from app.attention.api import router as attention_router
 from app.brief.api import router as brief_router
 from app.career.api import router as career_router
 from app.hub.api import router as hub_router
@@ -17,10 +19,12 @@ from app.search.api import router as search_router
 for router in (
     hub_router,
     brief_router,
+    attention_router,
     search_router,
     career_router,
     links_router,
     engineering_calculations_router,
+    engineering_calculators_router,
     engineering_standards_router,
     sirishydro_router,
     projects_router,

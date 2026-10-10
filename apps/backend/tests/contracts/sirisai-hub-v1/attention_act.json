@@ -1,0 +1,33 @@
+{
+  "item": {
+    "id": 1,
+    "key": "confirm:e2f1adbd2d26242e",
+    "kind": "confirm",
+    "severity": "attention",
+    "title": "Approve: home assistant call service fake: switch.heater",
+    "body": "routine 'morning heat' wants to run home_assistant_call_service_fake and needs your OK.",
+    "source": "routine 'morning heat'",
+    "link": null,
+    "actions": [
+      {
+        "id": "approve",
+        "label": "Approve",
+        "style": "primary",
+        "confirm": null
+      },
+      {
+        "id": "decline",
+        "label": "Decline",
+        "style": "secondary",
+        "confirm": null
+      }
+    ],
+    "status": "done",
+    "outcome": "Approved and ran home_assistant_call_service_fake",
+    "created_at": "2026-10-09T07:41:23.486654+00:00",
+    "updated_at": "2026-10-09T07:41:23.519177+00:00"
+  },
+  "result": {
+    "ok": true
+  }
+}

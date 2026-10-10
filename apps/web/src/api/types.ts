@@ -161,3 +161,120 @@ export interface Hud {
   autonomy?: { time: string; local_time: string; tool: string; what: string; why?: string; outcome: string }[];
   brain?: { title: string; action: string }[] | null;
 }
+
+// -- SirisAI hub contract v1, as SirisOS relays it (ADR 110) -------------------
+
+export interface InboxAction {
+  id: string;
+  label: string;
+  style: "primary" | "secondary" | "danger";
+  confirm?: string | null;
+}
+
+/** One inbox item: SirisAI's (`ai:` ids, its own actions) or SirisOS's own (`os:` ids, dismiss only). */
+export interface InboxItem {
+  id: string;
+  origin: "sirisai" | "sirisos";
+  kind: "alert" | "confirm" | "suggestion" | "review" | "waiting" | "notice";
+  severity: "urgent" | "attention" | "info";
+  title: string;
+  body: string;
+  source: string;
+  app: string;
+  url: string | null;
+  link: string | null;
+  actions: InboxAction[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InboxCounts {
+  open: number;
+  urgent: number;
+}
+
+export interface Inbox {
+  items: InboxItem[];
+  counts: InboxCounts;
+  unavailable?: string[];
+}
+
+export interface InboxEvent {
+  type: "snapshot" | "upsert" | "remove";
+  items: InboxItem[];
+  counts: InboxCounts;
+}
+
+export interface SirisCar {
+  name: string;
+  summary: string;
+  battery_percent: number | null;
+  range: number | null;
+  range_unit: string | null;
+  charging: boolean | null;
+  plugged_in: boolean | null;
+  locked: boolean | null;
+  location: string | null;
+  low_battery: boolean;
+}
+
+export interface SirisParcel {
+  id: number;
+  label: string;
+  status: string | null;
+  status_text: string | null;
+  eta: string | null;
+  last_event: string | null;
+}
+
+export interface SirisEnergy {
+  configured: boolean;
+  cheap_now: boolean;
+  reasons: string[];
+  solar_watts: number | null;
+  price: number | null;
+  next_cheap_window: string | null;
+  waiting_jobs: number;
+}
+
+export interface SirisProtocol {
+  name: string;
+  description: string;
+  builtin: boolean;
+  steps: string[];
+}
+
+export interface SirisWidgets {
+  generated_at: string;
+  guest_mode: boolean;
+  hidden: string[];
+  car: SirisCar | null;
+  parcels: SirisParcel[] | null;
+  energy: SirisEnergy | null;
+  protocols: SirisProtocol[];
+  last_protocol: { protocol: string | null; at: string | null; undone: boolean; can_undo: boolean } | null;
+  cameras: string[];
+  autonomy: { summary: string; items: { time: string; local_time: string | null; what: string; why: string | null; tool: string; outcome: string; verified: boolean | null }[] } | null;
+  attention: InboxCounts;
+  unavailable: string[];
+}
+
+export interface ProtocolPreview {
+  name: string;
+  description: string;
+  steps: { label: string; tool: string; would_run: boolean; reason: string | null }[];
+}
+
+export interface ProtocolRunResult {
+  name: string;
+  ran: string[];
+  skipped: string[];
+  failed: string[];
+  can_undo: boolean;
+}
+
+export interface CameraLook {
+  camera: string;
+  description: string;
+  question: string | null;
+}

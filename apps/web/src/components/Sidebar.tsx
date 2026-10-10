@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Award, Brain, House, LayoutGrid, LogOut, Ruler, Search, Sparkles, Sunrise, X } from "lucide-react";
+import { ArrowUpRight, Award, Brain, House, Inbox, LayoutGrid, LogOut, Ruler, Search, Sparkles, Sunrise, X } from "lucide-react";
+import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
 import { Logo } from "./Logo";
@@ -75,6 +76,11 @@ export function Sidebar({
               <span>{label}</span>
             </NavLink>
           ))}
+          <NavLink to="/inbox" className="sidebar__link">
+            <Inbox size={19} aria-hidden="true" />
+            <span>Inbox</span>
+            <InboxBadge />
+          </NavLink>
           <NavLink to="/brief" className="sidebar__link">
             <Sunrise size={19} aria-hidden="true" />
             <span>Today's brief</span>

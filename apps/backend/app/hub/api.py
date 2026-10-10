@@ -4,15 +4,16 @@ to SirisOS and no app credential reaches a device."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, Request, UploadFile
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.hub.connectors.sirisai import SirisAIConnector
+from app.hub.guest import guest_mode, hide_personal
 from app.hub.service import Hub, get_hub, make_client, shared_client
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
@@ -24,7 +25,9 @@ async def list_apps(
     fresh: bool = Query(False, description="Bypass the short status cache."),
     hub: Hub = Depends(get_hub),
 ) -> dict[str, Any]:
-    return {"apps": await hub.apps(fresh=fresh, with_widgets=widgets)}
+    apps = await hub.apps(fresh=fresh, with_widgets=widgets)
+    guest = widgets and await guest_mode(hub)
+    return {"apps": hide_personal(apps) if guest else apps, "guest_mode": guest}
 
 
 @router.get("/hub/apps/{app_id}", tags=["hub"])
@@ -38,7 +41,11 @@ async def get_app(app_id: str, fresh: bool = False, hub: Hub = Depends(get_hub))
 @router.get("/hub/widgets", tags=["hub"])
 async def list_widgets(fresh: bool = False, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     apps = await hub.apps(fresh=fresh, with_widgets=True)
+    guest = await guest_mode(hub)
+    if guest:
+        apps = hide_personal(apps)
     return {
+        "guest_mode": guest,
         "widgets": [
             {"app_id": a["id"], "app_name": a["name"], "icon": a["icon"], "launch_url": a["launch_url"], **a["widget"]}
             for a in apps
@@ -70,7 +77,8 @@ async def _forward(connector: SirisAIConnector, method: str, path: str, *, raw: 
         except ValueError:
             detail = response.text
         status = 502 if response.status_code in (401, 403) else response.status_code
-        raise HTTPException(status_code=status, detail=f"SirisAI: {detail}")
+        # A structured detail (e.g. a protocol's preview with its 409) is kept as-is.
+        raise HTTPException(status_code=status, detail=detail if isinstance(detail, dict) else f"SirisAI: {detail}")
     if raw:
         return response.text
     if response.status_code == 204 or not response.content:
@@ -195,6 +203,72 @@ async def voice_converse(
 @router.get("/assistant/hud", tags=["assistant"])
 async def hud(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/hud/summary")
+
+
+# -- SirisAI hub contract v1 (ADR 110) -----------------------------------------
+
+# Names go into SirisAI paths: keep them to plain identifiers.
+SafeName = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{1,60}$")]
+
+
+@router.get("/assistant/info", tags=["assistant"])
+async def assistant_info(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Who SirisAI thinks is asking, whether guest mode is on, and which of
+    its integrations are configured -- what the PWA shows and hides by."""
+    return await _forward(connector, "GET", "/siris/hub/v1")
+
+
+@router.get("/assistant/widgets", tags=["assistant"])
+async def assistant_widgets(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Car, parcels, power, protocols (and the last run, for undo), cameras and
+    what SirisAI did on its own today."""
+    return await _forward(connector, "GET", "/siris/hub/v1/widgets")
+
+
+@router.get("/assistant/protocols/{name}", tags=["assistant"])
+async def protocol_preview(name: SafeName, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """What running the protocol would do right now, step by step."""
+    return await _forward(connector, "GET", f"/siris/hub/v1/protocols/{name}")
+
+
+class ProtocolRun(BaseModel):
+    confirmed: bool = False
+
+
+@router.post("/assistant/protocols/undo", tags=["assistant"])
+async def protocol_undo(body: ProtocolRun, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    return await _forward(connector, "POST", "/siris/hub/v1/protocols/undo", json=body.model_dump())
+
+
+@router.post("/assistant/protocols/{name}/run", tags=["assistant"])
+async def protocol_run(name: SafeName, body: ProtocolRun, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Runs only with {"confirmed": true}: protocols change locks, covers and modes."""
+    return await _forward(connector, "POST", f"/siris/hub/v1/protocols/{name}/run", json=body.model_dump())
+
+
+class CameraQuestion(BaseModel):
+    question: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/assistant/cameras/{camera}/look", tags=["assistant"])
+async def camera_look(camera: SafeName, body: CameraQuestion, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """SirisAI's vision model describes the camera's latest frame."""
+    return await _forward(connector, "POST", f"/siris/hub/v1/cameras/{camera}/look", json=body.model_dump(exclude_none=True))
+
+
+@router.get("/assistant/cameras/{camera}/latest.jpg", tags=["assistant"])
+async def camera_frame(camera: SafeName, connector: SirisAIConnector = Depends(_sirisai)) -> Response:
+    """The camera's latest frame, through SirisAI (which proxies Frigate), so
+    neither Frigate nor the SirisAI key is exposed to the browser."""
+    try:
+        upstream = await shared_client().get(f"{connector.base_url}/siris/cameras/{camera}/latest.jpg", headers=connector.headers(),
+                                             params={"height": 480}, timeout=15.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
+    if upstream.status_code >= 400:
+        raise HTTPException(status_code=404 if upstream.status_code == 404 else 502, detail=f"No frame from {camera}")
+    return Response(content=upstream.content, media_type=upstream.headers.get("content-type", "image/jpeg"),
+                    headers={"Cache-Control": "no-store"})
 
 
 @router.get("/brain/search", tags=["brain"])

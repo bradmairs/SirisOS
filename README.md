@@ -23,6 +23,13 @@ apps, widgets, links, Second Brain notes, Siris chats, APD PM, the Archive,
 the Reviewer and the engineering library, all in one list
 ([ADR 109](docs/adr/109-search-everything.md)).
 
+Everything that needs a look, from every app, lands in one **inbox**:
+SirisAI's alerts and approvals (Lock down, Approve, Create automation...)
+next to apps that are down and overdue tasks, live, on Home and at
+`/inbox`. Home also runs SirisAI's protocols (with undo), shows the
+cameras with a "What's there?", and the car and power prices. SirisAI, in
+turn, can search the standards library, run the calculators and ask
+SirisHydro ([ADR 110](docs/adr/110-sirisai-integration.md)).
 The **Career** tab tracks the path to Chartered (CPEng), the National
 Engineering Register and registration in Victoria. It maps evidence to the
 16 Stage 2 competencies, keeps goals and next steps, and shows CPD against
@@ -77,6 +84,8 @@ first-time move to the hub build is covered step by step in
 | --- | --- |
 | `SIRISOS_PORT` | Host port (default `8094`; `6464` is now dad-joke-of-the-day) |
 | `SIRISAI_URL`, `SIRISAI_API_KEY`, `SIRISAI_PUBLIC_URL` | Assistant, HUD and Second Brain. `SIRISAI_URL` is how the container reaches SirisAI. `SIRISAI_PUBLIC_URL` is the link your phone opens |
+| `SIRISAI_USER` | Optional: the SirisAI user to act as (per-user health, memories). Blank = SirisAI's default user |
+| `SIRISOS_SERVICE_KEY` | SirisAI's key into SirisOS's read/compute routes (ADR 110). Same value as `SIRISAI_SIRISOS_SERVICE_KEY` in SirisAI. At least 24 characters |
 | `APD_PM_URL`, `APD_PM_EMAIL`, `APD_PM_PASSWORD` | Project widget. Use a dedicated VIEWER account |
 | `REVIEWER_URL` (+ optional `REVIEWER_USERNAME`/`REVIEWER_PASSWORD`) | Engineering Reviewer |
 | `ARCHIVE_URL`, `ARCHIVE_API_KEY` | Engineering Archive (a `read`-scope key) |
@@ -100,14 +109,16 @@ cd apps/web && npm test && npm run build
 ## Repository layout
 
 - `apps/backend`: FastAPI. `app/main.py` handles health and sign-in,
-  `app/hub/` is the connector gateway, `app/brief/` the daily brief, `app/search/` search everything, `app/career/` the Career tab, and `app/api/` is the engineering
+  `app/hub/` is the connector gateway, `app/brief/` the daily brief, `app/search/` search everything, `app/attention/` the inbox, `app/career/` the Career tab,
+  `app/service_key.py` SirisAI's way in, and `app/api/` is the engineering
   module (SirisHydro, calculations, standards, projects and their
   relationships). Engineering data is JSON and PDFs under `data/app` and
   `data/standards`.
 - `apps/web`: the React/TypeScript PWA. `src/glass/` is the Liquid Glass
   design system, `src/screens/` the screens, and `src/engineering/` the
   calculator library.
-- `docs/adr`: one ADR per decision. The newest is 110.
+- `docs/adr`: one ADR per decision. The newest is 111.
+- `apps/backend/tests/contracts/sirisai-hub-v1`: SirisAI's hub contract, copied by `scripts/sync-sirisai-contract.sh`.
 - `deploy/`: nginx and supervisord config for the single app container.
 
 ## Status

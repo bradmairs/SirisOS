@@ -44,6 +44,10 @@ export interface Brief {
     goals: { title: string; target_date: string | null }[];
   } | null;
   news: { topics: { topic: string; stories: BriefStory[] }[]; interests_from?: string; feeds_failed?: number; feeds_total?: number };
+  /** SirisAI's attention counts (ADR 110); null from an older SirisAI. */
+  attention?: { open: number; urgent: number } | null;
+  /** SirisAI's guest mode: personal sections were left out. */
+  guest_mode?: boolean;
   unavailable: string[];
   status: BriefStatus;
 }

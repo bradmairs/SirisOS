@@ -114,9 +114,9 @@ SirisAI's `career_cpd_status` and `career_chartership_status` tools call
 `GET /api/v1/career` with SirisOS's service key (`SIRISOS_SERVICE_KEY`,
 the same value as SirisAI's `SIRISAI_SIRISOS_SERVICE_KEY`).
 
-`app/service_key.py` is taken unchanged from SirisAI's SirisOS integration
-patch, plus the two career reads. It opens only the allowlisted read and
-compute routes, never anything that changes data.
+The key is ADR 110's (`app/service_key.py`), with the two career reads
+added to its allowlist. It opens only the allowlisted read and compute
+routes, never anything that changes data.
 
 ### Dock
 

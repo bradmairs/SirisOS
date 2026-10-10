@@ -1,0 +1,24 @@
+{
+  "name": "lockdown",
+  "description": "Secure the house: lock every lock, close garage doors and gates, lights on at night, tell everyone.",
+  "steps": [
+    {
+      "label": "Lock every lock",
+      "tool": "home_assistant_call_service",
+      "would_run": true,
+      "reason": "always"
+    },
+    {
+      "label": "Close garage doors and gates",
+      "tool": "home_assistant_call_service",
+      "would_run": true,
+      "reason": "always"
+    },
+    {
+      "label": "All lights on (deterrent)",
+      "tool": "home_assistant_call_service",
+      "would_run": false,
+      "reason": "it's daytime"
+    }
+  ]
+}

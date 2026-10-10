@@ -49,7 +49,7 @@ app = FastAPI(
     version=API_VERSION,
 )
 
-# SirisAI's service key opens a few read/compute routes (app/service_key.py).
+# SirisAI's service key opens a few read/compute routes (ADR 110).
 app.add_middleware(ServiceKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,

@@ -21,6 +21,7 @@ const loadEngineering = () => import("./screens/Engineering");
 const loadBrief = () => import("./screens/Brief");
 const loadSearch = () => import("./components/SearchPalette");
 const loadCareer = () => import("./screens/Career");
+const loadInbox = () => import("./components/Inbox");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
 const Brain = lazy(() => loadBrain().then((m) => ({ default: m.Brain })));
 const Links = lazy(() => loadLinks().then((m) => ({ default: m.Links })));
@@ -28,10 +29,11 @@ const Engineering = lazy(() => loadEngineering().then((m) => ({ default: m.Engin
 const BriefScreen = lazy(() => loadBrief().then((m) => ({ default: m.BriefScreen })));
 const BriefOverlay = lazy(() => loadBrief().then((m) => ({ default: m.BriefOverlay })));
 const Career = lazy(() => loadCareer().then((m) => ({ default: m.Career })));
+const InboxScreen = lazy(() => loadInbox().then((m) => ({ default: m.InboxScreen })));
 const SearchPalette = lazy(() => loadSearch().then((m) => ({ default: m.SearchPalette })));
 
 function warmScreens() {
-  const warm = () => [loadAssistant, loadBrain, loadLinks, loadEngineering, loadBrief, loadSearch, loadCareer].forEach((load) => load().catch(() => undefined));
+  const warm = () => [loadAssistant, loadBrain, loadLinks, loadEngineering, loadBrief, loadSearch, loadCareer, loadInbox].forEach((load) => load().catch(() => undefined));
   const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
   if (idle) idle(warm, { timeout: 3000 });
   else window.setTimeout(warm, 1500);
@@ -98,6 +100,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/engineering/*" element={<Engineering />} />
           <Route path="/brief" element={<BriefScreen />} />
           <Route path="/career" element={<Career />} />
+          <Route path="/inbox" element={<InboxScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>

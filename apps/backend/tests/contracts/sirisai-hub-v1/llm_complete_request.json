@@ -1,0 +1,5 @@
+{
+  "task": "sirishydro",
+  "system": "Answer only from the evidence.",
+  "prompt": "Question: minimum grade for a 225 mm sewer?\n[1] AS/NZS 3500.2 ..."
+}

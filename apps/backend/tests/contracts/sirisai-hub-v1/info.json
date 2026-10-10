@@ -1,0 +1,33 @@
+{
+  "contract": "1",
+  "app": "SirisAI",
+  "user": "brad",
+  "guest_mode": false,
+  "guest_until": null,
+  "features": {
+    "weather": true,
+    "calendar": true,
+    "todo": true,
+    "email": true,
+    "health": true,
+    "car": true,
+    "parcels": false,
+    "energy": true,
+    "cameras": false,
+    "vision": true,
+    "protocols": true,
+    "second_brain": true,
+    "voice_stt": false,
+    "voice_tts": false,
+    "sirisos": false
+  },
+  "personal_sections": [
+    "calendar",
+    "todo",
+    "email",
+    "health",
+    "car",
+    "parcels",
+    "brain"
+  ]
+}
