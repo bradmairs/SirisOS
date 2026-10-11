@@ -100,4 +100,29 @@ describe("<Home />", () => {
     expect(screen.getByRole("region", { name: "Siris apps" })).toHaveTextContent("Need attention");
     expect(screen.queryByRole("region", { name: "Parcels" })).not.toBeInTheDocument();
   });
+
+  it("holds each widget's place with a loading card until its source answers", async () => {
+    signIn("brad");
+    let answerHud: (r: Response) => void = () => undefined;
+    mockFetch({
+      "/api/v1/hub/apps": () => jsonResponse({ apps: APPS }),
+      "/api/v1/assistant/hud": () => new Promise<Response>((resolve) => (answerHud = resolve)),
+    });
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("18° Sunny")).toBeInTheDocument();
+    const outside = screen.getByRole("region", { name: "Outside" });
+    expect(outside).toHaveAttribute("aria-busy", "true");
+    expect(within(outside).getByText("Loading…")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Coming up" })).toHaveAttribute("aria-busy", "true");
+
+    answerHud(jsonResponse({ weather: { temperature_c: 14.7, humidity_percent: 91, wind_speed_kmh: 16.7, precipitation_mm: 0.8, conditions: "thunderstorm" } }));
+    expect(await screen.findByText("15°")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Outside" })).not.toHaveAttribute("aria-busy");
+    // A source that answers without a section drops its placeholder.
+    expect(screen.queryByRole("region", { name: "Coming up" })).not.toBeInTheDocument();
+  });
 });

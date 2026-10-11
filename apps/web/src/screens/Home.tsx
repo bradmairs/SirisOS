@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { RefreshCw, Sparkles, Sunrise } from "lucide-react";
+import { Activity, CalendarClock, CloudSun, Cpu, House, RefreshCw, ShieldCheck, Sparkles, Sunrise } from "lucide-react";
 import { hub } from "../api/hub";
 import { useResource } from "../api/resource";
 import { session } from "../api/client";
@@ -8,7 +8,7 @@ import type { HubApp } from "../api/types";
 import { isWidget } from "../api/types";
 import { AppIcon } from "../components/AppIcon";
 import { Glass } from "../components/Glass";
-import { WidgetCard } from "../components/WidgetCard";
+import { LoadingWidget, WidgetCard } from "../components/WidgetCard";
 import { AppSheet } from "./AppSheet";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
@@ -61,8 +61,9 @@ export function AppGrid({ apps, onOpen }: { apps: HubApp[]; onOpen: (app: HubApp
 
 export function Home() {
   const { apps, guest, error, refreshing, reload } = useApps(true);
-  const { hud } = useHud();
-  const { widgets: siris, reload: reloadSiris } = useSirisWidgets();
+  const { hud, loading: hudLoading } = useHud();
+  const { widgets: siris, loading: sirisLoading, reload: reloadSiris } = useSirisWidgets();
+  const appsLoading = apps === null && !error;
   const hideMine = guest || !!siris?.guest_mode;
   const [open, setOpen] = useState<HubApp | null>(null);
   const [ask, setAsk] = useState("");
@@ -119,50 +120,45 @@ export function Home() {
       <h2 className="section-title">Now</h2>
       <div className="widget-grid">
         <ClockWidget />
-        {hud?.weather && <WeatherWidget weather={hud.weather} delay={40} />}
-        {hud?.system && <ServerWidget system={hud.system} delay={80} />}
-        {apps && <AppHealthWidget apps={apps} delay={120} />}
+        {hud?.weather ? <WeatherWidget weather={hud.weather} delay={40} /> : hudLoading && <LoadingWidget title="Outside" Icon={CloudSun} delay={40} />}
+        {hud?.system ? <ServerWidget system={hud.system} delay={80} /> : hudLoading && <LoadingWidget title="Home server" Icon={Cpu} delay={80} />}
+        {apps ? <AppHealthWidget apps={apps} delay={120} /> : appsLoading && <LoadingWidget title="Siris apps" Icon={ShieldCheck} delay={120} />}
       </div>
 
-      {apps === null && !error ? (
-        <div className="widget-grid" style={{ marginTop: 22 }}>
-          {[0, 1, 2].map((i) => (
-            <Glass key={i} className="widget">
-              <div className="skeleton" style={{ height: 14, width: "40%" }} />
-              <div className="skeleton" style={{ height: 34, width: "70%" }} />
-              <div className="skeleton" style={{ height: 14, width: "90%" }} />
-            </Glass>
-          ))}
-        </div>
-      ) : (
+      {/* Until a source answers, its widgets hold their place with a "Loading…" card. */}
+      <h2 className="section-title">Today</h2>
+      <div className="widget-grid">
+        {!hideMine && (hud?.next_events ? <ComingUpWidget events={hud.next_events} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />)}
+        {!hideMine && <CareerWidget delay={30} />}
+        {appsLoading
+          ? [0, 1].map((i) => <LoadingWidget key={i} title="Loading apps" delay={60 + i * 50} />)
+          : widgets.map((app, i) => <WidgetCard key={app.id} app={app} delay={i * 50} />)}
+        {hud?.autonomy ? <ActivityWidget entries={hud.autonomy} /> : hudLoading && <LoadingWidget title="Siris activity" Icon={Activity} />}
+        {siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} />}
+      </div>
+      {sirisLoading && (
         <>
-          <h2 className="section-title">Today</h2>
+          <h2 className="section-title">Home</h2>
           <div className="widget-grid">
-            {hud?.next_events && !hideMine && <ComingUpWidget events={hud.next_events} />}
-            {!hideMine && <CareerWidget delay={30} />}
-            {widgets.map((app, i) => (
-              <WidgetCard key={app.id} app={app} delay={i * 50} />
-            ))}
-            {hud?.autonomy && <ActivityWidget entries={hud.autonomy} />}
-            {siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} />}
+            <LoadingWidget title="Home controls" Icon={House} wide />
           </div>
-          {siris && (siris.protocols.length > 0 || siris.cameras.length > 0 || siris.car || siris.energy) && (
-            <>
-              <h2 className="section-title">Home</h2>
-              <div className="widget-grid">
-                {siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} />}
-                {siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} />}
-                {siris.car && <CarWidget car={siris.car} />}
-                {siris.energy && <EnergyWidget energy={siris.energy} />}
-              </div>
-            </>
-          )}
-          {apps && apps.length > 0 && (
-            <>
-              <h2 className="section-title">Apps</h2>
-              <AppGrid apps={apps} onOpen={setOpen} />
-            </>
-          )}
+        </>
+      )}
+      {siris && (siris.protocols.length > 0 || siris.cameras.length > 0 || siris.car || siris.energy) && (
+        <>
+          <h2 className="section-title">Home</h2>
+          <div className="widget-grid">
+            {siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} />}
+            {siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} />}
+            {siris.car && <CarWidget car={siris.car} />}
+            {siris.energy && <EnergyWidget energy={siris.energy} />}
+          </div>
+        </>
+      )}
+      {apps && apps.length > 0 && (
+        <>
+          <h2 className="section-title">Apps</h2>
+          <AppGrid apps={apps} onOpen={setOpen} />
         </>
       )}
       {open && <AppSheet appId={open.id} initial={open} onClose={() => setOpen(null)} />}

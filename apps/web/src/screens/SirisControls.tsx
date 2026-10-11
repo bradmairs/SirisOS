@@ -11,7 +11,7 @@ const WIDGETS_REFRESH_MS = 60_000;
 /** SirisAI's hub widgets (ADR 110): car, parcels, power, protocols, cameras. */
 export function useSirisWidgets() {
   const { data, error, reload } = useResource<SirisWidgets>("sirisai:widgets", () => assistant.widgets(), { refreshMs: WIDGETS_REFRESH_MS });
-  return { widgets: data ?? null, failed: !data && !!error, reload: () => reload(true).catch(() => undefined) };
+  return { widgets: data ?? null, loading: !data && !error, failed: !data && !!error, reload: () => reload(true).catch(() => undefined) };
 }
 
 function Card({ title, Icon, wide, children, id }: { title: string; Icon: typeof Car; wide?: boolean; children: React.ReactNode; id?: string }) {

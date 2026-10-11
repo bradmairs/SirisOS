@@ -3,11 +3,12 @@ import { Award } from "lucide-react";
 import { career, type CareerOverview } from "../api/career";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
+import { LoadingWidget } from "../components/WidgetCard";
 
 /** Home: CPD in the last 3 years and the next career step (ADR 111). */
 export function CareerWidget({ delay = 0 }: { delay?: number }) {
-  const { data } = useResource<CareerOverview>("career:overview", () => career.overview(), { staleMs: 60_000 });
-  if (!data) return null;
+  const { data, error } = useResource<CareerOverview>("career:overview", () => career.overview(), { staleMs: 60_000 });
+  if (!data) return error ? null : <LoadingWidget title="Career" Icon={Award} delay={delay} />;
   const cpd = data.cpd;
   const next = data.next_steps[0];
   const pct = Math.min(100, (cpd.total / cpd.required) * 100);
