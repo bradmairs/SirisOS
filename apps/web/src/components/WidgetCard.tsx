@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, LoaderCircle, type LucideIcon } from "lucide-react";
 import type { HubApp, Widget } from "../api/types";
 import { isWidget } from "../api/types";
 import { Glass } from "./Glass";
@@ -65,5 +65,20 @@ function WidgetBody({ widget }: { widget: Widget }) {
         widget.metrics.length === 0 && <p className="muted">{widget.empty || "Nothing to show"}</p>
       )}
     </>
+  );
+}
+
+/** Holds a widget's place on first load, so Home doesn't jump as each source answers. */
+export function LoadingWidget({ title, Icon = LoaderCircle, wide, delay = 0 }: { title: string; Icon?: LucideIcon; wide?: boolean; delay?: number }) {
+  return (
+    <Glass as="section" className={`widget widget--loading ${wide ? "widget--wide" : ""}`} style={{ animationDelay: `${delay}ms` }} aria-label={title} aria-busy="true">
+      <header className="widget__head">
+        <Icon aria-hidden="true" />
+        <span>{title}</span>
+      </header>
+      <div className="skeleton" style={{ height: 30, width: "55%" }} />
+      <div className="skeleton" style={{ height: 12, width: "85%" }} />
+      <p className="muted widget__loading" role="status">Loading…</p>
+    </Glass>
   );
 }

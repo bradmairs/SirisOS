@@ -11,7 +11,7 @@ const HUD_REFRESH_MS = 60_000;
  * every minute and shared by Home and the Siris screen. */
 export function useHud() {
   const { data, error } = useResource<Hud>("sirisai:hud", () => assistant.hud(), { refreshMs: HUD_REFRESH_MS });
-  return { hud: data ?? null, failed: !data && !!error };
+  return { hud: data ?? null, loading: !data && !error, failed: !data && !!error };
 }
 
 function Card({ title, Icon, wide, delay = 0, children }: { title: string; Icon: typeof Clock3; wide?: boolean; delay?: number; children: React.ReactNode }) {

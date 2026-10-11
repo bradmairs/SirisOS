@@ -684,6 +684,12 @@ textarea.field { height: auto; min-height: 52px; padding: 14px 18px; resize: non
   animation: shimmer 1.4s linear infinite;
 }
 
+.widget--loading .widget__head { opacity: 0.6; }
+.widget__loading {
+  margin: auto 0 0;
+  font-size: 13px;
+}
+
 @keyframes shimmer {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
