@@ -145,6 +145,8 @@ body.no-scroll { overflow: hidden; }
 .sidebar__out { color: var(--ink-3); opacity: 0; transition: opacity 0.2s; }
 .sidebar__link--app:hover .sidebar__out { opacity: 1; }
 .sidebar__foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 6px 0 12px; border-top: 1px solid var(--hairline); color: var(--ink-2); font-size: 14px; font-weight: 550; }
+.sidebar__user { display: flex; flex-direction: column; gap: 2px; }
+.sidebar__version { color: var(--ink-3); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; }
 
 @media (min-width: 960px) {
   .sidebar { transform: none; top: 16px; bottom: 16px; left: 16px; transition: none; }

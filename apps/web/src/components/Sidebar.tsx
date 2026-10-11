@@ -5,6 +5,7 @@ import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
 import { Logo } from "./Logo";
+import { APP_VERSION } from "../version";
 import { hueFor, iconFor } from "./icons";
 
 /** Every screen, in the sidebar. `dock: false` keeps one off the phone tab bar, which fits five. */
@@ -109,7 +110,10 @@ export function Sidebar({
         )}
 
         <div className="sidebar__foot">
-          <span className="sidebar__user">{user ? user.charAt(0).toUpperCase() + user.slice(1) : ""}</span>
+          <span className="sidebar__user">
+            {user ? user.charAt(0).toUpperCase() + user.slice(1) : ""}
+            <span className="sidebar__version">SirisOS {APP_VERSION}</span>
+          </span>
           <button type="button" className="icon-link" onClick={onSignOut} aria-label="Sign out" title="Sign out">
             <LogOut size={17} aria-hidden="true" />
           </button>

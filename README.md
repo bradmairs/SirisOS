@@ -36,6 +36,10 @@ Engineering Register and registration in Victoria. It maps evidence to the
 the 150-hour requirement. CPD is imported from Engineers Australia's own
 export, so it's only ever logged there ([ADR 111](docs/adr/111-career.md)).
 
+**Version 1.0** ([release notes](docs/releases/1.0.md)). Every change bumps
+the version by 0.01 or 0.1 and merges to main once CI is green; a version
+bump tags and publishes the release ([docs/releases.md](docs/releases.md)).
+
 This README is the project handover and [`docs/roadmap.md`](docs/roadmap.md)
 is the checklist. Update both whenever scope or status changes. The
 pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
