@@ -64,6 +64,20 @@ full-screen like an app. Use the https address so the Siris voice orb can
 reach the microphone; `http://192.168.0.100:8094` still works for
 everything except voice.
 
+## Signed out and can't get back in?
+
+Sign-in is one username and password, set by `SIRISOS_ADMIN_USERNAME` and
+`SIRISOS_ADMIN_PASSWORD` in `.env`. There is no lockout or rate limit, so a
+rejected sign-in always means the username or password typed doesn't match
+(they're case-sensitive; use the eye on the password box to check).
+Sessions last `SIRISOS_JWT_EXPIRY_HOURS` (24 by default), after which you're
+asked to sign in again.
+
+- **To see the current password**, read it on the server:
+  `grep ^SIRISOS_ADMIN_PASSWORD= ~/Docker/SirisOS/SirisOS/.env`
+- **To choose a new one**, on the server: `make reset-password`.
+  Add `ARGS=--sign-out-all` to also end every signed-in session.
+
 ## What's left behind
 
 - The pre-hub Postgres (gym, running, health and homelab history) was

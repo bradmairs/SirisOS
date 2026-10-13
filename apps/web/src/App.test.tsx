@@ -20,6 +20,20 @@ describe("<App />", () => {
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ username: "brad", password: "secret" });
   });
 
+  it("lets you check the password you typed before signing in", async () => {
+    mockFetch({});
+    const user = userEvent.setup();
+    render(<App />);
+    const password = screen.getByPlaceholderText("Password");
+    expect(password).toHaveAttribute("type", "password");
+    await user.type(password, "Secret-12!");
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("Secret-12!");
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(password).toHaveAttribute("type", "password");
+  });
+
   it("shows a rejected sign-in", async () => {
     mockFetch({ "/api/v1/auth/login": () => jsonResponse({ detail: "Incorrect username or password." }, 401) });
     const user = userEvent.setup();
@@ -28,6 +42,7 @@ describe("<App />", () => {
     await user.type(screen.getByPlaceholderText("Password"), "nope");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Incorrect username or password.");
+    expect(screen.getByRole("alert")).toHaveTextContent("case-sensitive");
   });
 
   it("returns to sign-in when the session expires", async () => {
