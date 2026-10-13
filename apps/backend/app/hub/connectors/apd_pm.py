@@ -11,6 +11,10 @@ import httpx
 
 from app.hub.connectors.base import Connector, ConnectorError, Metric, SearchHit, Widget, WidgetItem, raise_for_status
 
+# The PM app's session cookie. Its default name is apd_token, but an instance can
+# rename it (AUTH_COOKIE_NAME, e.g. apd_token_8069) so two instances on one host
+# don't overwrite each other's browser login, so match on the prefix and replay
+# whatever name it actually set.
 COOKIE_NAME = "apd_token"
 OPEN_STATUSES = {"PLANNING", "DESIGN", "TENDER", "CONSTRUCTION", "PROJECT_COMPLETION", "DEFECTS_LIABILITY"}
 
@@ -42,6 +46,13 @@ class SessionLoginMixin:
         return response.json()
 
 
+def _two_factor_required(response: httpx.Response) -> bool:
+    try:
+        return bool(response.json().get("twoFactorRequired"))
+    except Exception:  # not JSON, or not an object
+        return False
+
+
 class APDPMConnector(SessionLoginMixin, Connector):
     id = "apd-pm"
     name = "Project Management"
@@ -64,13 +75,19 @@ class APDPMConnector(SessionLoginMixin, Connector):
         if response.status_code in (400, 401, 403):
             raise ConnectorError("Login rejected: check APD_PM_EMAIL/APD_PM_PASSWORD", state="degraded")
         raise_for_status(response)
-        token = response.cookies.get(COOKIE_NAME)
-        if not token:
-            raise ConnectorError("Login succeeded but no session cookie was returned", state="degraded")
-        return token
+        for cookie in response.cookies.jar:
+            if cookie.name.startswith(COOKIE_NAME) and cookie.value:
+                return f"{cookie.name}={cookie.value}"
+        if _two_factor_required(response):
+            raise ConnectorError(
+                "This account has two-factor sign-in on; use a dedicated Viewer account without it for APD_PM_EMAIL",
+                state="degraded",
+            )
+        raise ConnectorError("Login succeeded but no session cookie was returned", state="degraded")
 
     def session_headers(self, session: str) -> dict[str, str]:
-        return {"Cookie": f"{COOKIE_NAME}={session}"}
+        # `session` is the "name=value" pair captured at login.
+        return {"Cookie": session}
 
     async def check(self, client: httpx.AsyncClient) -> str | None:
         await self.authed_json(client, "/api/auth/me")
