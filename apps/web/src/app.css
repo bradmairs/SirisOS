@@ -494,3 +494,9 @@ body.no-scroll { overflow: hidden; }
 .camera-frame { width: 100%; border-radius: var(--r-md); margin: 8px 0 12px; display: block; }
 .empty-state { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
 .empty-state svg { color: var(--good); width: 22px; height: 22px; flex: none; }
+
+/* Sign-in: show/hide password */
+.password-field { position: relative; }
+.password-field .field { padding-right: 52px; }
+.password-field__toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; }
+.login__hint { display: block; margin-top: 4px; opacity: 0.85; font-size: 13px; }
