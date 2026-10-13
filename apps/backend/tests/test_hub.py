@@ -51,6 +51,8 @@ class FakeApps:
         self.calls: list[str] = []
         self.apd_logins = 0
         self.apd_expire_once = False
+        self.apd_cookie = "apd_token"
+        self.apd_two_factor = False
         self.down: set[str] = set()
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -159,10 +161,12 @@ class FakeApps:
             body = json.loads(request.content)
             if body["password"] != "pw":
                 return httpx.Response(401, json={"error": "Invalid email or password"})
+            if self.apd_two_factor:  # password right, but a second step is needed: no session cookie
+                return httpx.Response(200, json={"twoFactorRequired": True, "challengeToken": "c"})
             self.apd_logins += 1
-            return httpx.Response(200, json={"id": "u"}, headers={"set-cookie": f"apd_token=t{self.apd_logins}; Path=/; HttpOnly"})
+            return httpx.Response(200, json={"id": "u"}, headers={"set-cookie": f"{self.apd_cookie}=t{self.apd_logins}; Path=/; HttpOnly"})
         cookie = request.headers.get("cookie", "")
-        if not cookie.startswith("apd_token=t"):
+        if not cookie.startswith(f"{self.apd_cookie}=t"):
             return httpx.Response(401, json={"error": "Not authenticated"})
         if self.apd_expire_once:
             self.apd_expire_once = False
@@ -310,6 +314,22 @@ def test_apd_session_is_reused_and_renewed_on_expiry(client, apps):
     body = client.get("/api/v1/hub/apps/apd-pm?fresh=true", headers=AUTH).json()
     assert body["status"]["state"] == "ok"
     assert apps.apd_logins == 2
+
+
+def test_apd_session_cookie_may_be_renamed_per_instance(client, apps):
+    # A second PM instance on the same host sets e.g. apd_token_8069 so the two
+    # don't share a browser login; the connector must replay whatever it was given.
+    apps.apd_cookie = "apd_token_8069"
+    body = client.get("/api/v1/hub/apps/apd-pm", headers=AUTH).json()
+    assert body["status"]["state"] == "ok"
+    assert apps.apd_logins == 1
+
+
+def test_apd_account_with_two_factor_gets_a_clear_message(client, apps):
+    apps.apd_two_factor = True
+    body = client.get("/api/v1/hub/apps/apd-pm", headers=AUTH).json()
+    assert body["status"]["state"] == "degraded"
+    assert "two-factor" in body["status"]["detail"]
 
 
 def test_unknown_app_is_404(client, apps):
