@@ -27,6 +27,9 @@ ENV = {
     "ARCHIVE_API_KEY": "ea_key",
     "GVW_URL": "http://gvw:8092",
     "SIRISDRONE_URL": "http://drone:8096",
+    "SIRISLEARN_URL": "http://learn:8100",
+    "SIRISLEARN_PUBLIC_URL": "https://learn.local",
+    "SIRISLEARN_HUB_KEY": "learn-key",
     "JEFIT_URL": "jefit://",
 }
 
@@ -54,6 +57,7 @@ class FakeApps:
         self.apd_cookie = "apd_token"
         self.apd_two_factor = False
         self.down: set[str] = set()
+        self.learn_at_risk = False
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         host, path = request.url.host, request.url.path
@@ -94,6 +98,31 @@ class FakeApps:
                     {"id": "j1", "name": "DJI_0435.MP4", "status": "running", "progress": 0.42},
                     {"id": "j2", "name": "DJI_0568.jpg", "status": "done", "progress": 1.0},
                 ])
+        if host == "learn":
+            return self.sirislearn(request, path)
+        return httpx.Response(404, json={"detail": "not found"})
+
+    def sirislearn(self, request: httpx.Request, path: str) -> httpx.Response:
+        if request.headers.get("x-api-key") != "learn-key":
+            return httpx.Response(401, json={"detail": "Missing or invalid X-API-Key."})
+        if path == "/api/hub/v1/status":
+            return httpx.Response(200, json={"status": "ok", "version": "1.0", "llm": {"provider": "anthropic", "configured": True}})
+        if path == "/api/hub/v1/summary":
+            return httpx.Response(200, json={
+                "streak": {"current": 12, "best": 20, "today_done": not self.learn_at_risk, "at_risk": self.learn_at_risk},
+                "xp": {"total": 4200, "today": 0 if self.learn_at_risk else 60, "goal": 50, "goal_met": not self.learn_at_risk, "week": 300},
+                "level": {"level": 9, "xp_into": 600, "xp_for_next": 900, "progress": 0.66},
+                "courses": {"total": 3, "active": 2, "completed": 1, "planning": 0},
+                "continue": {"course_title": "Heat pumps", "lesson_title": "Refrigerants", "url": "/lesson/l2",
+                             "progress": {"lessons": 8, "passed": 3, "percent": 37}},
+                "recent": [{"kind": "achievement", "title": "Week warrior", "url": "/awards"},
+                           {"kind": "quiz_finished", "title": "Moving heat", "url": "/lesson/l1"}],
+            })
+        if path == "/api/hub/v1/search":
+            q = request.url.params.get("q", "")
+            hits = [{"title": "Heat pumps", "subtitle": "Course · 3/8 lessons", "url": "/course/c1", "kind": "course"},
+                    {"title": "Refrigerants", "subtitle": "Lesson · Heat pumps", "url": "/lesson/l2", "kind": "lesson"}]
+            return httpx.Response(200, json={"hits": [h for h in hits if q.lower() in (h["title"] + h["subtitle"]).lower()]})
         return httpx.Response(404, json={"detail": "not found"})
 
     def sirisai(self, request: httpx.Request, path: str) -> httpx.Response:
@@ -210,7 +239,7 @@ def test_hub_requires_login(client, apps):
 def test_all_configured_apps_report_ok(client, apps):
     apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
     assert list(apps_)[:2] == ["sirisai", "second-brain"]
-    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "sirisdrone", "jefit"):
+    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "sirisdrone", "sirislearn", "jefit"):
         assert apps_[app_id]["status"]["state"] == "ok", (app_id, apps_[app_id]["status"])
     assert apps_["gvw"]["status"]["version"] == "1.0.0"
     assert apps_["second-brain"]["launch_url"] == "https://siris.local/brain"
@@ -279,6 +308,45 @@ def test_widgets_are_normalised(client, apps):
     assert drone["Exporting"] == {"label": "Exporting", "value": "1", "tone": "warning"}
     assert drone["NAS"]["tone"] == "good"
     assert widgets["sirisdrone"]["items"][0] == {"title": "Exporting DJI_0435.MP4", "subtitle": "running · 42%", "url": None, "tone": "neutral"}
+
+
+def test_sirislearn_widget(client, apps):
+    widgets = {w["app_id"]: w for w in client.get("/api/v1/hub/widgets", headers=AUTH).json()["widgets"]}
+    learn = widgets["sirislearn"]
+    metrics = {m["label"]: m for m in learn["metrics"]}
+    assert metrics["Streak"] == {"label": "Streak", "value": "12 days", "tone": "good"}
+    assert metrics["Today"]["value"] == "60/50 XP" and metrics["Today"]["tone"] == "good"
+    assert (metrics["Level"]["value"], metrics["Courses"]["value"]) == ("9", "2")
+    assert learn["items"][0] == {"title": "Next: Refrigerants", "subtitle": "Heat pumps · 3/8 lessons", "url": "https://learn.local/lesson/l2", "tone": "neutral"}
+    assert learn["items"][1]["title"] == "Unlocked Week warrior" and learn["items"][1]["url"] == "https://learn.local/awards"
+
+
+def test_sirislearn_streak_at_risk_goes_to_the_inbox(client, apps, tmp_path, monkeypatch):
+    from app.attention import service as attention
+
+    monkeypatch.setenv("SIRISOS_ATTENTION_STATE_PATH", str(tmp_path / "attention.json"))
+    apps_ = list(_by_id(client.get("/api/v1/hub/apps?widgets=true", headers=AUTH).json()).values())
+    assert not [i for i in attention.own_items(apps_) if i["source"] == "sirislearn"]
+
+    apps.learn_at_risk = True
+    apps_ = list(_by_id(client.get("/api/v1/hub/apps?widgets=true&fresh=true", headers=AUTH).json()).values())
+    learn = next(a for a in apps_ if a["id"] == "sirislearn")
+    assert learn["widget"]["items"][0]["title"] == "Your 12-day streak ends at midnight"
+    assert {m["label"]: m["tone"] for m in learn["widget"]["metrics"]}["Streak"] == "warning"
+    [item] = [i for i in attention.own_items(apps_) if i["source"] == "sirislearn"]
+    assert item["title"] == "Your 12-day learning streak ends at midnight"
+    assert item["url"] == "https://learn.local/lesson/l2" and item["key"].startswith("sirislearn:streak:")
+
+
+def test_sirislearn_needs_its_hub_key(client, monkeypatch):
+    monkeypatch.setattr(service, "transport", httpx.MockTransport(FakeApps()))
+    reset_hub({"SIRISLEARN_URL": "http://learn:8100"})
+    status = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())["sirislearn"]["status"]
+    assert status["state"] == "unconfigured" and "SIRISLEARN_HUB_KEY" in status["detail"]
+    reset_hub({"SIRISLEARN_URL": "http://learn:8100", "SIRISLEARN_HUB_KEY": "wrong"})
+    status = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())["sirislearn"]["status"]
+    assert status["state"] == "degraded"
+    reset_hub({})
 
 
 def test_sirisdrone_sends_basic_auth_when_set(client, monkeypatch):

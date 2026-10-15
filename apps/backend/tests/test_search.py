@@ -171,3 +171,14 @@ def test_without_sirisai_brain_and_chats_are_skipped(client, monkeypatch, data) 
     body = client.get("/api/v1/search?q=pump", headers=AUTH).json()
     assert "brain" not in _groups(body) and "chats" not in _groups(body) and body["failed"] == []
     reset_hub({})
+
+
+def test_sirislearn_courses_and_lessons_are_searchable(client, apps) -> None:
+    body = client.get("/api/v1/search?q=heat", headers=AUTH).json()
+    learn = _groups(body)["sirislearn"]
+    assert learn["label"] == "SirisLearn"
+    assert [(h["title"], h["kind"], h["url"]) for h in learn["hits"]] == [
+        ("Heat pumps", "course", "https://learn.local/course/c1"),
+        ("Refrigerants", "lesson", "https://learn.local/lesson/l2"),
+    ]
+    assert learn["hits"][0]["external"]
