@@ -61,6 +61,7 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
                                           │    ├─ Engineering Archive :8091 (X-API-Key)
                                           │    ├─ GVW Timesheets :8092    (health)
                                           │    ├─ SirisDrone :8096        (library + exports)
+                                          │    ├─ SirisLearn :8100        (courses + streaks)
                                           │    └─ Helmarr / JEFIT / Neo Server (launch tiles)
                                           └─ engineering module
                                                SirisHydro · calculators · Standards · Projects
@@ -95,6 +96,7 @@ first-time move to the hub build is covered step by step in
 | `ARCHIVE_URL`, `ARCHIVE_API_KEY` | Engineering Archive (a `read`-scope key) |
 | `GVW_URL` | GVW Timesheets |
 | `SIRISDRONE_URL` (+ optional `SIRISDRONE_USERNAME`/`SIRISDRONE_PASSWORD`) | SirisDrone Studio |
+| `SIRISLEARN_URL`, `SIRISLEARN_HUB_KEY` | SirisLearn: the Learning widget (streak, XP, next lesson), search and the streak reminder in the inbox ([ADR 112](docs/adr/112-sirislearn.md)). The key is `SIRISLEARN_HUB_KEY` from SirisLearn's `.env` |
 | `HELMARR_URL`, `JEFIT_URL`, `NEO_SERVER_URL` | Launch targets. App URL schemes are fine |
 | `SIRISOS_TIMEZONE`, `SIRISOS_BRIEF_FROM_HOUR`, `SIRISOS_BRIEF_UNTIL_HOUR` | When the daily brief opens by itself (default 4–9 am, Australia/Melbourne) |
 
@@ -122,7 +124,7 @@ cd apps/web && npm test && npm run build
   design system, `src/screens/` the screens, and `src/engineering/` the
   calculator library.
 - `docs/brand.md`: the logo (the lightning-bolt S, with the original kept; `scripts/use-logo.sh` switches).
-- `docs/adr`: one ADR per decision. The newest is 111.
+- `docs/adr`: one ADR per decision. The newest is 112.
 - `apps/backend/tests/contracts/sirisai-hub-v1`: SirisAI's hub contract, copied by `scripts/sync-sirisai-contract.sh`.
 - `deploy/`: nginx and supervisord config for the single app container.
 

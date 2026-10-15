@@ -9,6 +9,7 @@ import {
   Dumbbell,
   Film,
   FolderKanban,
+  GraduationCap,
   Server,
   Sparkles,
   Users,
@@ -28,6 +29,7 @@ const ICONS: Record<string, LucideIcon> = {
   film: Film,
   server: Server,
   calculator: Calculator,
+  "graduation-cap": GraduationCap,
 };
 
 /** Each app's glyph colour on its glass icon. */
@@ -39,6 +41,7 @@ const HUES: Record<string, string> = {
   archive: "#2dd4bf",
   gvw: "#4ade80",
   sirisdrone: "#38bdf8",
+  sirislearn: "#fbbf24",
   jefit: "#fb923c",
   helmarr: "#f472b6",
   "neo-server": "#22d3ee",

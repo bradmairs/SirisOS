@@ -8,8 +8,9 @@ Two sources, merged:
   Their actions (Approve, Lock down, Create automation...) are SirisAI's and
   run there; SirisOS only relays them. Ids are prefixed `ai:`.
 - **SirisOS's own**, from what the hub already watches (ids `os:`): any app
-  that's down or degraded, Project Management's overdue tasks, and the
-  Engineering Archive's review queue. Their only action is Dismiss; tapping
+  that's down or degraded, Project Management's overdue tasks, the
+  Engineering Archive's review queue, and a SirisLearn streak that ends at
+  midnight unless today's quiz is done (ADR 112). Their only action is Dismiss; tapping
   opens the app. A dismissal is remembered (server-side, so every device
   agrees) until the situation changes -- the item's key includes its state
   or count, so "APD PM is down" comes back if it goes down again tomorrow,
@@ -113,7 +114,27 @@ def own_items(apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "app": app["name"],
                 "url": app.get("launch_url"),
             })
+        if app.get("id") == "sirislearn" and (streak := _streak_at_risk(widget)):
+            items.append({
+                "key": f"sirislearn:streak:{day}",
+                "kind": "notice",
+                "severity": "info",
+                "title": f"Your {streak}-day learning streak ends at midnight",
+                "body": "Finish a quiz in SirisLearn today to keep it going.",
+                "source": "sirislearn",
+                "app": app["name"],
+                "url": next((i.get("url") for i in (widget or {}).get("items") or [] if i.get("url")), app.get("launch_url")),
+            })
     return items
+
+
+def _streak_at_risk(widget: dict[str, Any] | None) -> int:
+    """SirisLearn's streak length when its Streak metric is flagged (tone warning)."""
+    for m in (widget or {}).get("metrics") or []:
+        if m.get("label") == "Streak" and m.get("tone") == "warning":
+            digits = "".join(ch for ch in str(m.get("value")).split(" ")[0] if ch.isdigit())
+            return int(digits) if digits else 0
+    return 0
 
 
 def from_os(item: dict[str, Any]) -> dict[str, Any]:

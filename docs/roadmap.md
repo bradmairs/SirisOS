@@ -108,6 +108,12 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Phone dock: five items, with Career in place of Engineering
 - [ ] Draft competency claims from tagged evidence into the Second Brain
 
+## SirisLearn ✅ (ADR 112)
+- [x] SirisLearn connector: status and the Learning widget (streak, XP today, level, courses, next lesson, new awards)
+- [x] SirisLearn courses and lessons in search
+- [x] Inbox: "your learning streak ends at midnight" while today's quiz isn't done
+- [ ] Set `SIRISLEARN_URL` / `SIRISLEARN_HUB_KEY` on the server and check the tile live
+
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.
