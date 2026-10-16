@@ -156,6 +156,21 @@ class FakeApps:
             if title != "SirisOS":
                 return httpx.Response(404, json={"detail": f"No note called {title!r}."})
             return httpx.Response(200, json={"title": "SirisOS", "path": "x", "links": ["SirisAI"], "backlinks": []})
+        if path in ("/siris/brain/delete", "/siris/brain/restore", "/siris/brain/purge"):
+            body = json.loads(request.content)
+            if body["title"] == "Health":
+                return httpx.Response(422, json={"detail": "Health is one of the hubs the brain is organised around, so it can't be deleted"})
+            action = {"delete": "deleted", "restore": "restored", "purge": "purged"}[path.rsplit("/", 1)[1]]
+            return httpx.Response(200, json={"action": action, **body})
+        if path == "/siris/brain/deleted":
+            return httpx.Response(200, json=[{"title": "Old Router", "type": "note", "path": "Notes/Old Router.md",
+                                              "date": "2026-10-16", "linked_from": ["Home Lab"], "restorable": True}])
+        if path == "/siris/memory" and request.method == "GET":
+            return httpx.Response(200, json=[{"id": 7, "position": 1, "content": "Brad prefers metric units",
+                                              "created_at": "2026-10-01", "recall_count": 2, "last_recalled_at": None,
+                                              "query": request.url.params.get("query"), "limit": request.url.params.get("limit")}])
+        if path.startswith("/siris/memory/") and request.method == "DELETE":
+            return httpx.Response(204) if path.endswith("/7") else httpx.Response(404, json={"detail": "Memory not found."})
         if path in ("/siris/brain/link", "/siris/brain/not-related"):
             body = json.loads(request.content)
             if body["b"] == "Nope":
@@ -543,3 +558,28 @@ def test_brain_unlink_autolink_and_note_proxies(client, apps):
     assert client.get("/api/v1/brain/note?title=SirisOS", headers=AUTH).json()["links"] == ["SirisAI"]
     assert client.get("/api/v1/brain/note?title=Nope", headers=AUTH).status_code == 404
     assert client.post("/api/v1/brain/autolink").status_code == 401
+
+
+def test_brain_delete_restore_purge_and_deleted_proxies(client, apps):
+    deleted = client.post("/api/v1/brain/delete", headers=AUTH, json={"title": "Old Router"})
+    assert deleted.json() == {"action": "deleted", "title": "Old Router", "permanent": False}
+    forever = client.post("/api/v1/brain/delete", headers=AUTH, json={"title": "Spare Pi", "permanent": True})
+    assert forever.json()["permanent"] is True
+    assert client.post("/api/v1/brain/restore", headers=AUTH, json={"title": "Old Router"}).json()["action"] == "restored"
+    assert client.post("/api/v1/brain/purge", headers=AUTH, json={"title": "Old Router"}).json()["action"] == "purged"
+    assert client.get("/api/v1/brain/deleted", headers=AUTH).json()[0]["title"] == "Old Router"
+    hub = client.post("/api/v1/brain/delete", headers=AUTH, json={"title": "Health"})
+    assert hub.status_code == 422 and "hubs" in hub.json()["detail"]
+    assert client.post("/api/v1/brain/delete", headers=AUTH, json={"title": ""}).status_code == 422
+    assert client.post("/api/v1/brain/delete", json={"title": "x"}).status_code == 401
+
+
+def test_memories_list_and_delete_proxies(client, apps):
+    listed = client.get("/api/v1/memories?query=units&limit=5", headers=AUTH).json()
+    assert listed[0]["content"] == "Brad prefers metric units"
+    assert listed[0]["query"] == "units" and listed[0]["limit"] == "5"
+    assert client.get("/api/v1/memories", headers=AUTH).json()[0]["query"] is None  # no empty query sent
+    assert client.delete("/api/v1/memories/7", headers=AUTH).status_code == 204
+    missing = client.delete("/api/v1/memories/8", headers=AUTH)
+    assert missing.status_code == 404 and "Memory not found" in missing.json()["detail"]
+    assert client.delete("/api/v1/memories/7").status_code == 401

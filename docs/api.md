@@ -47,6 +47,8 @@ All routes require the SirisOS bearer token.
 | `POST /api/v1/brain/link` · `POST /api/v1/brain/not-related` · `POST /api/v1/brain/unlink` (`{a, b}`) | Link two notes, dismiss a suggestion, or disconnect two notes (never auto-linked again) |
 | `POST /api/v1/brain/autolink` | Link the pairs the brain is confident about now, rather than at the nightly tidy |
 | `GET /api/v1/brain/note?title=` | A note's links and backlinks |
+| `POST /api/v1/brain/delete` (`{title, permanent?}`) · `POST /api/v1/brain/restore` · `POST /api/v1/brain/purge` (`{title}`) · `GET /api/v1/brain/deleted` | Delete a note (it leaves search, links and the map; links to it are removed; restorable unless `permanent`), put one back with its connections, remove a deleted one for good, or list deleted notes with `restorable` |
+| `GET /api/v1/memories?query=&limit=` · `DELETE /api/v1/memories/{id}` | SirisAI's own memories (`id`, `content`, `created_at`, `recall_count`), and deleting one (no undo) |
 | `GET /api/v1/brief?fresh=` | The daily brief (ADR 108): `greeting`, `headline[]`, `weather {now, today}`, `schedule[]`, `tasks[]`, `todo[]`, `email {unread, important[]}`, `health[]`, `home[]`, `apps_attention[]`, `brain`, `news {topics[{topic, stories[{title, url, source, published, matches}]}], interests_from}`, `unavailable[]`, `status`. Cached 10 minutes |
 | `GET /api/v1/brief/status` · `POST /api/v1/brief/dismiss` | `{date, show, dismissed_today, from, until}`: whether the brief should open itself now; dismiss it for today (all devices) |
 | `GET /api/v1/search?q=` | Search everything (ADR 109): `{query, groups[{id, label, icon, best, hits[{title, subtitle, url, external, kind, app_id, score}]}], failed[], took_ms}`. Two characters minimum; each source has a 4 s timeout |

@@ -2,8 +2,8 @@ import { api, json, request } from "./client";
 import { readEvents } from "./sse";
 import { readNdjson, type VoiceEvent } from "./voice";
 import type {
-  BrainHit, BrainInsights, BrainNote, CameraLook, ChatEvent, ConversationSummary, HubApp, Hud, Inbox, InboxEvent, InboxItem,
-  PendingToolCall, ProtocolPreview, ProtocolRunResult, SirisWidgets,
+  BrainDeleted, BrainDeleteResult, BrainHit, BrainInsights, BrainNote, CameraLook, ChatEvent, ConversationSummary, HubApp, Hud, Inbox, InboxEvent, InboxItem,
+  PendingToolCall, ProtocolPreview, ProtocolRunResult, SirisMemory, SirisWidgets,
 } from "./types";
 
 export const hub = {
@@ -27,6 +27,11 @@ export const brain = {
   unlink: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/unlink", json({ a, b })),
   autolink: () => api<{ linked: { a: string; b: string; confidence: number | null }[]; deferred: number }>("/api/v1/brain/autolink", { method: "POST" }),
   note: (title: string) => api<BrainNote>(`/api/v1/brain/note?title=${encodeURIComponent(title)}`),
+  /** Leaves search, links and the map. Restorable unless `permanent`. */
+  remove: (title: string, permanent = false) => api<BrainDeleteResult>("/api/v1/brain/delete", json({ title, permanent })),
+  restore: (title: string) => api<BrainDeleteResult>("/api/v1/brain/restore", json({ title })),
+  purge: (title: string) => api<BrainDeleteResult>("/api/v1/brain/purge", json({ title })),
+  deleted: () => api<BrainDeleted[]>("/api/v1/brain/deleted"),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[] }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
 };
@@ -88,4 +93,11 @@ export const assistant = {
     if (!response.body) return;
     yield* readEvents<ChatEvent>(response.body);
   },
+};
+
+/** SirisAI's own memories, which feed the brain. Deleting one can't be undone. */
+export const memories = {
+  list: (query = "", limit = 50) =>
+    api<SirisMemory[]>(`/api/v1/memories?limit=${limit}${query.trim() ? `&query=${encodeURIComponent(query.trim())}` : ""}`),
+  remove: (id: number) => api<void>(`/api/v1/memories/${id}`, { method: "DELETE" }),
 };
