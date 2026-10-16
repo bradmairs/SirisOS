@@ -8,9 +8,8 @@ keeps the engineering tools that no other app owns.
 
 **Complement, not replace.** SirisOS does not rebuild what another app
 already does well. SirisAI owns the assistant, memory and home
-integrations. Second Brain owns notes and knowledge. JEFIT owns the gym, Helmarr owns media and Neo Server owns the
-homelab. SirisOS links to all of them, monitors them and surfaces their
-data. See [ADR 106](docs/adr/106-sirisos-hub.md).
+integrations. Second Brain owns notes and knowledge. SirisOS links to
+all of them, monitors them and surfaces their data. See [ADR 106](docs/adr/106-sirisos-hub.md).
 
 Every morning a **daily brief** opens by itself until 9 am, or until you
 close it. It shows your day, the news picked from your Second Brain
@@ -57,10 +56,8 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
                                           │    ├─ SirisAI + Second Brain  (bearer key)
                                           │    ├─ Engineering Reviewer :8082
                                           │    ├─ Engineering Archive :8091 (X-API-Key)
-                                          │    ├─ GVW Timesheets :8092    (health)
                                           │    ├─ SirisDrone :8096        (library + exports)
-                                          │    ├─ SirisLearn :8100        (courses + streaks)
-                                          │    └─ Helmarr / JEFIT / Neo Server (launch tiles)
+                                          │    └─ SirisLearn :8100        (courses + streaks)
                                           └─ engineering module
                                                SirisHydro · calculators · Standards · Projects
 ```
@@ -91,10 +88,8 @@ first-time move to the hub build is covered step by step in
 | `SIRISOS_SERVICE_KEY` | SirisAI's key into SirisOS's read/compute routes (ADR 110). Same value as `SIRISAI_SIRISOS_SERVICE_KEY` in SirisAI. At least 24 characters |
 | `REVIEWER_URL` (+ optional `REVIEWER_USERNAME`/`REVIEWER_PASSWORD`) | Engineering Reviewer |
 | `ARCHIVE_URL`, `ARCHIVE_API_KEY` | Engineering Archive (a `read`-scope key) |
-| `GVW_URL` | GVW Timesheets |
 | `SIRISDRONE_URL` (+ optional `SIRISDRONE_USERNAME`/`SIRISDRONE_PASSWORD`) | SirisDrone Studio |
 | `SIRISLEARN_URL`, `SIRISLEARN_HUB_KEY` | SirisLearn: the Learning widget (streak, XP, next lesson), search and the streak reminder in the inbox ([ADR 112](docs/adr/112-sirislearn.md)). The key is `SIRISLEARN_HUB_KEY` from SirisLearn's `.env` |
-| `HELMARR_URL`, `JEFIT_URL`, `NEO_SERVER_URL` | Launch targets. App URL schemes are fine |
 | `SIRISOS_TIMEZONE`, `SIRISOS_BRIEF_FROM_HOUR`, `SIRISOS_BRIEF_UNTIL_HOUR` | When the daily brief opens by itself (default 4–9 am, Australia/Melbourne) |
 
 Each app also has a `*_PUBLIC_URL`. It defaults to the same value as `*_URL`

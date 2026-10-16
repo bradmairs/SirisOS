@@ -12,7 +12,7 @@ import pytest
 from app.hub import service
 from app.hub.service import Hub
 
-ENV = {"GVW_URL": "http://gvw:8092", "ARCHIVE_URL": "http://archive:8091", "ARCHIVE_API_KEY": "k"}
+ENV = {"SIRISLEARN_URL": "http://learn:8100", "SIRISLEARN_HUB_KEY": "k", "ARCHIVE_URL": "http://archive:8091", "ARCHIVE_API_KEY": "k"}
 
 
 class SlowApps:
@@ -24,7 +24,7 @@ class SlowApps:
     async def __call__(self, request: httpx.Request) -> httpx.Response:
         self.calls.append(f"{request.url.host}{request.url.path}")
         await asyncio.sleep(self.delay)
-        if request.url.host == "gvw":
+        if request.url.host == "learn":
             return httpx.Response(200, json={"status": "ok", "version": self.version})
         return httpx.Response(200, json={"status": "ok", "needsReview": 1, "totalMedia": 2, "unassignedMedia": 0, "totalAssets": 3, "lastScan": None})
 
@@ -39,29 +39,29 @@ def apps(monkeypatch):
 
 def test_concurrent_requests_share_one_upstream_call(apps):
     hub = Hub(ENV)
-    gvw = hub.get("gvw")
+    learn = hub.get("sirislearn")
 
     async def scenario():
-        return await asyncio.gather(*(hub.status(gvw) for _ in range(10)))
+        return await asyncio.gather(*(hub.status(learn) for _ in range(10)))
 
     results = asyncio.run(scenario())
     assert {r["state"] for r in results} == {"ok"}
-    assert apps.calls.count("gvw/healthz") == 1
+    assert apps.calls.count("learn/api/hub/v1/status") == 1
 
 
 def test_stale_value_is_served_instantly_and_refreshed_in_background(apps):
     hub = Hub(ENV, ttl=0.01, stale_for=60)
-    gvw = hub.get("gvw")
+    learn = hub.get("sirislearn")
 
     async def scenario():
-        first = await hub.status(gvw)
+        first = await hub.status(learn)
         await asyncio.sleep(0.02)  # now stale
         apps.version = "2.0.0"
         started = time.perf_counter()
-        stale = await hub.status(gvw)
+        stale = await hub.status(learn)
         elapsed = time.perf_counter() - started
         await asyncio.sleep(apps.delay * 3)  # let the background refresh land
-        return first, stale, elapsed, hub._cache[("gvw", "status")][1]
+        return first, stale, elapsed, hub._cache[("sirislearn", "status")][1]
 
     first, stale, elapsed, refreshed = asyncio.run(scenario())
     assert first["version"] == stale["version"] == "1.0.0"
@@ -71,15 +71,15 @@ def test_stale_value_is_served_instantly_and_refreshed_in_background(apps):
 
 def test_too_stale_or_fresh_requests_wait_for_new_data(apps):
     hub = Hub(ENV, ttl=0.01, stale_for=0.02)
-    gvw = hub.get("gvw")
+    learn = hub.get("sirislearn")
 
     async def scenario():
-        await hub.status(gvw)
+        await hub.status(learn)
         await asyncio.sleep(0.03)
         apps.version = "3.0.0"
-        expired = await hub.status(gvw)
+        expired = await hub.status(learn)
         apps.version = "4.0.0"
-        forced = await hub.status(gvw, fresh=True)
+        forced = await hub.status(learn, fresh=True)
         return expired, forced
 
     expired, forced = asyncio.run(scenario())

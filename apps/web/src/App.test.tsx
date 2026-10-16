@@ -59,7 +59,7 @@ describe("<App />", () => {
       "/api/v1/hub/apps": () =>
         jsonResponse({
           apps: [
-            { id: "gvw", name: "GVW Timesheets", category: "work", icon: "clock", description: "", launch_url: "http://gvw", launch_only: false, configured: true,
+            { id: "reviewer", name: "Engineering Reviewer", category: "engineering", icon: "clipboard-check", description: "", launch_url: "http://reviewer", launch_only: false, configured: true,
               status: { state: "ok", detail: "", latency_ms: 3, version: null, checked_at: "" } },
           ],
         }),
@@ -68,7 +68,7 @@ describe("<App />", () => {
     render(<App />);
     const menu = await screen.findByRole("complementary", { name: "Menu" });
     expect(menu).toHaveTextContent("SIRISOS");
-    expect(await screen.findByRole("link", { name: /GVW Timesheets/ })).toHaveAttribute("href", "http://gvw");
+    expect(await screen.findByRole("link", { name: /Engineering Reviewer/ })).toHaveAttribute("href", "http://reviewer");
     await user.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("form", { name: "Sign in" })).toBeInTheDocument();
     expect(localStorage.getItem("sirisos.token")).toBeNull();

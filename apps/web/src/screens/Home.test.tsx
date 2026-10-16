@@ -19,7 +19,7 @@ const APPS: HubApp[] = [
     status: status("degraded", "API key rejected: check ARCHIVE_API_KEY"),
     widget: { error: "API key rejected" },
   },
-  { id: "helmarr", name: "Helmarr", category: "life", icon: "film", description: "", launch_url: null, launch_only: true, configured: false, status: status("unconfigured", "Set HELMARR_URL") },
+  { id: "sirisdrone", name: "SirisDrone", category: "life", icon: "plane", description: "", launch_url: null, launch_only: false, configured: false, status: status("unconfigured", "Set SIRISDRONE_URL") },
 ];
 
 describe("greeting", () => {
@@ -47,7 +47,7 @@ describe("<Home />", () => {
     expect(screen.getByText("Site meeting")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(", Brad");
     expect(screen.getByText(/1 app needs attention/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Helmarr: unconfigured" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "SirisDrone: unconfigured" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Engineering Archive: degraded" }));
     const sheet = await screen.findByRole("dialog", { name: "Engineering Archive" });
@@ -140,7 +140,7 @@ describe("<Home />", () => {
         </MemoryRouter>,
       );
       const suite = await screen.findByRole("region", { name: "Siris App Suite" });
-      expect(within(suite).getByRole("button", { name: "Helmarr: unconfigured" })).toBeInTheDocument();
+      expect(within(suite).getByRole("button", { name: "SirisDrone: unconfigured" })).toBeInTheDocument();
       expect(suite.querySelector(".app-grid--strip")).not.toBeNull();
       // Above the widgets, and only once (no second grid at the bottom).
       const now = screen.getByRole("heading", { name: "Now" });

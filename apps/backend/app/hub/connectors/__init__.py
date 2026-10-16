@@ -4,8 +4,6 @@ from typing import Mapping
 
 from app.hub.connectors.archive import ArchiveConnector
 from app.hub.connectors.base import Connector
-from app.hub.connectors.gvw import GVWConnector
-from app.hub.connectors.launch import HelmarrConnector, JefitConnector, NeoServerConnector
 from app.hub.connectors.reviewer import ReviewerConnector
 from app.hub.connectors.sirisai import SecondBrainConnector, SirisAIConnector
 from app.hub.connectors.sirisdrone import SirisDroneConnector
@@ -17,12 +15,8 @@ CONNECTOR_TYPES: tuple[type[Connector], ...] = (
     SecondBrainConnector,
     ReviewerConnector,
     ArchiveConnector,
-    GVWConnector,
     SirisDroneConnector,
     SirisLearnConnector,
-    JefitConnector,
-    HelmarrConnector,
-    NeoServerConnector,
 )
 
 
