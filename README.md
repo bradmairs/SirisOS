@@ -8,8 +8,7 @@ keeps the engineering tools that no other app owns.
 
 **Complement, not replace.** SirisOS does not rebuild what another app
 already does well. SirisAI owns the assistant, memory and home
-integrations. Second Brain owns notes and knowledge. APD PM owns project
-management. JEFIT owns the gym, Helmarr owns media and Neo Server owns the
+integrations. Second Brain owns notes and knowledge. JEFIT owns the gym, Helmarr owns media and Neo Server owns the
 homelab. SirisOS links to all of them, monitors them and surfaces their
 data. See [ADR 106](docs/adr/106-sirisos-hub.md).
 
@@ -19,7 +18,7 @@ interests, and anything that needs a look
 ([ADR 108](docs/adr/108-daily-brief.md)).
 
 Press **⌘K** (or **Ctrl+K**, or the search button) to **search everything**:
-apps, widgets, links, Second Brain notes, Siris chats, APD PM, the Archive,
+apps, widgets, links, Second Brain notes, Siris chats, the Archive,
 the Reviewer and the engineering library, all in one list
 ([ADR 109](docs/adr/109-search-everything.md)).
 
@@ -56,7 +55,6 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
                               └─► /api ─► FastAPI (apps/backend)
                                           ├─ hub gateway (connectors)
                                           │    ├─ SirisAI + Second Brain  (bearer key)
-                                          │    ├─ APD PM :8080            (service login)
                                           │    ├─ Engineering Reviewer :8082
                                           │    ├─ Engineering Archive :8091 (X-API-Key)
                                           │    ├─ GVW Timesheets :8092    (health)
@@ -91,7 +89,6 @@ first-time move to the hub build is covered step by step in
 | `SIRISAI_URL`, `SIRISAI_API_KEY`, `SIRISAI_PUBLIC_URL` | Assistant, HUD and Second Brain. `SIRISAI_URL` is how the container reaches SirisAI. `SIRISAI_PUBLIC_URL` is the link your phone opens |
 | `SIRISAI_USER` | Optional: the SirisAI user to act as (per-user health, memories). Blank = SirisAI's default user |
 | `SIRISOS_SERVICE_KEY` | SirisAI's key into SirisOS's read/compute routes (ADR 110). Same value as `SIRISAI_SIRISOS_SERVICE_KEY` in SirisAI. At least 24 characters |
-| `APD_PM_URL`, `APD_PM_EMAIL`, `APD_PM_PASSWORD` | Project widget. Use a dedicated VIEWER account |
 | `REVIEWER_URL` (+ optional `REVIEWER_USERNAME`/`REVIEWER_PASSWORD`) | Engineering Reviewer |
 | `ARCHIVE_URL`, `ARCHIVE_API_KEY` | Engineering Archive (a `read`-scope key) |
 | `GVW_URL` | GVW Timesheets |

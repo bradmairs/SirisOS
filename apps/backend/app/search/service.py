@@ -12,7 +12,7 @@ listed in `failed` and blanks only its own group):
   gets the previous path: /siris/brain/search and the read-only
   `search_conversations` tool. In SirisAI's guest mode these come back
   empty.
-- Apps with their own search: APD PM (every register), Engineering Archive
+- Apps with their own search: Engineering Archive
   (assets, media, files incl. OCR text), Engineering Reviewer (reviews).
 - Engineering: the Standards Library (titles and page text), SirisOS
   projects and SirisHydro questions.

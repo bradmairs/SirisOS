@@ -19,9 +19,6 @@ ENV = {
     "SIRISAI_URL": "http://sirisai:8000",
     "SIRISAI_API_KEY": "ai-key",
     "SIRISAI_PUBLIC_URL": "https://siris.local",
-    "APD_PM_URL": "http://apd:8080",
-    "APD_PM_EMAIL": "siris@example.com",
-    "APD_PM_PASSWORD": "pw",
     "REVIEWER_URL": "http://reviewer:8082",
     "ARCHIVE_URL": "http://archive:8091",
     "ARCHIVE_API_KEY": "ea_key",
@@ -52,10 +49,6 @@ class FakeApps:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
-        self.apd_logins = 0
-        self.apd_expire_once = False
-        self.apd_cookie = "apd_token"
-        self.apd_two_factor = False
         self.down: set[str] = set()
         self.learn_at_risk = False
 
@@ -68,8 +61,6 @@ class FakeApps:
             if request.headers.get("authorization") != "Bearer ai-key":
                 return httpx.Response(401, json={"detail": "Missing or invalid API key."})
             return self.sirisai(request, path)
-        if host == "apd":
-            return self.apd(request, path)
         if host == "reviewer":
             if path == "/api/health":
                 return httpx.Response(200, json={"ok": True, "llm_provider": "ollama", "llm_model": "qwen3", "llm_available": True})
@@ -200,32 +191,6 @@ class FakeApps:
             return httpx.Response(200, content=payload.encode(), headers={"content-type": "text/event-stream"})
         return httpx.Response(404, json={"detail": "Not Found"})
 
-    def apd(self, request: httpx.Request, path: str) -> httpx.Response:
-        if path == "/api/auth/login":
-            body = json.loads(request.content)
-            if body["password"] != "pw":
-                return httpx.Response(401, json={"error": "Invalid email or password"})
-            if self.apd_two_factor:  # password right, but a second step is needed: no session cookie
-                return httpx.Response(200, json={"twoFactorRequired": True, "challengeToken": "c"})
-            self.apd_logins += 1
-            return httpx.Response(200, json={"id": "u"}, headers={"set-cookie": f"{self.apd_cookie}=t{self.apd_logins}; Path=/; HttpOnly"})
-        cookie = request.headers.get("cookie", "")
-        if not cookie.startswith(f"{self.apd_cookie}=t"):
-            return httpx.Response(401, json={"error": "Not authenticated"})
-        if self.apd_expire_once:
-            self.apd_expire_once = False
-            return httpx.Response(401, json={"error": "Invalid or expired session"})
-        if path == "/api/auth/me":
-            return httpx.Response(200, json={"id": "u"})
-        if path == "/api/projects":
-            return httpx.Response(200, json=[{"status": "DESIGN"}, {"status": "CONSTRUCTION"}, {"status": "COMPLETE"}])
-        if path == "/api/tasks/upcoming":
-            return httpx.Response(200, json=[
-                {"title": "Submit RFI", "dueDate": f"{TODAY - timedelta(days=2)}T00:00:00.000Z", "project": {"name": "Pump station"}},
-                {"title": "Monthly report", "dueDate": f"{TODAY + timedelta(days=10)}T00:00:00.000Z", "project": None},
-            ])
-        return httpx.Response(404, json={"error": "not found"})
-
 
 @pytest.fixture
 def apps(monkeypatch):
@@ -254,7 +219,8 @@ def test_hub_requires_login(client, apps):
 def test_all_configured_apps_report_ok(client, apps):
     apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
     assert list(apps_)[:2] == ["sirisai", "second-brain"]
-    for app_id in ("sirisai", "second-brain", "apd-pm", "reviewer", "archive", "gvw", "sirisdrone", "sirislearn", "jefit"):
+    assert "apd-pm" not in apps_  # SirisPM was removed from SirisOS (1.3)
+    for app_id in ("sirisai", "second-brain", "reviewer", "archive", "gvw", "sirisdrone", "sirislearn", "jefit"):
         assert apps_[app_id]["status"]["state"] == "ok", (app_id, apps_[app_id]["status"])
     assert apps_["gvw"]["status"]["version"] == "1.0.0"
     assert apps_["second-brain"]["launch_url"] == "https://siris.local/brain"
@@ -266,10 +232,10 @@ def test_all_configured_apps_report_ok(client, apps):
 def test_unconfigured_apps_never_call_out(client, monkeypatch):
     fake = FakeApps()
     monkeypatch.setattr(service, "transport", httpx.MockTransport(fake))
-    reset_hub({"APD_PM_URL": "http://apd:8080"})  # no credentials
+    reset_hub({"ARCHIVE_URL": "http://archive:8091"})  # no API key
     apps_ = _by_id(client.get("/api/v1/hub/apps?widgets=true", headers=AUTH).json())
     assert {a["status"]["state"] for a in apps_.values()} == {"unconfigured"}
-    assert "APD_PM_EMAIL" in apps_["apd-pm"]["status"]["detail"]
+    assert "ARCHIVE_API_KEY" in apps_["archive"]["status"]["detail"]
     assert fake.calls == []
     reset_hub({})
 
@@ -285,12 +251,10 @@ def test_one_dead_app_only_blanks_its_own_tile(client, apps):
 
 def test_bad_credentials_are_degraded_not_down(client, monkeypatch):
     monkeypatch.setattr(service, "transport", httpx.MockTransport(FakeApps()))
-    reset_hub({**ENV, "SIRISAI_API_KEY": "wrong", "APD_PM_PASSWORD": "nope"})
+    reset_hub({**ENV, "SIRISAI_API_KEY": "wrong"})
     apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
     assert apps_["sirisai"]["status"]["state"] == "degraded"
     assert "Unauthorised" in apps_["sirisai"]["status"]["detail"]
-    assert apps_["apd-pm"]["status"]["state"] == "degraded"
-    assert "APD_PM_PASSWORD" in apps_["apd-pm"]["status"]["detail"]
     reset_hub({})
 
 
@@ -301,12 +265,6 @@ def test_widgets_are_normalised(client, apps):
     today = widgets["sirisai"]
     assert {"label": "Weather", "value": "18° Partly cloudy", "tone": "neutral"} in today["metrics"]
     assert today["items"][0]["title"] == "Site meeting"
-
-    apd = {m["label"]: m for m in widgets["apd-pm"]["metrics"]}
-    assert apd["Active projects"]["value"] == "2"
-    assert apd["Overdue"] == {"label": "Overdue", "value": "1", "tone": "critical"}
-    assert widgets["apd-pm"]["items"][0]["tone"] == "critical"
-    assert widgets["apd-pm"]["items"][1]["subtitle"].startswith("Portfolio · due")
 
     archive = {m["label"]: m["value"] for m in widgets["archive"]["metrics"]}
     assert archive == {"Needs review": "3", "Unassigned": "7", "Media": "12,034", "Assets": "41"}
@@ -386,33 +344,6 @@ def test_status_is_cached_until_fresh_requested(client, apps):
     assert len(apps.calls) == first
     client.get("/api/v1/hub/apps?fresh=true", headers=AUTH)
     assert len(apps.calls) > first
-
-
-def test_apd_session_is_reused_and_renewed_on_expiry(client, apps):
-    client.get("/api/v1/hub/apps/apd-pm", headers=AUTH)
-    assert apps.apd_logins == 1
-    client.get("/api/v1/hub/apps/apd-pm?fresh=true", headers=AUTH)
-    assert apps.apd_logins == 1
-    apps.apd_expire_once = True
-    body = client.get("/api/v1/hub/apps/apd-pm?fresh=true", headers=AUTH).json()
-    assert body["status"]["state"] == "ok"
-    assert apps.apd_logins == 2
-
-
-def test_apd_session_cookie_may_be_renamed_per_instance(client, apps):
-    # A second PM instance on the same host sets e.g. apd_token_8069 so the two
-    # don't share a browser login; the connector must replay whatever it was given.
-    apps.apd_cookie = "apd_token_8069"
-    body = client.get("/api/v1/hub/apps/apd-pm", headers=AUTH).json()
-    assert body["status"]["state"] == "ok"
-    assert apps.apd_logins == 1
-
-
-def test_apd_account_with_two_factor_gets_a_clear_message(client, apps):
-    apps.apd_two_factor = True
-    body = client.get("/api/v1/hub/apps/apd-pm", headers=AUTH).json()
-    assert body["status"]["state"] == "degraded"
-    assert "two-factor" in body["status"]["detail"]
 
 
 def test_unknown_app_is_404(client, apps):
@@ -522,9 +453,9 @@ def test_bare_public_domains_become_https_links(client):
     assert with_scheme("jefit://") == "jefit://"
     assert with_scheme("") == ""
 
-    reset_hub({**ENV, "APD_PM_PUBLIC_URL": "pm.example.org", "SIRISAI_PUBLIC_URL": "siris.example.org"})
+    reset_hub({**ENV, "ARCHIVE_PUBLIC_URL": "archive.example.org", "SIRISAI_PUBLIC_URL": "siris.example.org"})
     apps = {a["id"]: a for a in client.get("/api/v1/hub/apps", headers=AUTH).json()["apps"]}
-    assert apps["apd-pm"]["launch_url"] == "https://pm.example.org"
+    assert apps["archive"]["launch_url"] == "https://archive.example.org"
     assert apps["second-brain"]["launch_url"] == "https://siris.example.org/brain"
     reset_hub({})
 

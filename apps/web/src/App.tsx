@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Menu, Search } from "lucide-react";
 import { onUnauthorised, session } from "./api/client";
 import { Dock } from "./components/Dock";
@@ -84,8 +84,10 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
         <button type="button" className="icon-link topbar__menu" onClick={() => setMenuOpen(true)} aria-label="Open menu">
           <Menu size={20} aria-hidden="true" />
         </button>
-        <LogoMark size={30} />
-        <span className="topbar__word">SIRIS<b>OS</b></span>
+        <Link to="/" className="topbar__home" aria-label="SirisOS home">
+          <LogoMark size={30} />
+          <span className="topbar__word">SIRIS<b>OS</b></span>
+        </Link>
         <button type="button" className="icon-link topbar__search" onClick={openSearch} aria-label="Search everything">
           <Search size={20} aria-hidden="true" />
         </button>

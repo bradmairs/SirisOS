@@ -8,13 +8,13 @@ Two sources, merged:
   Their actions (Approve, Lock down, Create automation...) are SirisAI's and
   run there; SirisOS only relays them. Ids are prefixed `ai:`.
 - **SirisOS's own**, from what the hub already watches (ids `os:`): any app
-  that's down or degraded, Project Management's overdue tasks, the
+  that's down or degraded, the
   Engineering Archive's review queue, and a SirisLearn streak that ends at
   midnight unless today's quiz is done (ADR 112). Their only action is Dismiss; tapping
   opens the app. A dismissal is remembered (server-side, so every device
   agrees) until the situation changes -- the item's key includes its state
-  or count, so "APD PM is down" comes back if it goes down again tomorrow,
-  and "3 overdue" comes back as "4 overdue".
+  or count, so "the Archive is down" comes back if it goes down again tomorrow,
+  and "3 waiting for review" comes back as "4 waiting".
 
 Each source fails alone: a SirisAI outage leaves SirisOS's own items (and
 an "apps down" item for SirisAI itself), and the reverse.
@@ -92,17 +92,6 @@ def own_items(apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "url": app.get("launch_url"),
             })
         widget = app.get("widget") if isinstance(app.get("widget"), dict) else None
-        if app.get("id") == "apd-pm" and (overdue := _metric(widget, "Overdue")):
-            items.append({
-                "key": f"apd:overdue:{overdue}:{day}",
-                "kind": "notice",
-                "severity": "attention",
-                "title": f"{overdue} overdue task{'s' if overdue != 1 else ''} in {app['name']}",
-                "body": "; ".join(i.get("title", "") for i in (widget or {}).get("items") or [] if i.get("tone") == "critical")[:300],
-                "source": "apd-pm",
-                "app": app["name"],
-                "url": app.get("launch_url"),
-            })
         if app.get("id") == "archive" and (review := _metric(widget, "Needs review")):
             items.append({
                 "key": f"archive:review:{review}",

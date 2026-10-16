@@ -73,4 +73,18 @@ describe("<App />", () => {
     expect(await screen.findByRole("form", { name: "Sign in" })).toBeInTheDocument();
     expect(localStorage.getItem("sirisos.token")).toBeNull();
   });
+
+  it("goes Home from the logo and name, in the top bar and the sidebar", async () => {
+    signIn("brad");
+    window.history.pushState({}, "", "/links");
+    mockFetch({ "/api/v1/hub/apps": () => jsonResponse({ apps: [] }), "/api/v1/links": () => jsonResponse({ groups: [] }) });
+    const user = userEvent.setup();
+    render(<App />);
+    const homes = await screen.findAllByRole("link", { name: "SirisOS home" });
+    expect(homes).toHaveLength(2);  // top bar and sidebar
+    homes.forEach((a) => expect(a).toHaveAttribute("href", "/"));
+    await user.click(homes[0]);
+    expect(window.location.pathname).toBe("/");
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/Good (morning|afternoon|evening|night)/);
+  });
 });

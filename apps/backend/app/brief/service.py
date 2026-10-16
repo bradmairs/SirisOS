@@ -14,7 +14,7 @@ own section, and is listed in `unavailable`):
   notifications.
 - Second Brain (via SirisAI): the notes that shape the news (see news.py).
 - Guest mode (SirisAI's): personal sections arrive empty and the brief says so.
-- Hub: APD PM's due tasks, and any app that's down or needs attention.
+- Hub: any app that's down or needs attention.
 - News: see news.py.
 
 Shown automatically from SIRISOS_BRIEF_FROM_HOUR (4) until
@@ -251,11 +251,6 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         if left <= 7:
             when = "due today" if left == 0 else "due tomorrow" if left == 1 else f"overdue by {-left} days" if left < 0 else f"due in {left} days"
             tasks.append({"title": d.get("title"), "detail": f"Project {when}", "tone": "critical" if left <= 0 else "warning", "source": "Second Brain"})
-    for app in apps:
-        if app.get("id") == "apd-pm" and isinstance(app.get("widget"), dict):
-            for item in (app["widget"].get("items") or [])[:4]:
-                if item.get("tone") in ("critical", "warning"):
-                    tasks.append({"title": item.get("title"), "detail": item.get("subtitle"), "tone": item.get("tone"), "source": "Project Management"})
     todo = []
     for lst in parts.get("todo") or []:
         for item in (lst.get("items") or []) if isinstance(lst, dict) else []:

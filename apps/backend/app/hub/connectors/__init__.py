@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from app.hub.connectors.apd_pm import APDPMConnector
 from app.hub.connectors.archive import ArchiveConnector
 from app.hub.connectors.base import Connector
 from app.hub.connectors.gvw import GVWConnector
@@ -16,7 +15,6 @@ from app.hub.connectors.sirislearn import SirisLearnConnector
 CONNECTOR_TYPES: tuple[type[Connector], ...] = (
     SirisAIConnector,
     SecondBrainConnector,
-    APDPMConnector,
     ReviewerConnector,
     ArchiveConnector,
     GVWConnector,
