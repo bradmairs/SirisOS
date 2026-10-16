@@ -25,7 +25,6 @@ SirisOS reads:
 | --- | --- | --- |
 | SirisAI | Copy its `SIRISAI_API_KEY` from SirisAI's `.env` | `SIRISAI_URL=http://192.168.0.100:8000`, `SIRISAI_API_KEY=…`, optionally `SIRISAI_PUBLIC_URL=https://192.168.0.100:8443` |
 | Second Brain | Nothing: SirisAI serves it. SirisAI needs `SIRISAI_BRAIN_PATH` set | (uses the SirisAI values) |
-| APD PM | Create a **Viewer** user, e.g. `siris-hub@…` | `APD_PM_URL=http://192.168.0.100:8080`, `APD_PM_EMAIL`, `APD_PM_PASSWORD` |
 | Engineering Reviewer | Nothing, unless its Basic auth is on | `REVIEWER_URL=http://192.168.0.100:8082` (+ `REVIEWER_USERNAME/PASSWORD`) |
 | Engineering Archive | Settings → API keys → new key with **read** scope | `ARCHIVE_URL=http://192.168.0.100:8091`, `ARCHIVE_API_KEY=ea_…` |
 | GVW Timesheets | Nothing (health only) | `GVW_URL=http://192.168.0.100:8092` |

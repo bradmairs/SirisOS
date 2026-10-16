@@ -110,11 +110,20 @@ body.no-scroll { overflow: hidden; }
 }
 @keyframes logo-orbit { to { transform: rotate(360deg); } }
 
+/* Solid black behind the whole bar (status bar included), fading out only below it. The old
+   gradient faded through the middle of the bar, so under an iPhone's Dynamic Island the logo
+   and name sat in the fade. */
 .topbar {
   position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px;
-  padding: calc(var(--safe-top) + 10px) var(--gutter) 10px;
-  background: linear-gradient(#000 55%, transparent);
+  padding: calc(var(--safe-top) + 16px) var(--gutter) 10px;
+  background: var(--bg);
 }
+.topbar::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 18px;
+  background: linear-gradient(var(--bg), transparent); pointer-events: none;
+}
+.topbar__home { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; border-radius: 12px; }
+.topbar__home:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .topbar__menu { width: 38px; height: 38px; color: var(--ink-2); }
 .topbar__word { font-size: 14px; }
 
@@ -518,3 +527,19 @@ body.no-scroll { overflow: hidden; }
 .manage__list .item { align-items: center; }
 .manage__memory { white-space: normal; overflow: visible; }
 .manage__confirm { display: flex; align-items: center; gap: 4px; flex: none; }
+
+/* Logo goes Home from the sidebar too. */
+.sidebar__home { display: inline-flex; color: inherit; text-decoration: none; border-radius: 12px; }
+.sidebar__home:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+/* Siris App Suite on phones: one swipeable row near the top of Home. */
+.app-suite .section-title { margin-top: 20px; }
+.app-grid.app-grid--strip {
+  display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter);
+  margin: 0 calc(-1 * var(--gutter)); padding: 4px var(--gutter) 10px; scrollbar-width: none;
+}
+.app-grid--strip::-webkit-scrollbar { display: none; }
+.app-grid--strip .app-tile { flex: 0 0 68px; scroll-snap-align: start; }
+.app-grid--strip .app-icon { width: 56px; height: 56px; border-radius: 16px; }
+.app-grid--strip .app-tile__name { font-size: 11px; max-width: 72px; }

@@ -208,10 +208,7 @@ def test_compose_writes_the_headline_from_every_source(state) -> None:
                      "deadlines": [{"title": "Outfall", "days_left": 0}, {"title": "Later", "days_left": 30}],
                      "auto_linked": [{"a": "A", "b": "B"}], "pending_auto_links": 2, "suggested_links": [{}],
                      "highlights": ["3 notes this week."]},
-        "apps": [{"id": "apd-pm", "name": "Project Management", "status": {"state": "ok"},
-                  "widget": {"items": [{"title": "Submit RFI", "subtitle": "2 days overdue", "tone": "critical"},
-                                       {"title": "Report", "subtitle": "in 10 days", "tone": "neutral"}]}},
-                 {"id": "archive", "name": "Engineering Archive", "status": {"state": "down", "detail": "timeout"}}],
+        "apps": [{"id": "archive", "name": "Engineering Archive", "status": {"state": "down", "detail": "timeout"}}],
         "news": {"topics": [{"topic": "AI", "stories": []}]},
     }
     brief = service.compose(at, "brad", parts, ["email"])
@@ -219,14 +216,14 @@ def test_compose_writes_the_headline_from_every_source(state) -> None:
     assert brief["headline"] == [
         "21° today, showers, 70% chance of rain: take a jacket.",
         "2 things on today, starting with Site meeting at 9:30 am.",
-        "3 tasks overdue or due today, starting with Send RFI.",
+        "2 tasks overdue or due today, starting with Send RFI.",
         "1 important email, from Jane Smith.",
         "Engineering Archive needs a look (down).",
         "3 things waiting in the Second Brain inbox.",
     ]
     assert [e["title"] for e in brief["schedule"]] == ["School pickup", "Site meeting"]  # no Sonarr
     assert [e["calendar"] for e in brief["schedule"]] == ["iCloud Family", "Gmail"]
-    assert [t["source"] for t in brief["tasks"]] == ["Second Brain", "Second Brain", "Project Management"]
+    assert [t["source"] for t in brief["tasks"]] == ["Second Brain", "Second Brain"]
     assert brief["todo"] == ["Milk"]
     assert brief["email"] == {"unread": 2, "important": [{"from": "Jane Smith", "subject": "Pump quote"}]}
     assert brief["health"] == ["Slept 6.2 h", "Resting heart rate is up."]

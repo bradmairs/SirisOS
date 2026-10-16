@@ -95,8 +95,7 @@ def ai(monkeypatch, tmp_path):
     monkeypatch.setattr(brief_service, "news_service", news.NewsService())
     monkeypatch.setenv("SIRISOS_BRIEF_STATE_PATH", str(tmp_path / "brief.json"))
     monkeypatch.setenv("SIRISOS_ATTENTION_STATE_PATH", str(tmp_path / "attention.json"))
-    reset_hub({"SIRISAI_URL": "http://sirisai:8000", "SIRISAI_API_KEY": "ai-key", "SIRISAI_USER": "brad",
-               "APD_PM_URL": "http://apd:8080", "APD_PM_EMAIL": "e", "APD_PM_PASSWORD": "p"})
+    reset_hub({"SIRISAI_URL": "http://sirisai:8000", "SIRISAI_API_KEY": "ai-key", "SIRISAI_USER": "brad"})
     yield fake
     reset_hub({})
 
@@ -177,8 +176,6 @@ def test_protocols_cameras_widgets(client, ai) -> None:
 def test_inbox_merges_sirisai_and_sirisos_items(client, ai, monkeypatch) -> None:
     async def apps(self, fresh=False, with_widgets=False):  # noqa: ANN001
         return [
-            {"id": "apd-pm", "name": "Project Management", "launch_url": "https://pm", "status": {"state": "ok"},
-             "widget": {"metrics": [{"label": "Overdue", "value": "2"}], "items": [{"title": "Submit RFI", "tone": "critical"}]}},
             {"id": "archive", "name": "Engineering Archive", "launch_url": None, "status": {"state": "down", "detail": "Timed out"}, "widget": None},
         ]
 
@@ -186,7 +183,7 @@ def test_inbox_merges_sirisai_and_sirisos_items(client, ai, monkeypatch) -> None
     inbox = client.get("/api/v1/attention", headers=AUTH).json()
     ids = [i["id"] for i in inbox["items"]]
     assert ids[0].startswith("ai:")  # the urgent SirisAI alert sorts first
-    assert "os:app:archive:down" in ids and any(i.startswith("os:apd:overdue:2:") for i in ids)
+    assert "os:app:archive:down" in ids
     assert inbox["counts"]["urgent"] == 1 and inbox["unavailable"] == []
 
     # SirisAI items act through SirisAI...

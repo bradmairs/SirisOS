@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { ArrowUpRight, Award, Brain, House, Inbox, LayoutGrid, LogOut, Ruler, Search, Sparkles, Sunrise, X } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
@@ -56,7 +56,9 @@ export function Sidebar({
       <div className={`sidebar-scrim ${open ? "sidebar-scrim--open" : ""}`} onClick={onClose} aria-hidden="true" />
       <Glass as="aside" variant="strong" shape="xl" className={`sidebar ${open ? "sidebar--open" : ""}`} aria-label="Menu">
         <div className="sidebar__brand">
-          <Logo size={38} />
+          <Link to="/" className="sidebar__home" onClick={onClose} aria-label="SirisOS home">
+            <Logo size={38} />
+          </Link>
           <button type="button" className="icon-link sidebar__close" onClick={onClose} aria-label="Close menu">
             <X size={18} aria-hidden="true" />
           </button>
@@ -90,7 +92,7 @@ export function Sidebar({
 
         {launchable.length > 0 && (
           <>
-            <p className="sidebar__label">Apps</p>
+            <p className="sidebar__label">Siris App Suite</p>
             <ul className="sidebar__apps">
               {launchable.map((app) => {
                 const Icon = iconFor(app.icon);

@@ -49,16 +49,6 @@ class SearchApps(FakeApps):
             return httpx.Response(200, json={"tool_call": {"name": "search_conversations", "arguments": args, "result": said}})
         return super().__call__(request)
 
-    def apd(self, request: httpx.Request, path: str) -> httpx.Response:
-        if path == "/api/search" and request.headers.get("cookie", "").startswith("apd_token=t"):
-            return httpx.Response(200, json={"query": request.url.params["q"], "results": [
-                {"type": "project", "typeLabel": "Project", "id": "p1", "projectId": "p1", "projectName": "Pump station upgrade",
-                 "title": "Pump station upgrade", "subtitle": "Shepparton", "date": None},
-                {"type": "rfi", "typeLabel": "RFI", "id": "r1", "projectId": "p1", "projectName": "Pump station upgrade",
-                 "title": "RFI 12: pump pad levels", "subtitle": "Open", "date": None},
-            ]})
-        return super().apd(request, path)
-
 
 @pytest.fixture
 def data(tmp_path, monkeypatch):
@@ -124,11 +114,7 @@ def test_search_reaches_every_source(client, apps) -> None:
     assert [c["url"] for c in chats] == ["/assistant?c=c1", "/assistant?c=c2"]  # one per conversation
     assert chats[0]["subtitle"] == "You said · 2026-10-06"
 
-    apd = groups["apd-pm"]
-    assert apd["label"] == "Project Management"
-    assert apd["hits"][0]["url"] == "http://apd:8080/projects/p1" and apd["hits"][0]["external"]
-    rfi = next(h for h in apd["hits"] if h["kind"] == "rfi")
-    assert rfi["url"] == "http://apd:8080/projects/p1?tab=quality" and rfi["subtitle"] == "RFI · Pump station upgrade · Open"
+    assert "apd-pm" not in groups  # SirisPM was removed from SirisOS (1.3)
 
     archive = {h["kind"]: h for h in groups["archive"]["hits"]}
     assert archive["asset"]["url"] == "http://archive:8091/assets/as1"
@@ -145,7 +131,7 @@ def test_search_reaches_every_source(client, apps) -> None:
     assert eng["project"]["url"] == "/engineering/projects/sp1"
     assert eng["hydro"]["url"].startswith("/engineering/hydro?q=minimum%20submergence")
 
-    # Widgets on the home screen: APD PM's due tasks, the Reviewer's recent reviews.
+    # Widgets on the home screen: the Reviewer's recent reviews.
     widgets = [h["title"] for h in groups["widgets"]["hits"]]
     assert "Pump station" in widgets
 

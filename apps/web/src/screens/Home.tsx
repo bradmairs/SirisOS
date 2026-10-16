@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, CloudSun, Cpu, House, RefreshCw, ShieldCheck, Sparkles, Sunrise } from "lucide-react";
 import { hub } from "../api/hub";
@@ -40,9 +40,24 @@ export function useApps(_widgets = true) {
   };
 }
 
-export function AppGrid({ apps, onOpen }: { apps: HubApp[]; onOpen: (app: HubApp) => void }) {
+/** True on phone-width screens (where the dock replaces the sidebar). */
+export function useIsPhone(): boolean {
+  const query = "(max-width: 959px)";
+  const supported = typeof window !== "undefined" && typeof window.matchMedia === "function";
+  const [phone, setPhone] = useState(() => supported && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (!supported) return;
+    const mq = window.matchMedia(query);
+    const onChange = () => setPhone(mq.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [supported]);
+  return phone;
+}
+
+export function AppGrid({ apps, onOpen, layout = "grid" }: { apps: HubApp[]; onOpen: (app: HubApp) => void; layout?: "grid" | "strip" }) {
   return (
-    <div className="app-grid">
+    <div className={`app-grid${layout === "strip" ? " app-grid--strip" : ""}`}>
       {apps.map((app, i) => (
         <button
           key={app.id}
@@ -67,6 +82,7 @@ export function Home() {
   const hideMine = guest || !!siris?.guest_mode;
   const [open, setOpen] = useState<HubApp | null>(null);
   const [ask, setAsk] = useState("");
+  const phone = useIsPhone();
   const navigate = useNavigate();
   const now = new Date();
 
@@ -104,6 +120,13 @@ export function Home() {
         <Sparkles aria-hidden="true" />
         <input className="ask-bar__input" placeholder="Ask Siris anything…" value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask Siris" />
       </Glass>
+
+      {phone && apps && apps.length > 0 && (
+        <section className="app-suite" aria-label="Siris App Suite">
+          <h2 className="section-title">Siris App Suite</h2>
+          <AppGrid apps={apps} onOpen={setOpen} layout="strip" />
+        </section>
+      )}
 
       {hideMine && (
         <p className="guest-banner" role="status">Guest mode is on: your calendar, email, health and notes are hidden.</p>
@@ -155,9 +178,9 @@ export function Home() {
           </div>
         </>
       )}
-      {apps && apps.length > 0 && (
+      {!phone && apps && apps.length > 0 && (
         <>
-          <h2 className="section-title">Apps</h2>
+          <h2 className="section-title">Siris App Suite</h2>
           <AppGrid apps={apps} onOpen={setOpen} />
         </>
       )}

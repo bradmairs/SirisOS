@@ -55,7 +55,7 @@ function EngineeringHome() {
       </div>
       {engineering.length > 0 && (
         <>
-          <h2 className="section-title">Apps</h2>
+          <h2 className="section-title">Siris App Suite</h2>
           <AppGrid apps={engineering} onOpen={setOpen} />
         </>
       )}

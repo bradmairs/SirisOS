@@ -36,7 +36,6 @@ const ICONS: Record<string, LucideIcon> = {
 const HUES: Record<string, string> = {
   sirisai: "#5fd3ff",
   "second-brain": "#a78bfa",
-  "apd-pm": "#60a5fa",
   reviewer: "#fbbf24",
   archive: "#2dd4bf",
   gvw: "#4ade80",
