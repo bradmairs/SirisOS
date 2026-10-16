@@ -5,7 +5,10 @@ import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainHit } from "../api/types";
 import { Glass } from "../components/Glass";
+import type { BrainDeleteResult } from "../api/types";
+import { DeleteNoteButton } from "./BrainDelete";
 import { BrainInsights } from "./BrainInsights";
+import { BrainManage, DeletedBar, useDeletedNotes } from "./BrainManage";
 import { BrainMap } from "./BrainMap";
 import { NoteConnections } from "./NoteConnections";
 
@@ -15,7 +18,12 @@ export function Brain() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const todayRes = useResource("brain:today", () => brain.today(), { refreshMs: 120_000 });
-  const today = todayRes.data?.items ?? null;
+  const deletedRes = useDeletedNotes();
+  // The activity log still says a deleted note was learned today; don't list it.
+  const gone = new Set((deletedRes.data ?? []).map((d) => d.title.toLowerCase()));
+  const today = todayRes.data ? todayRes.data.items.filter((i) => !gone.has(i.title.toLowerCase())) : null;
+  const [lastDeleted, setLastDeleted] = useState<{ title: string; permanent: boolean } | null>(null);
+  const [searchNonce, setSearchNonce] = useState(0);
   const [capture, setCapture] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -44,7 +52,21 @@ export function Brain() {
       }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [q]);
+  }, [q, searchNonce]);
+
+  function deleted(r: BrainDeleteResult) {
+    setHits((h) => (h ? h.filter((x) => x.title !== r.title) : h));
+    setLastDeleted({ title: r.title, permanent: !!r.permanent });
+    todayRes.reload().catch(() => undefined);
+    deletedRes.reload(true).catch(() => undefined);
+  }
+
+  function restored() {
+    setLastDeleted(null);
+    setSearchNonce((n) => n + 1);
+    todayRes.reload().catch(() => undefined);
+    deletedRes.reload(true).catch(() => undefined);
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -77,6 +99,15 @@ export function Brain() {
       </Glass>
 
       {error && <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{error}</div>}
+      {lastDeleted && (
+        <DeletedBar
+          key={lastDeleted.title}
+          title={lastDeleted.title}
+          permanent={lastDeleted.permanent}
+          onUndone={restored}
+          onClose={() => setLastDeleted(null)}
+        />
+      )}
 
       {hits !== null ? (
         <>
@@ -93,7 +124,10 @@ export function Brain() {
                   <p key={i} className="muted" style={{ margin: 0 }}>{x}</p>
                 ))}
                 {hit.path && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{hit.path}</p>}
-                <NoteConnections title={hit.title} />
+                <div className="row note-actions">
+                  <NoteConnections title={hit.title} />
+                  <DeleteNoteButton title={hit.title} onDeleted={deleted} />
+                </div>
               </Glass>
             ))}
           </div>
@@ -132,6 +166,7 @@ export function Brain() {
                       <div className="item__title">{item.title}</div>
                       <div className="item__subtitle">{item.action}</div>
                     </span>
+                    <DeleteNoteButton title={item.title} compact onDeleted={deleted} />
                   </li>
                 ))}
               </ul>
@@ -139,6 +174,7 @@ export function Brain() {
           </Glass>
         </div>
         <BrainInsights />
+        <BrainManage onRestored={restored} />
         </>
       )}
     </>

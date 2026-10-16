@@ -128,6 +128,36 @@ export interface BrainInsights {
   };
 }
 
+/** What deleting or restoring a note did. */
+export interface BrainDeleteResult {
+  action: string;
+  title: string;
+  path?: string;
+  permanent?: boolean;
+  linked_from?: string[];
+  relinked?: string[];
+}
+
+/** A deleted note, newest first; `restorable` is false once it's deleted permanently. */
+export interface BrainDeleted {
+  title: string;
+  type: string;
+  path: string;
+  date: string;
+  linked_from: string[];
+  restorable: boolean;
+}
+
+/** One of SirisAI's own memories (what `remember` saved). */
+export interface SirisMemory {
+  id: number;
+  position: number;
+  content: string;
+  created_at: string;
+  recall_count: number;
+  last_recalled_at: string | null;
+}
+
 export interface BrainNote {
   title: string;
   path: string;

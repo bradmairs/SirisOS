@@ -323,6 +323,58 @@ async def brain_note(
     return await _forward(connector, "GET", "/siris/brain/note", params={"title": title})
 
 
+class BrainNoteRef(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+
+class BrainDelete(BrainNoteRef):
+    permanent: bool = False
+
+
+@router.post("/brain/delete", tags=["brain"])
+async def brain_delete(request: BrainDelete, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Delete a note: it leaves search, links and the map. Restorable unless `permanent`."""
+    return await _forward(connector, "POST", "/siris/brain/delete", json=request.model_dump())
+
+
+@router.post("/brain/restore", tags=["brain"])
+async def brain_restore(request: BrainNoteRef, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Undo a delete: the note returns where it was, with its connections."""
+    return await _forward(connector, "POST", "/siris/brain/restore", json=request.model_dump())
+
+
+@router.post("/brain/purge", tags=["brain"])
+async def brain_purge(request: BrainNoteRef, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Permanently remove a note that's already deleted."""
+    return await _forward(connector, "POST", "/siris/brain/purge", json=request.model_dump())
+
+
+@router.get("/brain/deleted", tags=["brain"])
+async def brain_deleted(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Deleted notes, newest first, and whether each can be restored."""
+    return await _forward(connector, "GET", "/siris/brain/deleted")
+
+
+@router.get("/memories", tags=["brain"])
+async def memories(
+    query: str | None = Query(None, max_length=200),
+    limit: int = Query(50, ge=1, le=200),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> Any:
+    """SirisAI's own memories (what `remember` saved), newest or best-matching first."""
+    params: dict[str, Any] = {"limit": limit}
+    if query and query.strip():
+        params["query"] = query.strip()
+    return await _forward(connector, "GET", "/siris/memory", params=params)
+
+
+@router.delete("/memories/{memory_id}", tags=["brain"], status_code=204, response_class=Response)
+async def delete_memory(memory_id: int, connector: SirisAIConnector = Depends(_sirisai)) -> Response:
+    """Delete one of SirisAI's memories. There's no undo."""
+    await _forward(connector, "DELETE", f"/siris/memory/{memory_id}")
+    return Response(status_code=204)
+
+
 @router.get("/brain/insights", tags=["brain"])
 async def brain_insights(
     days: int = Query(30, ge=7, le=365),

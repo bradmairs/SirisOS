@@ -500,3 +500,21 @@ body.no-scroll { overflow: hidden; }
 .password-field .field { padding-right: 52px; }
 .password-field__toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; }
 .login__hint { display: block; margin-top: 4px; opacity: 0.85; font-size: 13px; }
+
+/* Brain: deleting notes and memories */
+.note-actions { flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.note-actions .connections { flex: 1; min-width: 0; }
+.delete-chip { color: var(--critical); display: inline-flex; align-items: center; gap: 4px; }
+.delete-chip:disabled { opacity: 0.5; cursor: default; }
+.delete-permanent { gap: 10px; font-size: 14px; color: var(--ink-2); }
+.delete-permanent input { width: 18px; height: 18px; accent-color: var(--critical); }
+.button--danger { color: var(--critical); }
+.deleted-bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 12px 10px 16px; border-radius: var(--r-md); }
+.deleted-bar > * { position: relative; z-index: 2; }
+.deleted-bar__text { flex: 1; min-width: 0; font-size: 14px; }
+.mini-search { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--hairline); color: var(--ink-3); }
+.mini-search input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: 14px; color: var(--ink); }
+.manage__list { max-height: 360px; overflow-y: auto; }
+.manage__list .item { align-items: center; }
+.manage__memory { white-space: normal; overflow: visible; }
+.manage__confirm { display: flex; align-items: center; gap: 4px; flex: none; }
