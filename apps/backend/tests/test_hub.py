@@ -22,12 +22,10 @@ ENV = {
     "REVIEWER_URL": "http://reviewer:8082",
     "ARCHIVE_URL": "http://archive:8091",
     "ARCHIVE_API_KEY": "ea_key",
-    "GVW_URL": "http://gvw:8092",
     "SIRISDRONE_URL": "http://drone:8096",
     "SIRISLEARN_URL": "http://learn:8100",
     "SIRISLEARN_PUBLIC_URL": "https://learn.local",
     "SIRISLEARN_HUB_KEY": "learn-key",
-    "JEFIT_URL": "jefit://",
 }
 
 
@@ -77,8 +75,6 @@ class FakeApps:
                 "totalFiles": 900, "totalAssets": 41,
                 "lastScan": {"target": "media", "status": "completed", "startedAt": "2026-10-01T02:00:00Z", "finishedAt": "2026-10-01T02:05:00Z"},
             })
-        if host == "gvw" and path == "/healthz":
-            return httpx.Response(200, json={"status": "ok", "version": "1.0.0"})
         if host == "drone":
             if path == "/api/config":
                 return httpx.Response(200, json={"output_roots": [{"name": "NAS", "path": "/nas/exports", "available": True}]})
@@ -220,13 +216,12 @@ def test_all_configured_apps_report_ok(client, apps):
     apps_ = _by_id(client.get("/api/v1/hub/apps", headers=AUTH).json())
     assert list(apps_)[:2] == ["sirisai", "second-brain"]
     assert "apd-pm" not in apps_  # SirisPM was removed from SirisOS (1.3)
-    for app_id in ("sirisai", "second-brain", "reviewer", "archive", "gvw", "sirisdrone", "sirislearn", "jefit"):
+    for app_id in ("sirisai", "second-brain", "reviewer", "archive", "sirisdrone", "sirislearn"):
         assert apps_[app_id]["status"]["state"] == "ok", (app_id, apps_[app_id]["status"])
-    assert apps_["gvw"]["status"]["version"] == "1.0.0"
+    assert apps_["sirislearn"]["status"]["version"] == "1.0"
     assert apps_["second-brain"]["launch_url"] == "https://siris.local/brain"
-    # Launch-only apps without a URL are listed but unconfigured.
-    assert apps_["helmarr"]["status"]["state"] == "unconfigured"
-    assert apps_["helmarr"]["launch_only"] is True
+    # GVW Timesheets, Helmarr, Neo Server and JEFIT were removed from SirisOS (1.31).
+    assert not {"gvw", "helmarr", "neo-server", "jefit"} & set(apps_)
 
 
 def test_unconfigured_apps_never_call_out(client, monkeypatch):
@@ -245,7 +240,7 @@ def test_one_dead_app_only_blanks_its_own_tile(client, apps):
     apps_ = _by_id(client.get("/api/v1/hub/apps?widgets=true", headers=AUTH).json())
     assert apps_["archive"]["status"]["state"] == "down"
     assert apps_["archive"]["widget"] is None
-    assert apps_["gvw"]["status"]["state"] == "ok"
+    assert apps_["reviewer"]["status"]["state"] == "ok"
     assert apps_["sirisai"]["widget"]["title"] == "Today"
 
 
@@ -260,7 +255,6 @@ def test_bad_credentials_are_degraded_not_down(client, monkeypatch):
 
 def test_widgets_are_normalised(client, apps):
     widgets = {w["app_id"]: w for w in client.get("/api/v1/hub/widgets", headers=AUTH).json()["widgets"]}
-    assert "gvw" not in widgets and "jefit" not in widgets
 
     today = widgets["sirisai"]
     assert {"label": "Weather", "value": "18° Partly cloudy", "tone": "neutral"} in today["metrics"]
@@ -435,13 +429,12 @@ def test_check_cli_reports_each_app_and_fails_on_problems(apps):
     lines, healthy = asyncio.run(check.run(ENV))
     text = "\n".join(lines)
     assert "✓ SirisAI" in text and "widget ok" in text
-    assert "· Helmarr" in text
     assert healthy is True
 
-    apps.down.add("gvw")
+    apps.down.add("drone")
     lines, healthy = asyncio.run(check.run(ENV))
     assert healthy is False
-    assert any(line.startswith("✗ GVW Timesheets") for line in lines)
+    assert any(line.startswith("✗ SirisDrone") for line in lines)
 
 
 def test_bare_public_domains_become_https_links(client):
@@ -450,7 +443,7 @@ def test_bare_public_domains_become_https_links(client):
     assert with_scheme("pm.example.org") == "https://pm.example.org"
     assert with_scheme("https://pm.example.org/") == "https://pm.example.org"
     assert with_scheme("http://10.0.0.5:8080") == "http://10.0.0.5:8080"
-    assert with_scheme("jefit://") == "jefit://"
+    assert with_scheme("shortcuts://") == "shortcuts://"
     assert with_scheme("") == ""
 
     reset_hub({**ENV, "ARCHIVE_PUBLIC_URL": "archive.example.org", "SIRISAI_PUBLIC_URL": "siris.example.org"})

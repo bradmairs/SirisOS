@@ -27,10 +27,8 @@ SirisOS reads:
 | Second Brain | Nothing: SirisAI serves it. SirisAI needs `SIRISAI_BRAIN_PATH` set | (uses the SirisAI values) |
 | Engineering Reviewer | Nothing, unless its Basic auth is on | `REVIEWER_URL=http://192.168.0.100:8082` (+ `REVIEWER_USERNAME/PASSWORD`) |
 | Engineering Archive | Settings → API keys → new key with **read** scope | `ARCHIVE_URL=http://192.168.0.100:8091`, `ARCHIVE_API_KEY=ea_…` |
-| GVW Timesheets | Nothing (health only) | `GVW_URL=http://192.168.0.100:8092` |
 | SirisDrone | Nothing, unless its `SIRIS_USER`/`SIRIS_PASSWORD` login is on | `SIRISDRONE_URL=http://192.168.0.100:8096` (+ `SIRISDRONE_USERNAME/PASSWORD`) |
 | SirisLearn | Set `SIRISLEARN_HUB_KEY` in its `.env` (`openssl rand -hex 32`) | `SIRISLEARN_URL=http://192.168.0.100:8100` + the same `SIRISLEARN_HUB_KEY` |
-| JEFIT, Helmarr, Neo Server | Nothing | `JEFIT_URL`, `HELMARR_URL`, `NEO_SERVER_URL`: a web URL or the app's URL scheme |
 
 Inside the container, `192.168.0.100` reaches the other apps' published
 ports. If an app uses a self-signed HTTPS certificate, set

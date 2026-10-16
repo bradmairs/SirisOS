@@ -159,3 +159,10 @@ the 8080–8093 range.
 - Live behaviour against the real apps can only be verified on Brad's LAN.
   Connectors are built against the APIs read from each repo and tested with
   mocked HTTP.
+
+## Amendments
+
+- **1.3:** APD PM (SirisPM) removed from the hub.
+- **1.31:** GVW Timesheets and the launch-only tiles (Helmarr, JEFIT, Neo
+  Server) removed from the hub at Brad's request. The apps themselves are
+  unchanged; their `*_URL` settings are no longer read.

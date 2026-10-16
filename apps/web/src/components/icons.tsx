@@ -38,12 +38,8 @@ const HUES: Record<string, string> = {
   "second-brain": "#a78bfa",
   reviewer: "#fbbf24",
   archive: "#2dd4bf",
-  gvw: "#4ade80",
   sirisdrone: "#38bdf8",
   sirislearn: "#fbbf24",
-  jefit: "#fb923c",
-  helmarr: "#f472b6",
-  "neo-server": "#22d3ee",
 };
 
 export function iconFor(name: string): LucideIcon {

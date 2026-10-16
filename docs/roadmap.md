@@ -27,10 +27,10 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] APD PM: service login, project and due-task widget
 - [x] Engineering Reviewer: health (LLM availability) and recent-reviews widget
 - [x] Engineering Archive: `/api/external/status` widget (review queue, totals)
-- [x] GVW Timesheets: health and version
+- [x] ~~GVW Timesheets: health and version~~ (removed in 1.31)
 - [x] ~~CMP Capabilities: service login and `stats/me` widget~~ (removed 2026-10-04: work-only)
 - [x] SirisDrone: library and export-queue widget
-- [x] Helmarr, JEFIT and Neo Server launch tiles
+- [x] ~~Helmarr, JEFIT and Neo Server launch tiles~~ (removed in 1.31)
 - [x] Tests against mocked HTTP for every connector
 
 ### Phase 2: Liquid Glass PWA shell ✅
@@ -117,5 +117,3 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 ## After the rebuild
 
 - Widgets you can configure and rearrange on the home screen.
-- More widgets for Neo Server and media apps, if they expose an API that's
-  reachable from the server.

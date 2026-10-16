@@ -112,7 +112,7 @@ class Connector:
     def public_url(self) -> str:
         """*_PUBLIC_URL as a full address. A bare domain ("pm.example.org")
         would otherwise be a relative link and open SirisOS itself, so it
-        gets https://. App schemes such as jefit:// are left alone."""
+        gets https://. App schemes such as shortcuts:// are left alone."""
         return with_scheme(self.setting("PUBLIC_URL"))
 
     @property
