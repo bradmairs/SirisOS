@@ -37,6 +37,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from app.brief import history
 from app.brief.news import news_service
 from app.hub.connectors.sirisai import SirisAIConnector
 from app.hub.service import Hub, shared_client
@@ -418,6 +419,11 @@ class BriefService:
                 failed.append("news")
 
             brief = compose(at, user, parts, failed)
+            brief["changes"] = history.changes(history.previous(brief["date"]), brief)
+            try:
+                history.save(brief)
+            except OSError as exc:  # never lose today's brief over the archive
+                logger.warning("Couldn't keep the brief in its history: %s", exc)
             self._cache = (time.monotonic(), at.date().isoformat(), brief)
             return brief
 

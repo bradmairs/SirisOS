@@ -579,3 +579,4 @@ body.no-scroll { overflow: hidden; }
 .capture__photo .icon-link { position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, 0.55); border-radius: 999px; }
 .capture__rec { color: var(--critical) !important; }
 .topbar__capture { margin-left: auto; }
+.brief-past { width: 100%; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }

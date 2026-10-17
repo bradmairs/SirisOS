@@ -50,10 +50,20 @@ export interface Brief {
   guest_mode?: boolean;
   unavailable: string[];
   status: BriefStatus;
+  /** What's different from the last kept brief; null when there's none. */
+  changes?: { since: string; label: string; lines: string[] } | null;
+}
+
+export interface PastBrief {
+  date: string;
+  weekday: string;
+  headline: string[];
 }
 
 export const brief = {
   get: (fresh = false) => api<Brief>(`/api/v1/brief${fresh ? "?fresh=true" : ""}`),
   status: () => api<BriefStatus>("/api/v1/brief/status"),
   dismiss: () => api<BriefStatus>("/api/v1/brief/dismiss", { method: "POST" }),
+  history: () => api<{ days: PastBrief[] }>("/api/v1/brief/history"),
+  past: (day: string) => api<Brief>(`/api/v1/brief/history/${encodeURIComponent(day)}`),
 };
