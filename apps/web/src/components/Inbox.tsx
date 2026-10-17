@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowUpRight, Bell, CheckCircle2, Clock, Inbox as InboxI
 import { inbox } from "../api/hub";
 import type { InboxAction, InboxCounts, InboxEvent, InboxItem } from "../api/types";
 import { Glass } from "./Glass";
+import { NotificationSettings } from "./NotificationSettings";
 
 /**
  * The inbox (ADR 110): everything that needs Brad, from SirisAI's attention
@@ -236,6 +237,9 @@ export function InboxScreen() {
           </ul>
         </Glass>
       )}
+      <div style={{ marginTop: 18 }}>
+        <NotificationSettings />
+      </div>
     </>
   );
 }

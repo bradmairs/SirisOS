@@ -90,6 +90,7 @@ first-time move to the hub build is covered step by step in
 | `ARCHIVE_URL`, `ARCHIVE_API_KEY` | Engineering Archive (a `read`-scope key) |
 | `SIRISDRONE_URL` (+ optional `SIRISDRONE_USERNAME`/`SIRISDRONE_PASSWORD`) | SirisDrone Studio |
 | `SIRISLEARN_URL`, `SIRISLEARN_HUB_KEY` | SirisLearn: the Learning widget (streak, XP, next lesson), search and the streak reminder in the inbox ([ADR 112](docs/adr/112-sirislearn.md)). The key is `SIRISLEARN_HUB_KEY` from SirisLearn's `.env` |
+| `SIRISOS_VAPID_SUBJECT`, `SIRISOS_PUSH_BRIEF_HOUR` | Phone notifications: your `mailto:` for push services, and the hour the brief notification goes out (default 7). `SIRISOS_PUSH_ENABLED=0` stops sending |
 | `SIRISOS_TIMEZONE`, `SIRISOS_BRIEF_FROM_HOUR`, `SIRISOS_BRIEF_UNTIL_HOUR` | When the daily brief opens by itself (default 4–9 am, Australia/Melbourne) |
 
 Each app also has a `*_PUBLIC_URL`. It defaults to the same value as `*_URL`

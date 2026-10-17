@@ -62,6 +62,28 @@ full-screen like an app. Use the https address so the Siris voice orb can
 reach the microphone; `http://192.168.0.100:8094` still works for
 everything except voice.
 
+## 5. Phone notifications
+
+Open SirisOS **from the Home Screen icon**, go to the Inbox and use
+**Notifications on this device → Turn on notifications**. Pick what you want
+to hear about (apps going down, SirisAI alerts and approvals, the daily
+brief, career reminders) and tap **Send a test**. Each device is set up on
+its own.
+
+iPhones only allow notifications for a Home Screen app on an HTTPS address
+whose certificate the phone *trusts*. Clicking through a certificate warning
+isn't enough: the service worker that receives notifications won't run.
+Either install the certificate's root on the iPhone (Settings → General →
+VPN & Device Management, then Settings → General → About → Certificate
+Trust Settings → turn it on), or reach SirisOS through an address with a
+real certificate (for example Tailscale HTTPS or a domain behind a reverse
+proxy). The server also needs to reach Apple's push service
+(`web.push.apple.com`) on the internet.
+
+The signing key for notifications is made on first use and kept in
+`data/app/push-vapid.json`; deleting it means every device has to turn
+notifications on again.
+
 ## Signed out and can't get back in?
 
 Sign-in is one username and password, set by `SIRISOS_ADMIN_USERNAME` and

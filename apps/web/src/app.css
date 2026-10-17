@@ -552,3 +552,8 @@ body.no-scroll { overflow: hidden; }
 .customise__row--off .customise__label { color: var(--ink-3); text-decoration: line-through; }
 .customise__row .icon-link:disabled { opacity: 0.3; }
 .customise-entry { display: flex; justify-content: center; margin: 22px 0 4px; }
+
+/* Notifications on this device */
+.notify__topics { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.notify__topic { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+.notify__topic input { width: 18px; height: 18px; accent-color: var(--accent); }
