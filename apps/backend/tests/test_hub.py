@@ -134,6 +134,9 @@ class FakeApps:
             })
         if path == "/siris/brain/map.html":
             return httpx.Response(200, text="<title>Siris Brain Map</title><canvas id=stage></canvas>")
+        if path == "/siris/brain/done":
+            body = json.loads(request.content)
+            return httpx.Response(200, json={"action": "done" if "task" in body else "project-done", "task": body.get("task"), "note": body["note"]})
         if path == "/siris/brain/unlink":
             body = json.loads(request.content)
             return httpx.Response(200, json={"action": "unlinked", **body})
@@ -484,6 +487,13 @@ def test_cmp_capabilities_is_not_part_of_the_hub(client, monkeypatch):
     ids = {a["id"] for a in client.get("/api/v1/hub/apps", headers=AUTH).json()["apps"]}
     assert "cmp" not in ids
     reset_hub({})
+
+
+def test_brain_done_proxy(client, apps):
+    r = client.post("/api/v1/brain/done", headers=AUTH, json={"note": "Race", "task": "Taper"})
+    assert r.json() == {"action": "done", "note": "Race", "task": "Taper"}
+    assert client.post("/api/v1/brain/done", headers=AUTH, json={"note": "Race"}).json()["action"] == "project-done"
+    assert client.post("/api/v1/brain/done", headers=AUTH, json={"note": ""}).status_code == 422
 
 
 def test_brain_unlink_autolink_and_note_proxies(client, apps):

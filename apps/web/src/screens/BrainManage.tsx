@@ -4,6 +4,7 @@ import { brain, memories } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainDeleted, SirisMemory } from "../api/types";
 import { Glass } from "../components/Glass";
+import { useShowMore } from "../components/ShowMore";
 
 const dayLabel = (iso: string) => {
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
@@ -37,6 +38,7 @@ function MemoriesPanel() {
   const [confirming, setConfirming] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const list = useShowMore(items ?? []);
 
   useEffect(() => {
     let live = true;
@@ -89,8 +91,9 @@ function MemoriesPanel() {
       ) : items && items.length === 0 ? (
         <p className="muted" style={{ margin: 0 }}>{q ? "No memories match." : "Siris hasn't saved any memories yet."}</p>
       ) : (
+        <>
         <ul className="items manage__list">
-          {(items ?? []).map((m) => (
+          {list.shown.map((m) => (
             <li key={m.id} className="item">
               <span className="item__text">
                 <div className="item__title manage__memory">{m.content}</div>
@@ -114,6 +117,8 @@ function MemoriesPanel() {
             </li>
           ))}
         </ul>
+        {list.toggle}
+        </>
       )}
     </Glass>
   );
@@ -126,6 +131,7 @@ function DeletedPanel({ onRestored }: { onRestored?: (title: string) => void }) 
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const items = res.data ?? null;
+  const { shown, toggle } = useShowMore(items ?? []);
 
   async function act(d: BrainDeleted, kind: "restore" | "purge") {
     setBusy(d.title);
@@ -161,8 +167,9 @@ function DeletedPanel({ onRestored }: { onRestored?: (title: string) => void }) 
       ) : items && items.length === 0 ? (
         <p className="muted" style={{ margin: 0 }}>Nothing deleted.</p>
       ) : (
+        <>
         <ul className="items manage__list">
-          {(items ?? []).map((d) => (
+          {shown.map((d) => (
             <li key={`${d.title}-${d.date}`} className="item">
               <span className="item__text">
                 <div className="item__title">{d.title}</div>
@@ -191,6 +198,8 @@ function DeletedPanel({ onRestored }: { onRestored?: (title: string) => void }) 
             </li>
           ))}
         </ul>
+        {toggle}
+        </>
       )}
     </Glass>
   );

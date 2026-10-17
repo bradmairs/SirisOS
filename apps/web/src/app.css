@@ -600,3 +600,7 @@ body.no-scroll { overflow: hidden; }
 .status-strip__cell--down { background: color-mix(in srgb, var(--critical, #f87171) 85%, transparent); }
 .status-strip__legend { display: flex; justify-content: space-between; font-size: 11px; margin-top: -6px; }
 .login__passkey { align-self: center; margin-top: 4px; }
+
+/* Show all / Show fewer under a long list */
+.show-more { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; margin-top: 4px; padding: 4px 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.show-more:hover { text-decoration: underline; }

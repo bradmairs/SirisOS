@@ -5,6 +5,7 @@ import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainHit } from "../api/types";
 import { Glass } from "../components/Glass";
+import { useShowMore } from "../components/ShowMore";
 import type { BrainDeleteResult } from "../api/types";
 import { DeleteNoteButton } from "./BrainDelete";
 import { BrainInsights } from "./BrainInsights";
@@ -22,6 +23,7 @@ export function Brain() {
   // The activity log still says a deleted note was learned today; don't list it.
   const gone = new Set((deletedRes.data ?? []).map((d) => d.title.toLowerCase()));
   const today = todayRes.data ? todayRes.data.items.filter((i) => !gone.has(i.title.toLowerCase())) : null;
+  const learned = useShowMore(today ?? []);
   const [lastDeleted, setLastDeleted] = useState<{ title: string; permanent: boolean } | null>(null);
   const [searchNonce, setSearchNonce] = useState(0);
   const [capture, setCapture] = useState("");
@@ -158,8 +160,9 @@ export function Brain() {
             ) : today.length === 0 ? (
               <p className="muted">Nothing new in the brain today.</p>
             ) : (
+              <>
               <ul className="items">
-                {today.map((item) => (
+                {learned.shown.map((item) => (
                   <li key={item.title} className="item">
                     <span className="item__dot" style={{ background: "#a78bfa" }} aria-hidden="true" />
                     <span className="item__text">
@@ -170,6 +173,8 @@ export function Brain() {
                   </li>
                 ))}
               </ul>
+              {learned.toggle}
+              </>
             )}
           </Glass>
         </div>
