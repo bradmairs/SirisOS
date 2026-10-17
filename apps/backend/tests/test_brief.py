@@ -1,4 +1,4 @@
-"""Daily brief (ADR 108): news from the Second Brain's interests, the composed
+"""Daily brief (ADR 108): news from Siris' interests, the composed
 brief, the auto-show window and dismissal, against mocked app HTTP."""
 
 from __future__ import annotations
@@ -219,11 +219,11 @@ def test_compose_writes_the_headline_from_every_source(state) -> None:
         "2 tasks overdue or due today, starting with Send RFI.",
         "1 important email, from Jane Smith.",
         "Engineering Archive needs a look (down).",
-        "3 things waiting in the Second Brain inbox.",
+        "3 things waiting in Siris' inbox.",
     ]
     assert [e["title"] for e in brief["schedule"]] == ["School pickup", "Site meeting"]  # no Sonarr
     assert [e["calendar"] for e in brief["schedule"]] == ["iCloud Family", "Gmail"]
-    assert [t["source"] for t in brief["tasks"]] == ["Second Brain", "Second Brain"]
+    assert [t["source"] for t in brief["tasks"]] == ["Siris", "Siris"]
     assert brief["todo"] == ["Milk"]
     assert brief["email"] == {"unread": 2, "important": [{"from": "Jane Smith", "subject": "Pump quote"}]}
     assert brief["health"] == ["Slept 6.2 h", "Resting heart rate is up."]

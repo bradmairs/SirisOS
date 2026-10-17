@@ -140,14 +140,14 @@ class SaveClaim(BaseModel):
 
 @router.post("/claims/{element_id}/save")
 async def save_claim(element_id: str, body: SaveClaim) -> dict[str, Any]:
-    """Into the Second Brain (through SirisAI), titled per element so saving
+    """Into Siris (through SirisAI), titled per element so saving
     again adds to the same note instead of making another."""
     el = claims.element(store.load(), element_id)
     if el is None:
         raise HTTPException(status_code=404, detail="No Stage 2 element with that id.")
     connector = get_hub().get("sirisai")
     if not isinstance(connector, SirisAIConnector) or not connector.configured:
-        raise HTTPException(status_code=503, detail="SirisAI isn't connected, so there's no Second Brain to save to.")
+        raise HTTPException(status_code=503, detail="SirisAI isn't connected, so there's no Siris to save to.")
     try:
         response = await shared_client().post(
             f"{connector.base_url}/siris/brain/capture", headers=connector.headers(), timeout=60.0,

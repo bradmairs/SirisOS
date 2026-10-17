@@ -1,5 +1,5 @@
 """News for the daily brief: stories on what Brad cares about, taken from his
-Second Brain rather than a fixed list.
+Siris rather than a fixed list.
 
 Interests come from two notes in the vault:
 

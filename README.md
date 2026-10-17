@@ -3,21 +3,21 @@
 SirisOS is the home screen for the Siris family of self-hosted apps. It is
 a Liquid Glass web app (an installable PWA) that shows every app as a live
 tile and puts their data on one screen as widgets. SirisAI is built in as
-the system assistant and Second Brain as the notes layer. SirisOS also
+the system assistant and Siris as the notes layer. SirisOS also
 keeps the engineering tools that no other app owns.
 
 **Complement, not replace.** SirisOS does not rebuild what another app
 already does well. SirisAI owns the assistant, memory and home
-integrations. Second Brain owns notes and knowledge. SirisOS links to
+integrations. Siris owns notes and knowledge. SirisOS links to
 all of them, monitors them and surfaces their data. See [ADR 106](docs/adr/106-sirisos-hub.md).
 
 Every morning a **daily brief** opens by itself until 9 am, or until you
-close it. It shows your day, the news picked from your Second Brain
+close it. It shows your day, the news picked from Siris
 interests, and anything that needs a look
 ([ADR 108](docs/adr/108-daily-brief.md)).
 
 Press **⌘K** (or **Ctrl+K**, or the search button) to **search everything**:
-apps, widgets, links, Second Brain notes, Siris chats, the Archive,
+apps, widgets, links, Siris notes, SirisAI chats, the Archive,
 the Reviewer and the engineering library, all in one list
 ([ADR 109](docs/adr/109-search-everything.md)).
 
@@ -53,7 +53,7 @@ pre-hub README and roadmap are kept in [`docs/history/`](docs/history/).
  sirisos container :8094 ── nginx ──► static PWA
                               └─► /api ─► FastAPI (apps/backend)
                                           ├─ hub gateway (connectors)
-                                          │    ├─ SirisAI + Second Brain  (bearer key)
+                                          │    ├─ SirisAI + Siris  (bearer key)
                                           │    ├─ Engineering Reviewer :8082
                                           │    ├─ Engineering Archive :8091 (X-API-Key)
                                           │    ├─ SirisDrone :8096        (library + exports)
@@ -83,7 +83,7 @@ first-time move to the hub build is covered step by step in
 | Variable | Purpose |
 | --- | --- |
 | `SIRISOS_PORT` | Host port (default `8094`; `6464` is now dad-joke-of-the-day) |
-| `SIRISAI_URL`, `SIRISAI_API_KEY`, `SIRISAI_PUBLIC_URL` | Assistant, HUD and Second Brain. `SIRISAI_URL` is how the container reaches SirisAI. `SIRISAI_PUBLIC_URL` is the link your phone opens |
+| `SIRISAI_URL`, `SIRISAI_API_KEY`, `SIRISAI_PUBLIC_URL` | Assistant, HUD and Siris. `SIRISAI_URL` is how the container reaches SirisAI. `SIRISAI_PUBLIC_URL` is the link your phone opens |
 | `SIRISAI_USER` | Optional: the SirisAI user to act as (per-user health, memories). Blank = SirisAI's default user |
 | `SIRISOS_SERVICE_KEY` | SirisAI's key into SirisOS's read/compute routes (ADR 110). Same value as `SIRISAI_SIRISOS_SERVICE_KEY` in SirisAI. At least 24 characters |
 | `REVIEWER_URL` (+ optional `REVIEWER_USERNAME`/`REVIEWER_PASSWORD`) | Engineering Reviewer |

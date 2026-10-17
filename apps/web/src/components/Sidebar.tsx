@@ -12,8 +12,8 @@ import { hueFor, iconFor } from "./icons";
 export const NAV: { to: string; label: string; Icon: typeof House; end: boolean; dock?: boolean }[] = [
   { to: "/", label: "Home", Icon: House, end: true },
   { to: "/week", label: "This week", Icon: CalendarDays, end: false, dock: false },
-  { to: "/assistant", label: "Siris", Icon: Sparkles, end: false },
-  { to: "/brain", label: "Brain", Icon: Brain, end: false },
+  { to: "/assistant", label: "SirisAI", Icon: Sparkles, end: false },
+  { to: "/brain", label: "Siris", Icon: Brain, end: false },
   { to: "/links", label: "Links", Icon: LayoutGrid, end: false },
   { to: "/engineering", label: "Engineering", Icon: Ruler, end: false, dock: false },
   { to: "/career", label: "Career", Icon: Award, end: false },

@@ -38,13 +38,13 @@ def test_says_what_changed_since_yesterday():
         "SirisLearn is degraded now.",
         "Engineering Archive is working again.",
         "1 more important email than yesterday.",
-        "Second Brain inbox up 3 (now 5).",
+        "Siris' inbox up 3 (now 5).",
         "CPD up 1.5 hours since yesterday (now 41.5).",
     ]
     assert history.changes(None, cur) is None
     # Not the day before: named by its weekday.
     assert history.changes(brief("2026-10-14", "Wednesday"), brief("2026-10-17", "Saturday", brain={"inbox": 3}))["lines"] == [
-        "Second Brain inbox up 1 (now 3)."]
+        "Siris' inbox up 1 (now 3)."]
 
 
 def test_keeps_60_days_and_serves_them(folder):

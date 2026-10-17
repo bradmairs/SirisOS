@@ -13,7 +13,7 @@ const RESULTS: SearchResponse = {
   took_ms: 40,
   failed: ["Engineering Archive"],
   groups: [
-    { id: "brain", label: "Second Brain", icon: "brain", best: 3, hits: [
+    { id: "brain", label: "Siris", icon: "brain", best: 3, hits: [
       { title: "Pump curves", subtitle: "Reading a pump curve", url: "/brain?q=Pump%20curves", external: false, kind: "resource", app_id: null, score: 3 },
     ] },
     { id: "apd-pm", label: "Project Management", icon: "kanban", best: 3, hits: [
@@ -78,10 +78,10 @@ describe("<SearchPalette />", () => {
     expect(calls.map((c) => c.url)).toEqual(["/api/v1/search?q=pump"]); // debounced: one request
     expect(within(screen.getByRole("region", { name: "Project Management" })).getByText(/station upgrade/)).toBeInTheDocument();
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    // The instant "Pump power" calculator ties with the server's best and stays first; "Ask Siris" is always last.
+    // The instant "Pump power" calculator ties with the server's best and stays first; "Ask SirisAI" is always last.
     expect(options[0]).toMatch(/^Pump power/);
     expect(options[1]).toMatch(/^Pump curves/);
-    expect(options.at(-1)).toMatch(/^Ask Siris “pump”/);
+    expect(options.at(-1)).toMatch(/^Ask SirisAI “pump”/);
 
     // Down once to the brain note; Enter goes there inside SirisOS.
     expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");

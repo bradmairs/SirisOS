@@ -4,7 +4,7 @@ Two sources, merged:
 
 - **SirisAI's attention feed** (`/siris/hub/v1/attention`): its alerts
   (intruders, failed self-heals, security), actions waiting for approval,
-  habit suggestions, jobs waiting for cheap power, Second Brain reviews.
+  habit suggestions, jobs waiting for cheap power, Siris reviews.
   Their actions (Approve, Lock down, Create automation...) are SirisAI's and
   run there; SirisOS only relays them. Ids are prefixed `ai:`.
 - **SirisOS's own**, from what the hub already watches (ids `os:`): any app

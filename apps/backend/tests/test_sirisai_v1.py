@@ -120,7 +120,7 @@ def test_the_contract_brief_becomes_the_daily_brief(ai) -> None:
         "2 things on today, starting with Site visit, Werribee at 10:30 am.",
         "1 task overdue or due today, starting with Send Werribee levels to Dana.",
         "1 important email, from Dana Lee.",
-        "2 things waiting in the Second Brain inbox.",
+        "2 things waiting in Siris' inbox.",
     ]
     assert brief["email"] == {"unread": 2, "important": [{"from": "Dana Lee", "subject": "Drainage report comments"}]}
     # Each event names its calendar (Gmail, an iCloud calendar), shown in the schedule.

@@ -8,7 +8,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 
 - If another Siris app or Brad's preferred app owns a domain, SirisOS links
   to it, monitors it and surfaces its data. SirisOS does not rebuild it.
-- SirisAI is the only assistant and Second Brain is the only notes store.
+- SirisAI is the only assistant and Siris is the only notes store.
   SirisOS has no LLM, agent or memory of its own.
 - Engineering tools (SirisHydro, calculators, Standards, Projects) stay
   native in SirisOS, because nothing else owns them.
@@ -23,7 +23,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 
 ### Phase 1: Connector gateway ✅
 - [x] Connector contract, registry, concurrent status with per-connector timeout and cache
-- [x] SirisAI + Second Brain: status, HUD widget, chat SSE passthrough, conversations, brain search/capture/today
+- [x] SirisAI + Siris: status, HUD widget, chat SSE passthrough, conversations, brain search/capture/today
 - [x] APD PM: service login, project and due-task widget
 - [x] Engineering Reviewer: health (LLM availability) and recent-reviews widget
 - [x] Engineering Archive: `/api/external/status` widget (review queue, totals)
@@ -38,7 +38,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Glass design system: materials, specular edges, dock, sheets, light/dark, reduced-transparency fallback
 - [x] Login, home screen (tiles and widgets), app detail sheet
 - [x] Assistant sheet streaming from SirisAI, with tool-confirmation flow
-- [x] Second Brain search and quick capture
+- [x] Siris search and quick capture
 - [x] PWA manifest and icons (installable on iPhone)
 
 ### Phase 3: Engineering module in React ✅
@@ -49,7 +49,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 
 ### Phase 4: Removal ✅
 - [x] Delete the Flutter app (`apps/mobile`)
-- [x] Delete the backend modules superseded by SirisAI, Second Brain, JEFIT and Neo Server (ADR 106 §4), their tests, and the docker-proxy and node-exporter containers
+- [x] Delete the backend modules superseded by SirisAI, Siris, JEFIT and Neo Server (ADR 106 §4), their tests, and the docker-proxy and node-exporter containers
 - [x] Leave their Postgres tables in place: the container stays defined, and SirisOS no longer depends on it
 - [x] Export the pre-hub Postgres and remove the container (3 October 2026; the dump is kept on the server)
 - [x] Existing project links to knowledge notes stay listed; new ones are refused
@@ -68,7 +68,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Chat streaming batched per frame; memoised bubbles
 - [x] API: OCR/search/SirisHydro off the event loop, parsed-index cache, pooled hub client, request coalescing, stale-while-revalidate, parallel status + widget
 
-## Second Brain linking ✅ (October 2026)
+## Siris linking ✅ (October 2026)
 - [x] Confident pairs are linked automatically: the threshold starts at 80% and calibrates itself from your link and not-related decisions (Siris-Second-Brain `autolink`, run in SirisAI's nightly upkeep or with "Link now")
 - [x] "Could be linked" lists only the unsure pairs, with a confidence
 - [x] "Linked automatically" panel to review and undo recent auto links
@@ -76,13 +76,13 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Unlink any connection from a note's Connections in Brain search; the pair is never auto-linked again
 
 ## Daily brief ✅ (ADR 108)
-- [x] `GET /api/v1/brief`: weather, schedule, tasks, to-dos, email, home, health, apps needing a look and the Second Brain, from SirisAI's read-only tools, insights and the hub
+- [x] `GET /api/v1/brief`: weather, schedule, tasks, to-dos, email, home, health, apps needing a look and Siris, from SirisAI's read-only tools, insights and the hub
 - [x] News for Brad: topics from the "Daily Briefing Preferences" note, ranked by the interests linked from his notes (Google News + ABC RSS)
 - [x] Opens by itself 4–9 am until closed; dismissal is shared across devices; `/brief` any time
 - [ ] Check the news feeds and tool sections against the live server
 
 ## Search everything ✅ (ADR 109)
-- [x] ⌘K / Ctrl+K palette: screens and calculators instantly; apps, home-screen widgets, links, Second Brain, Siris chats, APD PM, Engineering Archive, Reviewer, Standards, projects and SirisHydro from `/api/v1/search`
+- [x] ⌘K / Ctrl+K palette: screens and calculators instantly; apps, home-screen widgets, links, Siris, SirisAI chats, APD PM, Engineering Archive, Reviewer, Standards, projects and SirisHydro from `/api/v1/search`
 - [x] Connector `search()` contract; per-source timeout, failures listed
 - [x] Deep links: `/assistant?c=`, `/brain?q=`, `/engineering/standards?q=`, `/engineering/hydro?q=`
 - [ ] Check APD PM and Archive search against the live apps
@@ -90,7 +90,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 ## SirisAI integration v1 ✅ (ADR 110)
 - [x] SirisAI's hub contract (`/siris/hub/v1`): schema and examples copied in, tested here; 404 falls back to the old calls
 - [x] Daily brief from one contract call (fixed "70.0% chance of rain" on the way)
-- [x] Search: Second Brain, chats and memories from one SirisAI call
+- [x] Search: Siris, chats and memories from one SirisAI call
 - [x] Inbox: SirisAI's attention feed (alerts, approvals, suggestions, reviews) + apps down, APD PM overdue, Archive queue; live stream; server-side dismissals
 - [x] Home: protocols with preview, confirm and undo; cameras with "What's there?"; car; power; parcels
 - [x] Guest mode hides personal widgets and brief sections
@@ -107,7 +107,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [ ] Check the importer against a real Engineers Australia export (`make verify EA=export.csv`, 2.61)
 - [x] SirisAI tools `career_cpd_status` and `career_chartership_status`, through the read-only service key
 - [x] Phone dock: five items, with Career in place of Engineering
-- [x] Draft competency claims from tagged evidence into the Second Brain (1.7)
+- [x] Draft competency claims from tagged evidence into Siris (1.7)
 
 ## SirisLearn ✅ (ADR 112)
 - [x] SirisLearn connector: status and the Learning widget (streak, XP today, level, courses, next lesson, new awards)

@@ -13,7 +13,7 @@ describe("<BrainMap />", () => {
     const user = userEvent.setup();
     render(<BrainMap />);
 
-    const frame = await screen.findByTitle("Second Brain mind map");
+    const frame = await screen.findByTitle("Siris mind map");
     expect(frame).toHaveAttribute("srcdoc", PAGE);
     expect(frame).toHaveAttribute("sandbox", "allow-scripts allow-popups");
     expect(new Headers(calls[0].init.headers).get("Authorization")).toBe("Bearer test-token");

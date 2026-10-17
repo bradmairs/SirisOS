@@ -17,7 +17,7 @@ const BRIEF: Brief = {
   headline: ["21° today, showers, 70% chance of rain: take a jacket.", "2 things on today, starting with Site meeting at 9:30 am."],
   weather: { now: { temperature_c: 9.4, conditions: "Clear" }, today: { high_c: 21.4, low_c: 8, conditions: "Showers", rain_chance_percent: 70 } },
   schedule: [{ title: "Site meeting", time: "9:30 am", location: "Shepparton", calendar: "Gmail" }],
-  tasks: [{ title: "Send RFI", detail: "Pump station · 2 days late", tone: "critical", source: "Second Brain" }],
+  tasks: [{ title: "Send RFI", detail: "Pump station · 2 days late", tone: "critical", source: "Siris" }],
   todo: ["Bins out"],
   email: { unread: 4, important: [{ from: "Jane Smith", subject: "Pump quote" }] },
   health: ["Slept 6.2 h"],

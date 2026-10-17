@@ -8,7 +8,7 @@ import { Sheet } from "../components/Sheet";
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
- * Delete a Second Brain note, after a confirmation that says what will happen. By default the note
+ * Delete a Siris note, after a confirmation that says what will happen. By default the note
  * moves out of the brain (search, links and the map) and can be restored; "permanently" removes it.
  */
 export function DeleteNoteButton({
@@ -79,7 +79,7 @@ function DeleteNoteSheet({ title, onClose, onDeleted }: { title: string; onClose
       <div className="stack">
         <h2 className="app-sheet__name">Delete “{title}”?</h2>
         <p className="muted" style={{ margin: 0 }}>
-          It leaves your Second Brain: search, links and the mind map.
+          It leaves Siris: search, links and the mind map.
           {backlinks !== null && backlinks > 0 && ` ${plural(backlinks, "other note")} link${backlinks === 1 ? "s" : ""} to it; those links are removed, but their words stay.`}
           {!permanent && " You can restore it from Recently deleted."}
         </p>

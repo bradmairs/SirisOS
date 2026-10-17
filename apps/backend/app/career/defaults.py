@@ -111,5 +111,5 @@ PATHWAYS: list[dict[str, Any]] = [
     },
 ]
 
-# Second Brain notes that hold the career story (shown and linked in the tab).
+# Siris notes that hold the career story (shown and linked in the tab).
 BRAIN_NOTES = ["CPEng Chartership", "Brad's Career History"]

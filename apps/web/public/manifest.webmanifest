@@ -28,7 +28,7 @@
       ]
     },
     {
-      "name": "Ask Siris",
+      "name": "Ask SirisAI",
       "short_name": "Ask",
       "url": "/assistant",
       "icons": [

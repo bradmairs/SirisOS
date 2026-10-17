@@ -24,7 +24,7 @@ SirisOS reads:
 | App | What to create | `.env` |
 | --- | --- | --- |
 | SirisAI | Copy its `SIRISAI_API_KEY` from SirisAI's `.env` | `SIRISAI_URL=http://192.168.0.100:8000`, `SIRISAI_API_KEY=…`, optionally `SIRISAI_PUBLIC_URL=https://192.168.0.100:8443` |
-| Second Brain | Nothing: SirisAI serves it. SirisAI needs `SIRISAI_BRAIN_PATH` set | (uses the SirisAI values) |
+| Siris | Nothing: SirisAI serves it. SirisAI needs `SIRISAI_BRAIN_PATH` set | (uses the SirisAI values) |
 | Engineering Reviewer | Nothing, unless its Basic auth is on | `REVIEWER_URL=http://192.168.0.100:8082` (+ `REVIEWER_USERNAME/PASSWORD`) |
 | Engineering Archive | Settings → API keys → new key with **read** scope | `ARCHIVE_URL=http://192.168.0.100:8091`, `ARCHIVE_API_KEY=ea_…` |
 | SirisDrone | Nothing, unless its `SIRIS_USER`/`SIRIS_PASSWORD` login is on | `SIRISDRONE_URL=http://192.168.0.100:8096` (+ `SIRISDRONE_USERNAME/PASSWORD`) |
@@ -48,7 +48,7 @@ Fix `.env` and run `docker compose up -d sirisos` until it's all ✓ or ·.
 
 Then open `http://192.168.0.100:8094`, sign in, and check:
 
-- [ ] Home shows widgets for SirisAI, Second Brain, Projects, Reviews and Archive
+- [ ] Home shows widgets for SirisAI, Siris, Projects, Reviews and Archive
 - [ ] Siris chat streams a reply, and a tool that needs confirmation shows Allow/Cancel
 - [ ] Brain search returns notes, and Quick capture lands in the vault inbox
 - [ ] Engineering → Standards lists the existing library, and SirisHydro answers with citations
@@ -57,7 +57,7 @@ Then open `http://192.168.0.100:8094`, sign in, and check:
 ## 3b. Check everything end to end
 
 `make verify` goes further than `make hub-check`: every app, SirisAI's hub
-contract, calendar range and forecast, Second Brain search and insights,
+contract, calendar range and forecast, Siris search and insights,
 SirisAI's service key into SirisOS (it must open the calculators and be
 refused creating a project), phone notifications, the security settings and
 building today's brief. Each line is ✓ fine, ! worth a look, ✗ broken or ·
@@ -123,4 +123,4 @@ asked to sign in again.
   data folder are in `~/Docker_ss/SirisOS-pre-hub`. To read it again, restore
   the dump into any Postgres 17 container.
 - `data/knowledge` (the old read-only vault mount) is no longer used; the
-  vault is Second Brain's.
+  vault is Siris'.

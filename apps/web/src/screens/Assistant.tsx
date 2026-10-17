@@ -20,7 +20,7 @@ export interface Message {
   streaming?: boolean;
   /** Spoken rather than typed. */
   voice?: boolean;
-  /** Saved to the Second Brain inbox from this screen. */
+  /** Saved to Siris' inbox from this screen. */
   saved?: boolean;
 }
 
@@ -79,7 +79,7 @@ export function Assistant() {
   const player = useRef<ReplyPlayer | null>(null);
   if (player.current === null) player.current = new ReplyPlayer();
 
-  // What the Second Brain picked up today, refreshed after each turn.
+  // What Siris picked up today, refreshed after each turn.
   const [learned, setLearned] = useState<{ title: string; action: string }[] | null>(null);
   const refreshLearned = useCallback(() => {
     brain.today().then((r) => setLearned(r.items)).catch(() => setLearned(null));
@@ -130,7 +130,7 @@ export function Assistant() {
       cancelFrame(frame);
       flush();
       const aborted = controller.signal.aborted;
-      update((m) => ({ ...m, streaming: false, status: undefined, error: aborted ? undefined : err instanceof Error ? err.message : "Siris is unavailable." }));
+      update((m) => ({ ...m, streaming: false, status: undefined, error: aborted ? undefined : err instanceof Error ? err.message : "SirisAI is unavailable." }));
     } finally {
       setBusy(false);
       abort.current = null;
@@ -148,7 +148,7 @@ export function Assistant() {
     [busy, conversationId, run],
   );
 
-  // Home's "Ask Siris" bar hands off with ?q=.
+  // Home's "Ask SirisAI" bar hands off with ?q=.
   useEffect(() => {
     const q = params.get("q");
     if (q) {
@@ -182,7 +182,7 @@ export function Assistant() {
     else setMessages((all) => [...all, { role: "assistant", text: `Okay, I won't run ${call.name}.` }]);
   }
 
-  const voiceBlocked = micUnavailableReason() ?? (voice && !voice.stt ? "SirisAI's speech-to-text isn't set up (SIRISAI_STT_PROVIDER), so Siris can't hear yet. You can still type." : null);
+  const voiceBlocked = micUnavailableReason() ?? (voice && !voice.stt ? "SirisAI's speech-to-text isn't set up (SIRISAI_STT_PROVIDER), so SirisAI can't hear yet. You can still type." : null);
 
   async function talk() {
     const p = player.current!;
@@ -251,7 +251,7 @@ export function Assistant() {
         }
       }
     } catch (err) {
-      if (!controller.signal.aborted) setHint(err instanceof Error ? err.message : "Siris is unavailable.");
+      if (!controller.signal.aborted) setHint(err instanceof Error ? err.message : "SirisAI is unavailable.");
     } finally {
       if (started) update((m) => (m.streaming ? { ...m, streaming: false, status: undefined } : m));
       setBusy(false);
@@ -263,20 +263,20 @@ export function Assistant() {
     setHint((h) => (h === "Thinking…" ? (expectsReply ? "Tap to answer" : "Tap to talk") : h));
   }
 
-  /** Files a reply (and what was asked) into the Second Brain inbox. */
+  /** Files a reply (and what was asked) into Siris' inbox. */
   async function saveToBrain(index: number) {
     const answer = messages[index];
     const asked = [...messages.slice(0, index)].reverse().find((m) => m.role === "user")?.text ?? "";
     try {
       await brain.capture({
-        title: `Siris: ${(asked || answer.text).slice(0, 70)}`,
+        title: `SirisAI: ${(asked || answer.text).slice(0, 70)}`,
         text: asked ? `**Asked:** ${asked}\n\n${answer.text}` : answer.text,
         tags: ["siris", "sirisos"],
       });
       setMessages((all) => all.map((m, i) => (i === index ? { ...m, saved: true } : m)));
       refreshLearned();
     } catch (err) {
-      setMessages((all) => all.map((m, i) => (i === index ? { ...m, error: err instanceof Error ? err.message : "Couldn't save to the Second Brain." } : m)));
+      setMessages((all) => all.map((m, i) => (i === index ? { ...m, error: err instanceof Error ? err.message : "Couldn't save to Siris." } : m)));
     }
   }
 
@@ -312,8 +312,8 @@ export function Assistant() {
     <div className="chat siris__main">
       <header className="page-head">
         <div>
-          <p className="page-head__eyebrow">SirisAI</p>
-          <h1 className="page-head__title">Siris</h1>
+          <p className="page-head__eyebrow">Assistant</p>
+          <h1 className="page-head__title">SirisAI</h1>
         </div>
         <div className="row">
           <Glass as="button" shape="pill" interactive className="button button--icon" onClick={openHistory} aria-label="Conversation history">
@@ -342,13 +342,13 @@ export function Assistant() {
           analyser={recording?.analyser}
           size={messages.length ? 104 : 210}
           onClick={talk}
-          label={recording ? "Stop listening" : orb === "speaking" ? "Stop speaking" : "Talk to Siris"}
+          label={recording ? "Stop listening" : orb === "speaking" ? "Stop speaking" : "Talk to SirisAI"}
         />
         <div className="siris__status">
           <p className="siris__hint" role="status">{hint}</p>
           <Link to="/brain" className="brain-chip">
             <BrainIcon size={14} aria-hidden="true" />
-            {learned ? `${learned.length} learned today` : "Second Brain"} · grows from every chat
+            {learned ? `${learned.length} learned today` : "Siris"} · grows from every chat
           </Link>
         </div>
       </section>
@@ -356,7 +356,7 @@ export function Assistant() {
       <div className="chat__log" aria-live="polite">
         {messages.length === 0 && (
           <div className="chat__empty siris__empty">
-            <p className="muted">Talk or type. Ask about your day, your home, your projects or anything in your Second Brain.</p>
+            <p className="muted">Talk or type. Ask about your day, your home, your projects or anything in Siris.</p>
             <div className="row" style={{ flexWrap: "wrap", justifyContent: "center" }}>
               {["What's on today?", "Brief me", "What did I learn this week?"].map((s) => (
                 <Glass key={s} as="button" shape="pill" interactive className="button button--small" onClick={() => send(s)}>
@@ -376,7 +376,7 @@ export function Assistant() {
         <textarea
           className="composer__input"
           rows={1}
-          placeholder="Message Siris"
+          placeholder="Message SirisAI"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -385,14 +385,14 @@ export function Assistant() {
               send(input);
             }
           }}
-          aria-label="Message Siris"
+          aria-label="Message SirisAI"
         />
         <button
           type="button"
           className={`icon-link composer__mic ${recording ? "composer__mic--on" : ""}`}
           onClick={talk}
-          aria-label={recording ? "Stop listening" : "Talk to Siris"}
-          title={voiceBlocked ?? "Talk to Siris"}
+          aria-label={recording ? "Stop listening" : "Talk to SirisAI"}
+          title={voiceBlocked ?? "Talk to SirisAI"}
         >
           <Mic size={18} aria-hidden="true" />
         </button>
@@ -430,17 +430,17 @@ export function Assistant() {
       )}
     </div>
 
-    <aside className="siris__rail" aria-label="Siris status">
-      <Glass as="section" className="widget" aria-label="Second Brain today">
+    <aside className="siris__rail" aria-label="SirisAI status">
+      <Glass as="section" className="widget" aria-label="Siris today">
         <header className="widget__head">
           <BrainIcon aria-hidden="true" />
-          <span>Second Brain</span>
+          <span>Siris</span>
           <Link className="widget__source" to="/brain">Open</Link>
         </header>
         {learned === null ? (
-          <p className="muted">The Second Brain isn't reachable.</p>
+          <p className="muted">Siris isn't reachable.</p>
         ) : learned.length === 0 ? (
-          <p className="muted">Nothing new yet today. Tonight Siris turns today's conversations into notes.</p>
+          <p className="muted">Nothing new yet today. Tonight SirisAI turns today's conversations into notes.</p>
         ) : (
           <ul className="items">
             {learned.slice(0, 6).map((item) => (
@@ -526,10 +526,10 @@ const Bubble = memo(function Bubble({
               <div className="bubble__actions">
                 {m.saved ? (
                   <span className="tone-good bubble__saved">
-                    <Check size={13} aria-hidden="true" /> Saved to Second Brain
+                    <Check size={13} aria-hidden="true" /> Saved to Siris
                   </span>
                 ) : (
-                  <button type="button" className="icon-link" onClick={() => onSave(index)} aria-label="Save to Second Brain" title="Save to Second Brain">
+                  <button type="button" className="icon-link" onClick={() => onSave(index)} aria-label="Save to Siris" title="Save to Siris">
                     <BookmarkPlus size={15} aria-hidden="true" />
                   </button>
                 )}

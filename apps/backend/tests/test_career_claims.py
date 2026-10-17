@@ -1,4 +1,4 @@
-"""Stage 2 competency claim drafts: built from tagged evidence, saved to the Second Brain."""
+"""Stage 2 competency claim drafts: built from tagged evidence, saved to Siris."""
 
 from __future__ import annotations
 

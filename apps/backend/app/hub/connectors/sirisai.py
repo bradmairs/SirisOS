@@ -1,4 +1,4 @@
-"""SirisAI (the system assistant) and Siris Second Brain, which SirisAI serves
+"""SirisAI (the system assistant) and Siris, which SirisAI serves
 at /siris/brain/*. Both authenticate with SirisAI's bearer API key."""
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ class SirisAIConnector(Connector):
 
 class SecondBrainConnector(SirisAIConnector):
     id = "second-brain"
-    name = "Second Brain"
+    name = "Siris"
     category = "assistant"
     icon = "brain"
     description = "Notes, knowledge and long-term memory (served by SirisAI)."
