@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, ShieldCheck } from "lucide-react";
 import { assistant } from "../api/hub";
 import { useResource } from "../api/resource";
@@ -123,6 +124,7 @@ export function ComingUpWidget({ events, delay }: { events: NonNullable<Hud["nex
           ))}
         </ul>
       )}
+      <Link to="/week" className="widget__more">This week →</Link>
     </Card>
   );
 }
