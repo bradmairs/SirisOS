@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PORT := $(or $(shell grep -E '^SIRISOS_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2),8094)
 
-.PHONY: help up dev dev-web backend stop restart logs status hub-check reset-password clean rebuild-app
+.PHONY: help up dev dev-web backend stop restart logs status hub-check verify reset-password clean rebuild-app
 
 help:
 	@echo "SirisOS commands"
@@ -16,6 +16,7 @@ help:
 	@echo "  make logs        Follow all service logs"
 	@echo "  make status      Show service status and SirisOS health"
 	@echo "  make hub-check   Check every connected app from inside the container"
+	@echo "  make verify      Check everything end to end against the live apps (EA=export.csv, PUSH=1)"
 	@echo "  make reset-password  Set a new sign-in password (ARGS=--sign-out-all ends every session)"
 	@echo "  make clean       Stop services and remove web build output"
 
@@ -61,6 +62,9 @@ reset-password:
 
 hub-check:
 	@docker compose exec sirisos python -m app.hub.check
+
+verify:
+	@docker compose exec sirisos python -m app.verify $(if $(EA),--ea /app/data/$(notdir $(EA))) $(if $(PUSH),--push)
 
 clean:
 	@docker compose down --remove-orphans

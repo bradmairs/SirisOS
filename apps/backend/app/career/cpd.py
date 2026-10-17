@@ -227,8 +227,9 @@ def parse(raw: bytes, filename: str) -> list[CpdRecord]:
     return records
 
 
-def merge(doc: CareerDocument, records: Iterable[CpdRecord], filename: str) -> tuple[CareerDocument, CpdImport]:
-    """Upsert by activity id: a re-export of the same history changes nothing."""
+def merge(doc: CareerDocument, records: Iterable[CpdRecord], filename: str, save_result: bool = True) -> tuple[CareerDocument, CpdImport]:
+    """Upsert by activity id: a re-export of the same history changes nothing.
+    `save_result=False` works it out without writing (make verify's dry run)."""
     existing = {r.id: r for r in doc.cpd.records}
     added = updated = unchanged = 0
     for record in records:
@@ -246,7 +247,8 @@ def merge(doc: CareerDocument, records: Iterable[CpdRecord], filename: str) -> t
         "records": sorted(existing.values(), key=lambda r: (r.date or "", r.title), reverse=True),
         "imports": [summary, *doc.cpd.imports][:20],
     })
-    return save(doc.model_copy(update={"cpd": cpd})), summary
+    merged = doc.model_copy(update={"cpd": cpd})
+    return (save(merged) if save_result else merged), summary
 
 
 def split_for(record: CpdRecord, overrides: dict[str, str]) -> tuple[dict[str, float], str]:

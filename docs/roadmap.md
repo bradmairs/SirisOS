@@ -59,7 +59,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] `make hub-check` checks every connector against the live apps; checklist in [`deploy-hub.md`](deploy-hub.md)
 - [ ] Pick up the new port on the server
 - [ ] Create service accounts: APD PM VIEWER, Archive read key
-- [ ] Verify every connector against the live apps on `192.168.0.100`
+- [ ] Verify every connector against the live apps on `192.168.0.100` (`make verify` does it in one go, 2.61)
 
 ## Performance ✅ (ADR 107)
 - [x] Static wallpaper (no animated blur under the glass); compositor-only orb glow; no permanent GPU layers
@@ -103,7 +103,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Career tab: overview, CPD, pathways (EA membership, CPEng, NER, Victorian registration), Stage 2 competency evidence, goals
 - [x] CPD imported from Engineers Australia's export (CSV or Excel), re-importable without duplicates; rolling 3-year totals against the 150-hour requirement and its minimums
 - [x] Home widget, daily brief card, search results
-- [ ] Check the importer against a real Engineers Australia export
+- [ ] Check the importer against a real Engineers Australia export (`make verify EA=export.csv`, 2.61)
 - [x] SirisAI tools `career_cpd_status` and `career_chartership_status`, through the read-only service key
 - [x] Phone dock: five items, with Career in place of Engineering
 - [x] Draft competency claims from tagged evidence into the Second Brain (1.7)
