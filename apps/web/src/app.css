@@ -588,3 +588,14 @@ body.no-scroll { overflow: hidden; }
 .shortcut-recipe { padding-top: 8px; border-top: 1px solid var(--hairline); }
 .shortcut-recipe ol { margin: 6px 0 0; padding-left: 20px; font-size: 13px; color: var(--ink-2); word-break: break-word; }
 .shortcut-recipe li { margin: 3px 0; }
+
+/* System status */
+.status-chip--ok { color: var(--good, #4ade80); }
+.status-chip--degraded { color: var(--warning, #fbbf24); }
+.status-chip--down { color: var(--critical, #f87171); }
+.status-strip { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; height: 22px; }
+.status-strip__cell { border-radius: 3px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.status-strip__cell--ok { background: color-mix(in srgb, var(--good, #4ade80) 70%, transparent); }
+.status-strip__cell--degraded { background: color-mix(in srgb, var(--warning, #fbbf24) 80%, transparent); }
+.status-strip__cell--down { background: color-mix(in srgb, var(--critical, #f87171) 85%, transparent); }
+.status-strip__legend { display: flex; justify-content: space-between; font-size: 11px; margin-top: -6px; }

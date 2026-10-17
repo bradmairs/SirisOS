@@ -13,6 +13,7 @@ from typing import Any, Awaitable, Callable, Mapping
 import httpx
 
 from app.hub.connectors import build_connectors
+from app.hub import history
 from app.hub.connectors.base import AppStatus, Connector, ConnectorError
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,10 @@ class Hub:
             except Exception as exc:  # never let one app break the page
                 logger.warning("Hub status for %s failed", connector.id, exc_info=True)
                 result = AppStatus(state="down", detail=f"Error: {type(exc).__name__}")
-            return result.to_dict()
+            value = result.to_dict()
+            if connector.configured and not connector.launch_only:
+                history.record(connector.id, value)
+            return value
 
         return await self._cached((connector.id, "status"), fresh, run)
 
