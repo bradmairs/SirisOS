@@ -58,6 +58,11 @@ class SirisLearnConnector(Connector):
         if at_risk:
             items.insert(0, WidgetItem(title=f"Your {days}-day streak ends at midnight", subtitle="Finish a quiz today to keep it",
                                        url=self.link(nxt.get("url")) if isinstance(nxt, dict) else self.launch_url, tone="warning"))
+        review = s.get("review") if isinstance(s.get("review"), dict) else {}
+        if review.get("due"):
+            due = int(review["due"])
+            items.append(WidgetItem(title=f"{due} card{'s' if due != 1 else ''} to review", subtitle="Daily review",
+                                    url=self.link("/review")))
         for event in (s.get("recent") or [])[:3]:
             if event.get("kind") == "achievement":
                 items.append(WidgetItem(title=f"Unlocked {event.get('title')}", subtitle="Award", url=self.link(event.get("url")), tone="good"))

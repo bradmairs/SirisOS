@@ -103,6 +103,7 @@ class FakeApps:
                 "courses": {"total": 3, "active": 2, "completed": 1, "planning": 0},
                 "continue": {"course_title": "Heat pumps", "lesson_title": "Refrigerants", "url": "/lesson/l2",
                              "progress": {"lessons": 8, "passed": 3, "percent": 37}},
+                "review": {"due": 6, "next_due": None, "cards": 40},
                 "recent": [{"kind": "achievement", "title": "Week warrior", "url": "/awards"},
                            {"kind": "quiz_finished", "title": "Moving heat", "url": "/lesson/l1"}],
             })
@@ -293,7 +294,8 @@ def test_sirislearn_widget(client, apps):
     assert metrics["Today"]["value"] == "60/50 XP" and metrics["Today"]["tone"] == "good"
     assert (metrics["Level"]["value"], metrics["Courses"]["value"]) == ("9", "2")
     assert learn["items"][0] == {"title": "Next: Refrigerants", "subtitle": "Heat pumps · 3/8 lessons", "url": "https://learn.local/lesson/l2", "tone": "neutral"}
-    assert learn["items"][1]["title"] == "Unlocked Week warrior" and learn["items"][1]["url"] == "https://learn.local/awards"
+    assert learn["items"][1] == {"title": "6 cards to review", "subtitle": "Daily review", "url": "https://learn.local/review", "tone": "neutral"}
+    assert learn["items"][2]["title"] == "Unlocked Week warrior" and learn["items"][2]["url"] == "https://learn.local/awards"
 
 
 def test_sirislearn_streak_at_risk_goes_to_the_inbox(client, apps, tmp_path, monkeypatch):
