@@ -72,6 +72,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Confident pairs are linked automatically: the threshold starts at 80% and calibrates itself from your link and not-related decisions (Siris-Second-Brain `autolink`, run in SirisAI's nightly upkeep or with "Link now")
 - [x] "Could be linked" lists only the unsure pairs, with a confidence
 - [x] "Linked automatically" panel to review and undo recent auto links
+- [x] Done button on "Coming up" (tick a task or finish a project), and long lists collapse to 3
 - [x] Unlink any connection from a note's Connections in Brain search; the pair is never auto-linked again
 
 ## Daily brief ✅ (ADR 108)

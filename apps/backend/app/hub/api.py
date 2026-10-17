@@ -333,6 +333,17 @@ async def brain_unlink(pair: BrainPair, connector: SirisAIConnector = Depends(_s
     return await _forward(connector, "POST", "/siris/brain/unlink", json=pair.model_dump())
 
 
+class BrainDone(BaseModel):
+    note: str = Field(min_length=1, max_length=200)
+    task: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/brain/done", tags=["brain"])
+async def brain_done(body: BrainDone, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Tick an overdue task in its note, or (no task) mark a project finished."""
+    return await _forward(connector, "POST", "/siris/brain/done", json=body.model_dump(exclude_none=True))
+
+
 @router.post("/brain/autolink", tags=["brain"])
 async def brain_autolink(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """Link the pairs the brain is confident about now, instead of at the nightly tidy."""

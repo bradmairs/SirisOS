@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { CalendarClock, Check, Hourglass, Link2, Sparkles, TrendingUp, Unlink, WandSparkles, X } from "lucide-react";
+import { CalendarClock, Check, CircleCheck, Hourglass, Link2, Sparkles, TrendingUp, Unlink, WandSparkles, X } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainInsights as Insights } from "../api/types";
 import { Glass } from "../components/Glass";
+import { useShowMore } from "../components/ShowMore";
 
 const dayLabel = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -53,10 +54,14 @@ function ActivityChart({ activity }: { activity: Insights["activity"] }) {
   );
 }
 
-function List({ items }: { items: { key: string; title: string; subtitle: string; tone?: "warning" | "critical" }[] }) {
+type Row = { key: string; title: string; subtitle: string; tone?: "warning" | "critical" };
+
+function List({ items }: { items: Row[] }) {
+  const { shown, toggle } = useShowMore(items);
   return (
+    <>
     <ul className="items insights__list">
-      {items.map((item) => (
+      {shown.map((item) => (
         <li key={item.key} className="item">
           <span className={`item__dot${item.tone ? ` dot-${item.tone}` : ""}`} style={item.tone ? undefined : { background: "var(--brain)" }} aria-hidden="true" />
           <span className="item__text">
@@ -66,6 +71,62 @@ function List({ items }: { items: { key: string; title: string; subtitle: string
         </li>
       ))}
     </ul>
+    {toggle}
+    </>
+  );
+}
+
+type Due = Row & { note: string; task?: string };
+
+/** "Coming up": overdue tasks and project deadlines, each with a Done button that ticks the
+ *  task in its note (or marks the project finished) so it stops showing here. */
+function ComingUp({ items, done, onDone }: { items: Due[]; done: string | null; onDone: (text: string) => void }) {
+  const { shown, toggle } = useShowMore(items);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function finish(item: Due) {
+    setBusy(item.key);
+    setError(null);
+    try {
+      const r = await brain.done(item.note, item.task);
+      onDone(r.action === "already-done" ? `${item.title} was already done` : item.task ? `Ticked off ${item.task}` : `Finished ${item.note}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      {done && (
+        <p className="tone-good suggest__done" role="status">
+          <Check size={14} aria-hidden="true" /> {done}
+        </p>
+      )}
+      {error && <p className="tone-critical" style={{ margin: 0 }}>{error}</p>}
+      {items.length === 0 && <p className="muted" style={{ margin: 0 }}>Nothing else coming up.</p>}
+      <ul className="items insights__list">
+        {shown.map((item) => (
+          <li key={item.key} className="item suggest">
+            <span className={`item__dot${item.tone ? ` dot-${item.tone}` : ""}`} style={item.tone ? undefined : { background: "var(--brain)" }} aria-hidden="true" />
+            <span className="item__text">
+              <div className="item__title">{item.title}</div>
+              <div className="item__subtitle">{item.subtitle}</div>
+            </span>
+            <span className="suggest__actions">
+              <button type="button" className="chip chip--button" disabled={busy !== null} onClick={() => finish(item)}
+                aria-label={item.task ? `Mark ${item.task} done` : `Mark ${item.note} finished`}
+                title={item.task ? "Tick it off in the note" : "Mark the project finished"}>
+                <CircleCheck size={13} aria-hidden="true" /> {busy === item.key ? "…" : "Done"}
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {toggle}
+    </>
   );
 }
 
@@ -76,6 +137,7 @@ type Pair = Insights["suggested_links"][number];
 function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string | null; onDone: (pair: Pair, text: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { shown, toggle } = useShowMore(pairs);
 
   async function act(pair: Pair, kind: "link" | "unrelate") {
     const key = `${pair.a}|${pair.b}`;
@@ -101,7 +163,7 @@ function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string |
       )}
       {pairs.length === 0 && <p className="muted" style={{ margin: 0 }}>No more suggestions for now.</p>}
       <ul className="items insights__list">
-        {pairs.map((p) => {
+        {shown.map((p) => {
           const key = `${p.a}|${p.b}`;
           return (
             <li key={key} className="item suggest">
@@ -124,6 +186,7 @@ function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string |
           );
         })}
       </ul>
+      {toggle}
     </>
   );
 }
@@ -156,6 +219,7 @@ function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: stri
   const [error, setError] = useState<string | null>(null);
   const pairs = data.auto_linked ?? [];
   const pending = data.pending_auto_links ?? 0;
+  const { shown, toggle } = useShowMore(pairs);
 
   async function run(key: string, fn: () => Promise<string>) {
     setBusy(key);
@@ -188,8 +252,9 @@ function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: stri
       {pairs.length === 0 ? (
         pending === 0 && <p className="muted" style={{ margin: 0 }}>Nothing linked automatically in the last two weeks.</p>
       ) : (
+        <>
         <ul className="items insights__list">
-          {pairs.map((p) => {
+          {shown.map((p) => {
             const key = `${p.a}|${p.b}`;
             return (
               <li key={key} className="item suggest">
@@ -212,7 +277,37 @@ function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: stri
             );
           })}
         </ul>
+        {toggle}
+        </>
       )}
+    </>
+  );
+}
+
+function Highlights({ items }: { items: string[] }) {
+  const { shown, toggle } = useShowMore(items);
+  return (
+    <>
+      <ul className="insights__highlights">
+        {shown.map((h) => <li key={h}>{h}</li>)}
+      </ul>
+      {toggle}
+    </>
+  );
+}
+
+function Topics({ topics }: { topics: Insights["topics"] }) {
+  const { shown, toggle } = useShowMore(topics);
+  return (
+    <>
+      <div className="insights__topics">
+        {shown.map((t) => (
+          <span key={t.tag} className="chip">
+            #{t.tag} <span className="muted">{t.notes}{t.notes > t.previous ? ` · +${t.notes - t.previous}` : ""}</span>
+          </span>
+        ))}
+      </div>
+      {toggle}
     </>
   );
 }
@@ -223,6 +318,7 @@ export function BrainInsights() {
   const data = res.data ?? null;
   const { mutate, reload } = res;
   const [linkDone, setLinkDone] = useState<string | null>(null);
+  const [dueDone, setDueDone] = useState<string | null>(null);
   const error = data ? null : res.error;
 
   if (error) {
@@ -237,13 +333,13 @@ export function BrainInsights() {
 
   const s = data.summary;
   const trend = s.this_week - s.previous_week;
-  const upcoming = [
+  const upcoming: Due[] = [
     ...data.overdue_tasks.map((t) => ({
-      key: `task-${t.note}-${t.task}`, title: t.task, tone: "critical" as const,
+      key: `task-${t.note}-${t.task}`, title: t.task, tone: "critical" as const, note: t.note, task: t.task,
       subtitle: `${t.note} · ${t.days_late === 1 ? "1 day" : `${t.days_late} days`} late`,
     })),
     ...data.deadlines.map((d) => ({
-      key: `due-${d.title}`, title: d.title, tone: d.days_left < 0 ? ("critical" as const) : d.days_left <= 7 ? ("warning" as const) : undefined,
+      key: `due-${d.title}`, title: d.title, note: d.title, tone: d.days_left < 0 ? ("critical" as const) : d.days_left <= 7 ? ("warning" as const) : undefined,
       subtitle: d.days_left < 0 ? `Was due ${dayLabel(d.due)}` : d.days_left === 0 ? "Due today" : `Due ${dayLabel(d.due)} · in ${plural(d.days_left, "day")}`,
     })),
   ];
@@ -256,9 +352,7 @@ export function BrainInsights() {
           <div className="widget__head">
             <Sparkles style={{ color: "var(--brain)" }} aria-hidden="true" /> What the brain noticed
           </div>
-          <ul className="insights__highlights">
-            {data.highlights.map((h) => <li key={h}>{h}</li>)}
-          </ul>
+          <Highlights items={data.highlights} />
         </Glass>
 
         <Glass className="widget">
@@ -285,10 +379,17 @@ export function BrainInsights() {
           {data.activity.length > 0 && <ActivityChart activity={data.activity} />}
         </Glass>
 
-        {upcoming.length > 0 && (
+        {(upcoming.length > 0 || dueDone) && (
           <Glass className="widget">
             <div className="widget__head"><CalendarClock aria-hidden="true" /> Coming up</div>
-            <List items={upcoming} />
+            <ComingUp
+              items={upcoming}
+              done={dueDone}
+              onDone={(text) => {
+                setDueDone(text);
+                reload(true).catch(() => undefined);
+              }}
+            />
           </Glass>
         )}
 
@@ -337,13 +438,7 @@ export function BrainInsights() {
         {data.topics.length > 0 && (
           <Glass className="widget">
             <div className="widget__head"><TrendingUp aria-hidden="true" /> Topics, last two weeks</div>
-            <div className="insights__topics">
-              {data.topics.map((t) => (
-                <span key={t.tag} className="chip">
-                  #{t.tag} <span className="muted">{t.notes}{t.notes > t.previous ? ` · +${t.notes - t.previous}` : ""}</span>
-                </span>
-              ))}
-            </div>
+            <Topics topics={data.topics} />
           </Glass>
         )}
       </div>

@@ -25,6 +25,9 @@ export const brain = {
   link: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/link", json({ a, b })),
   notRelated: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/not-related", json({ a, b })),
   unlink: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/unlink", json({ a, b })),
+  /** Tick a task in a note, or with no task mark the project finished. */
+  done: (note: string, task?: string) =>
+    api<{ action: "done" | "project-done" | "already-done"; note: string; task: string | null }>("/api/v1/brain/done", json(task ? { note, task } : { note })),
   autolink: () => api<{ linked: { a: string; b: string; confidence: number | null }[]; deferred: number }>("/api/v1/brain/autolink", { method: "POST" }),
   note: (title: string) => api<BrainNote>(`/api/v1/brain/note?title=${encodeURIComponent(title)}`),
   /** Leaves search, links and the map. Restorable unless `permanent`. */

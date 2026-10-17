@@ -165,3 +165,49 @@ describe("automatic links", () => {
     expect(await screen.findByText("Auto-linking is turned off; every pair waits for you.")).toBeInTheDocument();
   });
 });
+
+describe("coming up and long lists", () => {
+  it("ticks off an overdue task or finishes a project, then refreshes", async () => {
+    signIn();
+    let served = INSIGHTS;
+    const calls = mockFetch({
+      "/api/v1/brain/insights": () => jsonResponse(served),
+      "/api/v1/brain/done": (_u, init) => {
+        const body = JSON.parse(init.body as string);
+        served = body.task ? { ...served, overdue_tasks: [] } : { ...served, deadlines: [] };
+        return jsonResponse({ action: body.task ? "done" : "project-done", note: body.note, task: body.task ?? null });
+      },
+    });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+
+    await user.click(await screen.findByRole("button", { name: "Mark Taper done" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Ticked off Taper");
+    expect(JSON.parse(calls.find((c) => c.url === "/api/v1/brain/done")!.init.body as string)).toEqual({ note: "Race", task: "Taper" });
+    await waitFor(() => expect(screen.queryByText("Race · 2 days late")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Mark Race finished" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Finished Race");
+    expect(JSON.parse(calls.filter((c) => c.url === "/api/v1/brain/done")[1].init.body as string)).toEqual({ note: "Race" });
+    expect(await screen.findByText("Nothing else coming up.")).toBeInTheDocument();
+  });
+
+  it("shows three of a long list, with a button to show the rest", async () => {
+    signIn();
+    const auto_linked = ["A", "B", "C", "D", "E"].map((x) => ({ a: x, b: "Hub", confidence: 90, date: "2026-10-03" }));
+    mockFetch({ "/api/v1/brain/insights": () => jsonResponse({ ...INSIGHTS, auto_linked }) });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+
+    expect(await screen.findByText("C ↔ Hub")).toBeInTheDocument();
+    expect(screen.queryByText("D ↔ Hub")).not.toBeInTheDocument();
+    const more = screen.getByRole("button", { name: "Show all 5" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await user.click(more);
+    expect(screen.getByText("E ↔ Hub")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.queryByText("E ↔ Hub")).not.toBeInTheDocument();
+    // Short lists have no button.
+    expect(screen.getAllByRole("button", { name: /^Show all/ })).toHaveLength(1);
+  });
+});
