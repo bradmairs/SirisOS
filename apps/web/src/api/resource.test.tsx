@@ -44,4 +44,26 @@ describe("useResource", () => {
     render(<Reader id="b" fetcher={fetcher} />);
     expect(screen.getByTestId("b")).not.toHaveTextContent("secret");
   });
+
+  it("keeps persisted keys on the device for the next launch, and wipes them on sign-out", async () => {
+    function Saved({ fetcher }: { fetcher: () => Promise<string> }) {
+      const { data } = useResource("test:saved", fetcher, { persist: true });
+      return <span data-testid="saved">{data ?? "empty"}</span>;
+    }
+    const first = render(<Saved fetcher={async () => "from the server"} />);
+    await waitFor(() => expect(screen.getByTestId("saved")).toHaveTextContent("from the server"));
+    first.unmount();
+    expect(JSON.parse(localStorage.getItem("sirisos.cache.test:saved")!).data).toBe("from the server");
+
+    // A new launch with no signal: the in-memory cache is gone, the device copy isn't.
+    // (clearResources also wipes the device copy, as sign-out does, so put it back.)
+    const saved = localStorage.getItem("sirisos.cache.test:saved")!;
+    clearResources();
+    localStorage.setItem("sirisos.cache.test:saved", saved);
+    render(<Saved fetcher={() => Promise.reject(new Error("offline"))} />);
+    expect(screen.getByTestId("saved")).toHaveTextContent("from the server");
+
+    clearResources();
+    expect(localStorage.getItem("sirisos.cache.test:saved")).toBeNull();
+  });
 });

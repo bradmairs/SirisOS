@@ -10,7 +10,7 @@ const HUD_REFRESH_MS = 60_000;
 /** SirisAI's HUD summary (weather, server, calendar, activity), refreshed
  * every minute and shared by Home and the Siris screen. */
 export function useHud() {
-  const { data, error } = useResource<Hud>("sirisai:hud", () => assistant.hud(), { refreshMs: HUD_REFRESH_MS });
+  const { data, error } = useResource<Hud>("sirisai:hud", () => assistant.hud(), { refreshMs: HUD_REFRESH_MS, persist: true });
   return { hud: data ?? null, loading: !data && !error, failed: !data && !!error };
 }
 

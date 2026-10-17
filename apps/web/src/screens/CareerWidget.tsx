@@ -7,7 +7,7 @@ import { LoadingWidget } from "../components/WidgetCard";
 
 /** Home: CPD in the last 3 years and the next career step (ADR 111). */
 export function CareerWidget({ delay = 0 }: { delay?: number }) {
-  const { data, error } = useResource<CareerOverview>("career:overview", () => career.overview(), { staleMs: 60_000 });
+  const { data, error } = useResource<CareerOverview>("career:overview", () => career.overview(), { staleMs: 60_000, persist: true });
   if (!data) return error ? null : <LoadingWidget title="Career" Icon={Award} delay={delay} />;
   const cpd = data.cpd;
   const next = data.next_steps[0];

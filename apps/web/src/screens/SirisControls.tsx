@@ -10,7 +10,7 @@ const WIDGETS_REFRESH_MS = 60_000;
 
 /** SirisAI's hub widgets (ADR 110): car, parcels, power, protocols, cameras. */
 export function useSirisWidgets() {
-  const { data, error, reload } = useResource<SirisWidgets>("sirisai:widgets", () => assistant.widgets(), { refreshMs: WIDGETS_REFRESH_MS });
+  const { data, error, reload } = useResource<SirisWidgets>("sirisai:widgets", () => assistant.widgets(), { refreshMs: WIDGETS_REFRESH_MS, persist: true });
   return { widgets: data ?? null, loading: !data && !error, failed: !data && !!error, reload: () => reload(true).catch(() => undefined) };
 }
 
