@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { Home, greeting } from "./Home";
@@ -163,5 +163,43 @@ describe("<Home />", () => {
     expect(screen.queryByRole("region", { name: "Siris App Suite" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Now" }).compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Apps" })).not.toBeInTheDocument();
+  });
+
+  it("customises Home: hides and reorders widgets, then saves the layout", async () => {
+    signIn("brad");
+    const calls = mockFetch({
+      "/api/v1/hub/apps": () => jsonResponse({ apps: APPS }),
+      "/api/v1/home/layout": (_url, init) =>
+        init?.method === "PUT" ? jsonResponse(JSON.parse(String(init.body))) : jsonResponse({ phone: { order: [], hidden: [] }, desktop: { order: [], hidden: ["clock"] } }),
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("18° Sunny")).toBeInTheDocument();
+    // The saved desktop layout already hides the clock.
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Local time" })).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Customise Home" }));
+    const sheet = await screen.findByRole("dialog", { name: "Customise Home" });
+    expect(within(sheet).getByText(/Your desktop layout/)).toBeInTheDocument();
+    await user.click(within(sheet).getByRole("button", { name: "Hide SirisAI" }));
+    expect(screen.queryByText("18° Sunny")).not.toBeInTheDocument();
+    await user.click(within(sheet).getByRole("button", { name: "Show Local time" }));
+    expect(screen.getByRole("region", { name: "Local time" })).toBeInTheDocument();
+
+    const puts = calls.filter((c) => c.init.method === "PUT");
+    const saved = JSON.parse(String(puts[puts.length - 1].init.body));
+    expect(saved.desktop.hidden).toEqual(["app:sirisai"]);
+    expect(saved.phone).toEqual({ order: [], hidden: [] });
+
+    // Now holds the clock then Siris apps; moving Siris apps up swaps them.
+    await user.click(within(sheet).getByRole("button", { name: "Move Siris apps up" }));
+    const now = screen.getAllByRole("region", { name: "Now" }).find((el) => !sheet.contains(el))!;
+    expect(within(now).getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(["Siris apps", "Local time"]);
+    const last = calls.filter((c) => c.init.method === "PUT").pop()!;
+    expect(JSON.parse(String(last.init.body)).desktop.order.slice(0, 2)).toEqual(["app-health", "clock"]);
   });
 });

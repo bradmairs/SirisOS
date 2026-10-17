@@ -116,4 +116,4 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 
 ## After the rebuild
 
-- Widgets you can configure and rearrange on the home screen.
+- [x] Widgets you can configure and rearrange on the home screen (1.4)

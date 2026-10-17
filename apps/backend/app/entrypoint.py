@@ -9,6 +9,7 @@ from app.api.sirishydro import router as sirishydro_router
 from app.attention.api import router as attention_router
 from app.brief.api import router as brief_router
 from app.career.api import router as career_router
+from app.home.api import router as home_router
 from app.hub.api import router as hub_router
 from app.links.api import router as links_router
 from app.search.api import router as search_router
@@ -18,6 +19,7 @@ from app.search.api import router as search_router
 # shipping an unregistered API module (ADR 106: hub + engineering module; ADR 108: daily brief; ADR 109: search; ADR 111: career).
 for router in (
     hub_router,
+    home_router,
     brief_router,
     attention_router,
     search_router,
