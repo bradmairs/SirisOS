@@ -543,3 +543,12 @@ body.no-scroll { overflow: hidden; }
 .app-grid--strip .app-tile { flex: 0 0 68px; scroll-snap-align: start; }
 .app-grid--strip .app-icon { width: 56px; height: 56px; border-radius: 16px; }
 .app-grid--strip .app-tile__name { font-size: 11px; max-width: 72px; }
+
+/* Customise Home sheet */
+.sheet__head { margin-bottom: 4px; }
+.customise__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.customise__row { display: flex; align-items: center; gap: 4px; padding: 8px 6px 8px 12px; border-radius: var(--r-sm, 12px); background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.customise__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.customise__row--off .customise__label { color: var(--ink-3); text-decoration: line-through; }
+.customise__row .icon-link:disabled { opacity: 0.3; }
+.customise-entry { display: flex; justify-content: center; margin: 22px 0 4px; }
