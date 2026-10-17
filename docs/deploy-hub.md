@@ -54,6 +54,21 @@ Then open `http://192.168.0.100:8094`, sign in, and check:
 - [ ] Engineering → Standards lists the existing library, and SirisHydro answers with citations
 - [ ] Saved calculations and projects from before the rebuild are still there (they live in `data/app`)
 
+## 3b. Check everything end to end
+
+`make verify` goes further than `make hub-check`: every app, SirisAI's hub
+contract, calendar range and forecast, Second Brain search and insights,
+SirisAI's service key into SirisOS (it must open the calculators and be
+refused creating a project), phone notifications, the security settings and
+building today's brief. Each line is ✓ fine, ! worth a look, ✗ broken or ·
+not set up, and it exits 1 if anything is broken.
+
+- `make verify EA=ea-export.csv` also tries an Engineers Australia CPD export
+  (copy it into `data/app/` first). It's parsed and summarised, never imported.
+- `make verify PUSH=1` also sends every subscribed device a test notification.
+
+Nothing is changed by it.
+
 ## 4. Install on iPhone
 
 In Safari, open `https://192.168.0.100:8444` and accept the certificate
