@@ -61,7 +61,7 @@ def test_a_week_holds_each_days_events_forecast_and_whats_due(hub):
     assert [e["title"] for e in days["2026-10-13"]["events"]] == ["School holidays"]
     assert days["2026-10-14"]["events"][-1]["cpd"] == {"hours": 1.5, "category": "area"}
     assert days["2026-10-15"]["forecast"]["conditions"] == "Showers"
-    assert days["2026-10-17"]["due"] == [{"title": "Werribee Drainage", "kind": "project", "source": "Second Brain"}]
+    assert days["2026-10-17"]["due"] == [{"title": "Werribee Drainage", "kind": "project", "source": "Siris"}]
     assert days["2026-10-16"]["due"] == [{"title": "Referee 2 for CPEng", "kind": "goal", "source": "Career"}]
     assert days["2026-10-13"]["cpd_hours"] == 3
     assert body["cpd"] == {"logged": 3, "planned": 1.5}

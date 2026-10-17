@@ -1,5 +1,5 @@
 """Hub API (ADR 106): app tiles and widgets, plus thin proxies to SirisAI
-(the assistant) and the Second Brain it serves, so the PWA only ever talks
+(the assistant) and Siris it serves, so the PWA only ever talks
 to SirisOS and no app credential reaches a device."""
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ async def list_widgets(fresh: bool = False, hub: Hub = Depends(get_hub)) -> dict
     }
 
 
-# -- SirisAI / Second Brain proxies -----------------------------------------
+# -- SirisAI / Siris proxies -----------------------------------------
 
 
 def _sirisai(hub: Hub = Depends(get_hub)) -> SirisAIConnector:
@@ -208,7 +208,7 @@ async def voice_converse(
     """SirisAI's POST /siris/voice/converse (one spoken turn), relayed as-is:
     newline-delimited JSON with the transcript, then each reply sentence with
     its audio, then a final event. It's the same conversation store as chat,
-    so spoken turns feed the Second Brain's nightly dream too."""
+    so spoken turns feed Siris' nightly dream too."""
     if file is None and not (text or "").strip():
         raise HTTPException(status_code=422, detail="Send a recording as 'file' or text as 'text'.")
     form = {"synthesize": "true" if synthesize else "false"}
@@ -416,13 +416,13 @@ async def brain_insights(
     days: int = Query(30, ge=7, le=365),
     connector: SirisAIConnector = Depends(_sirisai),
 ) -> Any:
-    """How the Second Brain is growing and what needs attention, worked out by the vault's engine."""
+    """How Siris is growing and what needs attention, worked out by the vault's engine."""
     return await _forward(connector, "GET", "/siris/brain/insights", params={"days": days})
 
 
 @router.get("/brain/map.html", tags=["brain"], response_class=HTMLResponse)
 async def brain_map(connector: SirisAIConnector = Depends(_sirisai)) -> HTMLResponse:
-    """The Second Brain's living mind map, drawn fresh from the vault by SirisAI.
+    """Siris' living mind map, drawn fresh from the vault by SirisAI.
     The PWA renders it in a sandboxed iframe, so it never sees the SirisAI key."""
     return HTMLResponse(await _forward(connector, "GET", "/siris/brain/map.html", raw=True))
 

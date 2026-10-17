@@ -1,5 +1,5 @@
 """This week, in one place: every day's events and forecast, plus what's
-due (Second Brain project deadlines and overdue tasks, career goals) and the
+due (Siris project deadlines and overdue tasks, career goals) and the
 week's CPD (hours already in the Engineers Australia import, and calendar
 events that look like CPD). Every source fails alone."""
 
@@ -80,9 +80,9 @@ async def week(hub: Hub, start: date, today: date | None = None) -> dict[str, An
             if isinstance(left, int):
                 due = (today + timedelta(days=left)).isoformat()
                 if due in by_date:
-                    by_date[due]["due"].append({"title": d.get("title"), "kind": "project", "source": "Second Brain"})
+                    by_date[due]["due"].append({"title": d.get("title"), "kind": "project", "source": "Siris"})
         for t in insights.get("overdue_tasks") or []:
-            overdue.append({"title": t.get("task"), "detail": f"{t.get('note')} · {t.get('days_late')} days late", "source": "Second Brain"})
+            overdue.append({"title": t.get("task"), "detail": f"{t.get('note')} · {t.get('days_late')} days late", "source": "Siris"})
     elif insights is None and hub.get("sirisai") and hub.get("sirisai").configured:
         unavailable.append("brain")
 

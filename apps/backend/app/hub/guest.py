@@ -1,6 +1,6 @@
 """SirisAI's guest mode, as SirisOS sees it (ADR 110): while visitors may be
 looking at the screen, the widgets that show personal things -- SirisAI's
-"Today" (the calendar) and the Second Brain's "Learned today" -- are left
+"Today" (the calendar) and Siris' "Learned today" -- are left
 off the home screen, as SirisAI already leaves them out of its own answers.
 Asked of SirisAI at most every 30 seconds; unknown (SirisAI down, or too old
 to say) counts as off."""

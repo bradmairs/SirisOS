@@ -7,7 +7,7 @@ Managed while signed in:
 
 Used by a Shortcut, with `Authorization: Bearer sk_…`, answering plain text
 for "Show Result" or "Speak Text":
-    POST /api/v1/shortcuts/capture           the body (text or JSON {text, url}) into the Second Brain inbox
+    POST /api/v1/shortcuts/capture           the body (text or JSON {text, url}) into Siris' inbox
     POST /api/v1/shortcuts/ask               the body as a question for SirisAI
     GET  /api/v1/shortcuts/today             today's brief, read aloud
     POST /api/v1/shortcuts/protocols/{name}  run a SirisAI protocol (Wind Down, Lockdown…)
@@ -87,7 +87,7 @@ async def capture(request: Request, hub: Hub = Depends(get_hub)) -> str:
     if not url and text.startswith(("http://", "https://")) and " " not in text:
         text, url = "", text
     result = (await _post(_sirisai(hub), "/siris/brain/capture", json={"text": text, "url": url, "tags": ["shortcut"]})).json()
-    return f"Saved to your Second Brain as “{result.get('title', 'a capture')}”."
+    return f"Saved to Siris as “{result.get('title', 'a capture')}”."
 
 
 @router.post("/ask", response_class=PlainTextResponse, dependencies=[Depends(keys.requires("ask"))])

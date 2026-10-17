@@ -246,7 +246,7 @@ function Overview({ career }: { career: Career }) {
         )}
       </Card>
 
-      <Card title="In your Second Brain" Icon={BrainIcon}>
+      <Card title="In Siris" Icon={BrainIcon}>
         <ul className="items">
           {doc.profile.brain_notes.map((n) => (
             <li key={n}>
@@ -663,7 +663,7 @@ function PacingCard() {
 }
 
 /** A Stage 2 claim draft for one element: edit, write up with the local
- * model, copy, or save to the Second Brain (saving again adds to the same note). */
+ * model, copy, or save to Siris (saving again adds to the same note). */
 function ClaimSheet({ elementId, onClose }: { elementId: string; onClose: () => void }) {
   const [draft, setDraft] = useState<ClaimDraft | null>(null);
   const [text, setText] = useState("");
@@ -700,7 +700,7 @@ function ClaimSheet({ elementId, onClose }: { elementId: string; onClose: () => 
     setNote(null);
     try {
       const r = await claimsApi.save(elementId, text);
-      setNote(`Saved to your Second Brain as “${r.title}”.`);
+      setNote(`Saved to Siris as “${r.title}”.`);
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));
     } finally {
@@ -735,7 +735,7 @@ function ClaimSheet({ elementId, onClose }: { elementId: string; onClose: () => 
           <Copy size={15} aria-hidden="true" /> Copy
         </button>
         <button type="button" className="button button--small button--primary" disabled={!!busy || !text.trim()} onClick={save}>
-          <BrainIcon size={15} aria-hidden="true" /> {busy === "save" ? "Saving…" : "Save to Second Brain"}
+          <BrainIcon size={15} aria-hidden="true" /> {busy === "save" ? "Saving…" : "Save to Siris"}
         </button>
       </div>
       {draft?.prose_available && draft.evidence > 0 && (
@@ -793,7 +793,7 @@ function EvidenceSheet({ evidence, elements, isNew, onClose, onSave, onDelete }:
             </div>
           ))}
           <div className="row">
-            <input className="field" placeholder="Link: a Second Brain note title, or a URL (APD PM, Archive…)" value={link} onChange={(e) => setLink(e.target.value)}
+            <input className="field" placeholder="Link: a Siris note title, or a URL (APD PM, Archive…)" value={link} onChange={(e) => setLink(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } }} aria-label="Add a link" />
             <Glass as="button" type="button" shape="pill" interactive className="button button--icon" onClick={addLink} aria-label="Add link"><Plus aria-hidden="true" /></Glass>
           </div>

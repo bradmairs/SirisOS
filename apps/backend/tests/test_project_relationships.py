@@ -72,7 +72,7 @@ def test_project_calculation_relationship_lifecycle(tmp_path: Path, monkeypatch)
     authorization = _token()
     project = _create_project(authorization)
 
-    # target_type defaults to a calculation now that notes live in Second Brain.
+    # target_type defaults to a calculation now that notes live in Siris.
     relationship = asyncio.run(
         project_relationships.create_project_relationship(
             project.id,
@@ -125,7 +125,7 @@ def test_new_knowledge_note_links_are_refused_but_old_ones_stay_listed(tmp_path:
         )
     except Exception as exc:
         assert getattr(exc, "status_code", None) == 422
-        assert "Second Brain" in exc.detail
+        assert "Siris" in exc.detail
     else:
         raise AssertionError("Expected knowledge note links to be refused")
 

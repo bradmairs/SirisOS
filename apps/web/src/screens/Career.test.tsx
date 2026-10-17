@@ -125,7 +125,7 @@ describe("<Career />", () => {
     expect(await screen.findByRole("button", { name: /In progress/ })).toBeInTheDocument();
   });
 
-  it("adds evidence tagged with competency elements and a Second Brain link", async () => {
+  it("adds evidence tagged with competency elements and a Siris link", async () => {
     signIn();
     const calls = mockFetch({ "/api/v1/career": (_url, init) => jsonResponse(init.method === "PUT" ? { ...data(), document: { ...data().document, ...JSON.parse(init.body as string) } } : data()) });
     const user = userEvent.setup();
@@ -157,7 +157,7 @@ describe("<Career />", () => {
     expect(sent.goals[0]).toMatchObject({ title: "Chartered by mid 2027", next_step: "Draft element 6", status: "active" });
   });
 
-  it("drafts a competency claim, writes it up with the local model and saves it to the Second Brain", async () => {
+  it("drafts a competency claim, writes it up with the local model and saves it to Siris", async () => {
     signIn();
     const draft = { id: "6", unit: "Obligation to community", title: "Identify, assess and manage risks", note_title: "CPEng claim draft – E6 Identify, assess and manage risks", evidence: 1, markdown: "## Evidence\n\n### HAZOP", prose: null, prose_available: true };
     const calls = mockFetch({
@@ -173,8 +173,8 @@ describe("<Career />", () => {
     expect(box).toHaveValue("## Evidence\n\n### HAZOP");
     await user.click(within(sheet).getByRole("button", { name: /Write it up/ }));
     await waitFor(() => expect(box).toHaveValue("In March I ran the HAZOP.\n\n---\n\n## Evidence\n\n### HAZOP"));
-    await user.click(within(sheet).getByRole("button", { name: /Save to Second Brain/ }));
-    expect(await within(sheet).findByText(/Saved to your Second Brain as “CPEng claim draft – E6/)).toBeInTheDocument();
+    await user.click(within(sheet).getByRole("button", { name: /Save to Siris/ }));
+    expect(await within(sheet).findByText(/Saved to Siris as “CPEng claim draft – E6/)).toBeInTheDocument();
     const saved = calls.find((c) => c.url.endsWith("/claims/6/save"))!;
     expect(JSON.parse(String(saved.init.body)).markdown).toContain("In March I ran the HAZOP.");
   });

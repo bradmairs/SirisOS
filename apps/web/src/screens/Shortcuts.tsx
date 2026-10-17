@@ -4,8 +4,8 @@ import { shortcuts, type ShortcutKey, type ShortcutScope } from "../api/shortcut
 import { Glass } from "../components/Glass";
 
 const SCOPE_LABELS: Record<ShortcutScope, string> = {
-  capture: "Capture to the Second Brain",
-  ask: "Ask Siris",
+  capture: "Capture to Siris",
+  ask: "Ask SirisAI",
   today: "Read today's brief",
   protocols: "Run protocols (Wind Down, Lockdown…)",
 };
@@ -61,18 +61,18 @@ export function ShortcutsScreen() {
 
   const links = [
     { label: "Quick capture", url: `${origin}/capture` },
-    { label: "Ask Siris", url: `${origin}/assistant` },
+    { label: "Ask SirisAI", url: `${origin}/assistant` },
     { label: "This week", url: `${origin}/week` },
     { label: "Today's brief", url: `${origin}/brief` },
   ];
   const key = fresh ?? "sk_…your key…";
   const recipes = [
-    { title: "Capture to Second Brain", say: "“Hey Siri, capture”", steps: [
+    { title: "Capture to Siris", say: "“Hey Siri, capture”", steps: [
       "Dictate Text",
       `Get Contents of URL: ${origin}/api/v1/shortcuts/capture · Method POST · Header Authorization: Bearer ${key} · Request Body: File → Dictated Text`,
       "Show Result",
     ] },
-    { title: "Ask Siris", say: "“Hey Siri, ask Siris”", steps: [
+    { title: "Ask SirisAI", say: "“Hey Siri, ask SirisAI”", steps: [
       "Dictate Text",
       `Get Contents of URL: ${origin}/api/v1/shortcuts/ask · Method POST · same header · Request Body: File → Dictated Text`,
       "Speak Text: Contents of URL",

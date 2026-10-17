@@ -28,7 +28,7 @@ Interactive docs are served at `/docs` (OpenAPI at `/openapi.json`). Every
 | `GET, POST /api/v1/projects/{id}/relationships` · `DELETE …/{rid}` · `GET …/{id}/graph` | Links to calculations and standards |
 
 Project links to knowledge notes made before ADR 106 are still listed;
-new ones are refused (notes live in Second Brain).
+new ones are refused (notes live in Siris).
 
 ## Hub (ADR 106)
 
@@ -43,7 +43,7 @@ All routes require the SirisOS bearer token.
 | `POST /api/v1/assistant/chat/confirm/stream` | SirisAI tool confirmation, streamed |
 | `GET /api/v1/assistant/conversations[/{id}]` | SirisAI conversation history |
 | `GET /api/v1/assistant/hud` | SirisAI HUD summary |
-| `GET /api/v1/brain/search?q=` · `GET /api/v1/brain/today` · `GET /api/v1/brain/insights?days=30` · `POST /api/v1/brain/capture` | Second Brain via SirisAI (insights: growth, topics, deadlines, overdue tasks, idle projects, links to make) |
+| `GET /api/v1/brain/search?q=` · `GET /api/v1/brain/today` · `GET /api/v1/brain/insights?days=30` · `POST /api/v1/brain/capture` | Siris via SirisAI (insights: growth, topics, deadlines, overdue tasks, idle projects, links to make) |
 | `POST /api/v1/brain/link` · `POST /api/v1/brain/not-related` · `POST /api/v1/brain/unlink` (`{a, b}`) | Link two notes, dismiss a suggestion, or disconnect two notes (never auto-linked again) |
 | `POST /api/v1/brain/autolink` | Link the pairs the brain is confident about now, rather than at the nightly tidy |
 | `GET /api/v1/brain/note?title=` | A note's links and backlinks |

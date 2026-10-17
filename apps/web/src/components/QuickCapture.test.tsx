@@ -6,7 +6,7 @@ import { downsample } from "../api/voice";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 
 describe("<QuickCapture />", () => {
-  it("captures a note with a photo into the Second Brain inbox", async () => {
+  it("captures a note with a photo into Siris' inbox", async () => {
     signIn();
     const calls = mockFetch({ "/api/v1/brain/capture": () => jsonResponse({ saved: true, title: "Pit lid cracked", action: "created" }) });
     const user = userEvent.setup();
@@ -17,7 +17,7 @@ describe("<QuickCapture />", () => {
     await user.upload(screen.getByLabelText("Photo file"), photo);
     expect(await screen.findByAltText("Photo to capture", undefined, { timeout: 3000 })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Save/ }));
-    expect(await screen.findByText(/Saved to your Second Brain inbox as “Pit lid cracked”/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved to Siris' inbox as “Pit lid cracked”/)).toBeInTheDocument();
     const body = JSON.parse(String(calls.find((c) => c.url === "/api/v1/brain/capture")!.init.body));
     expect(body.text).toBe("Pit lid cracked at Mooroopna PS");
     expect(body.image).toMatch(/^data:image\/jpeg;base64,/);

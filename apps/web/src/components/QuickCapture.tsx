@@ -44,7 +44,7 @@ export async function shrinkPhoto(file: File): Promise<string> {
 }
 
 /** Quick capture from anywhere: a note, a photo or a voice memo, into the
- * Second Brain's inbox (filed properly later by the nightly sort). */
+ * Siris' inbox (filed properly later by the nightly sort). */
 export function QuickCapture({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
@@ -105,7 +105,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
       const isUrl = /^https?:\/\/\S+$/.test(value);
       const result = await brain.capture({ ...(isUrl ? { url: value } : value ? { text: value } : {}), ...(photo ? { image: photo } : {}) });
       setSaved(true);
-      setNote({ ok: true, text: `Saved to your Second Brain inbox as “${result.title}”.` });
+      setNote({ ok: true, text: `Saved to Siris' inbox as “${result.title}”.` });
       window.setTimeout(onClose, 900);
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : "Couldn't save." });

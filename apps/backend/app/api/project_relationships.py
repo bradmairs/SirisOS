@@ -118,11 +118,11 @@ def _require_project(project_id: str) -> projects.ProjectRecord:
 
 
 def _canonical_knowledge_target(target_id: str) -> tuple[str, str]:
-    # Notes moved to Siris Second Brain (ADR 106). Links made before then
+    # Notes moved to Siris (ADR 106). Links made before then
     # stay listed with their stored label; new ones can't be created.
     raise HTTPException(
         status_code=422,
-        detail="Knowledge notes now live in Second Brain; link calculations or standards instead.",
+        detail="Knowledge notes now live in Siris; link calculations or standards instead.",
     )
 
 

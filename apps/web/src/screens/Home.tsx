@@ -139,7 +139,7 @@ export function Home() {
     ...(appsLoading
       ? [0, 1].map((i) => ({ id: `loading-app-${i}`, label: "Loading apps", node: <LoadingWidget title="Loading apps" delay={60 + i * 50} /> }))
       : widgets.map((app, i) => ({ id: `app:${app.id}`, label: app.name, node: <WidgetCard app={app} delay={i * 50} /> }))),
-    { id: "activity", label: "Siris activity", node: hud?.autonomy ? <ActivityWidget entries={hud.autonomy} /> : hudLoading && <LoadingWidget title="Siris activity" Icon={Activity} /> },
+    { id: "activity", label: "SirisAI activity", node: hud?.autonomy ? <ActivityWidget entries={hud.autonomy} /> : hudLoading && <LoadingWidget title="SirisAI activity" Icon={Activity} /> },
     { id: "parcels", label: "Parcels", node: siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} /> },
   ];
   const homeControls: Slot[] = sirisLoading
@@ -190,7 +190,7 @@ export function Home() {
 
       <Glass as="form" shape="pill" className="ask-bar" onSubmit={submitAsk} role="search">
         <Sparkles aria-hidden="true" />
-        <input className="ask-bar__input" placeholder="Ask Siris anything…" value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask Siris" />
+        <input className="ask-bar__input" placeholder="Ask SirisAI anything…" value={ask} onChange={(e) => setAsk(e.target.value)} aria-label="Ask SirisAI" />
       </Glass>
 
       {phone && apps && apps.length > 0 && (

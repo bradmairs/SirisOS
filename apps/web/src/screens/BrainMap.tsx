@@ -4,7 +4,7 @@ import { brain } from "../api/hub";
 import { Glass } from "../components/Glass";
 
 /**
- * The Second Brain's living mind map (Siris-Second-Brain tools/mindmap.html),
+ * Siris' living mind map (Siris-Second-Brain tools/mindmap.html),
  * drawn fresh from the vault by SirisAI and proxied through SirisOS. It runs in
  * a sandboxed iframe without same-origin access, so it can't read the session.
  */
@@ -48,7 +48,7 @@ export function BrainMap() {
         <div className="skeleton brain-map__frame" />
       )
     ) : (
-      <iframe className="brain-map__frame" title="Second Brain mind map" srcDoc={html} sandbox="allow-scripts allow-popups" />
+      <iframe className="brain-map__frame" title="Siris mind map" srcDoc={html} sandbox="allow-scripts allow-popups" />
     );
 
   const controls = (

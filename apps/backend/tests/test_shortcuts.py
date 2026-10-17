@@ -64,7 +64,7 @@ def test_actions_answer_plain_text(client):
     secret = client.post("/api/v1/shortcuts/keys", headers=AUTH, json={"label": "Siri", "scopes": ["capture", "ask", "today", "protocols"]}).json()["secret"]
     key = {"X-Shortcut-Key": secret}
     saved = client.post("/api/v1/shortcuts/capture", headers=key, content="Check the pit lids on Monday")
-    assert saved.text == "Saved to your Second Brain as “Pit lids”." and saved.headers["content-type"].startswith("text/plain")
+    assert saved.text == "Saved to Siris as “Pit lids”." and saved.headers["content-type"].startswith("text/plain")
     assert client.fake.seen[-1] == ("/siris/brain/capture", {"text": "Check the pit lids on Monday", "url": "", "tags": ["shortcut"]})
     client.post("/api/v1/shortcuts/capture", headers=key, content="https://www.ipwea.org/events")
     assert client.fake.seen[-1][1]["url"] == "https://www.ipwea.org/events" and client.fake.seen[-1][1]["text"] == ""

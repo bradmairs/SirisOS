@@ -1,6 +1,6 @@
 """Stage 2 competency claim drafts (ADR 111): for each of the 16 elements,
 a first draft built from the evidence Brad has tagged with it, ready to
-finish in the Second Brain.
+finish in Siris.
 
 The draft is always built the same way from the evidence (the structure
 Engineers Australia asks for: what the situation was, what you did, what

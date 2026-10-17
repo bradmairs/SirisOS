@@ -38,7 +38,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
 };
 
 const SCREENS: { title: string; subtitle: string; url: string; words?: string }[] = [
-  ...NAV.map((n) => ({ title: n.label, subtitle: "Screen", url: n.to, words: n.label === "Siris" ? "assistant chat ai" : "" })),
+  ...NAV.map((n) => ({ title: n.label, subtitle: "Screen", url: n.to, words: n.label === "SirisAI" ? "assistant chat ai" : n.to === "/brain" ? "brain second notes memory" : "" })),
   { title: "Today's brief", subtitle: "Screen", url: "/brief", words: "daily morning news weather" },
   { title: "SirisHydro", subtitle: "Engineering", url: "/engineering/hydro", words: "evidence question standards" },
   { title: "Calculators", subtitle: "Engineering", url: "/engineering/calculators", words: "calc" },
@@ -117,7 +117,7 @@ function groupIcon(group: SearchGroup): LucideIcon {
 /**
  * Search everything (ADR 109): a Spotlight-style glass palette over the whole
  * shell. Screens and calculators match instantly in the browser; apps,
- * widgets, links, the Second Brain, Siris chats, APD PM, the Archive, the
+ * widgets, links, Siris, SirisAI chats, APD PM, the Archive, the
  * Reviewer and the engineering library come from /api/v1/search.
  */
 export function SearchPalette({ onClose, onOpenApp }: { onClose: () => void; onOpenApp: (appId: string) => void }) {
@@ -170,8 +170,8 @@ export function SearchPalette({ onClose, onOpenApp }: { onClose: () => void; onO
     const mine = local(q);
     const theirs = remote && remote.q === q ? remote.groups : [];
     const ask: SearchGroup = {
-      id: "ask", label: "Ask Siris", icon: "sparkles", best: -1,
-      hits: [{ title: `Ask Siris “${q}”`, subtitle: "Start a chat", url: `/assistant?q=${encodeURIComponent(q)}`, kind: "ask", external: false, app_id: null, score: 0 }],
+      id: "ask", label: "Ask SirisAI", icon: "sparkles", best: -1,
+      hits: [{ title: `Ask SirisAI “${q}”`, subtitle: "Start a chat", url: `/assistant?q=${encodeURIComponent(q)}`, kind: "ask", external: false, app_id: null, score: 0 }],
     };
     // Stable sort: on a tie, instant local results stay ahead of the server's.
     return [...mine, ...theirs].sort((a, b) => b.best - a.best).concat(ask);

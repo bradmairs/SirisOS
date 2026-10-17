@@ -274,7 +274,7 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
               </Card>
             )}
 
-            <Card title="Second Brain" Icon={Brain} delay={240}>
+            <Card title="Siris" Icon={Brain} delay={240}>
               <div className="metrics metrics--compact">
                 <Metric label="In the inbox" value={String(brief.brain.inbox)} />
                 <Metric label="Auto-linked" value={String(brief.brain.auto_linked)} />

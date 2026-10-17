@@ -90,8 +90,8 @@ export function Brain() {
     <>
       <header className="page-head">
         <div>
-          <p className="page-head__eyebrow">Second Brain</p>
-          <h1 className="page-head__title">Brain</h1>
+          <p className="page-head__eyebrow">Your brain</p>
+          <h1 className="page-head__title">Siris</h1>
         </div>
       </header>
 

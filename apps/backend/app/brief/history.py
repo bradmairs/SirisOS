@@ -4,7 +4,7 @@ Each day's brief is kept (the last one built that day) in the data
 directory for 60 days, so the Brief screen can scroll back. A new brief is
 compared with the most recent earlier day's: warmer or colder, tasks that
 appeared or cleared, apps that went down or came back, important email,
-the Second Brain inbox, and CPD hours.
+Siris' inbox, and CPD hours.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def changes(prev: dict[str, Any] | None, cur: dict[str, Any]) -> dict[str, Any] 
     c_inbox = (cur.get("brain") or {}).get("inbox") or 0
     if c_inbox != p_inbox:
         diff = c_inbox - p_inbox
-        lines.append(f"Second Brain inbox {'up' if diff > 0 else 'down'} {abs(diff)} (now {c_inbox}).")
+        lines.append(f"Siris' inbox {'up' if diff > 0 else 'down'} {abs(diff)} (now {c_inbox}).")
 
     p_cpd = (((prev.get("career") or {}).get("cpd")) or {}).get("total")
     c_cpd = (((cur.get("career") or {}).get("cpd")) or {}).get("total")

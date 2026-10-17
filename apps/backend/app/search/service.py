@@ -7,7 +7,7 @@ listed in `failed` and blanks only its own group):
 - Apps: every connector's name and description (opens its status sheet).
 - Widgets: what the home screen is showing right now (the hub's cache).
 - Links: the Links board.
-- Second Brain, Siris chats and Siris memories: one call to SirisAI's hub
+- Siris, SirisAI chats and SirisAI memories: one call to SirisAI's hub
   search (`/siris/hub/v1/search`, ADR 110). An older SirisAI without it
   gets the previous path: /siris/brain/search and the read-only
   `search_conversations` tool. In SirisAI's guest mode these come back
@@ -208,7 +208,7 @@ class SirisSearch:
             return []
         out = []
         for m in hits:
-            h = hit(self.query, str(m.get("title")), "Siris remembers" + (f" · {str(m.get('when'))[:10]}" if m.get("when") else ""),
+            h = hit(self.query, str(m.get("title")), "SirisAI remembers" + (f" · {str(m.get('when'))[:10]}" if m.get("when") else ""),
                     url="/assistant", kind="memory")
             h["score"] = max(h["score"], 0.8)
             out.append(h)
@@ -308,9 +308,9 @@ def career_source(query: str) -> list[dict[str, Any]]:
 GROUPS: list[tuple[str, str, str]] = [
     # id, label, icon
     ("apps", "Apps", "layout-grid"),
-    ("brain", "Second Brain", "brain"),
-    ("chats", "Siris chats", "sparkles"),
-    ("memories", "Siris remembers", "sparkles"),
+    ("brain", "Siris", "brain"),
+    ("chats", "SirisAI chats", "sparkles"),
+    ("memories", "SirisAI remembers", "sparkles"),
     ("widgets", "On your home screen", "gauge"),
     ("links", "Links", "link"),
     ("career", "Career", "award"),
@@ -349,9 +349,9 @@ async def search(hub: Hub, query: str) -> dict[str, Any]:
     connector = hub.get("sirisai")
     if isinstance(connector, SirisAIConnector) and connector.configured:
         siris = SirisSearch(SirisAISource(connector), query)
-        jobs["brain"] = _run("Second Brain", siris.notes, failed)
-        jobs["chats"] = _run("Siris chats", siris.chats, failed)
-        jobs["memories"] = _run("Siris memories", siris.memories, failed)
+        jobs["brain"] = _run("Siris", siris.notes, failed)
+        jobs["chats"] = _run("SirisAI chats", siris.chats, failed)
+        jobs["memories"] = _run("SirisAI memories", siris.memories, failed)
     for c in hub.connectors:
         if c.configured and not c.launch_only and type(c).search is not Connector.search:
             labels[c.id] = (c.name, c.icon)

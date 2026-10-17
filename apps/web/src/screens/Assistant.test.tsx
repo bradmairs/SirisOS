@@ -53,7 +53,7 @@ describe("<Assistant />", () => {
         <Assistant />
       </MemoryRouter>,
     );
-    await user.type(screen.getByLabelText("Message Siris"), "lights off{Enter}");
+    await user.type(screen.getByLabelText("Message SirisAI"), "lights off{Enter}");
     expect(await screen.findByText("I can turn the lounge lights off.")).toBeInTheDocument();
     const chat = calls.filter((c) => c.url.endsWith("/chat/stream"));
     expect(JSON.parse(chat[0].init.body as string)).toEqual({ prompt: "lights off" });
@@ -77,15 +77,15 @@ describe("<Assistant />", () => {
         <Assistant />
       </MemoryRouter>,
     );
-    await user.type(screen.getByLabelText("Message Siris"), "one{Enter}");
+    await user.type(screen.getByLabelText("Message SirisAI"), "one{Enter}");
     await screen.findByText("ok");
-    await user.type(screen.getByLabelText("Message Siris"), "two{Enter}");
+    await user.type(screen.getByLabelText("Message SirisAI"), "two{Enter}");
     const chat = () => calls.filter((c) => c.url.endsWith("/chat/stream"));
     await waitFor(() => expect(chat()).toHaveLength(2));
     expect(JSON.parse(chat()[1].init.body as string)).toEqual({ prompt: "two", conversation_id: "c9" });
   });
 
-  it("saves a reply to the Second Brain and shows what it learned today", async () => {
+  it("saves a reply to Siris and shows what it learned today", async () => {
     signIn();
     let learned = [{ title: "Pump curves", action: "learned" }];
     const calls = mockFetch({
@@ -105,14 +105,14 @@ describe("<Assistant />", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText(/1 learned today/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Talk to Siris", pressed: false })).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Message Siris"), "what is a pump curve{Enter}");
+    expect(screen.getByRole("button", { name: "Talk to SirisAI", pressed: false })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Message SirisAI"), "what is a pump curve{Enter}");
     await screen.findByText("Pump curves plot head against flow.");
-    await user.click(screen.getByRole("button", { name: "Save to Second Brain" }));
-    expect(await screen.findByText("Saved to Second Brain")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save to Siris" }));
+    expect(await screen.findByText("Saved to Siris")).toBeInTheDocument();
     const capture = calls.find((c) => c.url.endsWith("/brain/capture"))!;
     expect(JSON.parse(capture.init.body as string)).toEqual({
-      title: "Siris: what is a pump curve",
+      title: "SirisAI: what is a pump curve",
       text: "**Asked:** what is a pump curve\n\nPump curves plot head against flow.",
       tags: ["siris", "sirisos"],
     });
@@ -128,7 +128,7 @@ describe("<Assistant />", () => {
         <Assistant />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole("button", { name: "Talk to Siris", pressed: false }));
+    await user.click(screen.getByRole("button", { name: "Talk to SirisAI", pressed: false }));
     expect(await screen.findByRole("status")).toHaveTextContent(/HTTPS|record audio/);
   });
 });

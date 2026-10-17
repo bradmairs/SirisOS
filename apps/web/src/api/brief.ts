@@ -16,7 +16,7 @@ export interface BriefStory {
   source: string;
   published: string | null;
   topic: string;
-  /** Interests from the Second Brain this story mentions. */
+  /** Interests from Siris this story mentions. */
   matches: string[];
 }
 

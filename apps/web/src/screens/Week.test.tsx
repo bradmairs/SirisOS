@@ -18,7 +18,7 @@ function week(start: string): Week {
       day("2026-10-16", { due: [{ title: "Referee 2 for CPEng", kind: "goal", source: "Career" }] }),
       day("2026-10-17"), day("2026-10-18"),
     ],
-    overdue: [{ title: "Send levels to Dana", detail: "Werribee Drainage · 3 days late", source: "Second Brain" }],
+    overdue: [{ title: "Send levels to Dana", detail: "Werribee Drainage · 3 days late", source: "Siris" }],
     cpd: { logged: 3, planned: 1.5 }, guest_mode: false, unavailable: [],
   };
 }

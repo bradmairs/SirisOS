@@ -12,7 +12,7 @@ own section, and is listed in `unavailable`):
   plus its read-only tools run by name, and brain insights. The
   `daily_briefing` skill is never used: it clears SirisAI's queued
   notifications.
-- Second Brain (via SirisAI): the notes that shape the news (see news.py).
+- Siris (via SirisAI): the notes that shape the news (see news.py).
 - Guest mode (SirisAI's): personal sections arrive empty and the brief says so.
 - Hub: any app that's down or needs attention.
 - News: see news.py.
@@ -246,12 +246,12 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
 
     tasks: list[dict[str, Any]] = []
     for t in insights.get("overdue_tasks") or []:
-        tasks.append({"title": t.get("task"), "detail": f"{t.get('note')} · {t.get('days_late')} days late", "tone": "critical", "source": "Second Brain"})
+        tasks.append({"title": t.get("task"), "detail": f"{t.get('note')} · {t.get('days_late')} days late", "tone": "critical", "source": "Siris"})
     for d in insights.get("deadlines") or []:
         left = d.get("days_left", 0)
         if left <= 7:
             when = "due today" if left == 0 else "due tomorrow" if left == 1 else f"overdue by {-left} days" if left < 0 else f"due in {left} days"
-            tasks.append({"title": d.get("title"), "detail": f"Project {when}", "tone": "critical" if left <= 0 else "warning", "source": "Second Brain"})
+            tasks.append({"title": d.get("title"), "detail": f"Project {when}", "tone": "critical" if left <= 0 else "warning", "source": "Siris"})
     todo = []
     for lst in parts.get("todo") or []:
         for item in (lst.get("items") or []) if isinstance(lst, dict) else []:
@@ -322,7 +322,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
     if attention:
         lines.append(f"{attention[0]['name']} needs a look ({attention[0]['state']}).")
     if brain["inbox"]:
-        lines.append(f"{brain['inbox']} thing{'s' if brain['inbox'] != 1 else ''} waiting in the Second Brain inbox.")
+        lines.append(f"{brain['inbox']} thing{'s' if brain['inbox'] != 1 else ''} waiting in Siris' inbox.")
     attention_counts = parts.get("attention") if isinstance(parts.get("attention"), dict) else None
     if attention_counts and attention_counts.get("urgent"):
         n = attention_counts["urgent"]

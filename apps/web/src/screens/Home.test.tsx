@@ -96,7 +96,7 @@ describe("<Home />", () => {
     expect(within(server).getByText("38%")).toBeInTheDocument();
     expect(within(server).getByText(/CPU package 40°C/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Coming up" })).toHaveTextContent("Site meeting");
-    expect(screen.getByRole("region", { name: "Siris activity" })).toHaveTextContent("Geofence reminder check");
+    expect(screen.getByRole("region", { name: "SirisAI activity" })).toHaveTextContent("Geofence reminder check");
     expect(screen.getByRole("region", { name: "Siris apps" })).toHaveTextContent("Need attention");
     expect(screen.queryByRole("region", { name: "Parcels" })).not.toBeInTheDocument();
   });

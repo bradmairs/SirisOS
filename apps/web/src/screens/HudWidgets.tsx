@@ -132,9 +132,9 @@ export function ComingUpWidget({ events, delay }: { events: NonNullable<Hud["nex
 
 export function ActivityWidget({ entries, delay }: { entries: NonNullable<Hud["autonomy"]>; delay?: number }) {
   return (
-    <Card title="Siris activity" Icon={Activity} delay={delay}>
+    <Card title="SirisAI activity" Icon={Activity} delay={delay}>
       {entries.length === 0 ? (
-        <p className="muted">Siris hasn't acted on its own yet today.</p>
+        <p className="muted">SirisAI hasn't acted on its own yet today.</p>
       ) : (
         <ul className="items hud-log">
           {entries.slice(-5).reverse().map((e, i) => (

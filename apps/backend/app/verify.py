@@ -96,14 +96,14 @@ async def sirisai(hub) -> list[Result]:
     else:
         out.append(Result("Forecast", "warn", "no forecast (set SIRISAI_WEATHER_LATITUDE/LONGITUDE in SirisAI)" if fc.status_code == 200 else f"HTTP {fc.status_code}"))
     search = await get("/siris/brain/search", q="project", limit=3)
-    out.append(Result("Second Brain search", "ok" if search.status_code == 200 else "fail",
+    out.append(Result("Siris search", "ok" if search.status_code == 200 else "fail",
                       f"{len(search.json())} results for 'project'" if search.status_code == 200 else f"HTTP {search.status_code}"))
     insights = await get("/siris/brain/insights", days=7)
     if insights.status_code == 200:
         s = insights.json().get("summary") or {}
-        out.append(Result("Second Brain insights", "ok", f"{s.get('notes', '?')} notes, {s.get('inbox', 0)} in the inbox"))
+        out.append(Result("Siris insights", "ok", f"{s.get('notes', '?')} notes, {s.get('inbox', 0)} in the inbox"))
     else:
-        out.append(Result("Second Brain insights", "fail", f"HTTP {insights.status_code}"))
+        out.append(Result("Siris insights", "fail", f"HTTP {insights.status_code}"))
     return out
 
 

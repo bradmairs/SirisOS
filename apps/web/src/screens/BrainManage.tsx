@@ -16,7 +16,7 @@ export function useDeletedNotes() {
   return useResource<BrainDeleted[]>("brain:deleted", () => brain.deleted(), { staleMs: 30_000 });
 }
 
-/** Housekeeping for the brain: Siris's own memories, and notes deleted recently. */
+/** Housekeeping for the brain: SirisAI's own memories, and notes deleted recently. */
 export function BrainManage({ onRestored }: { onRestored?: (title: string) => void }) {
   return (
     <section aria-labelledby="manage-title">
@@ -29,8 +29,8 @@ export function BrainManage({ onRestored }: { onRestored?: (title: string) => vo
   );
 }
 
-/** What Siris saved with `remember`. The brain keeps its own copy of most of these as notes, so
- *  deleting a memory stops Siris recalling it; delete the note too to take it out of the brain. */
+/** What SirisAI saved with `remember`. The brain keeps its own copy of most of these as notes, so
+ *  deleting a memory stops SirisAI recalling it; delete the note too to take it out of the brain. */
 function MemoriesPanel() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<SirisMemory[] | null>(null);
@@ -50,7 +50,7 @@ function MemoriesPanel() {
           setItems(m);
           setError(null);
         })
-        .catch((err) => live && setError(err instanceof Error ? err.message : "Couldn't load Siris's memories."));
+        .catch((err) => live && setError(err instanceof Error ? err.message : "Couldn't load SirisAI's memories."));
     }, q ? 300 : 0);
     return () => {
       live = false;
@@ -73,12 +73,12 @@ function MemoriesPanel() {
   }
 
   return (
-    <Glass className="widget" aria-label="Siris's memories">
+    <Glass className="widget" aria-label="SirisAI's memories">
       <div className="widget__head">
-        <BrainCircuit aria-hidden="true" /> Siris's memories
+        <BrainCircuit aria-hidden="true" /> SirisAI's memories
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        What Siris saved from your chats. Deleting one stops Siris recalling it, and can't be undone.
+        What SirisAI saved from your chats. Deleting one stops SirisAI recalling it, and can't be undone.
       </p>
       <label className="mini-search">
         <Search size={14} aria-hidden="true" />
@@ -89,7 +89,7 @@ function MemoriesPanel() {
       {items === null && !error ? (
         <div className="skeleton" style={{ height: 60 }} />
       ) : items && items.length === 0 ? (
-        <p className="muted" style={{ margin: 0 }}>{q ? "No memories match." : "Siris hasn't saved any memories yet."}</p>
+        <p className="muted" style={{ margin: 0 }}>{q ? "No memories match." : "SirisAI hasn't saved any memories yet."}</p>
       ) : (
         <>
         <ul className="items manage__list">

@@ -56,7 +56,7 @@ function renderBrain() {
   );
 }
 
-describe("Deleting from the Second Brain", () => {
+describe("Deleting from Siris", () => {
   it("deletes a note from search after a confirmation that says what will happen, then undoes it", async () => {
     signIn();
     const { calls } = fakeBrain();
@@ -139,12 +139,12 @@ describe("Deleting from the Second Brain", () => {
     expect(JSON.parse(calls.find((c) => c.url === "/api/v1/brain/purge")!.init.body as string)).toEqual({ title: "Spare Pi" });
   });
 
-  it("lists Siris's memories and deletes one after confirming", async () => {
+  it("lists SirisAI's memories and deletes one after confirming", async () => {
     signIn();
     const { calls } = fakeBrain();
     const user = userEvent.setup();
     renderBrain();
-    const panel = (await screen.findByText("Siris's memories")).closest(".widget") as HTMLElement;
+    const panel = (await screen.findByText("SirisAI's memories")).closest(".widget") as HTMLElement;
     expect(await within(panel).findByText("Brad prefers metric units")).toBeInTheDocument();
     expect(within(panel).getByText(/recalled 2 times/)).toBeInTheDocument();
     await user.click(within(panel).getByRole("button", { name: "Delete memory: Brad prefers metric units" }));

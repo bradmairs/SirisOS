@@ -244,7 +244,7 @@ body.no-scroll { overflow: hidden; }
 @keyframes orb-hue { to { filter: hue-rotate(360deg); } }
 @keyframes beat { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
-/* Second Brain insights */
+/* Siris insights */
 .insights__highlights { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); }
 .insights__list .item { align-items: flex-start; }
 .insights__list .item__dot { margin-top: 7px; }
