@@ -68,6 +68,9 @@ export const career = {
     return (await r.json()) as Career & { import: CpdImport };
   },
   plan: () => api<CpdPlan>("/api/v1/career/cpd/plan"),
+  suggestions: () => api<{ suggestions: CpdSuggestion[]; unavailable: boolean; guest_mode: boolean }>("/api/v1/career/cpd/suggestions"),
+  markSuggestion: (key: string, status: "logged" | "ignored") =>
+    api<{ key: string; status: string }>(`/api/v1/career/cpd/suggestions/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify({ status }) }),
   recategorise: (id: string, category: CpdCategory | null) =>
     api<Career>(`/api/v1/career/cpd/${encodeURIComponent(id)}/category`, { method: "PUT", body: JSON.stringify({ category }) }),
 };
@@ -87,6 +90,17 @@ export interface CpdPlan {
   on_track: boolean;
   rows: PacingRow[];
   gaps: { category: string; label: string; short: number; tip: string; courses: { title: string; subtitle: string; url: string | null; kind: string }[] }[];
+}
+
+export interface CpdSuggestion {
+  key: string;
+  title: string;
+  date: string | null;
+  upcoming: boolean;
+  hours: number;
+  category: CpdCategory;
+  location: string | null;
+  calendar: string | null;
 }
 
 export interface ClaimDraft {

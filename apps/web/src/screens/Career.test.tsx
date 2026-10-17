@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -177,5 +177,36 @@ describe("<Career />", () => {
     expect(await within(sheet).findByText(/Saved to your Second Brain as “CPEng claim draft – E6/)).toBeInTheDocument();
     const saved = calls.find((c) => c.url.endsWith("/claims/6/save"))!;
     expect(JSON.parse(String(saved.init.body)).markdown).toContain("In March I ran the HAZOP.");
+  });
+
+  it("suggests CPD from the calendar: copy for Engineers Australia, then mark it logged", async () => {
+    signIn();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const calls = mockFetch({
+      "/api/v1/career/cpd/suggestions/abc": () => jsonResponse({ key: "abc", status: "logged" }),
+      "/api/v1/career/cpd/suggestions": () => jsonResponse({ unavailable: false, guest_mode: false, suggestions: [
+        { key: "abc", title: "Stormwater webinar (IPWEA)", date: "2026-10-14", upcoming: false, hours: 1.5, category: "area", location: "Online", calendar: "Work" },
+        { key: "def", title: "Safe design workshop", date: "2026-10-28", upcoming: true, hours: 7.5, category: "risk", location: null, calendar: "Work" },
+      ] }),
+      "/api/v1/career/cpd/plan": () => jsonResponse(PLAN),
+      "/api/v1/career": () => jsonResponse(data()),
+    });
+    const user = userEvent.setup();
+    // After setup(): user-event installs its own clipboard.
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    renderAt("/career?view=cpd");
+    const card = await screen.findByRole("region", { name: "From your calendar" });
+    expect(within(card).getByText(/Safe design workshop/)).toBeInTheDocument();
+    expect(within(card).getByText(/7.5 h · Risk management · coming up/)).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: /Copy & open EA/ }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Activity: Stormwater webinar (IPWEA)\nDate:"));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Hours: 1.5\nCategory: Area of practice"));
+    expect(open).toHaveBeenCalledWith("https://portal.engineersaustralia.org.au/", "_blank", "noopener");
+    await user.click(within(card).getByRole("button", { name: "Logged Stormwater webinar (IPWEA)" }));
+    expect(within(card).queryByText("Stormwater webinar (IPWEA)")).not.toBeInTheDocument();
+    const mark = calls.find((c) => c.url.endsWith("/suggestions/abc"))!;
+    expect(JSON.parse(String(mark.init.body))).toEqual({ status: "logged" });
+    open.mockRestore();
   });
 });

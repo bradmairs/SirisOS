@@ -11,6 +11,7 @@ from app.api.projects import router as projects_router
 from app.api.sirishydro import router as sirishydro_router
 from app.attention.api import router as attention_router
 from app.brief.api import router as brief_router
+from app.calendar.api import router as calendar_router
 from app.career.api import router as career_router
 from app.home.api import router as home_router
 from app.hub.api import router as hub_router
@@ -26,6 +27,7 @@ for router in (
     hub_router,
     home_router,
     brief_router,
+    calendar_router,
     attention_router,
     search_router,
     career_router,

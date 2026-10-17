@@ -109,6 +109,8 @@ class Cpd(BaseModel):
     imports: list[CpdImport] = Field(default_factory=list)
     # Brad's own category for a record, kept across re-imports.
     overrides: dict[str, Category] = Field(default_factory=dict)
+    # Calendar suggestions already dealt with: key -> "logged" (in EA) or "ignored".
+    suggestions: dict[str, Literal["logged", "ignored"]] = Field(default_factory=dict)
 
 
 class Profile(BaseModel):
