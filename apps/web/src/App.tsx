@@ -23,6 +23,7 @@ const loadSearch = () => import("./components/SearchPalette");
 const loadCareer = () => import("./screens/Career");
 const loadInbox = () => import("./components/Inbox");
 const loadWeek = () => import("./screens/Week");
+const loadStatus = () => import("./screens/Status");
 const loadCapture = () => import("./components/QuickCapture");
 const loadShortcuts = () => import("./screens/Shortcuts");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
@@ -34,6 +35,7 @@ const BriefOverlay = lazy(() => loadBrief().then((m) => ({ default: m.BriefOverl
 const Career = lazy(() => loadCareer().then((m) => ({ default: m.Career })));
 const ShortcutsScreen = lazy(() => loadShortcuts().then((m) => ({ default: m.ShortcutsScreen })));
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
+const StatusScreen = lazy(() => loadStatus().then((m) => ({ default: m.StatusScreen })));
 const WeekScreen = lazy(() => loadWeek().then((m) => ({ default: m.WeekScreen })));
 const InboxScreen = lazy(() => loadInbox().then((m) => ({ default: m.InboxScreen })));
 const SearchPalette = lazy(() => loadSearch().then((m) => ({ default: m.SearchPalette })));
@@ -130,6 +132,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/inbox" element={<InboxScreen />} />
           <Route path="/week" element={<WeekScreen />} />
           <Route path="/shortcuts" element={<ShortcutsScreen />} />
+          <Route path="/status" element={<StatusScreen />} />
           <Route path="/capture" element={<OpenCapture onOpen={openCapture} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

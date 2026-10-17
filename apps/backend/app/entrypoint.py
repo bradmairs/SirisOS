@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from app.main import app
@@ -16,6 +17,8 @@ from app.career.api import router as career_router
 from app.home.api import router as home_router
 from app.hub.api import router as hub_router
 from app.links.api import router as links_router
+from app.hub import history as status_history
+from app.hub.service import get_hub
 from app.push import notifier as push_notifier
 from app.push.api import router as push_router
 from app.search.api import router as search_router
@@ -46,6 +49,10 @@ for router in (
 ):
     app.include_router(router)
 
+def status_history_enabled() -> bool:
+    return os.getenv("SIRISOS_STATUS_SAMPLER", "1") not in ("0", "false", "no")
+
+
 _default_lifespan = app.router.lifespan_context
 
 
@@ -54,11 +61,13 @@ async def lifespan(application):
     """Starts the phone-notification loop (push/notifier.py) beside the
     default lifespan, and stops it on shutdown."""
     async with _default_lifespan(application) as state:
-        task = asyncio.create_task(push_notifier.loop()) if push_notifier.enabled() else None
+        tasks = [asyncio.create_task(push_notifier.loop())] if push_notifier.enabled() else []
+        if status_history_enabled():
+            tasks.append(asyncio.create_task(status_history.sampler(get_hub)))
         try:
             yield state
         finally:
-            if task:
+            for task in tasks:
                 task.cancel()
 
 

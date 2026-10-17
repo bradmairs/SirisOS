@@ -30,6 +30,21 @@ async def list_apps(
     return {"apps": hide_personal(apps) if guest else apps, "guest_mode": guest}
 
 
+@router.get("/hub/status", tags=["hub"])
+async def system_status(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Every configured app's health now and over the last 24 hours and 7 days."""
+    from app.hub import history
+
+    apps = await hub.apps()
+    out = []
+    for app in apps:
+        connector = hub.get(app["id"])
+        if connector is None or not connector.configured or connector.launch_only:
+            continue
+        out.append({"id": app["id"], "name": app["name"], "icon": app["icon"], "status": app["status"], **history.summary(app["id"])})
+    return {"apps": out, "sample_every_minutes": history.SAMPLE_EVERY_SECONDS // 60}
+
+
 @router.get("/hub/apps/{app_id}", tags=["hub"])
 async def get_app(app_id: str, fresh: bool = False, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     connector = hub.get(app_id)
