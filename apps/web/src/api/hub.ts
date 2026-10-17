@@ -32,8 +32,14 @@ export const brain = {
   restore: (title: string) => api<BrainDeleteResult>("/api/v1/brain/restore", json({ title })),
   purge: (title: string) => api<BrainDeleteResult>("/api/v1/brain/purge", json({ title })),
   deleted: () => api<BrainDeleted[]>("/api/v1/brain/deleted"),
-  capture: (body: { text?: string; url?: string; title?: string; tags?: string[] }) =>
+  capture: (body: { text?: string; url?: string; title?: string; tags?: string[]; image?: string }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
+  /** A voice memo to text, through SirisAI's speech-to-text. */
+  transcribe: async (audio: Blob) => {
+    const form = new FormData();
+    form.append("file", audio, "memo.wav");
+    return api<{ text: string }>("/api/v1/assistant/voice/transcribe", { method: "POST", body: form });
+  },
 };
 
 /** The inbox (ADR 110): SirisAI's attention feed plus SirisOS's own items. */

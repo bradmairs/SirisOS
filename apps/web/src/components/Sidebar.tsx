@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Award, Brain, CalendarDays, House, Inbox, LayoutGrid, LogOut, Ruler, Search, Sparkles, Sunrise, X } from "lucide-react";
+import { ArrowUpRight, Award, Brain, CalendarDays, House, PenLine, Inbox, LayoutGrid, LogOut, Ruler, Search, Sparkles, Sunrise, X } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -31,6 +31,7 @@ export function Sidebar({
   onClose,
   onSignOut,
   onSearch,
+  onCapture,
 }: {
   apps: HubApp[] | null;
   user: string | null;
@@ -38,6 +39,7 @@ export function Sidebar({
   onClose: () => void;
   onSignOut: () => void;
   onSearch?: () => void;
+  onCapture?: () => void;
 }) {
   const location = useLocation();
   useEffect(() => {
@@ -70,6 +72,12 @@ export function Sidebar({
             <Search size={16} aria-hidden="true" />
             <span>Search</span>
             <kbd className="sidebar__kbd" aria-hidden="true">{isMac() ? "⌘K" : "Ctrl K"}</kbd>
+          </button>
+        )}
+        {onCapture && (
+          <button type="button" className="sidebar__search" onClick={onCapture}>
+            <PenLine size={16} aria-hidden="true" />
+            <span>Quick capture</span>
           </button>
         )}
 

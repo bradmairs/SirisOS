@@ -49,6 +49,7 @@ class FakeApps:
         self.calls: list[str] = []
         self.down: set[str] = set()
         self.learn_at_risk = False
+        self.captured: list[dict] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         host, path = request.url.host, request.url.path
@@ -173,7 +174,11 @@ class FakeApps:
             return httpx.Response(200, json=[{"title": "Pump curves", "path": "Notes/Pump curves.md", "q": request.url.params["q"]}])
         if path == "/siris/brain/capture":
             body = json.loads(request.content)
+            self.captured.append(body)
             return httpx.Response(200, json={"saved": True, "title": body["text"][:10], "action": "created"})
+        if path == "/siris/voice/transcribe":
+            assert b'filename="memo.wav"' in request.content
+            return httpx.Response(200, json={"text": "Check the pit lids on Monday"})
         if path == "/siris/conversations":
             return httpx.Response(200, json=[{"id": "c1", "limit": request.url.params["limit"]}])
         if path == "/siris/chat/stream":
@@ -366,6 +371,13 @@ def test_brain_proxies(client, apps):
     saved = client.post("/api/v1/brain/capture", headers=AUTH, json={"text": "Remember the pump curves"})
     assert saved.json()["saved"] is True
     assert client.post("/api/v1/brain/capture", headers=AUTH, json={"text": " "}).status_code == 422
+    # No photo: the field isn't sent at all (older SirisAI versions don't know it).
+    assert "image" not in apps.captured[-1]
+    photo = "data:image/jpeg;base64,/9j/4A=="
+    assert client.post("/api/v1/brain/capture", headers=AUTH, json={"image": photo}).json()["saved"] is True
+    assert apps.captured[-1]["image"] == photo
+    memo = client.post("/api/v1/assistant/voice/transcribe", headers=AUTH, files={"file": ("memo.wav", b"RIFF....", "audio/wav")})
+    assert memo.json() == {"text": "Check the pit lids on Monday"}
     mind_map = client.get("/api/v1/brain/map.html", headers=AUTH)
     assert mind_map.headers["content-type"].startswith("text/html")
     assert "Siris Brain Map" in mind_map.text

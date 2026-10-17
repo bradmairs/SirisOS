@@ -172,6 +172,16 @@ async def voice_status(connector: SirisAIConnector = Depends(_sirisai)) -> dict[
 MAX_RECORDING_BYTES = 10 * 1024 * 1024
 
 
+@router.post("/assistant/voice/transcribe", tags=["assistant"])
+async def voice_transcribe(file: UploadFile = File(...), connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Speech to text through SirisAI (for voice memos in quick capture)."""
+    audio = await file.read(MAX_RECORDING_BYTES + 1)
+    if len(audio) > MAX_RECORDING_BYTES:
+        raise HTTPException(status_code=413, detail="Recording is too long.")
+    return await _forward(connector, "POST", "/siris/voice/transcribe",
+                          files={"file": (file.filename or "memo.wav", audio, file.content_type or "audio/wav")})
+
+
 @router.post("/assistant/voice/converse", tags=["assistant"])
 async def voice_converse(
     file: UploadFile | None = File(None),
@@ -396,10 +406,15 @@ class CaptureRequest(BaseModel):
     url: str = Field(default="", max_length=2000)
     title: str = Field(default="", max_length=200)
     tags: list[str] = Field(default_factory=list, max_length=20)
+    # A photo as a data URL; SirisAI (1.22+) saves it in the vault and embeds it.
+    image: str = Field(default="", max_length=14_000_000)
 
 
 @router.post("/brain/capture", tags=["brain"])
 async def brain_capture(request: CaptureRequest, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
-    if not request.text.strip() and not request.url.strip():
-        raise HTTPException(status_code=422, detail="Send some text, a url, or both.")
-    return await _forward(connector, "POST", "/siris/brain/capture", json=request.model_dump())
+    if not request.text.strip() and not request.url.strip() and not request.image:
+        raise HTTPException(status_code=422, detail="Send some text, a url, a photo, or a mix.")
+    body = request.model_dump()
+    if not body["image"]:
+        body.pop("image")  # older SirisAI versions don't know the field
+    return await _forward(connector, "POST", "/siris/brain/capture", json=body)
