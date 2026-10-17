@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BookMarked, ChevronRight, Save, Trash2, X } from "lucide-react";
+import { BookMarked, ChevronRight, FileDown, Save, Trash2, X } from "lucide-react";
 import { calculations, type Calculation, type StandardDocument } from "../../api/engineering";
 import { CALCULATORS, CALCULATOR_BY_ID, fieldLabel, run, type Calculator } from "../../engineering/calculators";
 import { Glass } from "../../components/Glass";
@@ -61,12 +61,44 @@ export function Calculators() {
   );
 }
 
+/** Share or open the one-page PDF sheet: the share sheet on iPhone (Files,
+ * Mail, OneDrive), a new tab elsewhere. */
+function PdfButton({ calculation }: { calculation: Calculation }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try {
+      const file = await calculations.pdf(calculation);
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: calculation.title }).catch(() => undefined);
+      } else {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.download = file.name;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button className="icon-link" onClick={open} disabled={busy} aria-label={`PDF of ${calculation.title}`} title="One-page PDF">
+      <FileDown size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
 export function SavedCalculation({ calculation: c, onDelete }: { calculation: Calculation; onDelete?: () => void }) {
   return (
     <Glass className="widget" style={{ minHeight: 0 }} aria-label={c.title}>
       <div className="widget__head">
         <span style={{ color: "var(--ink)", fontSize: 15 }}>{c.title}</span>
         <span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>{CALCULATOR_BY_ID[c.calculator_id]?.title ?? c.calculator_id} · {new Date(c.created_at).toLocaleDateString()}</span>
+        <PdfButton calculation={c} />
         {onDelete && (
           <button className="icon-link" onClick={onDelete} aria-label={`Delete ${c.title}`}>
             <Trash2 size={16} />

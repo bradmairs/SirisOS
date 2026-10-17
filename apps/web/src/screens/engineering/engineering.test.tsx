@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -121,5 +121,27 @@ describe("engineering", () => {
       const post = calls.find((c) => c.init.method === "POST");
       expect(post && JSON.parse(post.init.body as string)).toEqual({ target_type: "calculation", target_id: "c1", kind: "contains" });
     });
+  });
+
+  it("shares a saved calculation's one-page PDF", async () => {
+    signIn();
+    const share = vi.fn(async () => undefined);
+    Object.assign(navigator, { canShare: () => true, share });
+    mockFetch({
+      "/api/v1/engineering/calculations/c1/pdf": () =>
+        new Response(new Blob(["%PDF-1.4"], { type: "application/pdf" }), { headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="Trunk main check.pdf"' } }),
+      "/api/v1/engineering/calculations": () => jsonResponse({ calculations: [
+        { id: "c1", calculator_id: "fullPipe", title: "Trunk main check", inputs: { "Manning n": 0.013 }, results: [{ label: "Flow", value: "202 L/s" }], notes: "", cited_standard_id: null, cited_standard_label: null, created_at: "2026-10-17T00:00:00Z" },
+      ] }),
+    });
+    const user = userEvent.setup();
+    at("/engineering/calculators");
+    await user.click(await screen.findByRole("button", { name: "PDF of Trunk main check" }));
+    await waitFor(() => expect(share).toHaveBeenCalled());
+    const sent = (share.mock.calls[0] as unknown as [{ files: File[] }])[0].files[0];
+    expect(sent.name).toBe("Trunk main check.pdf");
+    expect(sent.type).toBe("application/pdf");
+    delete (navigator as unknown as Record<string, unknown>).canShare;
+    delete (navigator as unknown as Record<string, unknown>).share;
   });
 });

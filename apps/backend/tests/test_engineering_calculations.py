@@ -180,3 +180,47 @@ def test_calculation_citation_survives_when_standard_later_removed(tmp_path: Pat
     fetched = asyncio.run(engineering_calculations.get_calculation(created.id, authorization))
     assert fetched.cited_standard_id == "std-1"
     assert fetched.cited_standard_label == "AS 3600 · 2018"
+
+
+def test_a_saved_calculation_prints_as_a_one_page_sheet(tmp_path: Path, monkeypatch) -> None:
+    import io
+
+    from fastapi.testclient import TestClient
+    from pypdf import PdfReader
+
+    from app.entrypoint import app
+
+    monkeypatch.setattr(engineering_calculations, "CALCULATIONS_PATH", tmp_path / "engineering-calculations.json")
+    monkeypatch.setattr(projects, "PROJECTS_PATH", tmp_path / "projects.json")
+    client = TestClient(app)
+    headers = {"Authorization": _token()}
+    created = client.post("/api/v1/engineering/calculations", headers=headers, json={
+        "calculator_id": "hazenWilliams", "title": "Rising main (Shepparton) – check",
+        "inputs": {"q": 0.05, "d": 0.2, "l": 100, "c": 140},
+        "results": [{"label": "Friction headloss", "value": "2.21 m"}, {"label": "Velocity", "value": "1.59 m/s"}],
+        "notes": "Existing DN200 PVC. " * 30,
+    }).json()
+    response = client.get(f"/api/v1/engineering/calculations/{created['id']}/pdf", headers=headers)
+    assert response.status_code == 200 and response.headers["content-type"] == "application/pdf"
+    assert 'filename="Rising main -Shepparton- - check.pdf"' in response.headers["content-disposition"]
+    reader = PdfReader(io.BytesIO(response.content))
+    assert len(reader.pages) == 1
+    text = reader.pages[0].extract_text()
+    for expected in ("Rising main (Shepparton) – check", "Hazen–Williams headloss", "Internal diameter", "0.2 m",
+                     "Hazen–Williams C", "Friction headloss", "2.21 m", "Checked by", "Prepared by: Brad"):
+        assert expected in text, expected
+    assert reader.metadata.title == "Rising main (Shepparton) – check"
+    assert client.get(f"/api/v1/engineering/calculations/{created['id']}/pdf").status_code == 401
+    assert client.get("/api/v1/engineering/calculations/nope/pdf", headers=headers).status_code == 404
+
+
+def test_the_sheet_prints_inputs_saved_by_label_too() -> None:
+    import io
+
+    from pypdf import PdfReader
+
+    record = engineering_calculations.CalculationRecord(
+        id="c1", calculator_id="fullPipe", title="Trunk main check",
+        inputs={"Internal diameter (m)": 0.45, "Manning n": 0.013}, results=[], created_at="2026-10-17T00:00:00+00:00")
+    text = PdfReader(io.BytesIO(engineering_calculations.calculation_pdf(record))).pages[0].extract_text()
+    assert "Internal diameter (m)" in text and "0.45" in text and "Manning n" in text and "0.013" in text
