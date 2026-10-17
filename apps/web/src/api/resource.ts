@@ -9,9 +9,13 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
  *   the background, so navigation never flashes a skeleton twice.
  * - One poll timer per key (not per component), paused while the app is in
  *   the background and caught up when it returns.
+ * - Keys read with `persist` keep their last good result on the device, so
+ *   the next launch (or a launch with no signal) shows it at once, marked
+ *   with when it was fetched, and refreshes behind it. Sign-out wipes them.
  */
 
 interface Entry<T> {
+  key: string;
   data: T | undefined;
   error: string | null;
   updatedAt: number;
@@ -22,6 +26,7 @@ interface Entry<T> {
   snapshot: Snapshot<T>;
   refreshMs: number;
   timer: number | null;
+  persist: boolean;
 }
 
 export interface Snapshot<T> {
@@ -33,24 +38,69 @@ export interface Snapshot<T> {
 
 const entries = new Map<string, Entry<unknown>>();
 
-function entry<T>(key: string, fetcher: (fresh: boolean) => Promise<T>, refreshMs: number): Entry<T> {
+const PERSIST_PREFIX = "sirisos.cache.";
+const PERSIST_MAX_CHARS = 500_000;
+
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readPersisted<T>(key: string): { data: T; updatedAt: number } | null {
+  try {
+    const raw = storage()?.getItem(PERSIST_PREFIX + key);
+    if (!raw) return null;
+    const value = JSON.parse(raw);
+    return value && typeof value.updatedAt === "number" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersisted<T>(key: string, data: T, updatedAt: number) {
+  try {
+    const raw = JSON.stringify({ data, updatedAt });
+    if (raw.length <= PERSIST_MAX_CHARS) storage()?.setItem(PERSIST_PREFIX + key, raw);
+  } catch {
+    /* full or blocked: the in-memory cache still works */
+  }
+}
+
+function clearPersisted() {
+  const store = storage();
+  if (!store) return;
+  try {
+    Object.keys(store).filter((k) => k.startsWith(PERSIST_PREFIX)).forEach((k) => store.removeItem(k));
+  } catch {
+    /* blocked */
+  }
+}
+
+function entry<T>(key: string, fetcher: (fresh: boolean) => Promise<T>, refreshMs: number, persist = false): Entry<T> {
   let e = entries.get(key) as Entry<T> | undefined;
   if (!e) {
+    const saved = persist ? readPersisted<T>(key) : null;
     e = {
-      data: undefined,
+      key,
+      data: saved?.data,
       error: null,
-      updatedAt: 0,
+      updatedAt: saved?.updatedAt ?? 0,
       loading: false,
       inflight: null,
       fetcher,
       listeners: new Set(),
-      snapshot: { data: undefined, error: null, loading: false, updatedAt: 0 },
+      snapshot: { data: saved?.data, error: null, loading: false, updatedAt: saved?.updatedAt ?? 0 },
       refreshMs,
       timer: null,
+      persist,
     };
     entries.set(key, e as Entry<unknown>);
   }
   e.fetcher = fetcher;
+  if (persist && !e.persist) e.persist = true;
   e.refreshMs = Math.min(e.refreshMs || refreshMs, refreshMs || e.refreshMs);
   return e;
 }
@@ -70,6 +120,7 @@ function load<T>(e: Entry<T>, fresh = false): Promise<T> {
       e.data = data;
       e.error = null;
       e.updatedAt = Date.now();
+      if (e.persist) writePersisted(e.key, data, e.updatedAt);
       return data;
     })
     .catch((err: unknown) => {
@@ -121,11 +172,13 @@ export interface ResourceOptions {
   staleMs?: number;
   /** Skip fetching entirely (e.g. no query yet). */
   enabled?: boolean;
+  /** Keep the last good result on this device for the next launch (Home's data). */
+  persist?: boolean;
 }
 
 export function useResource<T>(key: string, fetcher: (fresh: boolean) => Promise<T>, options: ResourceOptions = {}) {
-  const { refreshMs = 0, staleMs = 15_000, enabled = true } = options;
-  const e = entry(key, fetcher, refreshMs);
+  const { refreshMs = 0, staleMs = 15_000, enabled = true, persist = false } = options;
+  const e = entry(key, fetcher, refreshMs, persist);
 
   const subscribe = useCallback(
     (fn: () => void) => {
@@ -150,6 +203,7 @@ export function useResource<T>(key: string, fetcher: (fresh: boolean) => Promise
     (data: T) => {
       e.data = data;
       e.updatedAt = Date.now();
+      if (e.persist) writePersisted(e.key, data, e.updatedAt);
       publish(e);
     },
     [e],
@@ -169,4 +223,11 @@ export function clearResources() {
     if (e.timer !== null) window.clearInterval(e.timer);
   });
   entries.clear();
+  clearPersisted();
+}
+
+/** When each persisted key was last fetched: the oldest one Home is showing. */
+export function oldestUpdate(keys: string[]): number | null {
+  const times = keys.map((k) => entries.get(k)?.updatedAt ?? 0).filter((t) => t > 0);
+  return times.length ? Math.min(...times) : null;
 }

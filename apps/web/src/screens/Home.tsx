@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Activity, CalendarClock, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise } from "lucide-react";
+import { Activity, CalendarClock, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
 import { hub } from "../api/hub";
 import { EMPTY_LAYOUT, arrange, home, type DeviceLayout, type HomeLayout } from "../api/home";
-import { useResource } from "../api/resource";
+import { oldestUpdate, useResource } from "../api/resource";
+import { useOnline } from "../api/online";
 import { session } from "../api/client";
 import type { HubApp } from "../api/types";
 import { isWidget } from "../api/types";
@@ -31,12 +32,14 @@ export function greeting(date = new Date()): string {
  * sidebar, Home and Engineering (see api/resource.ts). */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function useApps(_widgets = true) {
-  const { data, error, loading, reload } = useResource("hub:apps", (fresh) => hub.appsWithGuest({ widgets: true, fresh }), { refreshMs: REFRESH_MS });
+  const { data, error, loading, reload } = useResource("hub:apps", (fresh) => hub.appsWithGuest({ widgets: true, fresh }), { refreshMs: REFRESH_MS, persist: true });
   return {
     apps: data?.apps ?? null,
     // SirisAI's guest mode (ADR 110): personal widgets are already left out by the hub.
     guest: !!data?.guest_mode,
     error: data ? null : error,
+    /** Showing the last good list because the latest refresh failed. */
+    stale: !!data && !!error,
     refreshing: loading,
     reload: (fresh = false) => reload(fresh).catch(() => undefined),
   };
@@ -60,7 +63,7 @@ export function useIsPhone(): boolean {
 /** The saved Home layout (order and hidden widgets per device), shared and
  * saved optimistically: the change shows at once and is written behind. */
 export function useHomeLayout(device: "phone" | "desktop") {
-  const { data, mutate, reload } = useResource<HomeLayout>("home:layout", () => home.layout(), { staleMs: 60_000 });
+  const { data, mutate, reload } = useResource<HomeLayout>("home:layout", () => home.layout(), { staleMs: 60_000, persist: true });
   const layout = data ?? EMPTY_LAYOUT;
   const save = (next: DeviceLayout) => {
     const doc = { ...layout, [device]: next };
@@ -105,7 +108,8 @@ export function AppGrid({ apps, onOpen, layout = "grid" }: { apps: HubApp[]; onO
 }
 
 export function Home() {
-  const { apps, guest, error, refreshing, reload } = useApps(true);
+  const { apps, guest, error, stale, refreshing, reload } = useApps(true);
+  const online = useOnline();
   const { hud, loading: hudLoading } = useHud();
   const { widgets: siris, loading: sirisLoading, reload: reloadSiris } = useSirisWidgets();
   const appsLoading = apps === null && !error;
@@ -201,6 +205,7 @@ export function Home() {
       )}
       <InboxPanel />
 
+      {(!online || stale) && apps && <OfflineNote online={online} />}
       {error && <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{error}</div>}
       {attention > 0 && (
         <p className="muted" style={{ margin: "14px 6px 0" }}>
@@ -232,6 +237,21 @@ export function Home() {
       {open && <AppSheet appId={open.id} initial={open} onClose={() => setOpen(null)} />}
       {customising && <HomeCustomise device={device} sections={editable} layout={layout} onChange={saveLayout} onClose={() => setCustomising(false)} />}
     </>
+  );
+}
+
+const HOME_KEYS = ["hub:apps", "sirisai:hud", "sirisai:widgets", "career:overview"];
+
+/** "Offline · as of 7:42": Home is showing what it last fetched. */
+function OfflineNote({ online }: { online: boolean }) {
+  const at = oldestUpdate(HOME_KEYS);
+  const when = at ? new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null;
+  const day = at && new Date(at).toDateString() !== new Date().toDateString() ? new Date(at).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) + " " : "";
+  return (
+    <p className="offline-note" role="status">
+      <WifiOff size={15} aria-hidden="true" /> {online ? "Can't reach SirisOS" : "Offline"}
+      {when ? ` · showing what it had at ${day}${when}` : ""}
+    </p>
   );
 }
 

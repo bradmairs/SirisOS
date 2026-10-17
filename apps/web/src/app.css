@@ -557,3 +557,6 @@ body.no-scroll { overflow: hidden; }
 .notify__topics { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .notify__topic { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
 .notify__topic input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+/* Offline · showing what SirisOS had at… */
+.offline-note { display: flex; align-items: center; gap: 8px; margin: 14px 6px 0; padding: 8px 14px; border-radius: 999px; width: fit-content; max-width: 100%; font-size: 13px; color: var(--ink-2); background: color-mix(in srgb, var(--warning, #fbbf24) 14%, transparent); }

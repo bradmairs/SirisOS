@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -201,5 +201,28 @@ describe("<Home />", () => {
     expect(within(now).getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(["Siris apps", "Local time"]);
     const last = calls.filter((c) => c.init.method === "PUT").pop()!;
     expect(JSON.parse(String(last.init.body)).desktop.order.slice(0, 2)).toEqual(["app-health", "clock"]);
+  });
+
+  it("opens with no signal on what it last fetched, saying when", async () => {
+    signIn("brad");
+    const at = new Date(2026, 9, 17, 7, 42).getTime();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 9, 17, 9, 0) });
+    localStorage.setItem("sirisos.cache.hub:apps", JSON.stringify({ data: { apps: APPS }, updatedAt: at }));
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    mockFetch({ "/api/v1/hub/apps": () => Promise.reject(new TypeError("Failed to fetch")) });
+    try {
+      render(
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>,
+      );
+      // The widgets are there straight away, from the device copy.
+      expect(screen.getByText("18° Sunny")).toBeInTheDocument();
+      expect(screen.getByText(/Offline · showing what it had at 7:42/i)).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    } finally {
+      online.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });
