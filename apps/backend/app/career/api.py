@@ -3,14 +3,16 @@ evidence, goals, and CPD imported from Engineers Australia."""
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import date
+from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
-from app.career import claims, cpd, defaults, store
+from app.career import claims, cpd, defaults, store, suggest
+from app.calendar import service as calendar
 from app.hub.connectors.sirisai import SirisAIConnector
 from app.hub.connectors.sirislearn import SirisLearnConnector
 from app.hub.service import get_hub, shared_client
@@ -176,3 +178,29 @@ async def cpd_plan() -> dict[str, Any]:
             continue
         gap["courses"] = [h.to_dict() for h in hits if h.kind in ("course", "")][:3]
     return plan
+
+
+@router.get("/cpd/suggestions")
+async def cpd_suggestions() -> dict[str, Any]:
+    """Calendar events from the last and next 30 days that look like CPD and
+    aren't logged in Engineers Australia yet."""
+    today = date.today()
+    start, end = suggest.window(today)
+    cal = await calendar.events(get_hub(), start, end)
+    if cal["events"] is None:
+        return {"suggestions": [], "unavailable": cal["unavailable"], "guest_mode": cal["guest_mode"]}
+    return {"suggestions": suggest.suggestions(store.load(), cal["events"], today), "unavailable": False, "guest_mode": False}
+
+
+class SuggestionStatus(BaseModel):
+    status: Literal["logged", "ignored"]
+
+
+@router.post("/cpd/suggestions/{key}")
+def mark_suggestion(key: str, body: SuggestionStatus) -> dict[str, Any]:
+    """Logged in Engineers Australia, or not CPD: either way, stop suggesting it."""
+    doc = store.load()
+    marks = dict(doc.cpd.suggestions)
+    marks[key[:40]] = body.status
+    store.save(doc.model_copy(update={"cpd": doc.cpd.model_copy(update={"suggestions": dict(list(marks.items())[-500:])})}))
+    return {"key": key, "status": body.status}

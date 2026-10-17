@@ -9,6 +9,7 @@ import {
   CircleDashed,
   CircleDot,
   CircleSlash,
+  CalendarPlus,
   Compass,
   Copy,
   FilePenLine,
@@ -26,6 +27,7 @@ import {
   claims as claimsApi,
   type ClaimDraft,
   type CpdPlan,
+  type CpdSuggestion,
   EA_PORTAL,
   type Career,
   type CareerDocument,
@@ -313,6 +315,8 @@ function CpdView({ career, onChange }: { career: Career; onChange: (c: Career) =
         {message && <p className={message.ok ? "tone-good" : "tone-critical"} style={{ margin: 0, fontSize: 14 }} role="status">{message.text}</p>}
       </Glass>
 
+      <CalendarSuggestions categories={ov.categories} />
+
       {records.length > 0 && (
         <>
           <div className="widget-grid">
@@ -534,6 +538,76 @@ function Competencies({ career, onSave }: { career: Career; onSave: (d: CareerDo
         />
       )}
     </div>
+  );
+}
+
+/** "From your calendar": events that look like CPD, to log in Engineers
+ * Australia (still the only record). Copy the details, open EA, then mark
+ * it logged; "Not CPD" hides it for good. */
+function CalendarSuggestions({ categories }: { categories: Record<CpdCategory, string> }) {
+  const [items, setItems] = useState<CpdSuggestion[] | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    careerApi.suggestions().then((r) => live && setItems(r.suggestions ?? [])).catch(() => live && setItems([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!items || items.length === 0) return null;
+
+  async function mark(item: CpdSuggestion, status: "logged" | "ignored") {
+    setItems((list) => (list ?? []).filter((x) => x.key !== item.key));
+    await careerApi.markSuggestion(item.key, status).catch(() => undefined);
+  }
+  async function copyAndOpen(item: CpdSuggestion) {
+    const text = [
+      `Activity: ${item.title}`,
+      item.date && `Date: ${fmtDate(item.date)}`,
+      `Hours: ${item.hours}`,
+      `Category: ${categories[item.category] ?? item.category}`,
+      item.location && `Location: ${item.location}`,
+    ].filter(Boolean).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setNote(`Copied “${item.title}”. Paste it into Record my CPD, then tap Logged.`);
+    } catch {
+      setNote("Couldn't copy; the details are on the card.");
+    }
+    window.open(EA_PORTAL, "_blank", "noopener");
+  }
+
+  return (
+    <Card title="From your calendar" Icon={CalendarPlus}>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>These look like CPD. Log them in Engineers Australia; the next import brings them in here.</p>
+      <ul className="items">
+        {items.map((item) => (
+          <li key={item.key} className="item" style={{ display: "block" }}>
+            <div className="item__title">{item.title}</div>
+            <div className="item__subtitle">
+              {item.date ? fmtDate(item.date) : "No date"} · {hours(item.hours)} · {categories[item.category] ?? item.category}
+              {item.upcoming && " · coming up"}
+            </div>
+            <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+              {!item.upcoming && (
+                <>
+                  <button type="button" className="button button--small" onClick={() => copyAndOpen(item)}>
+                    Copy &amp; open EA <ArrowUpRight size={13} aria-hidden="true" />
+                  </button>
+                  <button type="button" className="button button--small" onClick={() => mark(item, "logged")} aria-label={`Logged ${item.title}`}>
+                    <Check size={14} aria-hidden="true" /> Logged
+                  </button>
+                </>
+              )}
+              <button type="button" className="button button--small" onClick={() => mark(item, "ignored")} aria-label={`${item.title} is not CPD`}>
+                Not CPD
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {note && <p className="muted" role="status" style={{ margin: 0, fontSize: 13 }}>{note}</p>}
+    </Card>
   );
 }
 
