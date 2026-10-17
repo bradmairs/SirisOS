@@ -67,9 +67,27 @@ export const career = {
     const r = await request("/api/v1/career/cpd/import", { method: "POST", body: form });
     return (await r.json()) as Career & { import: CpdImport };
   },
+  plan: () => api<CpdPlan>("/api/v1/career/cpd/plan"),
   recategorise: (id: string, category: CpdCategory | null) =>
     api<Career>(`/api/v1/career/cpd/${encodeURIComponent(id)}/category`, { method: "PUT", body: JSON.stringify({ category }) }),
 };
+
+export interface PacingRow {
+  category: "total" | CpdCategory;
+  label: string;
+  target: number;
+  staying: number;
+  need: number;
+  per_month: number;
+  last_12_months: number;
+  on_track: boolean;
+}
+
+export interface CpdPlan {
+  on_track: boolean;
+  rows: PacingRow[];
+  gaps: { category: string; label: string; short: number; tip: string; courses: { title: string; subtitle: string; url: string | null; kind: string }[] }[];
+}
 
 export interface ClaimDraft {
   id: string;

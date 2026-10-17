@@ -53,6 +53,15 @@ function data(): CareerData {
   };
 }
 
+const PLAN = {
+  on_track: false,
+  rows: [
+    { category: "total", label: "Total", target: 150, staying: 15, need: 135, per_month: 11.3, last_12_months: 15, on_track: false },
+    { category: "risk", label: "Risk management", target: 10, staying: 2, need: 8, per_month: 0.7, last_12_months: 2, on_track: false },
+  ],
+  gaps: [{ category: "risk", label: "Risk management", short: 6, tip: "A HAZOP course.", courses: [{ title: "Risk basics", subtitle: "Course", url: "https://learn.local/course/r", kind: "course" }] }],
+};
+
 function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -79,11 +88,17 @@ describe("<Career />", () => {
     const calls = mockFetch({
       "/api/v1/career/cpd/import": () => jsonResponse({ ...data(), import: { at: "", filename: "ea.csv", added: 0, updated: 1, unchanged: 1 } }),
       "/api/v1/career/cpd/r2/category": () => jsonResponse(data()),
+      "/api/v1/career/cpd/plan": () => jsonResponse(PLAN),
       "/api/v1/career": () => jsonResponse(data()),
     });
     const user = userEvent.setup();
     renderAt("/career?view=cpd");
     await screen.findByText("2 activities");
+    // Pacing: behind, with where to catch up and a SirisLearn course.
+    const pacing = await screen.findByRole("region", { name: "Next 12 months" });
+    expect(pacing).toHaveTextContent("Behind");
+    expect(pacing).toHaveTextContent("you need 135 h in the next year (about 11.3 h a month)");
+    expect(within(pacing).getByRole("link", { name: "SirisLearn: Risk basics" })).toHaveAttribute("href", "https://learn.local/course/r");
     await user.upload(screen.getByLabelText("CPD export file"), new File(["Date,Title,Hours"], "ea.csv", { type: "text/csv" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Imported ea.csv: 0 new, 1 updated, 1 already here.");
     const upload = calls.find((c) => c.url === "/api/v1/career/cpd/import")!;
