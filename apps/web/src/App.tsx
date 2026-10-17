@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { Menu, Search } from "lucide-react";
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Menu, PenLine, Search } from "lucide-react";
 import { onUnauthorised, session } from "./api/client";
 import { Dock } from "./components/Dock";
 import { LogoMark } from "./components/Logo";
@@ -23,6 +23,7 @@ const loadSearch = () => import("./components/SearchPalette");
 const loadCareer = () => import("./screens/Career");
 const loadInbox = () => import("./components/Inbox");
 const loadWeek = () => import("./screens/Week");
+const loadCapture = () => import("./components/QuickCapture");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
 const Brain = lazy(() => loadBrain().then((m) => ({ default: m.Brain })));
 const Links = lazy(() => loadLinks().then((m) => ({ default: m.Links })));
@@ -30,15 +31,26 @@ const Engineering = lazy(() => loadEngineering().then((m) => ({ default: m.Engin
 const BriefScreen = lazy(() => loadBrief().then((m) => ({ default: m.BriefScreen })));
 const BriefOverlay = lazy(() => loadBrief().then((m) => ({ default: m.BriefOverlay })));
 const Career = lazy(() => loadCareer().then((m) => ({ default: m.Career })));
+const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
 const WeekScreen = lazy(() => loadWeek().then((m) => ({ default: m.WeekScreen })));
 const InboxScreen = lazy(() => loadInbox().then((m) => ({ default: m.InboxScreen })));
 const SearchPalette = lazy(() => loadSearch().then((m) => ({ default: m.SearchPalette })));
 
 function warmScreens() {
-  const warm = () => [loadAssistant, loadBrain, loadLinks, loadEngineering, loadBrief, loadSearch, loadCareer, loadInbox, loadWeek].forEach((load) => load().catch(() => undefined));
+  const warm = () => [loadAssistant, loadBrain, loadLinks, loadEngineering, loadBrief, loadSearch, loadCareer, loadInbox, loadWeek, loadCapture].forEach((load) => load().catch(() => undefined));
   const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
   if (idle) idle(warm, { timeout: 3000 });
   else window.setTimeout(warm, 1500);
+}
+
+/** /capture (a Home Screen or Shortcuts link): open quick capture over Home. */
+function OpenCapture({ onOpen }: { onOpen: () => void }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    onOpen();
+    navigate("/", { replace: true });
+  }, [onOpen, navigate]);
+  return null;
 }
 
 function ScreenFallback() {
@@ -74,6 +86,12 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
     setSearching(true);
   }, []);
   const closeSearch = useCallback(() => setSearching(false), []);
+  const [capturing, setCapturing] = useState(false);
+  const openCapture = useCallback(() => {
+    setMenuOpen(false);
+    setCapturing(true);
+  }, []);
+  const closeCapture = useCallback(() => setCapturing(false), []);
   useSearchShortcut(openSearch);
   const [sheetFor, setSheetFor] = useState<string | null>(null);
   const sheetApp = sheetFor ? apps?.find((a) => a.id === sheetFor) : undefined;
@@ -81,7 +99,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
 
   return (
     <div className="frame">
-      <Sidebar apps={apps} user={user} open={menuOpen} onClose={closeMenu} onSignOut={onSignOut} onSearch={openSearch} />
+      <Sidebar apps={apps} user={user} open={menuOpen} onClose={closeMenu} onSignOut={onSignOut} onSearch={openSearch} onCapture={openCapture} />
       <header className="topbar">
         <button type="button" className="icon-link topbar__menu" onClick={() => setMenuOpen(true)} aria-label="Open menu">
           <Menu size={20} aria-hidden="true" />
@@ -90,6 +108,9 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <LogoMark size={30} />
           <span className="topbar__word">SIRIS<b>OS</b></span>
         </Link>
+        <button type="button" className="icon-link topbar__capture" onClick={openCapture} aria-label="Quick capture">
+          <PenLine size={19} aria-hidden="true" />
+        </button>
         <button type="button" className="icon-link topbar__search" onClick={openSearch} aria-label="Search everything">
           <Search size={20} aria-hidden="true" />
         </button>
@@ -106,11 +127,17 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/career" element={<Career />} />
           <Route path="/inbox" element={<InboxScreen />} />
           <Route path="/week" element={<WeekScreen />} />
+          <Route path="/capture" element={<OpenCapture onOpen={openCapture} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
       </main>
       <Dock />
+      {capturing && (
+        <Suspense fallback={null}>
+          <QuickCapture onClose={closeCapture} />
+        </Suspense>
+      )}
       {searching && (
         <Suspense fallback={null}>
           <SearchPalette onClose={closeSearch} onOpenApp={setSheetFor} />

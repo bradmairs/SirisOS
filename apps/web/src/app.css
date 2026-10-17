@@ -335,7 +335,7 @@ body.no-scroll { overflow: hidden; }
 @media (max-width: 480px) { .brief-entry span { display: none; } .brief-entry { width: 36px; padding: 0; } }
 
 /* ------------------------------------------------------- search everything (ADR 109) */
-.topbar__search { margin-left: auto; width: 38px; height: 38px; color: var(--ink-2); }
+.topbar__search { width: 38px; height: 38px; color: var(--ink-2); }
 .sidebar__search {
   display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; margin: 2px 0 10px; padding: 0 10px 0 12px;
   border: 0; border-radius: var(--r-sm); cursor: pointer; font: inherit; font-size: 14px; color: var(--ink-3);
@@ -571,3 +571,11 @@ body.no-scroll { overflow: hidden; }
 .week-day--past { opacity: 0.72; }
 .week-day__weather { margin-left: auto; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; text-transform: none; letter-spacing: 0; white-space: nowrap; flex-shrink: 0; }
 .widget__more { font-size: 13px; color: var(--accent); text-decoration: none; margin-top: auto; }
+
+/* Quick capture */
+.capture__text { width: 100%; resize: vertical; }
+.capture__photo { position: relative; margin-top: 10px; width: fit-content; max-width: 100%; }
+.capture__photo img { display: block; max-height: 180px; max-width: 100%; border-radius: var(--r-sm, 12px); }
+.capture__photo .icon-link { position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, 0.55); border-radius: 999px; }
+.capture__rec { color: var(--critical) !important; }
+.topbar__capture { margin-left: auto; }

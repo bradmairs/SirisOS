@@ -75,7 +75,36 @@ export interface Recording {
   stop: () => void;
 }
 
-export async function startRecording(): Promise<Recording> {
+export interface RecordOptions {
+  /** Stop after 1.2 s of quiet once speech has started (default true: a chat turn). */
+  stopOnSilence?: boolean;
+  /** Longest recording, in seconds (default 12). */
+  maxSeconds?: number;
+  /** Save at this sample rate (e.g. 16000 for a memo: plenty for speech, a third of the size). */
+  sampleRate?: number;
+}
+
+/** Average down to a lower rate (speech only needs 16 kHz). */
+export function downsample(chunks: Float32Array[], from: number, to: number): { chunks: Float32Array[]; rate: number } {
+  const ratio = Math.floor(from / to);
+  if (ratio <= 1) return { chunks, rate: from };
+  const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+  let o = 0;
+  for (const c of chunks) {
+    all.set(c, o);
+    o += c.length;
+  }
+  const out = new Float32Array(Math.floor(all.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < ratio; j++) sum += all[i * ratio + j];
+    out[i] = sum / ratio;
+  }
+  return { chunks: [out], rate: Math.round(from / ratio) };
+}
+
+export async function startRecording(options: RecordOptions = {}): Promise<Recording> {
+  const { stopOnSilence = true, maxSeconds = 12, sampleRate } = options;
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const ctx = new Ctx();
@@ -97,8 +126,8 @@ export async function startRecording(): Promise<Recording> {
     processor.disconnect();
     source.disconnect();
     stream.getTracks().forEach((t) => t.stop());
-    const rate = ctx.sampleRate;
-    ctx.close().finally(() => resolve(encodeWav(chunks, rate)));
+    const shrunk = sampleRate ? downsample(chunks, ctx.sampleRate, sampleRate) : { chunks, rate: ctx.sampleRate };
+    ctx.close().finally(() => resolve(encodeWav(shrunk.chunks, shrunk.rate)));
   };
   processor.onaudioprocess = (e) => {
     const samples = new Float32Array(e.inputBuffer.getChannelData(0));
@@ -110,12 +139,12 @@ export async function startRecording(): Promise<Recording> {
     } else if (heard) {
       silentFor += samples.length / ctx.sampleRate;
     }
-    if (heard && silentFor > 1.2) stop();
+    if (stopOnSilence && heard && silentFor > 1.2) stop();
   };
   source.connect(analyser);
   source.connect(processor);
   processor.connect(ctx.destination);
-  const timer = window.setTimeout(stop, 12000);
+  const timer = window.setTimeout(stop, maxSeconds * 1000);
   return { analyser, done, stop };
 }
 
