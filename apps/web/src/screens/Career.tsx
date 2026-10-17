@@ -25,6 +25,7 @@ import {
   career as careerApi,
   claims as claimsApi,
   type ClaimDraft,
+  type CpdPlan,
   EA_PORTAL,
   type Career,
   type CareerDocument,
@@ -340,6 +341,8 @@ function CpdView({ career, onChange }: { career: Career; onChange: (c: Career) =
             </Card>
           </div>
 
+          <PacingCard key={ov.cpd.records + ":" + ov.cpd.total} />
+
           <Glass className="widget" style={{ minHeight: 0 }} aria-label="Activities">
             <header className="widget__head"><ListChecks aria-hidden="true" /><span>{records.length} activities</span></header>
             <ul className="items">
@@ -531,6 +534,57 @@ function Competencies({ career, onSave }: { career: Career; onSave: (d: CareerDo
         />
       )}
     </div>
+  );
+}
+
+/** CPD pacing: what the next 12 months need to stay at 150 hours (and the
+ * minimums) as older hours drop out of the window, against last year's pace. */
+function PacingCard() {
+  const [plan, setPlan] = useState<CpdPlan | null>(null);
+  useEffect(() => {
+    let live = true;
+    careerApi.plan().then((p) => live && setPlan(p)).catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  const total = plan?.rows?.find((r) => r.category === "total");
+  if (!plan || !total) return null;
+  return (
+    <Card title="Next 12 months" Icon={Compass}>
+      <p style={{ margin: 0 }}>
+        <span className={`chip ${plan.on_track ? "tone-good" : "tone-warning"}`}>{plan.on_track ? "On track" : "Behind"}</span>{" "}
+        {total.need > 0
+          ? <>To stay at {total.target} hours you need <b>{hours(total.need)}</b> in the next year (about {hours(total.per_month)} a month). You did {hours(total.last_12_months)} in the last 12 months.</>
+          : <>Hours you already have keep you at {total.target} for the next year.</>}
+      </p>
+      <ul className="career-mins" aria-label="Pacing by category">
+        {plan.rows.filter((r) => r.category !== "total").map((r) => (
+          <li key={r.category}>
+            <span className="career-mins__label">{r.label}</span>
+            <Bar value={r.last_12_months} max={Math.max(r.need, r.last_12_months, 1)} />
+            <span className={`career-mins__value ${r.on_track ? "" : "tone-warning"}`}>{hours(r.last_12_months)} / {hours(r.need)}</span>
+          </li>
+        ))}
+      </ul>
+      {plan.gaps.length > 0 && (
+        <ul className="items" aria-label="Where to catch up">
+          {plan.gaps.map((g) => (
+            <li key={g.category} className="item" style={{ display: "block" }}>
+              <div className="item__title">{g.label}: {hours(g.short)} short of the pace</div>
+              <div className="item__subtitle">{g.tip}</div>
+              {g.courses.length > 0 && (
+                <div className="career-evidence" style={{ marginTop: 6 }}>
+                  {g.courses.map((c) => (
+                    <a key={c.title} className="chip chip--button" href={c.url ?? undefined} target="_blank" rel="noreferrer">SirisLearn: {c.title}</a>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

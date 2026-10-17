@@ -309,3 +309,56 @@ def summary(doc: CareerDocument, today: date | None = None) -> dict[str, Any]:
         "last_import": last.model_dump() if last else None,
         "latest_activity": max((r.date for r in doc.cpd.records if r.date), default=None),
     }
+
+
+# What to look for when a category is short.
+GAP_TIPS: dict[str, str] = {
+    "risk": "A safety-in-design, HAZOP or risk management course, an Engineers Australia risk webinar, or a WorkSafe session.",
+    "business": "Project management, contracts (AS 4000 / AS 2124), leadership or finance training. Toastmasters counts too.",
+    "area": "Technical courses and conferences in your area (IPWEA, AWA, Ozwater), webinars, and reading standards and journals.",
+    "total": "Any structured learning counts: courses, conferences, webinars, mentoring, and up to a share of self-directed reading.",
+}
+
+# What to search SirisLearn for, per category ("area" uses your area of practice).
+GAP_SEARCH: dict[str, str] = {"risk": "risk", "business": "management"}
+
+
+def _hours_since(doc: CareerDocument, since: date, today: date) -> tuple[float, dict[str, float]]:
+    total, cats = 0.0, {c: 0.0 for c in defaults.CPD_CATEGORIES}
+    for r in doc.cpd.records:
+        if not r.date:
+            continue
+        d = date.fromisoformat(r.date)
+        if since < d <= today:
+            split, _ = split_for(r, doc.cpd.overrides)
+            for c, h in split.items():
+                cats[c if c in cats else "other"] += h
+            total += r.hours
+    return total, cats
+
+
+def pacing(doc: CareerDocument, today: date | None = None) -> dict[str, Any]:
+    """Whether the next 12 months are on track to keep 150 hours (and the
+    minimums) in the rolling three-year window. Hours from the last two
+    years will still count in a year; the rest drop out, so the next year
+    needs (requirement - what stays). The last 12 months' pace is compared
+    with that."""
+    today = today or date.today()
+    req = defaults.CPD_REQUIREMENT
+    staying_total, staying = _hours_since(doc, _years_before(today, req["years"] - 1), today)
+    done_total, done = _hours_since(doc, _years_before(today, 1), today)
+    rows = [{"category": "total", "label": "Total", "target": req["total"], "staying": round(staying_total, 1),
+             "need": round(max(0.0, req["total"] - staying_total), 1), "last_12_months": round(done_total, 1)}]
+    for c, m in req["minimums"].items():
+        rows.append({"category": c, "label": defaults.CPD_CATEGORIES[c], "target": m, "staying": round(staying[c], 1),
+                     "need": round(max(0.0, m - staying[c]), 1), "last_12_months": round(done[c], 1)})
+    for row in rows:
+        row["per_month"] = round(row["need"] / 12, 1)
+        row["on_track"] = row["last_12_months"] >= row["need"]
+    behind = [r for r in rows if not r["on_track"]]
+    return {
+        "on_track": not behind,
+        "rows": rows,
+        "gaps": [{"category": r["category"], "label": r["label"], "short": round(r["need"] - r["last_12_months"], 1),
+                  "tip": GAP_TIPS.get(r["category"], "")} for r in sorted(behind, key=lambda r: r["last_12_months"] - r["need"])],
+    }

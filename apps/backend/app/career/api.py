@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.career import claims, cpd, defaults, store
 from app.hub.connectors.sirisai import SirisAIConnector
+from app.hub.connectors.sirislearn import SirisLearnConnector
 from app.hub.service import get_hub, shared_client
 
 router = APIRouter(prefix="/api/v1/career", tags=["career"], dependencies=[Depends(require_user)])
@@ -155,3 +156,23 @@ async def save_claim(element_id: str, body: SaveClaim) -> dict[str, Any]:
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail=f"SirisAI couldn't save it ({response.status_code}).")
     return {"saved": True, "title": claims.title(el), **{k: v for k, v in response.json().items() if k in ("action", "path")}}
+
+
+@router.get("/cpd/plan")
+async def cpd_plan() -> dict[str, Any]:
+    """CPD pacing for the next 12 months, with what to look for where you're
+    behind, and matching SirisLearn courses when SirisLearn is connected."""
+    doc = store.load()
+    plan = cpd.pacing(doc)
+    learn = get_hub().get("sirislearn")
+    for gap in plan["gaps"]:
+        gap["courses"] = []
+        query = cpd.GAP_SEARCH.get(gap["category"]) or (doc.profile.area_of_practice.split()[0] if gap["category"] == "area" and doc.profile.area_of_practice else "")
+        if not query or not isinstance(learn, SirisLearnConnector) or not learn.configured:
+            continue
+        try:
+            hits = await learn.search(shared_client(), query)
+        except Exception:  # noqa: BLE001 - suggestions are a bonus; never fail the plan
+            continue
+        gap["courses"] = [h.to_dict() for h in hits if h.kind in ("course", "")][:3]
+    return plan

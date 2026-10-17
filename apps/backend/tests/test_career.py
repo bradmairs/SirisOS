@@ -235,3 +235,47 @@ def test_sirisai_service_key_reads_but_never_writes(client, career_file, monkeyp
     assert client.get("/api/v1/brief/status", headers=service).status_code == 403
     # Brad's own session still writes.
     assert client.put("/api/v1/career", json=edit, headers=AUTH).status_code == 200
+
+
+def test_pacing_says_what_the_next_12_months_need(career_file) -> None:
+    doc = store.load()
+    records = cpd.parse(EA_CSV.encode(), "ea.csv")
+    doc, _ = cpd.merge(doc, records, "ea.csv")
+    plan = cpd.pacing(doc, TODAY)
+    rows = {r["category"]: r for r in plan["rows"]}
+    # Since 10/10/2024: Feb 2025 (1.5), Jun 2026 (14) and Sep 2026 (7) stay.
+    assert rows["total"]["staying"] == 22.5 and rows["total"]["need"] == 127.5
+    assert rows["total"]["per_month"] == 10.6
+    assert rows["total"]["last_12_months"] == 21.0 and rows["total"]["on_track"] is False
+    assert rows["risk"]["staying"] == 3.5 and rows["risk"]["need"] == 6.5
+    assert plan["on_track"] is False
+    # Biggest shortfall first, each with a tip.
+    assert plan["gaps"][0]["category"] == "total" and plan["gaps"][0]["tip"]
+    assert {g["category"] for g in plan["gaps"]} == {"total", "area", "risk", "business"}
+
+
+def test_cpd_plan_suggests_sirislearn_courses(client, career_file, monkeypatch) -> None:
+    import httpx
+
+    from app.hub import service
+    from app.hub.service import reset_hub
+
+    doc, _ = cpd.merge(store.load(), cpd.parse(EA_CSV.encode(), "ea.csv"), "ea.csv")
+    store.save(doc)
+    searched = []
+
+    def learn(request: httpx.Request) -> httpx.Response:
+        searched.append(request.url.params.get("q"))
+        return httpx.Response(200, json={"hits": [{"title": "Risk basics", "subtitle": "Course", "url": "/course/r", "kind": "course"},
+                                                  {"title": "A lesson", "subtitle": "", "url": "/lesson/x", "kind": "lesson"}]})
+
+    monkeypatch.setattr(service, "transport", httpx.MockTransport(learn))
+    reset_hub({"SIRISLEARN_URL": "http://learn:8100", "SIRISLEARN_HUB_KEY": "k", "SIRISLEARN_PUBLIC_URL": "https://learn.local"})
+    try:
+        plan = client.get("/api/v1/career/cpd/plan", headers=AUTH).json()
+    finally:
+        reset_hub({})
+    gaps = {g["category"]: g for g in plan["gaps"]}
+    assert gaps["risk"]["courses"] == [{"title": "Risk basics", "subtitle": "Course", "url": "https://learn.local/course/r", "kind": "course"}]
+    assert gaps["total"]["courses"] == []
+    assert set(searched) == {"risk", "management", "Water"}
