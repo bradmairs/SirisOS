@@ -5,11 +5,14 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.auth import require_user
-from app.career import cpd, defaults, store
+from app.career import claims, cpd, defaults, store
+from app.hub.connectors.sirisai import SirisAIConnector
+from app.hub.service import get_hub, shared_client
 
 router = APIRouter(prefix="/api/v1/career", tags=["career"], dependencies=[Depends(require_user)])
 
@@ -103,3 +106,52 @@ def recategorise(record_id: str, body: Recategorise) -> dict[str, Any]:
         overrides[record_id] = body.category
     doc = store.save(doc.model_copy(update={"cpd": doc.cpd.model_copy(update={"overrides": overrides})}))
     return {"document": doc.model_dump(), "overview": overview(doc)}
+
+
+@router.get("/claims")
+def list_claims() -> dict[str, Any]:
+    """Each Stage 2 element with the evidence tagged to it, for drafting claims."""
+    return {"elements": claims.listing(store.load())}
+
+
+@router.get("/claims/{element_id}")
+async def get_claim(element_id: str, prose: bool = False) -> dict[str, Any]:
+    """The structured draft, plus first-person prose from the local model when asked for and available."""
+    doc = store.load()
+    el = claims.element(doc, element_id)
+    if el is None:
+        raise HTTPException(status_code=404, detail="No Stage 2 element with that id.")
+    written = await claims.prose(doc, el) if prose else None
+    return {
+        "id": el.id, "unit": el.unit, "title": el.title, "note_title": claims.title(el),
+        "evidence": len(claims.evidence_for(doc, el.id)),
+        "markdown": claims.draft(doc, el),
+        "prose": written,
+        "prose_available": claims.OllamaChatClient().enabled,
+    }
+
+
+class SaveClaim(BaseModel):
+    markdown: str = Field(min_length=1, max_length=20000)
+
+
+@router.post("/claims/{element_id}/save")
+async def save_claim(element_id: str, body: SaveClaim) -> dict[str, Any]:
+    """Into the Second Brain (through SirisAI), titled per element so saving
+    again adds to the same note instead of making another."""
+    el = claims.element(store.load(), element_id)
+    if el is None:
+        raise HTTPException(status_code=404, detail="No Stage 2 element with that id.")
+    connector = get_hub().get("sirisai")
+    if not isinstance(connector, SirisAIConnector) or not connector.configured:
+        raise HTTPException(status_code=503, detail="SirisAI isn't connected, so there's no Second Brain to save to.")
+    try:
+        response = await shared_client().post(
+            f"{connector.base_url}/siris/brain/capture", headers=connector.headers(), timeout=60.0,
+            json={"title": claims.title(el), "text": body.markdown, "tags": ["career", "cpeng", "competency-claim"]},
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"SirisAI couldn't save it ({response.status_code}).")
+    return {"saved": True, "title": claims.title(el), **{k: v for k, v in response.json().items() if k in ("action", "path")}}

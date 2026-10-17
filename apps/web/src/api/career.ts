@@ -71,4 +71,24 @@ export const career = {
     api<Career>(`/api/v1/career/cpd/${encodeURIComponent(id)}/category`, { method: "PUT", body: JSON.stringify({ category }) }),
 };
 
+export interface ClaimDraft {
+  id: string;
+  unit: string;
+  title: string;
+  note_title: string;
+  evidence: number;
+  markdown: string;
+  prose: string | null;
+  prose_available: boolean;
+}
+
+export const claims = {
+  draft: (id: string, prose = false) => api<ClaimDraft>(`/api/v1/career/claims/${encodeURIComponent(id)}${prose ? "?prose=true" : ""}`),
+  save: (id: string, markdown: string) =>
+    api<{ saved: boolean; title: string; action?: string }>(`/api/v1/career/claims/${encodeURIComponent(id)}/save`, {
+      method: "POST",
+      body: JSON.stringify({ markdown }),
+    }),
+};
+
 export const EA_PORTAL = "https://portal.engineersaustralia.org.au/";
