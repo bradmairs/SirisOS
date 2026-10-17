@@ -5,3 +5,4 @@ import tempfile
 # point them elsewhere out of the real data directory.
 os.environ.setdefault("SIRISOS_PROJECTS_PATH", f"{tempfile.mkdtemp()}/projects.json")
 os.environ.setdefault("SIRISOS_DATA_DIR", tempfile.mkdtemp())
+os.environ.setdefault("SIRISOS_PUSH_ENABLED", "0")

@@ -1,0 +1,138 @@
+"""What to notify about, and the background loop that sends it.
+
+Every minute (while at least one device is subscribed) SirisOS works out
+the notifications that apply now, skips any already sent (each has a key,
+like the inbox's: "app is down" comes back if it goes down again later),
+and pushes the rest to every device subscribed to that topic. A device the
+push service says is gone is dropped.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+from datetime import date, datetime, timedelta
+from typing import Any
+
+from app.attention import service as attention
+from app.brief.service import zone
+from app.career import cpd
+from app.career import store as career_store
+from app.hub.service import Hub, get_hub, shared_client
+from app.push import store, webpush
+
+logger = logging.getLogger(__name__)
+
+INTERVAL_SECONDS = 60.0
+
+
+def brief_hour() -> int:
+    try:
+        return max(0, min(23, int(os.getenv("SIRISOS_PUSH_BRIEF_HOUR", "7"))))
+    except ValueError:
+        return 7
+
+
+def message(key: str, topic: str, title: str, body: str = "", url: str = "/", urgency: str = "normal") -> dict[str, Any]:
+    return {"key": key, "topic": topic, "title": title, "body": body, "url": url, "urgency": urgency}
+
+
+def inbox_messages(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for item in items:
+        if item["severity"] not in ("urgent", "attention"):
+            continue
+        topic = "apps" if item.get("source") == "hub" else "inbox"
+        out.append(message(f"inbox:{item['id']}", topic, item["title"], item.get("body") or "", "/inbox",
+                           "high" if item["severity"] == "urgent" else "normal"))
+    return out
+
+
+def brief_message(now: datetime) -> list[dict[str, Any]]:
+    if now.hour < brief_hour():
+        return []
+    return [message(f"brief:{now.date().isoformat()}", "brief", "Your daily brief is ready",
+                    "Your day, the news and anything that needs a look.", "/brief")]
+
+
+def career_messages(doc: career_store.CareerDocument, today: date) -> list[dict[str, Any]]:
+    out = []
+    for goal in doc.goals:
+        if goal.status != "active" or not goal.target_date:
+            continue
+        try:
+            due = date.fromisoformat(goal.target_date)
+        except ValueError:
+            continue
+        if today <= due <= today + timedelta(days=7):
+            days = (due - today).days
+            when = "today" if days == 0 else "tomorrow" if days == 1 else f"in {days} days"
+            out.append(message(f"career:goal:{goal.id}:{goal.target_date}", "career", f"Career goal due {when}",
+                               goal.title + (f" · Next: {goal.next_step}" if goal.next_step else ""), "/career"))
+    summary = cpd.summary(doc, today)
+    if summary["records"] and summary["expiring_90_days"] > 0:
+        out.append(message(f"career:expiring:{today.strftime('%Y-%m')}", "career",
+                           f"{summary['expiring_90_days']:g} CPD hours drop out of your 3-year window soon",
+                           f"You're on {summary['total']:g} of {summary['required']} hours.", "/career"))
+    return out
+
+
+async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
+    """Every notification that applies right now, sent or not."""
+    out: list[dict[str, Any]] = []
+    try:
+        out += inbox_messages((await attention.inbox(hub))["items"])
+    except Exception as exc:  # noqa: BLE001 - one source never stops the others
+        logger.info("Push: inbox unavailable: %s", exc)
+    out += brief_message(now)
+    try:
+        out += career_messages(career_store.load(), now.date())
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: career unavailable: %s", exc)
+    return out
+
+
+async def deliver(messages: list[dict[str, Any]]) -> int:
+    """Push each message to the subscribed devices; returns how many were sent."""
+    subs = store.subscriptions()
+    sent_keys: list[str] = []
+    count = 0
+    client = shared_client()
+    for msg in messages:
+        targets = [s for s in subs if msg["topic"] in s.topics]
+        payload = {k: msg[k] for k in ("title", "body", "url")} | {"tag": msg["key"]}
+        for sub in targets:
+            try:
+                await webpush.send(client, sub.model_dump(), payload, urgency=msg["urgency"])
+                count += 1
+            except webpush.Gone:
+                store.remove(sub.endpoint)
+                logger.info("Push: dropped a gone subscription (%s)", sub.label or "unnamed")
+            except Exception as exc:  # noqa: BLE001 - one device never blocks the rest
+                logger.warning("Push to %s failed: %s", sub.label or "a device", exc)
+        sent_keys.append(msg["key"])
+    store.mark_sent(sent_keys)
+    return count
+
+
+async def run_once(hub: Hub, now: datetime | None = None) -> int:
+    if not store.subscriptions():
+        return 0
+    now = now or datetime.now(zone())
+    already = store.sent()
+    fresh = [m for m in await collect(hub, now) if m["key"] not in already]
+    return await deliver(fresh)
+
+
+async def loop() -> None:
+    while True:
+        try:
+            await run_once(get_hub())
+        except Exception as exc:  # noqa: BLE001 - keep the loop alive
+            logger.warning("Push loop failed: %s", exc)
+        await asyncio.sleep(INTERVAL_SECONDS)
+
+
+def enabled() -> bool:
+    return os.getenv("SIRISOS_PUSH_ENABLED", "1") not in ("0", "false", "no")

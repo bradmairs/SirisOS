@@ -24,6 +24,10 @@ services:
       SIRISOS_BRIEF_FROM_HOUR: ${SIRISOS_BRIEF_FROM_HOUR:-4}
       SIRISOS_BRIEF_UNTIL_HOUR: ${SIRISOS_BRIEF_UNTIL_HOUR:-9}
       SIRISOS_BRIEF_STATE_PATH: /app/data/brief-state.json
+      # Phone notifications (1.5): who push services contact, and when the brief notification goes out.
+      SIRISOS_VAPID_SUBJECT: ${SIRISOS_VAPID_SUBJECT:-}
+      SIRISOS_PUSH_BRIEF_HOUR: ${SIRISOS_PUSH_BRIEF_HOUR:-7}
+      SIRISOS_PUSH_ENABLED: ${SIRISOS_PUSH_ENABLED:-1}
       # Hub connectors (ADR 106). Blank = tile shows "not configured".
       SIRISOS_HUB_VERIFY_SSL: ${SIRISOS_HUB_VERIFY_SSL:-true}
       SIRISAI_URL: ${SIRISAI_URL:-}
