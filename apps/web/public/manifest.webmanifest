@@ -8,6 +8,57 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
-    { "src": "/siris-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "/siris-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick capture",
+      "short_name": "Capture",
+      "url": "/capture",
+      "icons": [
+        {
+          "src": "/siris-icon.png",
+          "sizes": "512x512"
+        }
+      ]
+    },
+    {
+      "name": "Ask Siris",
+      "short_name": "Ask",
+      "url": "/assistant",
+      "icons": [
+        {
+          "src": "/siris-icon.png",
+          "sizes": "512x512"
+        }
+      ]
+    },
+    {
+      "name": "This week",
+      "short_name": "Week",
+      "url": "/week",
+      "icons": [
+        {
+          "src": "/siris-icon.png",
+          "sizes": "512x512"
+        }
+      ]
+    },
+    {
+      "name": "Today's brief",
+      "short_name": "Brief",
+      "url": "/brief",
+      "icons": [
+        {
+          "src": "/siris-icon.png",
+          "sizes": "512x512"
+        }
+      ]
+    }
   ]
 }
