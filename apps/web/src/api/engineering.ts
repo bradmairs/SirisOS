@@ -143,6 +143,12 @@ export const calculations = {
   save: (body: { calculator_id: string; title: string; inputs: Record<string, number>; results: Result[]; notes?: string; cited_standard_id?: string | null }) =>
     api<Calculation>(`${E}/calculations`, json(body)),
   remove: (id: string) => api<void>(`${E}/calculations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** The one-page calculation sheet as a PDF file. */
+  pdf: async (c: { id: string; title: string }) => {
+    const r = await request(`${E}/calculations/${encodeURIComponent(c.id)}/pdf`);
+    const name = (r.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1]) ?? `${c.title}.pdf`;
+    return new File([await r.blob()], name, { type: "application/pdf" });
+  },
 };
 
 const P = "/api/v1/projects";
