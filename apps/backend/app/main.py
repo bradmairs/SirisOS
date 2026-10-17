@@ -7,14 +7,14 @@ import secrets
 from typing import Literal
 
 import jwt
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.auth import JWT_ALGORITHM, CurrentUser
 from app.service_key import ServiceKeyMiddleware
 
-API_VERSION = "2.5"
+API_VERSION = "2.6"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -84,11 +84,20 @@ async def health() -> HealthResponse:
 
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse, tags=["authentication"])
-async def login(credentials: LoginRequest) -> TokenResponse:
+async def login(credentials: LoginRequest, request: Request) -> TokenResponse:
+    from app.security import api as security_api, service as security
+
+    client = security_api.client_of(request)
+    wait = security.blocked_for(client)
+    if wait:
+        raise HTTPException(status_code=429, detail=f"Too many wrong passwords. Try again in {max(1, wait // 60)} min.",
+                            headers={"Retry-After": str(wait)})
     if not secrets.compare_digest(credentials.username, AUTH_USERNAME) or not secrets.compare_digest(
         credentials.password, AUTH_PASSWORD
     ):
+        security.failed(client)
         raise HTTPException(status_code=401, detail="Incorrect username or password.")
+    security.succeeded(client)
     token, expires_in = _create_access_token(AUTH_USERNAME)
     return TokenResponse(access_token=token, expires_in=expires_in, username=AUTH_USERNAME)
 

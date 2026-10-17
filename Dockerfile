@@ -32,6 +32,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY apps/backend/app /app/app
 COPY --from=web-build /src/apps/web/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/sites-available/default
+COPY deploy/nginx-security.conf /etc/nginx/snippets/sirisos-security.conf
 COPY deploy/supervisord.conf /etc/supervisor/conf.d/sirisos.conf
 
 RUN mkdir -p /app/data/standards /app/logs /run/nginx

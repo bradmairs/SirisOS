@@ -87,9 +87,12 @@ notifications on again.
 ## Signed out and can't get back in?
 
 Sign-in is one username and password, set by `SIRISOS_ADMIN_USERNAME` and
-`SIRISOS_ADMIN_PASSWORD` in `.env`. There is no lockout or rate limit, so a
-rejected sign-in always means the username or password typed doesn't match
-(they're case-sensitive; use the eye on the password box to check).
+`SIRISOS_ADMIN_PASSWORD` in `.env`, or a passkey added on the Security screen.
+A rejected sign-in means the username or password typed doesn't match
+(they're case-sensitive; use the eye on the password box to check). After 8
+wrong passwords in 15 minutes from one device, sign-in waits until the 15
+minutes are up ("Too many wrong passwords"), or restart the container to
+clear it.
 Sessions last `SIRISOS_JWT_EXPIRY_HOURS` (24 by default), after which you're
 asked to sign in again.
 

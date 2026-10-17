@@ -22,6 +22,7 @@ from app.hub.service import get_hub
 from app.push import notifier as push_notifier
 from app.push.api import router as push_router
 from app.search.api import router as search_router
+from app.security.api import router as security_router
 from app.shortcuts.api import router as shortcuts_router
 from app.week.api import router as week_router
 
@@ -35,6 +36,7 @@ for router in (
     calendar_router,
     attention_router,
     search_router,
+    security_router,
     shortcuts_router,
     week_router,
     career_router,
