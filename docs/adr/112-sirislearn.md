@@ -43,7 +43,8 @@ connector puts `SIRISLEARN_PUBLIC_URL` (or `SIRISLEARN_URL`) in front.
 - **Widget "Learning"**: Streak (days; good once today's quiz is done,
   warning while it's at risk), Today (XP against the daily goal), Level,
   active Courses; items: the streak warning, *Next: <lesson>* with course
-  progress, and recently unlocked awards.
+  progress, cards due in the daily review (SirisLearn 1.1, opens `/review`),
+  and recently unlocked awards.
 - **Search**: SirisLearn's own search, through the generic connector search
   (ADR 109), as its own group.
 - **Inbox**: SirisOS's own item "Your N-day learning streak ends at
