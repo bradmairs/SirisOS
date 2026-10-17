@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth import require_user
-from app.brief import service
+from app.brief import history, service
 from app.hub.service import Hub, get_hub
 
 router = APIRouter(prefix="/api/v1/brief", tags=["brief"], dependencies=[Depends(require_user)])
@@ -31,3 +31,17 @@ def get_status() -> dict[str, Any]:
 @router.post("/dismiss")
 def dismiss() -> dict[str, Any]:
     return service.dismiss()
+
+
+@router.get("/history")
+def get_history() -> dict[str, Any]:
+    """Every kept brief (60 days), newest first: date, weekday and headline."""
+    return {"days": history.days()}
+
+
+@router.get("/history/{day}")
+def get_past_brief(day: str) -> dict[str, Any]:
+    brief = history.load(day)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="No brief kept for that day.")
+    return {**brief, "changes": history.changes(history.previous(day), brief)}

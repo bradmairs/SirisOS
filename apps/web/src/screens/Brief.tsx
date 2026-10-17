@@ -1,5 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
   Award,
@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CloudSun,
   HeartPulse,
+  History,
   House,
   ListChecks,
   Mail,
@@ -14,12 +15,14 @@ import {
   RefreshCw,
   Sparkles,
   Sunrise,
+  TrendingUp,
   TriangleAlert,
   X,
 } from "lucide-react";
-import { brief as briefApi, type Brief, type BriefStory } from "../api/brief";
+import { brief as briefApi, type Brief, type BriefStory, type PastBrief } from "../api/brief";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
+import { Sheet } from "../components/Sheet";
 
 const BRIEF_REFRESH_MS = 10 * 60_000;
 
@@ -103,8 +106,13 @@ function Skeleton() {
  * button up top and "Start my day" at the end, both of which dismiss it
  * for the rest of the day.
  */
-export function BriefView({ onClose }: { onClose?: () => void }) {
-  const { brief, error, refreshing, reload } = useBrief();
+export function BriefView({ onClose, day }: { onClose?: () => void; day?: string }) {
+  const live = useBrief();
+  const past = useResource<Brief>(`brief:${day ?? ""}`, () => briefApi.past(day!), { enabled: !!day, staleMs: 3_600_000 });
+  const { brief, error, refreshing, reload } = day
+    ? { brief: past.data ?? null, error: past.data ? null : past.error, refreshing: false, reload: () => undefined }
+    : live;
+  const [browsing, setBrowsing] = useState(false);
   const today = brief ? new Date(`${brief.date}T12:00:00`) : new Date();
   const wx = brief?.weather;
   const news = brief?.news.topics ?? [];
@@ -115,14 +123,21 @@ export function BriefView({ onClose }: { onClose?: () => void }) {
         <div style={{ minWidth: 0 }}>
           <p className="page-head__eyebrow">
             <Sunrise size={16} className="brief-eyebrow-icon" aria-hidden="true" />
-            Today's brief · {today.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+            {day ? "Past brief" : "Today's brief"} · {today.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
           </p>
           <h1 className="page-head__title">{brief?.greeting ?? "Your day"}</h1>
         </div>
         <div className="row">
-          <Glass as="button" shape="pill" interactive className="button button--icon" onClick={reload} aria-label="Refresh the brief">
-            <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" />
-          </Glass>
+          {!onClose && (
+            <Glass as="button" shape="pill" interactive className="button button--icon" onClick={() => setBrowsing(true)} aria-label="Past briefs">
+              <History aria-hidden="true" />
+            </Glass>
+          )}
+          {!day && (
+            <Glass as="button" shape="pill" interactive className="button button--icon" onClick={reload} aria-label="Refresh the brief">
+              <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" />
+            </Glass>
+          )}
           {onClose && (
             <Glass as="button" shape="pill" interactive className="button button--icon" onClick={onClose} aria-label="Close the brief">
               <X aria-hidden="true" />
@@ -147,6 +162,18 @@ export function BriefView({ onClose }: { onClose?: () => void }) {
               ))}
             </ul>
           </Glass>
+
+          {brief.changes && brief.changes.lines.length > 0 && (
+            <Glass as="section" className="widget brief-changes" style={{ minHeight: 0, marginTop: 14 }} aria-label={`Since ${brief.changes.label}`}>
+              <header className="widget__head">
+                <TrendingUp aria-hidden="true" />
+                <span>Since {brief.changes.label}</span>
+              </header>
+              <ul className="brief-hero__lines">
+                {brief.changes.lines.map((line) => <li key={line}>{line}</li>)}
+              </ul>
+            </Glass>
+          )}
 
           <h2 className="section-title">Your day</h2>
           <div className="widget-grid">
@@ -308,6 +335,7 @@ export function BriefView({ onClose }: { onClose?: () => void }) {
           )}
         </>
       )}
+      {browsing && <PastBriefs onClose={() => setBrowsing(false)} />}
     </div>
   );
 }
@@ -321,9 +349,45 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** /brief: the brief any time of day, without dismissing anything. */
+/** The kept briefs (60 days), newest first; picking one opens it read-only. */
+function PastBriefs({ onClose }: { onClose: () => void }) {
+  const [days, setDays] = useState<PastBrief[] | null>(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    briefApi.history().then((r) => setDays(r.days)).catch(() => setDays([]));
+  }, []);
+  const open = (day: string | null) => {
+    onClose();
+    navigate(day ? `/brief?date=${day}` : "/brief");
+  };
+  return (
+    <Sheet label="Past briefs" onClose={onClose}>
+      <h2 className="sheet__title">Past briefs</h2>
+      {days === null && <div className="skeleton" style={{ height: 120 }} />}
+      {days?.length === 0 && <p className="muted">No briefs kept yet. Each day's brief is kept for 60 days from now on.</p>}
+      <ul className="items">
+        {days?.map((d) => (
+          <li key={d.date}>
+            <button type="button" className="item brief-past" onClick={() => open(d.date)}>
+              <span className="item__text">
+                <span className="item__title" style={{ display: "block" }}>
+                  {new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+                </span>
+                <span className="item__subtitle" style={{ display: "block" }}>{d.headline[0] ?? ""}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
+  );
+}
+
+/** /brief: the brief any time of day, without dismissing anything; /brief?date= a past one. */
 export function BriefScreen() {
-  return <BriefView />;
+  const [params] = useSearchParams();
+  const day = params.get("date") ?? undefined;
+  return <BriefView key={day ?? "today"} day={day} />;
 }
 
 /** The morning overlay: full screen over the shell until closed. */

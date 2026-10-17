@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { App } from "../App";
 import type { Brief } from "../api/brief";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
-import { BriefView, ago } from "./Brief";
+import { BriefScreen, BriefView, ago } from "./Brief";
 
 const STATUS = { date: "2026-10-08", show: true, dismissed_today: false, from: "04:00", until: "09:00" };
 
@@ -136,5 +136,31 @@ describe("morning overlay", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Today's brief" })).not.toBeInTheDocument());
     expect(calls.some((c) => c.url === "/api/v1/brief/dismiss")).toBe(true);
+  });
+
+  it("says what changed since yesterday and opens past briefs", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/brief/history/2026-10-07": () => jsonResponse({ ...BRIEF, date: "2026-10-07", weekday: "Wednesday", headline: ["Yesterday's headline."], changes: null }),
+      "/api/v1/brief/history": () => jsonResponse({ days: [{ date: "2026-10-08", weekday: "Thursday", headline: ["Today."] }, { date: "2026-10-07", weekday: "Wednesday", headline: ["Yesterday's headline."] }] }),
+      "/api/v1/brief": () => jsonResponse({ ...BRIEF, changes: { since: "2026-10-07", label: "yesterday", lines: ["5° warmer than yesterday.", "New to do: Send RFI."] } }),
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/brief"]}>
+        <Routes>
+          <Route path="/brief" element={<BriefScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const changes = await screen.findByRole("region", { name: "Since yesterday" });
+    expect(within(changes).getByText("5° warmer than yesterday.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Past briefs" }));
+    const sheet = await screen.findByRole("dialog", { name: "Past briefs" });
+    await user.click(await within(sheet).findByText("Yesterday's headline."));
+    expect(await screen.findByText("Yesterday's headline.")).toBeInTheDocument();
+    expect(screen.getByText(/Past brief ·/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh the brief" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url === "/api/v1/brief/history/2026-10-07")).toBe(true);
   });
 });
