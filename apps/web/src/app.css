@@ -580,3 +580,11 @@ body.no-scroll { overflow: hidden; }
 .capture__rec { color: var(--critical) !important; }
 .topbar__capture { margin-left: auto; }
 .brief-past { width: 100%; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+
+/* iPhone shortcuts */
+.shortcut-url { word-break: break-all; }
+.shortcut-secret { padding: 10px 12px; border-radius: var(--r-sm, 12px); background: color-mix(in srgb, var(--accent) 12%, transparent); display: flex; flex-direction: column; gap: 6px; }
+.shortcut-secret code { word-break: break-all; font-size: 12px; }
+.shortcut-recipe { padding-top: 8px; border-top: 1px solid var(--hairline); }
+.shortcut-recipe ol { margin: 6px 0 0; padding-left: 20px; font-size: 13px; color: var(--ink-2); word-break: break-word; }
+.shortcut-recipe li { margin: 3px 0; }
