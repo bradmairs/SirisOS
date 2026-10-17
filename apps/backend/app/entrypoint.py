@@ -19,6 +19,7 @@ from app.links.api import router as links_router
 from app.push import notifier as push_notifier
 from app.push.api import router as push_router
 from app.search.api import router as search_router
+from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
 # production startup has one explicit registry, and CI can guard against
@@ -30,6 +31,7 @@ for router in (
     calendar_router,
     attention_router,
     search_router,
+    week_router,
     career_router,
     links_router,
     push_router,

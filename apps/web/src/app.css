@@ -561,3 +561,13 @@ body.no-scroll { overflow: hidden; }
 /* Offline · showing what SirisOS had at… */
 .offline-note { display: flex; align-items: center; gap: 8px; margin: 14px 6px 0; padding: 8px 14px; border-radius: 999px; width: fit-content; max-width: 100%; font-size: 13px; color: var(--ink-2); background: color-mix(in srgb, var(--warning, #fbbf24) 14%, transparent); }
 .claim-text { width: 100%; min-height: 240px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.5; resize: vertical; }
+
+/* This week */
+.week-summary { margin-top: 16px; padding: 0 6px; }
+.week-days { display: grid; gap: 12px; margin-top: 16px; grid-template-columns: 1fr; }
+@media (min-width: 960px) { .week-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.week-day { min-height: 0; }
+.week-day--today { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent); }
+.week-day--past { opacity: 0.72; }
+.week-day__weather { margin-left: auto; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; text-transform: none; letter-spacing: 0; white-space: nowrap; flex-shrink: 0; }
+.widget__more { font-size: 13px; color: var(--accent); text-decoration: none; margin-top: auto; }
