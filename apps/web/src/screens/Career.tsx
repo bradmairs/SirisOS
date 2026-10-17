@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -10,16 +10,21 @@ import {
   CircleDot,
   CircleSlash,
   Compass,
+  Copy,
+  FilePenLine,
   FileUp,
   Flag,
   ListChecks,
   Plus,
   Route as RouteIcon,
+  Sparkles,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
 import {
   career as careerApi,
+  claims as claimsApi,
+  type ClaimDraft,
   EA_PORTAL,
   type Career,
   type CareerDocument,
@@ -454,6 +459,7 @@ function NoteField({ value, label, onSave, placeholder = "Add a note" }: { value
 function Competencies({ career, onSave }: { career: Career; onSave: (d: CareerDocument) => void }) {
   const doc = career.document;
   const [editing, setEditing] = useState<Evidence | null>(null);
+  const [drafting, setDrafting] = useState<string | null>(null);
   const units = useMemo(() => {
     const out = new Map<string, typeof doc.elements>();
     doc.elements.forEach((e) => out.set(e.unit, [...(out.get(e.unit) ?? []), e]));
@@ -496,6 +502,9 @@ function Competencies({ career, onSave }: { career: Career; onSave: (d: CareerDo
                     <span className={`muted ${evidence.length ? "" : "tone-warning"}`} style={{ fontSize: 13 }}>
                       {evidence.length ? `${evidence.length} piece${evidence.length === 1 ? "" : "s"}` : "No evidence yet"}
                     </span>
+                    <button type="button" className="icon-link" onClick={() => setDrafting(e.id)} aria-label={`Draft claim for element ${e.id}`} title="Draft claim">
+                      <FilePenLine size={16} aria-hidden="true" />
+                    </button>
                   </div>
                   {evidence.length > 0 && (
                     <div className="career-evidence">
@@ -510,6 +519,7 @@ function Competencies({ career, onSave }: { career: Career; onSave: (d: CareerDo
           </ul>
         </Glass>
       ))}
+      {drafting && <ClaimSheet elementId={drafting} onClose={() => setDrafting(null)} />}
       {editing && (
         <EvidenceSheet
           evidence={editing}
@@ -521,6 +531,90 @@ function Competencies({ career, onSave }: { career: Career; onSave: (d: CareerDo
         />
       )}
     </div>
+  );
+}
+
+/** A Stage 2 claim draft for one element: edit, write up with the local
+ * model, copy, or save to the Second Brain (saving again adds to the same note). */
+function ClaimSheet({ elementId, onClose }: { elementId: string; onClose: () => void }) {
+  const [draft, setDraft] = useState<ClaimDraft | null>(null);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState<"load" | "prose" | "save" | null>("load");
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    claimsApi.draft(elementId).then((d) => {
+      if (!live) return;
+      setDraft(d);
+      setText(d.markdown);
+    }).catch((e) => live && setNote(e instanceof Error ? e.message : String(e))).finally(() => live && setBusy(null));
+    return () => {
+      live = false;
+    };
+  }, [elementId]);
+
+  async function writeUp() {
+    setBusy("prose");
+    setNote(null);
+    try {
+      const d = await claimsApi.draft(elementId, true);
+      if (d.prose) setText(`${d.prose}\n\n---\n\n${d.markdown}`);
+      else setNote("The local model didn't answer. The structured draft is still here.");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function save() {
+    setBusy("save");
+    setNote(null);
+    try {
+      const r = await claimsApi.save(elementId, text);
+      setNote(`Saved to your Second Brain as “${r.title}”.`);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setNote("Copied.");
+    } catch {
+      setNote("Couldn't copy: select the text and copy it instead.");
+    }
+  }
+
+  return (
+    <Sheet label="Draft claim" onClose={onClose}>
+      <h2 className="sheet__title">{draft ? `E${draft.id} ${draft.title}` : "Draft claim"}</h2>
+      {draft && <p className="muted" style={{ margin: "0 0 10px" }}>{draft.unit} · {draft.evidence ? `${draft.evidence} piece${draft.evidence === 1 ? "" : "s"} of evidence` : "no evidence yet"}</p>}
+      {busy === "load" ? (
+        <div className="skeleton" style={{ height: 220 }} />
+      ) : (
+        <textarea className="field claim-text" rows={14} value={text} onChange={(e) => setText(e.target.value)} aria-label="Claim draft" />
+      )}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        {draft?.prose_available && draft.evidence > 0 && (
+          <button type="button" className="button button--small" disabled={!!busy} onClick={writeUp}>
+            <Sparkles size={15} aria-hidden="true" /> {busy === "prose" ? "Writing…" : "Write it up"}
+          </button>
+        )}
+        <button type="button" className="button button--small" disabled={!!busy || !text} onClick={copy}>
+          <Copy size={15} aria-hidden="true" /> Copy
+        </button>
+        <button type="button" className="button button--small button--primary" disabled={!!busy || !text.trim()} onClick={save}>
+          <BrainIcon size={15} aria-hidden="true" /> {busy === "save" ? "Saving…" : "Save to Second Brain"}
+        </button>
+      </div>
+      {draft?.prose_available && draft.evidence > 0 && (
+        <p className="muted" style={{ fontSize: 12, margin: "10px 0 0" }}>“Write it up” asks your local model for first-person prose from your evidence. Check every claim before you use it.</p>
+      )}
+      {note && <p className="muted" role="status" style={{ margin: "10px 0 0" }}>{note}</p>}
+    </Sheet>
   );
 }
 

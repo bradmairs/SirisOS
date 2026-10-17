@@ -560,3 +560,4 @@ body.no-scroll { overflow: hidden; }
 
 /* Offline · showing what SirisOS had at… */
 .offline-note { display: flex; align-items: center; gap: 8px; margin: 14px 6px 0; padding: 8px 14px; border-radius: 999px; width: fit-content; max-width: 100%; font-size: 13px; color: var(--ink-2); background: color-mix(in srgb, var(--warning, #fbbf24) 14%, transparent); }
+.claim-text { width: 100%; min-height: 240px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.5; resize: vertical; }

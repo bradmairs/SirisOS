@@ -106,7 +106,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [ ] Check the importer against a real Engineers Australia export
 - [x] SirisAI tools `career_cpd_status` and `career_chartership_status`, through the read-only service key
 - [x] Phone dock: five items, with Career in place of Engineering
-- [ ] Draft competency claims from tagged evidence into the Second Brain
+- [x] Draft competency claims from tagged evidence into the Second Brain (1.7)
 
 ## SirisLearn ✅ (ADR 112)
 - [x] SirisLearn connector: status and the Learning widget (streak, XP today, level, courses, next lesson, new awards)

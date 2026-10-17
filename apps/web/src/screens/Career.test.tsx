@@ -141,4 +141,26 @@ describe("<Career />", () => {
     const sent = JSON.parse(calls.find((c) => c.init.method === "PUT")!.init.body as string);
     expect(sent.goals[0]).toMatchObject({ title: "Chartered by mid 2027", next_step: "Draft element 6", status: "active" });
   });
+
+  it("drafts a competency claim, writes it up with the local model and saves it to the Second Brain", async () => {
+    signIn();
+    const draft = { id: "6", unit: "Obligation to community", title: "Identify, assess and manage risks", note_title: "CPEng claim draft – E6 Identify, assess and manage risks", evidence: 1, markdown: "## Evidence\n\n### HAZOP", prose: null, prose_available: true };
+    const calls = mockFetch({
+      "/api/v1/career/claims/6/save": () => jsonResponse({ saved: true, title: draft.note_title, action: "created" }),
+      "/api/v1/career/claims/6": (url) => jsonResponse(url.includes("prose=true") ? { ...draft, prose: "In March I ran the HAZOP." } : draft),
+      "/api/v1/career": () => jsonResponse(data()),
+    });
+    const user = userEvent.setup();
+    renderAt("/career?view=competencies");
+    await user.click(await screen.findByRole("button", { name: "Draft claim for element 6" }));
+    const sheet = await screen.findByRole("dialog", { name: "Draft claim" });
+    const box = await within(sheet).findByRole("textbox", { name: "Claim draft" });
+    expect(box).toHaveValue("## Evidence\n\n### HAZOP");
+    await user.click(within(sheet).getByRole("button", { name: /Write it up/ }));
+    await waitFor(() => expect(box).toHaveValue("In March I ran the HAZOP.\n\n---\n\n## Evidence\n\n### HAZOP"));
+    await user.click(within(sheet).getByRole("button", { name: /Save to Second Brain/ }));
+    expect(await within(sheet).findByText(/Saved to your Second Brain as “CPEng claim draft – E6/)).toBeInTheDocument();
+    const saved = calls.find((c) => c.url.endsWith("/claims/6/save"))!;
+    expect(JSON.parse(String(saved.init.body)).markdown).toContain("In March I ran the HAZOP.");
+  });
 });
