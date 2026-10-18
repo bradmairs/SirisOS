@@ -7,3 +7,4 @@ os.environ.setdefault("SIRISOS_PROJECTS_PATH", f"{tempfile.mkdtemp()}/projects.j
 os.environ.setdefault("SIRISOS_DATA_DIR", tempfile.mkdtemp())
 os.environ.setdefault("SIRISOS_PUSH_ENABLED", "0")
 os.environ.setdefault("SIRISOS_STATUS_SAMPLER", "0")
+os.environ.setdefault("SIRISOS_BUILT_IN_LINKS", "0")

@@ -51,6 +51,35 @@ def test_save_and_read_links(client, tmp_path):
     assert json.loads((tmp_path / "links.json").read_text())["groups"][0]["name"] == "Media"
 
 
+def test_built_in_links_are_added_once(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("SIRISOS_BUILT_IN_LINKS", "1")
+    (tmp_path / "links.json").write_text(json.dumps(DOC))
+    groups = client.get("/api/v1/links", headers=_auth()).json()["groups"]
+    assert [g["name"] for g in groups] == ["Media", "Games"]
+    jug = groups[1]["links"][0]
+    assert (jug["name"], jug["url"], jug["icon"]) == ("Where's Jug?", "http://192.168.0.100:3045", "http://192.168.0.100:3045/img/jug.svg")
+    assert json.loads((tmp_path / "links-added.json").read_text()) == ["wheres-jug"]
+
+    # Deleting it sticks: it isn't added back.
+    client.put("/api/v1/links", headers=_auth(), json={"groups": [groups[0]]})
+    assert [g["name"] for g in client.get("/api/v1/links", headers=_auth()).json()["groups"]] == ["Media"]
+
+
+def test_built_in_link_joins_a_games_group_and_skips_duplicates(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("SIRISOS_BUILT_IN_LINKS", "1")
+    (tmp_path / "links.json").write_text(json.dumps({"groups": [
+        {"name": "Media", "links": []},
+        {"name": "Gaming", "links": [{"name": "Jug", "url": "http://192.168.0.100:3045/"}]},
+    ]}))
+    groups = client.get("/api/v1/links", headers=_auth()).json()["groups"]
+    assert [len(g["links"]) for g in groups] == [0, 1]  # already there by hand, so not added twice
+
+    (tmp_path / "links-added.json").unlink()
+    (tmp_path / "links.json").write_text(json.dumps({"groups": [{"name": "Media", "links": []}, {"name": "Gaming", "links": []}]}))
+    groups = client.get("/api/v1/links", headers=_auth()).json()["groups"]
+    assert groups[1]["links"][0]["name"] == "Where's Jug?"
+
+
 def test_rejects_non_web_links(client):
     bad = {"groups": [{"name": "X", "links": [{"name": "Bad", "url": "javascript:alert(1)"}]}]}
     assert client.put("/api/v1/links", headers=_auth(), json=bad).status_code == 422
