@@ -51,11 +51,46 @@ class LinksDocument(BaseModel):
     updated_at: str | None = None
 
 
+# Links SirisOS adds by itself once, for apps Brad asked to have on the launchpad.
+# Each is added the first time links are loaded after an update, then remembered
+# in links-added.json beside links.json, so deleting or editing one sticks.
+BUILT_IN: list[tuple[str, Link]] = [
+    ("wheres-jug", Link(name="Where's Jug?", url="http://192.168.0.100:3045", icon="http://192.168.0.100:3045/img/jug.svg",
+                        note="Black Ops Zombies leaderboard")),
+]
+GAMES_GROUP = re.compile(r"gam(e|ing)|play|fun|entertain", re.I)
+
+
+def _added_path() -> Path:
+    return links_path().with_name("links-added.json")
+
+
+def _add_built_ins(doc: LinksDocument) -> LinksDocument:
+    if os.getenv("SIRISOS_BUILT_IN_LINKS", "1") == "0":
+        return doc
+    added_path = _added_path()
+    added = set(json.loads(added_path.read_text(encoding="utf-8"))) if added_path.exists() else set()
+    pending = [(key, link) for key, link in BUILT_IN if key not in added]
+    if not pending:
+        return doc
+    urls = {link.url.rstrip("/") for group in doc.groups for link in group.links}
+    for key, link in pending:
+        if link.url.rstrip("/") not in urls:
+            group = next((g for g in doc.groups if GAMES_GROUP.search(g.name)), None)
+            if group is None:
+                group = LinkGroup(name="Games")
+                doc.groups.append(group)
+            group.links.append(link.model_copy(update={"id": new_id()}))
+        added.add(key)
+    doc = save(doc)
+    added_path.write_text(json.dumps(sorted(added)) + "\n", encoding="utf-8")
+    return doc
+
+
 def load() -> LinksDocument:
     path = links_path()
-    if not path.exists():
-        return LinksDocument()
-    return LinksDocument.model_validate_json(path.read_text(encoding="utf-8"))
+    doc = LinksDocument.model_validate_json(path.read_text(encoding="utf-8")) if path.exists() else LinksDocument()
+    return _add_built_ins(doc)
 
 
 def save(doc: LinksDocument) -> LinksDocument:
