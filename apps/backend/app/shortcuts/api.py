@@ -28,6 +28,7 @@ from app.brief.service import brief_service
 from app.hub.connectors.sirisai import SirisAIConnector
 from app.hub.service import Hub, get_hub, shared_client
 from app.shortcuts import keys
+from app.tasks import service as task_service
 
 router = APIRouter(prefix="/api/v1/shortcuts", tags=["shortcuts"])
 
@@ -86,6 +87,10 @@ async def capture(request: Request, hub: Hub = Depends(get_hub)) -> str:
         raise HTTPException(status_code=422, detail="Send something to capture.")
     if not url and text.startswith(("http://", "https://")) and " " not in text:
         text, url = "", text
+    if not url and task_service.is_task_text(text):
+        task = task_service.add(task_service.parse(text))
+        when = f" for {task.due}" + (f" at {task.time}" if task.time else "") if task.due else ""
+        return f"Added to your tasks: “{task.title}”{when}."
     result = (await _post(_sirisai(hub), "/siris/brain/capture", json={"text": text, "url": url, "tags": ["shortcut"]})).json()
     return f"Saved to Siris as “{result.get('title', 'a capture')}”."
 

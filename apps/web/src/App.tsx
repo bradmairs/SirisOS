@@ -26,6 +26,7 @@ const loadWeek = () => import("./screens/Week");
 const loadStatus = () => import("./screens/Status");
 const loadSecurity = () => import("./screens/Security");
 const loadTerminal = () => import("./screens/Terminal");
+const loadTasks = () => import("./screens/Tasks");
 const loadCapture = () => import("./components/QuickCapture");
 const loadShortcuts = () => import("./screens/Shortcuts");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
@@ -39,6 +40,7 @@ const ShortcutsScreen = lazy(() => loadShortcuts().then((m) => ({ default: m.Sho
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
 const SecurityScreen = lazy(() => loadSecurity().then((m) => ({ default: m.SecurityScreen })));
 const TerminalScreen = lazy(() => loadTerminal().then((m) => ({ default: m.TerminalScreen })));
+const TasksScreen = lazy(() => loadTasks().then((m) => ({ default: m.TasksScreen })));
 const StatusScreen = lazy(() => loadStatus().then((m) => ({ default: m.StatusScreen })));
 const WeekScreen = lazy(() => loadWeek().then((m) => ({ default: m.WeekScreen })));
 const InboxScreen = lazy(() => loadInbox().then((m) => ({ default: m.InboxScreen })));
@@ -139,6 +141,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/status" element={<StatusScreen />} />
           <Route path="/security" element={<SecurityScreen />} />
           <Route path="/terminal" element={<TerminalScreen />} />
+          <Route path="/tasks" element={<TasksScreen />} />
           <Route path="/capture" element={<OpenCapture onOpen={openCapture} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

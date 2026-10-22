@@ -30,7 +30,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Awaitable
 from zoneinfo import ZoneInfo
@@ -252,6 +252,15 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         if left <= 7:
             when = "due today" if left == 0 else "due tomorrow" if left == 1 else f"overdue by {-left} days" if left < 0 else f"due in {left} days"
             tasks.append({"title": d.get("title"), "detail": f"Project {when}", "tone": "critical" if left <= 0 else "warning", "source": "Siris"})
+    from app.tasks import service as task_service
+
+    on = task_service.today()
+    for t in task_service.store.load().tasks:
+        if t.done_at or not t.due or t.due > on.isoformat():
+            continue
+        late = (on - date.fromisoformat(t.due)).days
+        tasks.append({"title": t.title, "detail": (f"{t.time} today" if t.time else "Today") if not late else f"{late} day{'s' if late != 1 else ''} late",
+                      "tone": "critical" if late else "warning", "source": "Tasks"})
     todo = []
     for lst in parts.get("todo") or []:
         for item in (lst.get("items") or []) if isinstance(lst, dict) else []:

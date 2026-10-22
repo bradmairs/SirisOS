@@ -35,6 +35,18 @@ describe("<QuickCapture />", () => {
     await screen.findByRole("status");
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ url: "https://www.ipwea.org/events" });
   });
+
+  it("turns “remind me to…” into a task instead of a note", async () => {
+    signIn();
+    const calls = mockFetch({ "/api/v1/tasks": () => jsonResponse({ id: "t1", title: "Pay rego", due: "2030-01-04", time: null, repeat: "none" }) });
+    const user = userEvent.setup();
+    render(<QuickCapture onClose={() => undefined} />);
+    await user.type(screen.getByLabelText("Capture text"), "remind me to pay rego on Friday");
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+    expect(await screen.findByText(/Added to your tasks: “Pay rego”/)).toBeInTheDocument();
+    expect(calls.map((c) => c.url)).toEqual(["/api/v1/tasks"]);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ text: "remind me to pay rego on Friday" });
+  });
 });
 
 describe("downsample", () => {

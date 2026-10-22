@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarDays, House, PenLine, Smartphone, Inbox, LayoutGrid, LogOut, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarDays, House, PenLine, Smartphone, Inbox, LayoutGrid, ListTodo, LogOut, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -11,6 +11,7 @@ import { hueFor, iconFor } from "./icons";
 /** Every screen, in the sidebar. `dock: false` keeps one off the phone tab bar, which fits five. */
 export const NAV: { to: string; label: string; Icon: typeof House; end: boolean; dock?: boolean }[] = [
   { to: "/", label: "Home", Icon: House, end: true },
+  { to: "/tasks", label: "Tasks", Icon: ListTodo, end: false, dock: false },
   { to: "/week", label: "This week", Icon: CalendarDays, end: false, dock: false },
   { to: "/assistant", label: "SirisAI", Icon: Sparkles, end: false },
   { to: "/brain", label: "Siris", Icon: Brain, end: false },
