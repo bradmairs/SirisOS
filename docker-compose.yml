@@ -29,6 +29,11 @@ services:
       SIRISOS_PUSH_BRIEF_HOUR: ${SIRISOS_PUSH_BRIEF_HOUR:-7}
       SIRISOS_PUSH_ENABLED: ${SIRISOS_PUSH_ENABLED:-1}
       SIRISOS_PASSKEY_RP_ID: ${SIRISOS_PASSKEY_RP_ID:-}
+      # Terminal (2.8): hosts SirisOS may open a shell on, as name=user@host[:port], comma-separated.
+      # Blank = the terminal is off. Every session needs a fresh 2FA code.
+      SIRISOS_TERMINAL_HOSTS: ${SIRISOS_TERMINAL_HOSTS:-}
+      SIRISOS_TERMINAL_IDLE_MINUTES: ${SIRISOS_TERMINAL_IDLE_MINUTES:-15}
+      SIRISOS_TERMINAL_MAX_MINUTES: ${SIRISOS_TERMINAL_MAX_MINUTES:-120}
       # Hub connectors (ADR 106). Blank = tile shows "not configured".
       SIRISOS_HUB_VERIFY_SSL: ${SIRISOS_HUB_VERIFY_SSL:-true}
       SIRISAI_URL: ${SIRISAI_URL:-}

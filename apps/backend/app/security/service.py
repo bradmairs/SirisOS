@@ -145,6 +145,16 @@ def checks() -> list[dict[str, str]]:
     if hours > 24 * 7:
         out.append({"level": "warning", "title": f"Sessions last {hours} hours",
                     "fix": "A week or less (SIRISOS_JWT_EXPIRY_HOURS) limits what a lost phone can do."})
+    from app.terminal import service as terminal
+
+    if terminal.enabled():
+        names = ", ".join(h.name for h in terminal.hosts())
+        if not terminal.two_factor()["set_up"]:
+            out.append({"level": "warning", "title": f"The terminal is on ({names}) but 2FA isn't set up",
+                        "fix": "It can't open until it is: set up 2FA on the Terminal page, or clear SIRISOS_TERMINAL_HOSTS."})
+        else:
+            out.append({"level": "info", "title": f"The terminal can open a shell on {names}",
+                        "fix": "Each session needs a fresh 2FA code. Reach SirisOS over Tailscale or a VPN, never a port forward."})
     if not passkeys():
         out.append({"level": "info", "title": "No passkey yet",
                     "fix": "Add one below to sign in with Face ID instead of the password."})
