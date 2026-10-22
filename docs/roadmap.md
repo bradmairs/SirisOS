@@ -118,3 +118,8 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 ## After the rebuild
 
 - [x] Widgets you can configure and rearrange on the home screen (1.4)
+
+## Terminal (ADR 113)
+
+- [x] A shell on a home machine over SSH, behind a fresh 2FA code each session (2.8)
+- [ ] Set `SIRISOS_TERMINAL_HOSTS` on the server, add the `make terminal-key` key to `authorized_keys`, set up 2FA

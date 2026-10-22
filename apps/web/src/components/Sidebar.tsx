@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarDays, House, PenLine, Smartphone, Inbox, LayoutGrid, LogOut, Ruler, Search, ShieldCheck, Sparkles, Sunrise, X } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarDays, House, PenLine, Smartphone, Inbox, LayoutGrid, LogOut, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -19,6 +19,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/career", label: "Career", Icon: Award, end: false },
   { to: "/shortcuts", label: "iPhone shortcuts", Icon: Smartphone, end: false, dock: false },
   { to: "/status", label: "System status", Icon: Activity, end: false, dock: false },
+  { to: "/terminal", label: "Terminal", Icon: SquareTerminal, end: false, dock: false },
   { to: "/security", label: "Security", Icon: ShieldCheck, end: false, dock: false },
 ];
 

@@ -24,6 +24,7 @@ from app.push.api import router as push_router
 from app.search.api import router as search_router
 from app.security.api import router as security_router
 from app.shortcuts.api import router as shortcuts_router
+from app.terminal.api import router as terminal_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -38,6 +39,7 @@ for router in (
     search_router,
     security_router,
     shortcuts_router,
+    terminal_router,
     week_router,
     career_router,
     links_router,

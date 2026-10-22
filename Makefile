@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PORT := $(or $(shell grep -E '^SIRISOS_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2),8094)
 
-.PHONY: help up dev dev-web backend stop restart logs status hub-check verify reset-password clean rebuild-app
+.PHONY: help up dev dev-web backend stop restart logs status hub-check verify reset-password terminal-reset-2fa terminal-forget-host terminal-key clean rebuild-app
 
 help:
 	@echo "SirisOS commands"
@@ -18,6 +18,9 @@ help:
 	@echo "  make hub-check   Check every connected app from inside the container"
 	@echo "  make verify      Check everything end to end against the live apps (EA=export.csv, PUSH=1)"
 	@echo "  make reset-password  Set a new sign-in password (ARGS=--sign-out-all ends every session)"
+	@echo "  make terminal-key    SirisOS's SSH public key, to add to authorized_keys on each terminal host"
+	@echo "  make terminal-reset-2fa       Turn off terminal 2FA (lost phone), then set it up again"
+	@echo "  make terminal-forget-host NAME=home  Forget a host's pinned SSH key (after reinstalling it)"
 	@echo "  make clean       Stop services and remove web build output"
 
 up:
@@ -65,6 +68,15 @@ hub-check:
 
 verify:
 	@docker compose exec sirisos python -m app.verify $(if $(EA),--ea /app/data/$(notdir $(EA))) $(if $(PUSH),--push)
+
+terminal-key:
+	@docker compose exec sirisos python -m app.terminal.admin public-key
+
+terminal-reset-2fa:
+	@docker compose exec sirisos python -m app.terminal.admin reset-2fa
+
+terminal-forget-host:
+	@docker compose exec sirisos python -m app.terminal.admin forget-host $(NAME)
 
 clean:
 	@docker compose down --remove-orphans
