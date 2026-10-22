@@ -48,6 +48,16 @@ CACHE_SECONDS = 10 * 60
 SOURCE_TIMEOUT = 12.0
 
 
+def _top3(day: date) -> list[str]:
+    """Today's top 3, picked in last night's wrap-up (app/wrapup)."""
+    from app.wrapup import service as wrapup
+
+    try:
+        return wrapup.top3_for(day)
+    except Exception:  # noqa: BLE001 - never stop the brief
+        return []
+
+
 def zone() -> ZoneInfo:
     try:
         return ZoneInfo(os.getenv("SIRISOS_TIMEZONE", "Australia/Melbourne"))
@@ -346,6 +356,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "weather": {"now": now_wx, "today": today_fc},
         "schedule": events,
         "tasks": tasks[:10],
+        "top3": _top3(at.date()),
         "todo": todo[:8],
         "email": {"unread": unread, "important": important} if isinstance(email, list) else None,
         "health": health_lines,

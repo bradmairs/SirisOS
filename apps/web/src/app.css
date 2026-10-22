@@ -631,3 +631,7 @@ body.no-scroll { overflow: hidden; }
 .task--late .task__sub { color: var(--critical, #ff6b6b); }
 .task__sub { display: flex; align-items: center; gap: 5px; }
 .task__snooze { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 0 100%; padding-left: 34px; }
+
+/* Wrap-up and the brief's top 3 (2.10) */
+.brief-top3 { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 16px; font-weight: 600; }
+.brief-top3 li::marker { color: var(--accent); font-weight: 700; }

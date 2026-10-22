@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
+  Target,
   ArrowUpRight,
   Award,
   Brain,
@@ -205,6 +206,14 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
                 <p className="muted" style={{ margin: 0 }}>Nothing on the calendar today.</p>
               )}
             </Card>
+
+            {(brief.top3?.length ?? 0) > 0 && (
+              <Card title="Your top 3" Icon={Target} delay={60}>
+                <ol className="brief-top3">
+                  {brief.top3!.map((t) => <li key={t}>{t}</li>)}
+                </ol>
+              </Card>
+            )}
 
             {(brief.tasks.length > 0 || brief.todo.length > 0) && (
               <Card title="Tasks" Icon={ListChecks} delay={80}>

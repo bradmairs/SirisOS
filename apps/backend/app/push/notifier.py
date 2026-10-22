@@ -97,6 +97,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         logger.info("Push: inbox unavailable: %s", exc)
     out += brief_message(now)
     try:
+        from app.wrapup import service as wrapup
+
+        out += wrapup.push_message(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: wrap-up unavailable: %s", exc)
+    try:
         out += task_messages(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: tasks unavailable: %s", exc)
