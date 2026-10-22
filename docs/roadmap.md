@@ -119,6 +119,10 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 
 - [x] Widgets you can configure and rearrange on the home screen (1.4)
 
+## Daily staples (2.9 onwards)
+
+- [x] Tasks: one list from SirisOS, Siris notes and SirisAI reminders; plain-words entry, repeats, snooze, push at a time (2.9)
+
 ## Terminal (ADR 113)
 
 - [x] A shell on a home machine over SSH, behind a fresh 2FA code each session (2.8)

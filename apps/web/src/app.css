@@ -621,3 +621,13 @@ body.no-scroll { overflow: hidden; }
 .terminal__secret, .terminal__pubkey { font: 12px ui-monospace, Menlo, monospace; word-break: break-all; }
 .terminal__pubkey { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
 @media (min-width: 900px) { .terminal__keys { display: none; } .terminal__screen { height: calc(100dvh - 260px); } }
+
+/* Tasks (2.9) */
+.task { align-items: center; flex-wrap: wrap; }
+.task .item__title { white-space: normal; overflow: visible; text-overflow: clip; }
+.task__tick { display: grid; place-items: center; flex: none; width: 32px; height: 32px; margin-left: -6px; border: 0; border-radius: 50%; background: none; color: var(--ink-3); cursor: pointer; }
+.task__tick:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.task--late .item__title { color: var(--ink); }
+.task--late .task__sub { color: var(--critical, #ff6b6b); }
+.task__sub { display: flex; align-items: center; gap: 5px; }
+.task__snooze { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 0 100%; padding-left: 34px; }

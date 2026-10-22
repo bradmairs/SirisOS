@@ -1,3 +1,4 @@
+import { dueLabel, isTaskText, tasks } from "../api/tasks";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Check, Mic, Square, X } from "lucide-react";
 import { brain } from "../api/hub";
@@ -102,6 +103,13 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
     setBusy("save");
     setNote(null);
     try {
+      if (!photo && isTaskText(value)) {
+        const made = await tasks.add({ text: value });
+        setSaved(true);
+        setNote({ ok: true, text: `Added to your tasks: “${made.title}”${made.due ? `, ${dueLabel({ due: made.due, time: made.time, group: "later" })}` : ""}.` });
+        window.setTimeout(onClose, 900);
+        return;
+      }
       const isUrl = /^https?:\/\/\S+$/.test(value);
       const result = await brain.capture({ ...(isUrl ? { url: value } : value ? { text: value } : {}), ...(photo ? { image: photo } : {}) });
       setSaved(true);
@@ -117,7 +125,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
   return (
     <Sheet label="Quick capture" onClose={onClose}>
       <h2 className="sheet__title">Quick capture</h2>
-      <textarea ref={box} className="field capture__text" rows={5} placeholder="A thought, a link, a task…" value={text} onChange={(e) => setText(e.target.value)} aria-label="Capture text"
+      <textarea ref={box} className="field capture__text" rows={5} placeholder="A thought, a link, or “remind me to…”" value={text} onChange={(e) => setText(e.target.value)} aria-label="Capture text"
         onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === "Enter" && save()} />
       {photo && (
         <div className="capture__photo">

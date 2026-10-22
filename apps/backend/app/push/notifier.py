@@ -78,6 +78,16 @@ def career_messages(doc: career_store.CareerDocument, today: date) -> list[dict[
     return out
 
 
+def task_messages(now: datetime) -> list[dict[str, Any]]:
+    """A SirisOS task with a time, once, when that time comes (the inbox topic)."""
+    from app.tasks import service as tasks
+
+    due = tasks.due_now(now)
+    tasks.mark_reminded([t.id for t in due])
+    return [message(f"task:{t.id}:{t.due}T{t.time}", "inbox", t.title, "Due now" + (f" · {t.notes}" if t.notes else ""), "/tasks", "high")
+            for t in due]
+
+
 async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     """Every notification that applies right now, sent or not."""
     out: list[dict[str, Any]] = []
@@ -86,6 +96,10 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001 - one source never stops the others
         logger.info("Push: inbox unavailable: %s", exc)
     out += brief_message(now)
+    try:
+        out += task_messages(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: tasks unavailable: %s", exc)
     try:
         out += career_messages(career_store.load(), now.date())
     except Exception as exc:  # noqa: BLE001

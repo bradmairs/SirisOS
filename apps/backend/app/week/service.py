@@ -86,6 +86,16 @@ async def week(hub: Hub, start: date, today: date | None = None) -> dict[str, An
     elif insights is None and hub.get("sirisai") and hub.get("sirisai").configured:
         unavailable.append("brain")
 
+    from app.tasks import store as task_store
+
+    for t in task_store.load().tasks:
+        if t.done_at or not t.due:
+            continue
+        if t.due in by_date:
+            by_date[t.due]["due"].append({"title": t.title, "kind": "task", "source": "Tasks"})
+        elif t.due < today.isoformat():
+            overdue.append({"title": t.title, "detail": f"Was due {t.due}", "source": "Tasks"})
+
     doc = career_store.load()
     for goal in doc.goals:
         if goal.status == "active" and goal.target_date in by_date:
