@@ -122,6 +122,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 ## Daily staples (2.9 onwards)
 
 - [x] Tasks: one list from SirisOS, Siris notes and SirisAI reminders; plain-words entry, repeats, snooze, push at a time (2.9)
+- [x] Evening wrap-up: today, CPD from meetings, tomorrow's top 3 into the brief, a journal line (3.0)
 
 ## Terminal (ADR 113)
 

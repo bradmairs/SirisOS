@@ -32,6 +32,8 @@ export interface Brief {
   };
   schedule: { title: string; time: string; start?: string | null; location?: string | null; calendar?: string | null }[];
   tasks: { title: string; detail?: string | null; tone: Tone; source: string }[];
+  /** Picked in last night's wrap-up (2.10). */
+  top3?: string[];
   todo: string[];
   email: { unread: number; important: { from: string; subject: string }[] } | null;
   health: string[];
