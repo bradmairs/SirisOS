@@ -10,6 +10,7 @@ from app.api.engineering_standards import router as engineering_standards_router
 from app.api.project_relationships import router as project_relationships_router
 from app.api.projects import router as projects_router
 from app.api.sirishydro import router as sirishydro_router
+from app.access.api import router as access_router
 from app.attention.api import router as attention_router
 from app.backup import service as backups
 from app.backup.api import router as backup_router
@@ -55,6 +56,7 @@ for router in (
     review_router,
     fitness_router,
     backup_router,
+    access_router,
     terminal_router,
     week_router,
     career_router,

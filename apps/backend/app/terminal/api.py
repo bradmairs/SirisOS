@@ -202,9 +202,14 @@ async def _connect(host: service.Host):
 
 
 @router.websocket("/ws")
-async def terminal(ws: WebSocket, ticket: str = "") -> None:
+async def terminal(ws: WebSocket, ticket: str = "", probe: int = 0) -> None:
     if not _same_origin(ws):
         await ws.close(code=4403)
+        return
+    if probe:  # the access check (3.9): does a WebSocket get through on this route?
+        await ws.accept()
+        await ws.send_text(json.dumps({"type": "probe"}))
+        await ws.close(code=1000)
         return
     taken = service.take_ticket(ticket)
     host = service.find_host(taken[0]) if taken else None

@@ -66,15 +66,17 @@ self.addEventListener("push", (event) => {
   } catch {
     data = { title: "SirisOS", body: event.data ? event.data.text() : "" };
   }
-  event.waitUntil(
-    self.registration.showNotification(data.title || "SirisOS", {
+  // Tell open pages it arrived (the access check waits for its test, 3.9).
+  const tell = self.clients.matchAll({ type: "window", includeUncontrolled: true })
+    .then((windows) => windows.forEach((w) => w.postMessage({ type: "push", tag: data.tag || null })));
+  event.waitUntil(Promise.all([tell, self.registration.showNotification(data.title || "SirisOS", {
       body: data.body || "",
       icon: "/siris-icon.png",
       badge: "/siris-icon.png",
       tag: data.tag || undefined,
       actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : [],
       data: { url: data.url || "/" },
-    }),
+    })]),
   );
 });
 

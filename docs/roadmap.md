@@ -131,6 +131,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] iPhone home-screen widget (Scriptable), fitness card, backups/updates/certificates on System status (3.6)
 - [x] Nightly backups of SirisOS's own data, with download and undoable restore on System status (3.7)
 - [x] Notifications with buttons: Done, In an hour, Approve, Snooze; a one-tap page on iPhone (3.8)
+- [x] Access from here: test SirisOS from wherever the phone is, with fixes in plain words (3.9)
 
 ## Terminal (ADR 113)
 
