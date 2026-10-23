@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode 
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
 import { hub } from "../api/hub";
-import { EMPTY_LAYOUT, arrange, home, type DeviceLayout, type HomeLayout } from "../api/home";
+import { EMPTY_LAYOUT, SECTION_ORDER, adaptive, arrange, home, homeContext, localPhase, setAdaptive, type DeviceLayout, type HomeContext, type HomeLayout } from "../api/home";
 import { oldestUpdate, useResource } from "../api/resource";
 import { useOnline } from "../api/online";
 import { session } from "../api/client";
@@ -14,6 +14,7 @@ import { LoadingWidget, WidgetCard } from "../components/WidgetCard";
 import { AppSheet } from "./AppSheet";
 import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
 import { TasksWidget } from "./TasksWidget";
+import { FocusCard } from "./FocusCard";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
 import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
@@ -121,6 +122,9 @@ export function Home() {
   const device = phone ? "phone" : "desktop";
   const { layout, save: saveLayout } = useHomeLayout(device);
   const [customising, setCustomising] = useState(false);
+  const [adapt, setAdapt] = useState(adaptive);
+  const ctxRes = useResource<HomeContext>("home:context", () => homeContext(), { refreshMs: 5 * 60_000, persist: true });
+  const ctx = ctxRes.data ?? null;
   const navigate = useNavigate();
   const now = new Date();
 
@@ -152,13 +156,17 @@ export function Home() {
         { id: "car", label: "Car", node: siris?.car && <CarWidget car={siris.car} /> },
         { id: "energy", label: "Power", node: siris?.energy && <EnergyWidget energy={siris.energy} /> },
       ];
-  const sections = [
+  const sectionList = [
     { title: "Now", slots: arrangeSlots(nowSlots, layout) },
     { title: "Today", slots: arrangeSlots(today, layout) },
     { title: "Home", slots: arrangeSlots(homeControls, layout) },
   ];
+  // The part of the day decides which section leads (3.1); widgets inside keep your order.
+  const phase = ctx?.phase ?? localPhase();
+  const sections = adapt ? [...sectionList].sort((a, b) => SECTION_ORDER[phase].indexOf(a.title) - SECTION_ORDER[phase].indexOf(b.title)) : sectionList;
+  const editableSource = sectionList;
   // Placeholders aren't widgets you can arrange.
-  const editable: SectionInfo[] = sections.map(({ title, slots }) => ({
+  const editable: SectionInfo[] = editableSource.map(({ title, slots }) => ({
     title,
     slots: slots.all.filter((slot) => !slot.id.startsWith("loading-")).map(({ id, label }) => ({ id, label })),
   })).filter((section) => section.slots.length > 0);
@@ -215,6 +223,8 @@ export function Home() {
         </p>
       )}
 
+      {adapt && ctx && !hideMine && <FocusCard ctx={ctx} events={hud?.next_events} />}
+
       {sections.map(({ title, slots }) =>
         slots.shown.length > 0 && (
           <section key={title} aria-label={title}>
@@ -229,6 +239,9 @@ export function Home() {
         <Glass as="button" shape="pill" interactive className="button button--small" onClick={() => setCustomising(true)}>
           <SlidersHorizontal aria-hidden="true" /> <span>Customise Home</span>
         </Glass>
+        <button type="button" className="show-more" onClick={() => { setAdaptive(!adapt); setAdapt(!adapt); }}>
+          {adapt ? "Changes with the time of day · turn off" : "Same order all day · let it change with the time of day"}
+        </button>
       </div>
       {!phone && apps && apps.length > 0 && (
         <>
