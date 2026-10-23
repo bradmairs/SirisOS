@@ -118,6 +118,7 @@ async def week(hub: Hub, start: date, today: date | None = None) -> dict[str, An
         "today": today.isoformat(),
         "days": days,
         "overdue": overdue,
+        "focus": _focus(today),
         "cpd": {
             "logged": round(sum(d["cpd_hours"] for d in days), 2),
             "planned": round(sum(p["hours"] for p in planned_keys.values()), 2),
@@ -125,3 +126,13 @@ async def week(hub: Hub, start: date, today: date | None = None) -> dict[str, An
         "guest_mode": cal["guest_mode"],
         "unavailable": unavailable,
     }
+
+
+def _focus(today: date) -> dict[str, Any] | None:
+    """What matters this week, from last Sunday's review (app/review)."""
+    from app.review import service as review
+
+    try:
+        return review.latest_focus(today)
+    except Exception:  # noqa: BLE001 - the week view never fails on it
+        return None

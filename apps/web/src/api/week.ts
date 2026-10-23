@@ -25,6 +25,8 @@ export interface Week {
   today: string;
   days: WeekDay[];
   overdue: { title: string; detail: string; source: string }[];
+  /** What matters this week, from last Sunday's review (3.5). */
+  focus?: { week_of: string; text: string } | null;
   cpd: { logged: number; planned: number };
   guest_mode: boolean;
   unavailable: string[];
