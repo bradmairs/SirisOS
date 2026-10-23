@@ -127,6 +127,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Meeting prep: people, Siris notes, latest emails, related tasks; notes into Siris with actions as tasks; 10-minute heads-up (3.2)
 - [x] Email triage: SirisAI's drafted replies, edit and send, snooze, leave (3.3)
 - [x] Terminal shortcuts: one-tap commands behind a fresh code, output inline (3.4)
+- [x] Weekly review: the week in numbers, quiet projects, next week's crunch points, what matters (3.5)
 
 ## Terminal (ADR 113)
 

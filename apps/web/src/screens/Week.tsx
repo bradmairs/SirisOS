@@ -69,6 +69,13 @@ function WeekBody({ week }: { week: Week }) {
         <div><div className="metric__value">{hours(week.cpd.logged + week.cpd.planned)}</div><div className="metric__label">CPD</div></div>
       </div>
 
+      {week.focus && (
+        <Glass as="section" className="widget" style={{ minHeight: 0, marginTop: 16 }} aria-label="What matters this week">
+          <header className="widget__head"><span>What matters this week</span></header>
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{week.focus.text}</p>
+        </Glass>
+      )}
+
       {week.overdue.length > 0 && (
         <Glass as="section" className="widget" style={{ minHeight: 0, marginTop: 16 }} aria-label="Overdue">
           <header className="widget__head"><AlertTriangle aria-hidden="true" /><span>Overdue</span></header>

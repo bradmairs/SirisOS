@@ -100,6 +100,9 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         from app.wrapup import service as wrapup
 
         out += wrapup.push_message(now)
+        from app.review import service as review
+
+        out += review.push_message(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: wrap-up unavailable: %s", exc)
     try:
