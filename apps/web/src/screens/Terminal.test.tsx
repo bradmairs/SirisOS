@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TerminalScreen } from "./Terminal";
 import type { TerminalStatus } from "../api/terminal";
@@ -92,6 +92,7 @@ describe("<TerminalScreen />", () => {
     const ready = { ...STATUS, two_factor: { set_up: true, since: "2026-10-22T01:00:00+00:00", broken: false } };
     const calls = mockFetch({
       "/api/v1/terminal/unlock": () => jsonResponse({ ticket: "tkt-1", expires_in: 30 }),
+      "/api/v1/terminal/commands": () => jsonResponse({ commands: [{ id: "builtin:disk", name: "Disk space", command: "df -h", host: null, builtin: true }], seconds: 60 }),
       "/api/v1/terminal": () => jsonResponse(ready),
     });
     const user = userEvent.setup();
@@ -110,6 +111,8 @@ describe("<TerminalScreen />", () => {
     ws.onmessage?.({ data: new TextEncoder().encode("brad@home:~$ ").buffer });
     expect(written.join("")).toContain("brad@home:~$ ");
 
+    await user.click(await screen.findByRole("button", { name: "Type Disk space" }));
+    expect(JSON.parse(ws.sent.at(-1)!)).toEqual({ type: "input", data: "df -h" });  // typed, not run: Enter is yours
     typed?.("ls\r");
     await user.click(screen.getByRole("button", { name: "Esc" }));
     await user.click(screen.getByRole("button", { name: "Ctrl" }));
@@ -120,6 +123,26 @@ describe("<TerminalScreen />", () => {
     await user.click(screen.getByRole("button", { name: "Lock" }));
     expect(await screen.findByText("Terminal closed.")).toBeInTheDocument();
     expect(screen.getByRole("form", { name: "Unlock the terminal" })).toBeInTheDocument();
+  });
+
+  it("runs a shortcut behind a fresh code and shows its output", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/terminal/unlock": () => jsonResponse({ ticket: "tkt-2", expires_in: 30 }),
+      "/api/v1/terminal/run": () => jsonResponse({ name: "Disk space", host: "home", command: "df -h", exit: 0, output: "/dev/sda1  50%  /", truncated: false, timed_out: false, seconds: 0.4 }),
+      "/api/v1/terminal/commands": () => jsonResponse({ commands: [{ id: "builtin:disk", name: "Disk space", command: "df -h", host: null, builtin: true }], seconds: 60 }),
+      "/api/v1/terminal": () => jsonResponse({ ...STATUS, two_factor: { set_up: true, since: null, broken: false } }),
+    });
+    const user = userEvent.setup();
+    render(<TerminalScreen />);
+    await user.click(await screen.findByRole("button", { name: /Disk space/ }));
+    const form = screen.getByRole("form", { name: "Run Disk space" });
+    await user.type(within(form).getByLabelText("6-digit code"), "222333");
+    await user.click(within(form).getByRole("button", { name: /Run on home/ }));
+    expect((await screen.findByRole("status")).parentElement).toHaveTextContent("/dev/sda1 50% /");
+    expect(screen.getByRole("status")).toHaveTextContent("Disk space on home: done");
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/run"))!.init.body))).toEqual({ ticket: "tkt-2", command: "builtin:disk" });
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/unlock"))!.init.body))).toEqual({ host: "home", code: "222333" });
   });
 
   it("shows a wrong code and clears it", async () => {
