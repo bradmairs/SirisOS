@@ -30,6 +30,14 @@ async def list_apps(
     return {"apps": hide_personal(apps) if guest else apps, "guest_mode": guest}
 
 
+@router.get("/hub/upkeep", tags=["hub"])
+async def hub_upkeep(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Backups, a waiting SirisAI update and certificate expiry, for System status (3.6)."""
+    from app.hub import upkeep
+
+    return await upkeep.overview(hub)
+
+
 @router.get("/hub/status", tags=["hub"])
 async def system_status(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     """Every configured app's health now and over the last 24 hours and 7 days."""

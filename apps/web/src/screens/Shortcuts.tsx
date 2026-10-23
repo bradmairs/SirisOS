@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Copy, KeyRound, Link2, Plus, Smartphone, Trash2, Wand2 } from "lucide-react";
+import { Copy, KeyRound, LayoutGrid, Link2, Plus, Smartphone, Trash2, Wand2 } from "lucide-react";
 import { shortcuts, type ShortcutKey, type ShortcutScope } from "../api/shortcuts";
 import { Glass } from "../components/Glass";
 
@@ -149,6 +149,8 @@ export function ShortcutsScreen() {
           {error && <p className="tone-critical" role="alert" style={{ margin: 0 }}>{error}</p>}
         </Card>
 
+        <WidgetScript origin={origin} keyText={key} />
+
         <Card title="Ready-made Shortcuts" Icon={Wand2}>
           <p className="muted" style={{ margin: 0, fontSize: 14 }}>Make each in the Shortcuts app with these actions; name it what you'll say to Siri.{fresh ? " Your new key is filled in below." : ""}</p>
           {recipes.map((r) => (
@@ -160,5 +162,54 @@ export function ShortcutsScreen() {
         </Card>
       </div>
     </>
+  );
+}
+
+/** A Scriptable script for an iPhone home-screen widget (3.6): next event, top task, what needs you. */
+export function widgetScript(origin: string, key: string): string {
+  return `// SirisOS home-screen widget for Scriptable. Read-only: needs a key with "Today".
+const URL = "${origin}";
+const KEY = "${key}";
+const req = new Request(URL + "/api/v1/shortcuts/glance");
+req.headers = { Authorization: "Bearer " + KEY };
+req.allowInsecureRequest = true; // SirisOS's own HTTPS certificate is self-signed
+let d = null;
+try { d = await req.loadJSON(); } catch (e) {}
+const w = new ListWidget();
+w.backgroundColor = new Color("#0b0f17");
+w.url = URL;
+const line = (text, size, color) => { const t = w.addText(text); t.font = Font.semiboldSystemFont(size); t.textColor = new Color(color); t.lineLimit = 2; };
+line("SIRISOS", 10, "#5fd3ff");
+w.addSpacer(4);
+if (!d || d.detail) {
+  line("Can't reach SirisOS", 12, "#ff6b6b");
+} else {
+  if (d.next_event) {
+    line(d.next_event.title, 14, "#e6edf3");
+    line(new Date(d.next_event.start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), 11, "#9aa4b2");
+  } else line("Nothing else on today", 13, "#9aa4b2");
+  w.addSpacer(6);
+  if (d.top_task) line("○ " + d.top_task + (d.tasks_today > 1 ? "  +" + (d.tasks_today - 1) : ""), 12, "#e6edf3");
+  if (d.needs_you) line(d.needs_you + (d.needs_you === 1 ? " thing needs" : " things need") + " you", 11, "#ffb454");
+}
+Script.setWidget(w);
+Script.complete();
+`;
+}
+
+function WidgetScript({ origin, keyText }: { origin: string; keyText: string }) {
+  const [copied, setCopied] = useState(false);
+  const script = widgetScript(origin, keyText);
+  return (
+    <Card title="Home-screen widget" Icon={LayoutGrid}>
+      <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+        Your next event, the top task and what needs you, right on the home screen. Install the free <strong>Scriptable</strong> app, make a new script, paste this in, then add a Scriptable widget and pick the script. It needs a key with <strong>Today</strong>.
+      </p>
+      <pre className="terminal__output" style={{ maxHeight: 180 }}>{script}</pre>
+      <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }}
+        onClick={() => navigator.clipboard.writeText(script).then(() => setCopied(true))}>
+        <Copy size={14} aria-hidden="true" /> {copied ? "Copied" : "Copy the script"}
+      </button>
+    </Card>
   );
 }

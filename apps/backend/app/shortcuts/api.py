@@ -16,6 +16,7 @@ for "Show Result" or "Speak Text":
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 import os
 from typing import Any
 
@@ -112,6 +113,32 @@ async def today(hub: Hub = Depends(get_hub), _: keys.Key = Depends(keys.requires
     if changes:
         lines.append(f"Since {brief['changes']['label']}: " + " ".join(changes[:3]))
     return " ".join(lines)
+
+
+@router.get("/glance")
+async def glance(hub: Hub = Depends(get_hub), _: keys.Key = Depends(keys.requires("today"))) -> dict[str, Any]:
+    """For an iPhone home-screen widget (Scriptable, 3.6): the next event, the top
+    task, today's top 3 and how many things need a look. Read-only, like /today."""
+    from app.attention import service as attention
+    from app.meetings import service as meetings
+    from app.tasks import service as tasks
+    from app.wrapup import service as wrapup
+
+    upcoming = [m for m in await meetings.upcoming(hub)][:1]
+    listing = await tasks.collect(hub)
+    due = listing["groups"]["overdue"] + listing["groups"]["today"]
+    try:
+        needs = (await attention.inbox(hub))["counts"]["open"]
+    except Exception:  # noqa: BLE001
+        needs = None
+    return {
+        "next_event": {"title": upcoming[0]["title"], "start": upcoming[0]["start"]} if upcoming else None,
+        "top_task": due[0]["title"] if due else None,
+        "tasks_today": len(due),
+        "top3": wrapup.top3_for(tasks.today()),
+        "needs_you": needs,
+        "at": datetime.now(timezone.utc).isoformat(timespec="minutes"),
+    }
 
 
 @router.post("/protocols/{name}", response_class=PlainTextResponse, dependencies=[Depends(keys.requires("protocols"))])

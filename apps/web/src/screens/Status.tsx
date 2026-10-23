@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { Activity, RefreshCw } from "lucide-react";
+import { Activity, HardDrive, RefreshCw } from "lucide-react";
 import { useResource } from "../api/resource";
 import { systemStatus, type AppHealth } from "../api/status";
+import { fitness } from "../api/fitness";
 import { Glass } from "../components/Glass";
 import { hueFor, iconFor } from "../components/icons";
 
@@ -38,6 +39,7 @@ export function StatusScreen() {
       {error && !data && <div className="error-banner" role="alert">{error}</div>}
       {data && apps.length === 0 && <p className="muted">No apps are set up yet.</p>}
       <div className="stack" style={{ marginTop: 16 }}>
+        <UpkeepCard />
         {apps.map((a) => <AppCard key={a.id} app={a} />)}
       </div>
       {data && (
@@ -84,6 +86,55 @@ function AppCard({ app }: { app: AppHealth }) {
       ) : (
         app.samples > 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}><Activity size={13} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> No outages in the last 7 days.</p>
       )}
+    </Glass>
+  );
+}
+
+/** Backups, a waiting SirisAI update and certificates running out (3.6). */
+function UpkeepCard() {
+  const { data } = useResource("hub:upkeep", () => fitness.upkeep(), { staleMs: 10 * 60_000, persist: true });
+  if (!data) return null;
+  const b = data.sirisai?.backups;
+  const u = data.sirisai?.update;
+  const certs = data.certificates.filter((c) => c.days_left !== null);
+  const ago = (iso: string) => {
+    const hours = Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000);
+    return hours < 1 ? "just now" : hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
+  };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Upkeep">
+      <header className="widget__head"><HardDrive aria-hidden="true" /><span>Upkeep</span></header>
+      <ul className="items">
+        <li className="item">
+          <span className={`item__dot ${!b ? "" : b.stale || !b.newest ? "dot-critical" : "dot-good"}`} aria-hidden="true" />
+          <span className="item__text">
+            <div className="item__title">SirisAI backups</div>
+            <div className="item__subtitle">{!data.sirisai ? "SirisAI didn't answer (2.14 or later reports this)" : !b ? "Not set up" : b.newest ? `Newest ${ago(b.newest)} · ${b.count} kept${b.stale ? " · too old" : ""}` : "None yet"}</div>
+          </span>
+        </li>
+        {u && (
+          <li className="item">
+            <span className={`item__dot ${u.available ? "dot-warning" : "dot-good"}`} aria-hidden="true" />
+            <span className="item__text">
+              <div className="item__title">SirisAI {u.current}</div>
+              <div className="item__subtitle">{u.available ? `${u.latest} is out: update from the Inbox` : "Up to date"}</div>
+            </span>
+          </li>
+        )}
+        <li className="item">
+          <span className="item__dot dot-good" aria-hidden="true" />
+          <span className="item__text"><div className="item__title">SirisOS {data.sirisos.version}</div></span>
+        </li>
+        {certs.map((c) => (
+          <li key={c.host} className="item">
+            <span className={`item__dot ${c.warning ? "dot-warning" : "dot-good"}`} aria-hidden="true" />
+            <span className="item__text">
+              <div className="item__title">Certificate · {c.host}</div>
+              <div className="item__subtitle">{c.days_left! < 0 ? "Expired" : `Runs out in ${c.days_left} days`}</div>
+            </span>
+          </li>
+        ))}
+      </ul>
     </Glass>
   );
 }
