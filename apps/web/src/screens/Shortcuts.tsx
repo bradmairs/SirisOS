@@ -61,6 +61,7 @@ export function ShortcutsScreen() {
 
   const links = [
     { label: "Quick capture", url: `${origin}/capture` },
+    { label: "Talk to SirisOS", url: `${origin}/talk` },
     { label: "Ask SirisAI", url: `${origin}/assistant` },
     { label: "This week", url: `${origin}/week` },
     { label: "Today's brief", url: `${origin}/brief` },

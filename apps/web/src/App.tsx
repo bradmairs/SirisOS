@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Menu, PenLine, Search } from "lucide-react";
+import { Menu, Mic, PenLine, Search } from "lucide-react";
 import { onUnauthorised, session } from "./api/client";
 import { Dock } from "./components/Dock";
 import { LogoMark } from "./components/Logo";
@@ -33,6 +33,7 @@ const loadMeeting = () => import("./screens/Meeting");
 const loadEmail = () => import("./screens/Email");
 const loadReview = () => import("./screens/Review");
 const loadCapture = () => import("./components/QuickCapture");
+const loadTalk = () => import("./components/Talk");
 const loadShortcuts = () => import("./screens/Shortcuts");
 const loadProjects = () => import("./screens/Projects");
 const loadTrends = () => import("./screens/Trends");
@@ -47,6 +48,7 @@ const ProjectsScreen = lazy(() => loadProjects().then((m) => ({ default: m.Proje
 const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectScreen })));
 const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
 const ShortcutsScreen = lazy(() => loadShortcuts().then((m) => ({ default: m.ShortcutsScreen })));
+const Talk = lazy(() => loadTalk().then((m) => ({ default: m.Talk })));
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
 const SecurityScreen = lazy(() => loadSecurity().then((m) => ({ default: m.SecurityScreen })));
 const TerminalScreen = lazy(() => loadTerminal().then((m) => ({ default: m.TerminalScreen })));
@@ -119,6 +121,12 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
     setCapturing(true);
   }, []);
   const closeCapture = useCallback(() => setCapturing(false), []);
+  const [talking, setTalking] = useState(false);
+  const openTalk = useCallback(() => {
+    setMenuOpen(false);
+    setTalking(true);
+  }, []);
+  const closeTalk = useCallback(() => setTalking(false), []);
   useSearchShortcut(openSearch);
   const [sheetFor, setSheetFor] = useState<string | null>(null);
   const sheetApp = sheetFor ? apps?.find((a) => a.id === sheetFor) : undefined;
@@ -135,6 +143,9 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <LogoMark size={30} />
           <span className="topbar__word">SIRIS<b>OS</b></span>
         </Link>
+        <button type="button" className="icon-link topbar__talk" onClick={openTalk} aria-label="Talk to SirisOS">
+          <Mic size={19} aria-hidden="true" />
+        </button>
         <button type="button" className="icon-link topbar__capture" onClick={openCapture} aria-label="Quick capture">
           <PenLine size={19} aria-hidden="true" />
         </button>
@@ -167,11 +178,17 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/email" element={<EmailScreen />} />
           <Route path="/review" element={<ReviewScreen />} />
           <Route path="/capture" element={<OpenCapture onOpen={openCapture} />} />
+          <Route path="/talk" element={<OpenCapture onOpen={openTalk} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
       </main>
       <Dock />
+      {talking && (
+        <Suspense fallback={null}>
+          <Talk onClose={closeTalk} />
+        </Suspense>
+      )}
       {capturing && (
         <Suspense fallback={null}>
           <QuickCapture onClose={closeCapture} />

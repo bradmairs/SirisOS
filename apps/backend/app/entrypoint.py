@@ -16,6 +16,7 @@ from app.backup import service as backups
 from app.backup.api import router as backup_router
 from app.brief.api import router as brief_router
 from app.calendar.api import router as calendar_router
+from app.command.api import router as command_router
 from app.career.api import router as career_router
 from app.home.api import router as home_router
 from app.hub.api import router as hub_router
@@ -52,6 +53,7 @@ for router in (
     security_router,
     shortcuts_router,
     tasks_router,
+    command_router,
     siris_projects_router,
     wrapup_router,
     meetings_router,
