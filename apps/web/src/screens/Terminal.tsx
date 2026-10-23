@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Copy, KeyRound, Lock, ScrollText, Server, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Copy, KeyRound, Lock, Play, Plus, ScrollText, Server, ShieldCheck, SquareTerminal, Trash2, Zap } from "lucide-react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { terminal, type TerminalStatus } from "../api/terminal";
+import { terminal, type CommandResult, type TerminalCommand, type TerminalStatus } from "../api/terminal";
+import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
@@ -140,6 +141,8 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
   const ctrl = useRef(false);
   const [ctrlOn, setCtrlOn] = useState(false);
   const [target, setTarget] = useState(host);
+  // Shortcuts are typed in, not run: you press Enter (the session is already unlocked).
+  const shortcuts = useResource("terminal:commands", () => terminal.commands(), { staleMs: 60_000 });
 
   const send = (data: string) => {
     let out = data;
@@ -213,6 +216,16 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
         </button>
       </div>
       <div className="terminal__screen" ref={box} />
+      {(shortcuts.data?.commands?.length ?? 0) > 0 && (
+        <div className="terminal__keys terminal__keys--shortcuts" role="toolbar" aria-label="Shortcuts">
+          {shortcuts.data!.commands.filter((c) => !c.host || c.host === host).map((c) => (
+            <button key={c.id} type="button" className="chip chip--button" title={c.command} onMouseDown={(e) => e.preventDefault()}
+              onClick={() => send(c.command)} aria-label={`Type ${c.name}`}>
+              <Zap size={12} aria-hidden="true" /> {c.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="terminal__keys" role="toolbar" aria-label="Extra keys">
         {KEYS.map((k) => (
           <button key={k.label} type="button" className={`terminal__key${k.ctrl && ctrlOn ? " terminal__key--on" : ""}`}
@@ -229,6 +242,113 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
         ))}
       </div>
     </section>
+  );
+}
+
+/** One-tap commands (3.4): each run needs its own fresh code, like a session. */
+function Shortcuts({ status }: { status: TerminalStatus }) {
+  const res = useResource("terminal:commands", () => terminal.commands(), { staleMs: 60_000 });
+  const list = res.data?.commands ?? [];
+  const [picked, setPicked] = useState<TerminalCommand | null>(null);
+  const [host, setHost] = useState(status.hosts[0]?.name ?? "");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<CommandResult | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: "", command: "", host: "" });
+
+  async function run(e: FormEvent) {
+    e.preventDefault();
+    if (!picked) return;
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      const target = picked.host ?? host;
+      const { ticket } = await terminal.unlock(target, code);
+      setResult(await terminal.run(ticket, picked.id));
+      setPicked(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work.");
+    } finally {
+      setCode("");
+      setBusy(false);
+    }
+  }
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await terminal.addCommand(form.name.trim(), form.command.trim(), form.host || null);
+      setForm({ name: "", command: "", host: "" });
+      setAdding(false);
+      await res.reload(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save it.");
+    }
+  }
+
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Shortcuts">
+      <header className="widget__head"><Zap aria-hidden="true" /><span>Shortcuts</span></header>
+      <div className="insights__topics">
+        {list.map((c) => (
+          <span key={c.id} className="row" style={{ gap: 2 }}>
+            <button type="button" className={`chip chip--button${picked?.id === c.id ? " terminal__key--on" : ""}`} onClick={() => { setPicked(c); setResult(null); setError(null); }}
+              title={c.command} aria-pressed={picked?.id === c.id}>
+              <Play size={12} aria-hidden="true" /> {c.name}
+            </button>
+            {!c.builtin && (
+              <button type="button" className="icon-link" aria-label={`Delete ${c.name}`} title="Delete"
+                onClick={async () => { await terminal.removeCommand(c.id); await res.reload(true); }}>
+                <Trash2 size={13} aria-hidden="true" />
+              </button>
+            )}
+          </span>
+        ))}
+        <button type="button" className="chip chip--button" onClick={() => setAdding((a) => !a)} aria-expanded={adding}><Plus size={12} aria-hidden="true" /> Add</button>
+      </div>
+      {picked && (
+        <form className="stack" style={{ gap: 8 }} onSubmit={run} aria-label={`Run ${picked.name}`}>
+          <code className="terminal__pubkey">{picked.command}</code>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {!picked.host && status.hosts.length > 1 && (
+              <select className="field" style={{ flex: "1 1 120px" }} value={host} onChange={(e) => setHost(e.target.value)} aria-label="Run on">
+                {status.hosts.map((h) => <option key={h.name} value={h.name}>{h.name}</option>)}
+              </select>
+            )}
+            <CodeField value={code} onChange={setCode} />
+            <button type="submit" className="button button--small button--primary" disabled={busy || code.replace(/\D/g, "").length !== 6}>
+              <Play size={14} aria-hidden="true" /> {busy ? "Running…" : `Run on ${picked.host ?? (status.hosts.length > 1 ? host : status.hosts[0]?.name)}`}
+            </button>
+          </div>
+        </form>
+      )}
+      {adding && (
+        <form className="stack" style={{ gap: 8 }} onSubmit={add} aria-label="New shortcut">
+          <input className="field" placeholder="Name, e.g. Restart SirisAI" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label="Shortcut name" />
+          <input className="field" style={{ fontFamily: "ui-monospace, Menlo, monospace" }} placeholder="cd ~/sirisai && docker compose restart" value={form.command}
+            onChange={(e) => setForm({ ...form, command: e.target.value })} aria-label="Command" />
+          {status.hosts.length > 1 && (
+            <select className="field" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} aria-label="Host">
+              <option value="">Any host</option>
+              {status.hosts.map((h) => <option key={h.name} value={h.name}>{h.name}</option>)}
+            </select>
+          )}
+          <button type="submit" className="button button--small" disabled={!form.name.trim() || !form.command.trim()}>Save shortcut</button>
+        </form>
+      )}
+      {error && <p className="tone-critical" role="alert" style={{ margin: 0, fontSize: 14 }}>{error}</p>}
+      {result && (
+        <div className="stack" style={{ gap: 6 }} aria-label="Result">
+          <p className={result.exit === 0 ? "tone-good" : "tone-warning"} role="status" style={{ margin: 0, fontSize: 14 }}>
+            {result.name} on {result.host}: {result.timed_out ? "stopped, it took too long" : result.exit === 0 ? "done" : `exited with ${result.exit}`} · {result.seconds}s
+          </p>
+          <pre className="terminal__output">{result.output || "(no output)"}{result.truncated ? "\n… (showing the last 64 KB)" : ""}</pre>
+        </div>
+      )}
+    </Glass>
   );
 }
 
@@ -357,6 +477,7 @@ export function TerminalScreen() {
             <>
               {ended && <p className="muted" role="status" style={{ margin: 0 }}>{ended}</p>}
               <Unlock status={status} onTicket={(host, ticket) => { setEnded(null); setOpen({ host, ticket }); }} />
+              <Shortcuts status={status} />
             </>
           )
         )}

@@ -640,3 +640,5 @@ body.no-scroll { overflow: hidden; }
 .focus { margin-top: 16px; min-height: 0; }
 .customise-entry { flex-wrap: wrap; gap: 8px; }
 .email__draft { font: 15px/1.45 inherit; resize: vertical; }
+.terminal__output { margin: 0; max-height: 50dvh; overflow: auto; padding: 10px 12px; border-radius: 12px; background: #0b0f17; color: #e6edf3; font: 12.5px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+.terminal__keys--shortcuts { display: flex !important; }

@@ -6,6 +6,10 @@
     POST   /api/v1/terminal/2fa/off      signed in + {password, code}: turn 2FA off
     POST   /api/v1/terminal/unlock       signed in + {host, code}: a ticket for one terminal, good once for 30 s
     WS     /api/v1/terminal/ws?ticket=   the terminal itself
+    GET    /api/v1/terminal/commands     shortcuts: built-in and saved one-tap commands (3.4)
+    POST   /api/v1/terminal/commands     {name, command, host?}: save one
+    DELETE /api/v1/terminal/commands/{id}
+    POST   /api/v1/terminal/run          {ticket, command}: run a shortcut with a fresh unlock; its output comes back
 
 Over the WebSocket the browser sends JSON text frames ({"type": "input",
 "data"} and {"type": "resize", "cols", "rows"}) and gets the shell's output
@@ -30,7 +34,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.security import api as security_api
 from app.security import service as security
-from app.terminal import service, store
+from app.terminal import commands, service, store
 
 logger = logging.getLogger(__name__)
 
@@ -285,3 +289,76 @@ async def terminal(ws: WebSocket, ticket: str = "") -> None:
             await ws.close()
         except Exception:  # noqa: BLE001
             pass
+
+
+# -- shortcuts (3.4) --------------------------------------------------------------
+
+
+class NewCommand(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    command: str = Field(min_length=1, max_length=2000)
+    host: str | None = Field(default=None, max_length=32)
+
+
+class Run(BaseModel):
+    ticket: str = Field(min_length=10, max_length=200)
+    command: str = Field(min_length=1, max_length=40)
+
+
+@router.get("/commands", dependencies=[Depends(require_user)])
+def list_commands() -> dict[str, Any]:
+    return {"commands": commands.all_commands(), "seconds": commands.seconds()}
+
+
+@router.post("/commands", dependencies=[Depends(require_user)])
+def add_command(body: NewCommand, request: Request) -> dict[str, Any]:
+    if body.host and service.find_host(body.host) is None:
+        raise HTTPException(status_code=404, detail="No such host.")
+    try:
+        made = commands.add(body.name, body.command, body.host)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    store.audit("shortcut-saved", client=security_api.client_of(request), name=made["name"])
+    return made
+
+
+@router.delete("/commands/{command_id}", dependencies=[Depends(require_user)])
+def delete_command(command_id: str) -> dict[str, Any]:
+    if command_id.startswith("builtin:") or not commands.remove(command_id):
+        raise HTTPException(status_code=404, detail="No such shortcut.")
+    return {"removed": True}
+
+
+@router.post("/run", dependencies=[Depends(require_user)])
+async def run_command(body: Run, request: Request) -> dict[str, Any]:
+    """Run a shortcut on the host its ticket was unlocked for (the ticket works once)."""
+    taken = service.take_ticket(body.ticket)
+    if not taken:
+        raise HTTPException(status_code=401, detail="That unlock expired. Enter a new code.")
+    host = service.find_host(taken[0])
+    found = commands.find(body.command)
+    if host is None or found is None:
+        raise HTTPException(status_code=404, detail="No such shortcut or host.")
+    if found.get("host") and found["host"] != host.name:
+        raise HTTPException(status_code=409, detail=f"“{found['name']}” runs on {found['host']}.")
+    client = taken[1]
+    store.audit("shortcut-run", client=client, host=host.name, name=found["name"])
+    asyncio.create_task(_notify(host.name, client))
+    started = time.monotonic()
+    try:
+        conn = await _connect(host)
+    except Exception as exc:  # noqa: BLE001
+        text = "The host's SSH key has changed, so SirisOS won't connect." if "Host key is not trusted" in str(exc) else str(exc) or type(exc).__name__
+        raise HTTPException(status_code=502, detail=f"Couldn't connect to {host.target}: {text}") from None
+    try:
+        result = await asyncio.wait_for(conn.run(found["command"], check=False), timeout=commands.seconds())
+        output, cut = commands.tail(f"{result.stdout or ''}{result.stderr or ''}")
+        code = result.exit_status
+        timed_out = False
+    except asyncio.TimeoutError:
+        output, cut, code, timed_out = f"Stopped after {commands.seconds()} seconds.", False, None, True
+    finally:
+        conn.close()
+    store.audit("shortcut-done", host=host.name, name=found["name"], exit=code, seconds=round(time.monotonic() - started, 1))
+    return {"name": found["name"], "host": host.name, "command": found["command"], "exit": code, "output": output,
+            "truncated": cut, "timed_out": timed_out, "seconds": round(time.monotonic() - started, 1)}

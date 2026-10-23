@@ -177,6 +177,16 @@ class _Shell:
         assert self.started.wait(10)
 
     async def _session(self, process):
+        if process.command:  # a one-off command (a shortcut), not a shell
+            if process.command == "sleep 99":
+                await asyncio.sleep(5)
+            process.stdout.write(f"ran: {process.command}\n")
+            if "fail" in process.command:
+                process.stderr.write("it failed\n")
+                process.exit(3)
+            else:
+                process.exit(0)
+            return
         process.stdout.write(f"hello {process.get_extra_info('username')}\r\n")
         while True:
             try:
@@ -295,3 +305,55 @@ _real_sleep = asyncio.sleep
 
 async def _fast_sleep(seconds):
     await _real_sleep(min(seconds, 0.2))
+
+
+
+def _unlock(client, clock, secret) -> str:
+    clock["step"] += 1
+    return client.post("/api/v1/terminal/unlock", headers=_auth(), json={"host": "home", "code": _code(secret, clock)}).json()["ticket"]
+
+
+def test_shortcuts_run_behind_a_fresh_code(client, clock, monkeypatch):
+    shell = _Shell(service.public_key())
+    monkeypatch.setenv("SIRISOS_TERMINAL_HOSTS", f"home=brad@127.0.0.1:{shell.port}")
+    try:
+        listed = client.get("/api/v1/terminal/commands", headers=_auth()).json()
+        assert [c["name"] for c in listed["commands"]] == ["What's running", "Disk space", "Memory and load"] and listed["seconds"] == 60
+        made = client.post("/api/v1/terminal/commands", headers=_auth(), json={"name": "Restart SirisAI", "command": "cd ~/sirisai && docker compose restart"}).json()
+        assert made["builtin"] is False and made["host"] is None
+        assert client.post("/api/v1/terminal/commands", headers=_auth(), json={"name": "x", "command": "y", "host": "nas"}).status_code == 404
+
+        secret = _set_up(client, clock)
+        r = client.post("/api/v1/terminal/run", headers=_auth(), json={"ticket": _unlock(client, clock, secret), "command": made["id"]}).json()
+        assert r["exit"] == 0 and r["output"] == "ran: cd ~/sirisai && docker compose restart\n" and r["host"] == "home"
+
+        ticket = _unlock(client, clock, secret)
+        assert client.post("/api/v1/terminal/run", headers=_auth(), json={"ticket": ticket, "command": "builtin:disk"}).status_code == 200
+        again = client.post("/api/v1/terminal/run", headers=_auth(), json={"ticket": ticket, "command": "builtin:disk"})
+        assert again.status_code == 401  # each run needs its own unlock
+
+        events = [e["event"] for e in store.recent_audit()]
+        assert "shortcut-run" in events and "shortcut-done" in events and "shortcut-saved" in events
+        assert client.delete(f"/api/v1/terminal/commands/{made['id']}", headers=_auth()).json() == {"removed": True}
+        assert client.delete("/api/v1/terminal/commands/builtin:disk", headers=_auth()).status_code == 404
+    finally:
+        shell.stop()
+
+
+def test_a_failing_or_slow_shortcut(client, clock, monkeypatch):
+    shell = _Shell(service.public_key())
+    monkeypatch.setenv("SIRISOS_TERMINAL_HOSTS", f"home=brad@127.0.0.1:{shell.port}")
+    monkeypatch.setenv("SIRISOS_TERMINAL_COMMAND_SECONDS", "5")
+    from app.terminal import commands
+
+    monkeypatch.setattr(commands, "seconds", lambda: 1)
+    try:
+        bad = client.post("/api/v1/terminal/commands", headers=_auth(), json={"name": "Fails", "command": "fail please"}).json()
+        slow = client.post("/api/v1/terminal/commands", headers=_auth(), json={"name": "Slow", "command": "sleep 99"}).json()
+        secret = _set_up(client, clock)
+        r = client.post("/api/v1/terminal/run", headers=_auth(), json={"ticket": _unlock(client, clock, secret), "command": bad["id"]}).json()
+        assert r["exit"] == 3 and "it failed" in r["output"]
+        r = client.post("/api/v1/terminal/run", headers=_auth(), json={"ticket": _unlock(client, clock, secret), "command": slow["id"]}).json()
+        assert r["timed_out"] is True and r["exit"] is None
+    finally:
+        shell.stop()
