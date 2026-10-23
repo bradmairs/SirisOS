@@ -83,7 +83,7 @@ export function ReviewScreen() {
                   {data.quiet.map((p) => (
                     <li key={p.title} className="item">
                       <span className="item__text">
-                        <Link to={`/brain?q=${encodeURIComponent(p.title)}`} className="item__title" style={{ color: "inherit" }}>{p.title}</Link>
+                        <Link to={`/projects/${encodeURIComponent(p.title)}`} className="item__title" style={{ color: "inherit" }}>{p.title}</Link>
                         <div className="item__subtitle">Untouched for {p.days_idle} days</div>
                       </span>
                     </li>
