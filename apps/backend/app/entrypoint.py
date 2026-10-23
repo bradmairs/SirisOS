@@ -26,6 +26,7 @@ from app.push import notifier as push_notifier
 from app.push.api import act_router as push_act_router
 from app.push.api import router as push_router
 from app.search.api import router as search_router
+from app.siris_projects.api import router as siris_projects_router
 from app.security.api import router as security_router
 from app.shortcuts.api import router as shortcuts_router
 from app.tasks.api import router as tasks_router
@@ -50,6 +51,7 @@ for router in (
     security_router,
     shortcuts_router,
     tasks_router,
+    siris_projects_router,
     wrapup_router,
     meetings_router,
     email_router,

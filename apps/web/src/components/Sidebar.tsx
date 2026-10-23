@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarDays, CalendarRange, House, PenLine, Smartphone, Inbox, LayoutGrid, ListTodo, Mail, Presentation, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarDays, CalendarRange, FolderKanban, House, PenLine, Smartphone, Inbox, LayoutGrid, ListTodo, Mail, Presentation, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -12,6 +12,7 @@ import { hueFor, iconFor } from "./icons";
 export const NAV: { to: string; label: string; Icon: typeof House; end: boolean; dock?: boolean }[] = [
   { to: "/", label: "Home", Icon: House, end: true },
   { to: "/tasks", label: "Tasks", Icon: ListTodo, end: false, dock: false },
+  { to: "/projects", label: "Projects", Icon: FolderKanban, end: false, dock: false },
   { to: "/email", label: "Email", Icon: Mail, end: false, dock: false },
   { to: "/meeting", label: "Meetings", Icon: Presentation, end: false, dock: false },
   { to: "/wrapup", label: "Wrap up", Icon: MoonStar, end: false, dock: false },
