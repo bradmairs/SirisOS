@@ -30,6 +30,7 @@ act_router = APIRouter(prefix="/api/v1/push/act", tags=["push"])
 class Press(BaseModel):
     token: str = Field(min_length=10, max_length=4000)
     action: str = Field(min_length=1, max_length=40)
+    pin: str | None = Field(default=None, max_length=32)
 
 
 def _checked(token: str) -> dict[str, Any]:
@@ -51,7 +52,7 @@ async def press(body: Press, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     if (before := actions.used(p["n"])) is not None:
         raise HTTPException(status_code=409, detail=f"Already done from this notification ({before}).")
     try:
-        said = await actions.perform(hub, p, body.action)
+        said = await actions.perform(hub, p, body.action, pin=body.pin)
     except actions.BadToken as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:

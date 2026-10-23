@@ -111,3 +111,34 @@ def test_bad_tokens_and_buttons_are_refused(client):
     t = token_for("task:sirisos:abc", actions.for_task("abc"))
     assert client.post("/api/v1/push/act", json={"token": t, "action": "dismiss"}).status_code == 403
     assert client.post("/api/v1/push/act", json={"token": t, "action": "done"}).status_code == 404  # no such task
+
+
+def test_the_approval_pin_goes_through(client, monkeypatch):
+    """SirisAI 2.46's approval PIN: its 403 reaches the app, and the PIN is relayed."""
+    sent: list[dict] = []
+
+    def pin_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/siris/hub/v1/attention/7/act":
+            import json
+
+            body = json.loads(request.content)
+            sent.append(body)
+            if body.get("pin") != "4321":
+                return httpx.Response(403, json={"detail": "pin_required: approving this needs your PIN" if "pin" not in body else "Wrong PIN. 4 more and big approvals lock for 10 minutes."})
+            return httpx.Response(200, json={"item": {"id": 7, "title": "2 updates", "status": "done"}, "result": "ok"})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(hub_service, "transport", httpx.MockTransport(pin_handler))
+    reset_hub(ENV)
+    from tests.test_hub import AUTH
+
+    held = client.post("/api/v1/attention/ai:7/act", headers=AUTH, json={"action": "install"})
+    assert held.status_code == 403 and "pin_required" in held.json()["detail"]
+    wrong = client.post("/api/v1/attention/ai:7/act", headers=AUTH, json={"action": "install", "pin": "0000"})
+    assert wrong.status_code == 403 and "Wrong PIN" in wrong.json()["detail"]
+    assert client.post("/api/v1/attention/ai:7/act", headers=AUTH, json={"action": "install", "pin": "4321"}).status_code == 200
+    assert sent == [{"action": "install"}, {"action": "install", "pin": "0000"}, {"action": "install", "pin": "4321"}]
+
+    t = token_for("inbox:ai:7", [{"id": "install", "title": "Install updates"}])
+    assert "pin_required" in client.post("/api/v1/push/act", json={"token": t, "action": "install"}).json()["detail"]
+    assert client.post("/api/v1/push/act", json={"token": t, "action": "install", "pin": "4321"}).json()["message"] == "Install updates: done."

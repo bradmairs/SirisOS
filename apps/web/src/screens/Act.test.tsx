@@ -51,4 +51,24 @@ describe("<ActScreen />", () => {
     show();
     expect(await screen.findByRole("alert")).toHaveTextContent("more than two days old");
   });
+
+  it("asks for SirisAI's approval PIN when a button needs it", async () => {
+    const bodies: unknown[] = [];
+    mockFetch({
+      "/api/v1/push/act?t=": () => jsonResponse({ ...note, title: "2 updates waiting", actions: [{ id: "install", title: "Install updates" }] }),
+      "/api/v1/push/act": (_url, init) => {
+        const body = JSON.parse(String(init.body));
+        bodies.push(body);
+        return body.pin ? jsonResponse({ done: "install", message: "Install updates: done.", url: "/inbox" })
+          : jsonResponse({ detail: "SirisAI: pin_required: approving this needs your PIN" }, 403);
+      },
+    });
+    const user = userEvent.setup();
+    show();
+    await user.click(await screen.findByRole("button", { name: "Install updates" }));
+    await user.type(await screen.findByLabelText("This needs your SirisAI approval PIN."), "4321");
+    await user.click(screen.getByRole("button", { name: "Install updates" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Install updates: done.");
+    expect(bodies).toEqual([{ token: "tok.en", action: "install" }, { token: "tok.en", action: "install", pin: "4321" }]);
+  });
 });

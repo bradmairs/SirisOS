@@ -106,8 +106,8 @@ export function useInbox() {
   const snapshot = useSyncExternalStore(subscribe, () => state);
   /** Do it, then drop the item. Not optimistic: an approval that fails must
    * stay on screen with its error, not vanish and come back. */
-  async function act(item: InboxItem, action: string) {
-    const result = action === "dismiss" ? await inbox.dismiss(item.id) : await inbox.act(item.id, action);
+  async function act(item: InboxItem, action: string, pin?: string) {
+    const result = action === "dismiss" ? await inbox.dismiss(item.id) : await inbox.act(item.id, action, pin);
     const items = state.items.filter((i) => i.id !== item.id);
     set({ items, counts: countsOf(items) });
     return result;
@@ -124,20 +124,33 @@ function linkFor(item: InboxItem): { to?: string; href?: string } {
   return {};
 }
 
-export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: InboxItem, action: string) => Promise<unknown> }) {
+export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: InboxItem, action: string, pin?: string) => Promise<unknown> }) {
   const [asking, setAsking] = useState<InboxAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // SirisAI wants its approval PIN for this action (2.46): ask, then send it with the action.
+  const [needsPin, setNeedsPin] = useState<string | null>(null);
+  const [pin, setPin] = useState("");
   const Icon = KIND_ICON[item.kind] ?? Bell;
   const link = linkFor(item);
 
-  async function go(action: string) {
+  async function go(action: string, withPin?: string) {
     setBusy(true);
     setError(null);
     try {
-      await onAct(item, action);
+      await onAct(item, action, withPin);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      if (message.includes("pin_required")) {
+        setNeedsPin(action);
+      } else if (withPin && /wrong pin|too many wrong pins/i.test(message)) {
+        setNeedsPin(action);
+        setError(message.replace(/^SirisAI: /, ""));
+      } else {
+        setNeedsPin(null);
+        setError(message);
+      }
+      setPin("");
       setBusy(false);
       setAsking(null);
     }
@@ -161,7 +174,15 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
           {item.source === "triage" && item.title.startsWith("Reply to ") && <Link to="/email" className="inbox-row__open">Edit the reply</Link>}
         </div>
         {error && <div className="inbox-row__error" role="alert">{error}</div>}
-        {asking ? (
+        {needsPin ? (
+          <form className="inbox-row__actions" aria-label="Approval PIN" onSubmit={(e) => { e.preventDefault(); if (pin) go(needsPin, pin); }}>
+            <span className="inbox-row__ask">This needs your SirisAI approval PIN.</span>
+            <input className="field inbox-row__pin" type="password" inputMode="numeric" autoComplete="off" autoFocus maxLength={32}
+              value={pin} onChange={(e) => setPin(e.target.value)} aria-label="Approval PIN" placeholder="PIN" />
+            <button type="submit" className="button button--small button--primary" disabled={busy || !pin}>{item.actions.find((a) => a.id === needsPin)?.label ?? "Approve"}</button>
+            <button type="button" className="button button--small" disabled={busy} onClick={() => { setNeedsPin(null); setPin(""); setError(null); }}>Cancel</button>
+          </form>
+        ) : asking ? (
           <div className="inbox-row__actions" role="group" aria-label="Confirm">
             <span className="inbox-row__ask">{asking.confirm}</span>
             <button type="button" className={`button button--small button--${asking.style}`} disabled={busy} onClick={() => go(asking.id)}>Yes</button>
