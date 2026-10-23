@@ -35,6 +35,7 @@ const loadReview = () => import("./screens/Review");
 const loadCapture = () => import("./components/QuickCapture");
 const loadShortcuts = () => import("./screens/Shortcuts");
 const loadProjects = () => import("./screens/Projects");
+const loadTrends = () => import("./screens/Trends");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
 const Brain = lazy(() => loadBrain().then((m) => ({ default: m.Brain })));
 const Links = lazy(() => loadLinks().then((m) => ({ default: m.Links })));
@@ -44,6 +45,7 @@ const BriefOverlay = lazy(() => loadBrief().then((m) => ({ default: m.BriefOverl
 const Career = lazy(() => loadCareer().then((m) => ({ default: m.Career })));
 const ProjectsScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectsScreen })));
 const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectScreen })));
+const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
 const ShortcutsScreen = lazy(() => loadShortcuts().then((m) => ({ default: m.ShortcutsScreen })));
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
 const SecurityScreen = lazy(() => loadSecurity().then((m) => ({ default: m.SecurityScreen })));
@@ -158,6 +160,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/terminal" element={<TerminalScreen />} />
           <Route path="/tasks" element={<TasksScreen />} />
           <Route path="/projects" element={<ProjectsScreen />} />
+          <Route path="/year" element={<TrendsScreen />} />
           <Route path="/projects/:title" element={<ProjectScreen />} />
           <Route path="/wrapup" element={<WrapUpScreen />} />
           <Route path="/meeting" element={<MeetingScreen />} />

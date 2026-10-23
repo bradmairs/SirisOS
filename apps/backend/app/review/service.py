@@ -144,6 +144,9 @@ async def save(hub: Hub, today: date, focus: str) -> dict[str, Any]:
     state = json_store.read(_path(), {})
     state[monday.isoformat()] = {"focus": text, "saved_as": saved_as, "at": datetime.now(zone()).isoformat(timespec="minutes")}
     json_store.write(_path(), dict(sorted(state.items())[-26:]))
+    from app.trends import log
+
+    log.mark("review", today)
     return state[monday.isoformat()]
 
 

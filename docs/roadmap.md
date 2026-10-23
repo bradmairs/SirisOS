@@ -133,6 +133,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Notifications with buttons: Done, In an hour, Approve, Snooze; a one-tap page on iPhone (3.8)
 - [x] Access from here: test SirisOS from wherever the phone is, with fixes in plain words (3.9)
 - [x] Projects: one page per Siris project with its tasks, meetings, emails and links (4.0)
+- [x] Your year: CPD, running, tasks done, journal days and Inbox load, month by month (4.1)
 
 ## Terminal (ADR 113)
 
