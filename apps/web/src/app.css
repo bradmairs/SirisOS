@@ -639,3 +639,4 @@ body.no-scroll { overflow: hidden; }
 /* The adaptive Home's lead card (3.1) */
 .focus { margin-top: 16px; min-height: 0; }
 .customise-entry { flex-wrap: wrap; gap: 8px; }
+.email__draft { font: 15px/1.45 inherit; resize: vertical; }

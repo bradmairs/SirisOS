@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -21,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from app.attention import service
 from app.auth import require_user
+from app.brief.service import zone
 from app.hub.service import Hub, get_hub, make_client, shared_client
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,11 @@ KEEPALIVE_SECONDS = 15.0
 
 class ActRequest(BaseModel):
     action: str = Field(min_length=1, max_length=40)
+    body: str | None = Field(default=None, max_length=20000, description="An edited reply, for a triage email's Send.")
+
+
+class SnoozeRequest(BaseModel):
+    until: str = Field(pattern=r"^(later|tonight|tomorrow|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*)$")
 
 
 @router.get("")
@@ -41,14 +48,14 @@ async def get_inbox(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     return await service.inbox(hub)
 
 
-async def _relay_ai(hub: Hub, item_id: str, action: str) -> dict[str, Any]:
+async def _relay_ai(hub: Hub, item_id: str, action: str, edited: str | None = None) -> dict[str, Any]:
     connector = service.sirisai(hub)
     if connector is None:
         raise HTTPException(status_code=503, detail="SirisAI is not configured.")
     path = f"/siris/hub/v1/attention/{item_id}/" + ("dismiss" if action == "dismiss" else "act")
     try:
         response = await shared_client().post(f"{connector.base_url}{path}", headers=connector.headers(),
-                                              json=None if action == "dismiss" else {"action": action}, timeout=60.0)
+                                              json=None if action == "dismiss" else {"action": action, **({"body": edited} if edited is not None else {})}, timeout=60.0)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
     if response.status_code >= 400:
@@ -65,7 +72,7 @@ async def _relay_ai(hub: Hub, item_id: str, action: str) -> dict[str, Any]:
 async def act(item_id: str, request: ActRequest, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     origin, _, rest = item_id.partition(":")
     if origin == "ai" and rest.isdigit():
-        return await _relay_ai(hub, rest, request.action)
+        return await _relay_ai(hub, rest, request.action, request.body)
     if origin == "os" and rest:
         if request.action != "dismiss":
             raise HTTPException(status_code=422, detail="SirisOS's own items can only be dismissed.")
@@ -170,3 +177,29 @@ async def stream(request: Request, max_events: int = Query(0, ge=0, le=1000), hu
                 task.cancel()
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def snooze_until(word: str, now: datetime | None = None) -> datetime:
+    """later = 3 hours, tonight = 7 pm, tomorrow = 8 am, or an exact time."""
+    local = (now or datetime.now(zone())).astimezone(zone())
+    if word == "later":
+        return local + timedelta(hours=3)
+    if word == "tonight":
+        at = local.replace(hour=19, minute=0, second=0, microsecond=0)
+        return at if at > local else at + timedelta(days=1)
+    if word == "tomorrow":
+        return (local + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+    parsed = datetime.fromisoformat(word)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=zone())
+
+
+@router.post("/{item_id}/snooze")
+def snooze(item_id: str, request: SnoozeRequest) -> dict[str, Any]:
+    """Hide an inbox item until a time; it comes back by itself."""
+    if not (item_id.startswith("ai:") or item_id.startswith("os:")):
+        raise HTTPException(status_code=404, detail=f"Unknown inbox item: {item_id}")
+    try:
+        until = snooze_until(request.until)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Snooze until later, tonight, tomorrow or a time.") from None
+    return {"id": item_id, "until": service.snooze(item_id, until)}

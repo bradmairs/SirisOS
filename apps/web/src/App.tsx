@@ -29,6 +29,7 @@ const loadTerminal = () => import("./screens/Terminal");
 const loadTasks = () => import("./screens/Tasks");
 const loadWrapUp = () => import("./screens/WrapUp");
 const loadMeeting = () => import("./screens/Meeting");
+const loadEmail = () => import("./screens/Email");
 const loadCapture = () => import("./components/QuickCapture");
 const loadShortcuts = () => import("./screens/Shortcuts");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
@@ -45,6 +46,7 @@ const TerminalScreen = lazy(() => loadTerminal().then((m) => ({ default: m.Termi
 const TasksScreen = lazy(() => loadTasks().then((m) => ({ default: m.TasksScreen })));
 const WrapUpScreen = lazy(() => loadWrapUp().then((m) => ({ default: m.WrapUpScreen })));
 const MeetingScreen = lazy(() => loadMeeting().then((m) => ({ default: m.MeetingScreen })));
+const EmailScreen = lazy(() => loadEmail().then((m) => ({ default: m.EmailScreen })));
 const StatusScreen = lazy(() => loadStatus().then((m) => ({ default: m.StatusScreen })));
 const WeekScreen = lazy(() => loadWeek().then((m) => ({ default: m.WeekScreen })));
 const InboxScreen = lazy(() => loadInbox().then((m) => ({ default: m.InboxScreen })));
@@ -148,6 +150,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/tasks" element={<TasksScreen />} />
           <Route path="/wrapup" element={<WrapUpScreen />} />
           <Route path="/meeting" element={<MeetingScreen />} />
+          <Route path="/email" element={<EmailScreen />} />
           <Route path="/capture" element={<OpenCapture onOpen={openCapture} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

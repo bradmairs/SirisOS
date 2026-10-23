@@ -42,21 +42,48 @@ def _state_path() -> Path:
     return Path(os.getenv("SIRISOS_ATTENTION_STATE_PATH", "/app/data/attention-state.json"))
 
 
-def _dismissed() -> list[str]:
+def _state() -> dict[str, Any]:
     try:
-        value = json.loads(_state_path().read_text(encoding="utf-8")).get("dismissed")
-        return value if isinstance(value, list) else []
-    except (OSError, ValueError, AttributeError):
-        return []
+        value = json.loads(_state_path().read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
 
 
-def dismiss_local(key: str) -> None:
-    keys = [k for k in _dismissed() if k != key] + [key]
+def _write_state(state: dict[str, Any]) -> None:
     path = _state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"dismissed": keys[-MAX_DISMISSED:]}), encoding="utf-8")
+    tmp.write_text(json.dumps(state), encoding="utf-8")
     tmp.replace(path)
+
+
+def _dismissed() -> list[str]:
+    value = _state().get("dismissed")
+    return value if isinstance(value, list) else []
+
+
+def dismiss_local(key: str) -> None:
+    state = _state()
+    keys = [k for k in _dismissed() if k != key] + [key]
+    state["dismissed"] = keys[-MAX_DISMISSED:]
+    _write_state(state)
+
+
+def snoozed() -> dict[str, str]:
+    """Inbox items put off until a time (ISO, UTC), live ones only."""
+    now = datetime.now(timezone.utc).isoformat()
+    value = _state().get("snoozed")
+    return {k: v for k, v in (value.items() if isinstance(value, dict) else []) if isinstance(v, str) and v > now}
+
+
+def snooze(item_id: str, until: datetime) -> str:
+    state = _state()
+    live = snoozed()
+    live[item_id] = until.astimezone(timezone.utc).isoformat(timespec="seconds")
+    state["snoozed"] = dict(list(live.items())[-MAX_DISMISSED:])
+    _write_state(state)
+    return live[item_id]
 
 
 def _now() -> str:
@@ -211,5 +238,6 @@ async def inbox(hub: Hub) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         logger.info("SirisAI attention feed unavailable: %s", exc)
         failed.append("SirisAI")
-    items = sort_items(theirs + mine)
-    return {"items": items, "counts": counts(items), "unavailable": failed}
+    later = snoozed()
+    items = sort_items([i for i in theirs + mine if i["id"] not in later])
+    return {"items": items, "counts": counts(items), "unavailable": failed, "snoozed": len(later)}
