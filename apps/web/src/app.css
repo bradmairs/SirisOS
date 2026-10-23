@@ -655,3 +655,20 @@ body.no-scroll { overflow: hidden; }
 .fitness-day__bar { width: 100%; max-width: 22px; border-radius: 6px 6px 2px 2px; background: var(--accent); }
 .fitness-day--future .fitness-day__bar { background: color-mix(in srgb, var(--ink) 12%, transparent); }
 .fitness-day__label { font-size: 11px; color: var(--ink-3); }
+
+/* the year at a glance (4.1): small multiples, one hue, readout on hover/focus */
+.trends { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.trend__headline { display: flex; align-items: baseline; gap: 8px; }
+.trend__value { font-size: 26px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+.trend__bars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 84px; align-items: end; }
+.trend__slot { height: 100%; display: flex; align-items: flex-end; justify-content: center; padding: 0 1px; border-radius: 4px; cursor: default; outline: none; }
+.trend__slot:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.trend__bar { width: 100%; max-width: 18px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--accent) 62%, transparent); }
+.trend__slot--on .trend__bar { background: var(--accent); }
+.trend__bar--none { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.trend__axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); border-top: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); padding-top: 4px; }
+.trend__readout { margin: 0; font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.trend-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.trend-table th, .trend-table td { padding: 6px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
+.trend-table th:first-child { text-align: left; }
+.trend-table thead th { color: var(--ink-2); font-weight: 600; }

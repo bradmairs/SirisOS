@@ -260,4 +260,8 @@ async def inbox(hub: Hub) -> dict[str, Any]:
         failed.append("SirisAI")
     later = snoozed()
     items = sort_items([i for i in theirs + mine if i["id"] not in later])
+    if not failed:
+        from app.trends import log
+
+        log.inbox(len(items))
     return {"items": items, "counts": counts(items), "unavailable": failed, "snoozed": len(later)}

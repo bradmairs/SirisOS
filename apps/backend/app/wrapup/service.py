@@ -124,6 +124,11 @@ async def save(hub: Hub, day: date, top3: list[str], journal: str) -> dict[str, 
     state[day.isoformat()] = entry
     cutoff = (day - timedelta(days=KEEP_DAYS)).isoformat()
     json_store.write(_path(), {k: v for k, v in state.items() if k >= cutoff})
+    from app.trends import log
+
+    log.mark("wrapup", day)
+    if line:
+        log.mark("journal", day)
     return entry
 
 

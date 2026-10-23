@@ -216,6 +216,14 @@ def delete(task_id: str) -> None:
 
 async def complete(hub: Hub, task_id: str, *, note: str | None = None, title: str | None = None) -> dict[str, Any]:
     """Tick a task wherever it lives. A repeating SirisOS task moves to its next date instead."""
+    result = await _complete(hub, task_id, note=note, title=title)
+    from app.trends import log
+
+    log.task_done()  # the year view counts it (4.1)
+    return result
+
+
+async def _complete(hub: Hub, task_id: str, *, note: str | None = None, title: str | None = None) -> dict[str, Any]:
     if task_id.startswith("sirisos:"):
         doc = store.load()
         t = _own(doc, task_id)
