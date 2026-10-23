@@ -129,6 +129,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Terminal shortcuts: one-tap commands behind a fresh code, output inline (3.4)
 - [x] Weekly review: the week in numbers, quiet projects, next week's crunch points, what matters (3.5)
 - [x] iPhone home-screen widget (Scriptable), fitness card, backups/updates/certificates on System status (3.6)
+- [x] Nightly backups of SirisOS's own data, with download and undoable restore on System status (3.7)
 
 ## Terminal (ADR 113)
 

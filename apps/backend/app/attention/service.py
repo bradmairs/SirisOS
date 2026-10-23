@@ -218,10 +218,30 @@ async def ai_items(hub: Hub) -> list[dict[str, Any]] | None:
     return [from_ai(i) for i in response.json().get("items") or []]
 
 
+def backup_items() -> list[dict[str, Any]]:
+    """SirisOS's own backup failing or going stale (3.7); nothing before the first one."""
+    from app.backup import service as backup
+
+    s = backup.status()
+    if not s["enabled"] or not (s["error"] or (s["stale"] and s["newest"])):
+        return []
+    day = datetime.now(timezone.utc).date().isoformat()
+    return [{
+        "key": f"backup:{'error' if s['error'] else 'stale'}:{day}",
+        "kind": "alert",
+        "severity": "attention",
+        "title": "SirisOS's backup failed" if s["error"] else "SirisOS hasn't backed up in over a day",
+        "body": s["error"] or f"Newest backup {s['newest'][:16].replace('T', ' ')} UTC, in {s['folder']}.",
+        "source": "backups",
+        "app": "SirisOS",
+        "url": "/status",
+    }]
+
+
 async def os_items(hub: Hub) -> list[dict[str, Any]]:
     dismissed = set(_dismissed())
     apps = await hub.apps(with_widgets=True)
-    return [from_os(i) for i in own_items(apps) if f"os:{i['key']}" not in dismissed]
+    return [from_os(i) for i in own_items(apps) + backup_items() if f"os:{i['key']}" not in dismissed]
 
 
 async def inbox(hub: Hub) -> dict[str, Any]:

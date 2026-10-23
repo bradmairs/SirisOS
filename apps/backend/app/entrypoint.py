@@ -11,6 +11,8 @@ from app.api.project_relationships import router as project_relationships_router
 from app.api.projects import router as projects_router
 from app.api.sirishydro import router as sirishydro_router
 from app.attention.api import router as attention_router
+from app.backup import service as backups
+from app.backup.api import router as backup_router
 from app.brief.api import router as brief_router
 from app.calendar.api import router as calendar_router
 from app.career.api import router as career_router
@@ -51,6 +53,7 @@ for router in (
     email_router,
     review_router,
     fitness_router,
+    backup_router,
     terminal_router,
     week_router,
     career_router,
@@ -74,12 +77,14 @@ _default_lifespan = app.router.lifespan_context
 
 @asynccontextmanager
 async def lifespan(application):
-    """Starts the phone-notification loop (push/notifier.py) beside the
-    default lifespan, and stops it on shutdown."""
+    """Starts the phone-notification loop (push/notifier.py) and the nightly
+    backup (backup/service.py) beside the default lifespan, and stops them on shutdown."""
     async with _default_lifespan(application) as state:
         tasks = [asyncio.create_task(push_notifier.loop())] if push_notifier.enabled() else []
         if status_history_enabled():
             tasks.append(asyncio.create_task(status_history.sampler(get_hub)))
+        if backups.enabled():
+            tasks.append(asyncio.create_task(backups.loop()))
         try:
             yield state
         finally:
