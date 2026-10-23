@@ -308,3 +308,21 @@ export interface CameraLook {
   description: string;
   question: string | null;
 }
+
+/** Home controls (SirisOS 4.2, SirisAI 2.46). */
+export interface HomeControl {
+  entity_id: string;
+  name: string;
+  kind: "light" | "switch" | "garage" | "lock";
+  state: string;
+  brightness_pct: number | null;
+  /** Set when the action needs a yes first (garage doors, unlocking). */
+  confirm: string | null;
+}
+
+export interface HomeControls {
+  configured: boolean;
+  guest_mode: boolean;
+  controls: HomeControl[];
+  scenes: { id: string; name: string; source: "siris" | "home_assistant" }[];
+}

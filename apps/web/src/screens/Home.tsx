@@ -19,7 +19,7 @@ import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
 import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
-import { CamerasWidget, CarWidget, EnergyWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
+import { CamerasWidget, CarWidget, EnergyWidget, HomeControlsWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
 
 const REFRESH_MS = 60_000;
 
@@ -153,6 +153,7 @@ export function Home() {
   const homeControls: Slot[] = sirisLoading
     ? [{ id: "loading-home", label: "Home controls", node: <LoadingWidget title="Home controls" Icon={House} wide /> }]
     : [
+        { id: "controls", label: "Lights, garage and scenes", node: <HomeControlsWidget /> },
         { id: "protocols", label: "Protocols", node: siris && siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} /> },
         { id: "cameras", label: "Cameras", node: siris && siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} /> },
         { id: "car", label: "Car", node: siris?.car && <CarWidget car={siris.car} /> },

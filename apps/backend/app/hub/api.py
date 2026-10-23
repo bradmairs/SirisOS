@@ -4,7 +4,7 @@ to SirisOS and no app credential reaches a device."""
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, Request, UploadFile
@@ -277,6 +277,32 @@ async def protocol_undo(body: ProtocolRun, connector: SirisAIConnector = Depends
 async def protocol_run(name: SafeName, body: ProtocolRun, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """Runs only with {"confirmed": true}: protocols change locks, covers and modes."""
     return await _forward(connector, "POST", f"/siris/hub/v1/protocols/{name}/run", json=body.model_dump())
+
+
+# Home controls (4.2): lights, garage doors, locks and scenes, through SirisAI 2.36.
+EntityId = Annotated[str, Path(pattern=r"^[a-z_]{2,30}\.[a-z0-9_]{1,80}$")]
+SceneId = Annotated[str, Path(pattern=r"^(siris:\d{1,9}|scene\.[a-z0-9_]{1,80})$")]
+
+
+class ControlAction(BaseModel):
+    action: Literal["toggle", "turn_on", "turn_off", "open", "close", "lock", "unlock"]
+    confirmed: bool = False
+
+
+@router.get("/assistant/controls", tags=["assistant"])
+async def home_controls(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    return await _forward(connector, "GET", "/siris/hub/v1/controls")
+
+
+@router.post("/assistant/controls/{entity_id}", tags=["assistant"])
+async def home_control(entity_id: EntityId, body: ControlAction, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Garage doors and unlocking need {"confirmed": true}; SirisAI refuses otherwise."""
+    return await _forward(connector, "POST", f"/siris/hub/v1/controls/{entity_id}", json=body.model_dump())
+
+
+@router.post("/assistant/scenes/{scene_id}/run", tags=["assistant"])
+async def run_scene(scene_id: SceneId, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    return await _forward(connector, "POST", f"/siris/hub/v1/scenes/{scene_id}/run")
 
 
 class CameraQuestion(BaseModel):
