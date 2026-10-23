@@ -4,6 +4,7 @@ import { useResource } from "../api/resource";
 import { systemStatus, type AppHealth } from "../api/status";
 import { fitness } from "../api/fitness";
 import { Glass } from "../components/Glass";
+import { BackupsCard } from "./BackupsCard";
 import { hueFor, iconFor } from "../components/icons";
 
 function when(epoch: number) {
@@ -40,6 +41,7 @@ export function StatusScreen() {
       {data && apps.length === 0 && <p className="muted">No apps are set up yet.</p>}
       <div className="stack" style={{ marginTop: 16 }}>
         <UpkeepCard />
+        <BackupsCard />
         {apps.map((a) => <AppCard key={a.id} app={a} />)}
       </div>
       {data && (

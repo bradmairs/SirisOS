@@ -48,6 +48,8 @@ services:
       SIRISAI_USER: ${SIRISAI_USER:-}
       SIRISOS_SERVICE_KEY: ${SIRISOS_SERVICE_KEY:-}
       SIRISOS_ATTENTION_STATE_PATH: /app/data/attention-state.json
+      SIRISOS_BACKUP_HOUR: ${SIRISOS_BACKUP_HOUR:-3}
+      SIRISOS_BACKUP_STANDARDS: ${SIRISOS_BACKUP_STANDARDS:-0}
       REVIEWER_URL: ${REVIEWER_URL:-}
       REVIEWER_PUBLIC_URL: ${REVIEWER_PUBLIC_URL:-}
       REVIEWER_USERNAME: ${REVIEWER_USERNAME:-}
@@ -68,6 +70,8 @@ services:
       - ./data/logs:/app/logs
       - ./data/app:/app/data
       - ./data/standards:/app/data/standards
+      # SirisOS's own backups (3.7): point SIRISOS_BACKUP_PATH at the NAS to keep them off this server.
+      - ${SIRISOS_BACKUP_PATH:-./data/backups}:/app/backups
     healthcheck:
       test:
         - CMD

@@ -1,5 +1,5 @@
 """Upkeep for the System status page (3.6): SirisAI's backups and waiting
-update (its /siris/hub/v1/upkeep), and when the HTTPS certificates of the
+update (its /siris/hub/v1/upkeep), SirisOS's own backups (3.7), and when the HTTPS certificates of the
 apps' public addresses run out."""
 
 from __future__ import annotations
@@ -51,4 +51,6 @@ async def certificates(urls: list[str]) -> list[dict[str, Any]]:
 async def overview(hub: Hub) -> dict[str, Any]:
     urls = [c.launch_url for c in hub.connectors if c.launch_url]
     sirisai = await sirisai_api.get(hub, "/siris/hub/v1/upkeep", timeout=8.0)
-    return {"sirisos": {"version": API_VERSION}, "sirisai": sirisai, "certificates": await certificates(urls)}
+    from app.backup import service as backup
+
+    return {"sirisos": {"version": API_VERSION, "backups": backup.status()}, "sirisai": sirisai, "certificates": await certificates(urls)}
