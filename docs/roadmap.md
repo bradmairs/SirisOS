@@ -124,6 +124,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Tasks: one list from SirisOS, Siris notes and SirisAI reminders; plain-words entry, repeats, snooze, push at a time (2.9)
 - [x] Evening wrap-up: today, CPD from meetings, tomorrow's top 3 into the brief, a journal line (3.0)
 - [x] Home that changes through the day: morning, work, weekend, evening (3.1)
+- [x] Meeting prep: people, Siris notes, latest emails, related tasks; notes into Siris with actions as tasks; 10-minute heads-up (3.2)
 
 ## Terminal (ADR 113)
 

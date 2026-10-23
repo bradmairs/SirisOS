@@ -103,6 +103,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: wrap-up unavailable: %s", exc)
     try:
+        from app.meetings import service as meetings
+
+        out += await meetings.push_messages(hub, now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: meetings unavailable: %s", exc)
+    try:
         out += task_messages(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: tasks unavailable: %s", exc)

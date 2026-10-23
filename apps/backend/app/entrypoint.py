@@ -26,6 +26,7 @@ from app.security.api import router as security_router
 from app.shortcuts.api import router as shortcuts_router
 from app.tasks.api import router as tasks_router
 from app.wrapup.api import router as wrapup_router
+from app.meetings.api import router as meetings_router
 from app.terminal.api import router as terminal_router
 from app.week.api import router as week_router
 
@@ -43,6 +44,7 @@ for router in (
     shortcuts_router,
     tasks_router,
     wrapup_router,
+    meetings_router,
     terminal_router,
     week_router,
     career_router,
