@@ -20,7 +20,7 @@ from app.brief.service import zone
 from app.career import cpd
 from app.career import store as career_store
 from app.hub.service import Hub, get_hub, shared_client
-from app.push import store, webpush
+from app.push import actions, store, webpush
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,11 @@ def brief_hour() -> int:
         return 7
 
 
-def message(key: str, topic: str, title: str, body: str = "", url: str = "/", urgency: str = "normal") -> dict[str, Any]:
-    return {"key": key, "topic": topic, "title": title, "body": body, "url": url, "urgency": urgency}
+def message(key: str, topic: str, title: str, body: str = "", url: str = "/", urgency: str = "normal",
+            target: str | None = None, actions: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    """`target` and `actions` put buttons on it (push/actions.py)."""
+    return {"key": key, "topic": topic, "title": title, "body": body, "url": url, "urgency": urgency,
+            "target": target, "actions": actions or []}
 
 
 def inbox_messages(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -45,7 +48,7 @@ def inbox_messages(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         topic = "apps" if item.get("source") == "hub" else "inbox"
         out.append(message(f"inbox:{item['id']}", topic, item["title"], item.get("body") or "", "/inbox",
-                           "high" if item["severity"] == "urgent" else "normal"))
+                           "high" if item["severity"] == "urgent" else "normal", f"inbox:{item['id']}", actions.for_inbox(item)))
     return out
 
 
@@ -84,7 +87,8 @@ def task_messages(now: datetime) -> list[dict[str, Any]]:
 
     due = tasks.due_now(now)
     tasks.mark_reminded([t.id for t in due])
-    return [message(f"task:{t.id}:{t.due}T{t.time}", "inbox", t.title, "Due now" + (f" · {t.notes}" if t.notes else ""), "/tasks", "high")
+    return [message(f"task:{t.id}:{t.due}T{t.time}", "inbox", t.title, "Due now" + (f" · {t.notes}" if t.notes else ""), "/tasks", "high",
+                    f"task:sirisos:{t.id}", actions.for_task(t.id))
             for t in due]
 
 
@@ -122,6 +126,16 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     return out
 
 
+def payload_for(msg: dict[str, Any]) -> dict[str, Any]:
+    """What the service worker gets. With buttons, a tap opens the /act page
+    (iPhone shows no buttons) and each button posts the signed token."""
+    payload = {k: msg[k] for k in ("title", "body", "url")} | {"tag": msg["key"]}
+    if msg.get("target") and msg.get("actions"):
+        token = actions.sign(msg["target"], msg["actions"], msg["title"], msg["body"], msg["url"])
+        payload |= {"actions": [{"action": a["id"], "title": a["title"]} for a in msg["actions"]], "url": f"/act?t={token}"}
+    return payload
+
+
 async def deliver(messages: list[dict[str, Any]]) -> int:
     """Push each message to the subscribed devices; returns how many were sent."""
     subs = store.subscriptions()
@@ -130,7 +144,7 @@ async def deliver(messages: list[dict[str, Any]]) -> int:
     client = shared_client()
     for msg in messages:
         targets = [s for s in subs if msg["topic"] in s.topics]
-        payload = {k: msg[k] for k in ("title", "body", "url")} | {"tag": msg["key"]}
+        payload = payload_for(msg)
         for sub in targets:
             try:
                 await webpush.send(client, sub.model_dump(), payload, urgency=msg["urgency"])

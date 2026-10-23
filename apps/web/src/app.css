@@ -11,6 +11,12 @@
   padding: calc(var(--safe-top) + 24px) var(--gutter) calc(var(--safe-bottom) + 24px);
 }
 .login__card { width: min(400px, 100%); padding: 32px 26px 28px; gap: 14px; }
+/* a notification's buttons, full screen (3.8) */
+.act-screen { min-height: 100dvh; display: grid; place-items: center; padding: calc(var(--safe-top) + 24px) var(--gutter) calc(var(--safe-bottom) + 24px); }
+.act-card { width: min(420px, 100%); min-height: 0; gap: 14px; }
+.act-card__title { margin: 0; font-size: 22px; line-height: 1.25; }
+.act-card__buttons { display: grid; gap: 10px; }
+.act-card__buttons .button { justify-content: center; min-height: 48px; font-size: 17px; }
 .login__tagline { text-align: center; margin: 0 0 8px; color: var(--ink-2); font-weight: 500; }
 
 /* ask / search bar */

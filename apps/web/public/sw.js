@@ -3,9 +3,12 @@
      signal; the data comes from the app's own on-device cache (api/resource.ts).
      /api/ is never touched here.
    - shows phone notifications sent by SirisOS (push/notifier.py) and opens
-     the right screen when one is tapped. */
+     the right screen when one is tapped.
+   - runs a notification's buttons (Done, Snooze...: push/actions.py) right
+     here, with the signed token in its /act?t= link; no sign-in needed.
+     iPhone shows no buttons, so a tap opens that /act page instead. */
 
-const SHELL = "sirisos-shell-v1";
+const SHELL = "sirisos-shell-v2";
 const MAX_ASSETS = 150;
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -69,13 +72,36 @@ self.addEventListener("push", (event) => {
       icon: "/siris-icon.png",
       badge: "/siris-icon.png",
       tag: data.tag || undefined,
+      actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : [],
       data: { url: data.url || "/" },
     }),
   );
 });
 
+async function press(notification, action) {
+  const link = new URL((notification.data && notification.data.url) || "/", self.location.origin);
+  const response = await fetch("/api/v1/push/act", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: link.searchParams.get("t"), action }),
+  });
+  const body = await response.json().catch(() => ({}));
+  await self.registration.showNotification(response.ok ? notification.title : "SirisOS couldn't do that", {
+    body: response.ok ? body.message || "Done." : body.detail || "Open SirisOS to try again.",
+    icon: "/siris-icon.png",
+    badge: "/siris-icon.png",
+    tag: notification.tag || undefined,
+    silent: true,
+    data: { url: response.ok ? body.url || "/" : link.href },
+  });
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action) {
+    event.waitUntil(press(event.notification, event.action));
+    return;
+  }
   const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {

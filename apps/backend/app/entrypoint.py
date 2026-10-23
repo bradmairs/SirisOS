@@ -22,6 +22,7 @@ from app.links.api import router as links_router
 from app.hub import history as status_history
 from app.hub.service import get_hub
 from app.push import notifier as push_notifier
+from app.push.api import act_router as push_act_router
 from app.push.api import router as push_router
 from app.search.api import router as search_router
 from app.security.api import router as security_router
@@ -59,6 +60,7 @@ for router in (
     career_router,
     links_router,
     push_router,
+    push_act_router,
     engineering_calculations_router,
     engineering_calculators_router,
     engineering_standards_router,
