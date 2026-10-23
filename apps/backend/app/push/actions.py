@@ -98,7 +98,7 @@ def for_inbox(item: dict[str, Any]) -> list[dict[str, str]]:
     return (own + [{"id": "snooze", "title": TITLES["snooze"]}, {"id": "dismiss", "title": TITLES["dismiss"]}])[:2]
 
 
-async def perform(hub, payload: dict[str, Any], action: str, now: datetime | None = None) -> str:
+async def perform(hub, payload: dict[str, Any], action: str, now: datetime | None = None, pin: str | None = None) -> str:
     """Run one button; returns what happened, in words."""
     if action not in {a["id"] for a in payload.get("a") or []}:
         raise BadToken("That button isn't on this notification.")
@@ -122,7 +122,7 @@ async def perform(hub, payload: dict[str, Any], action: str, now: datetime | Non
         if action == "snooze":
             attention.snooze(ref, (now or datetime.now(zone())) + timedelta(hours=3))
             return "Snoozed for 3 hours."
-        await inbox.act(ref, inbox.ActRequest(action=action), hub)
+        await inbox.act(ref, inbox.ActRequest(action=action, pin=pin), hub)
         return "Dismissed." if action == "dismiss" else f"{next((a['title'] for a in payload['a'] if a['id'] == action), action)}: done."
     raise BadToken("SirisOS doesn't know what this notification is for.")
 

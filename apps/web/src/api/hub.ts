@@ -49,8 +49,9 @@ export const brain = {
 /** The inbox (ADR 110): SirisAI's attention feed plus SirisOS's own items. */
 export const inbox = {
   list: () => api<Inbox>("/api/v1/attention"),
-  act: (id: string, action: string) =>
-    api<{ item: Partial<InboxItem> & { id: string }; result: unknown }>(`/api/v1/attention/${encodeURIComponent(id)}/act`, json({ action })),
+  /** `pin`: SirisAI's approval PIN, when it asks for one (a 403 "pin_required"). */
+  act: (id: string, action: string, pin?: string) =>
+    api<{ item: Partial<InboxItem> & { id: string }; result: unknown }>(`/api/v1/attention/${encodeURIComponent(id)}/act`, json(pin ? { action, pin } : { action })),
   dismiss: (id: string) => api<{ item: { id: string } }>(`/api/v1/attention/${encodeURIComponent(id)}/dismiss`, { method: "POST" }),
   /** Live: a snapshot first, then each change. Ends when the connection does. */
   async *stream(signal?: AbortSignal): AsyncGenerator<InboxEvent> {

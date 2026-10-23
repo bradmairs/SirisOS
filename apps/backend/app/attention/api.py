@@ -37,6 +37,7 @@ KEEPALIVE_SECONDS = 15.0
 class ActRequest(BaseModel):
     action: str = Field(min_length=1, max_length=40)
     body: str | None = Field(default=None, max_length=20000, description="An edited reply, for a triage email's Send.")
+    pin: str | None = Field(default=None, max_length=32, description="SirisAI's approval PIN, for a big action when it has one (SirisAI 2.46).")
 
 
 class SnoozeRequest(BaseModel):
@@ -48,14 +49,15 @@ async def get_inbox(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     return await service.inbox(hub)
 
 
-async def _relay_ai(hub: Hub, item_id: str, action: str, edited: str | None = None) -> dict[str, Any]:
+async def _relay_ai(hub: Hub, item_id: str, action: str, edited: str | None = None, pin: str | None = None) -> dict[str, Any]:
     connector = service.sirisai(hub)
     if connector is None:
         raise HTTPException(status_code=503, detail="SirisAI is not configured.")
     path = f"/siris/hub/v1/attention/{item_id}/" + ("dismiss" if action == "dismiss" else "act")
     try:
         response = await shared_client().post(f"{connector.base_url}{path}", headers=connector.headers(),
-                                              json=None if action == "dismiss" else {"action": action, **({"body": edited} if edited is not None else {})}, timeout=60.0)
+                                              json=None if action == "dismiss" else {"action": action, **({"body": edited} if edited is not None else {}),
+                                                                                                 **({"pin": pin} if pin else {})}, timeout=60.0)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
     if response.status_code >= 400:
@@ -63,7 +65,9 @@ async def _relay_ai(hub: Hub, item_id: str, action: str, edited: str | None = No
             detail = response.json().get("detail")
         except ValueError:
             detail = response.text[:300]
-        raise HTTPException(status_code=response.status_code if response.status_code in (404, 409, 422) else 502, detail=f"SirisAI: {detail}")
+        # 403 is SirisAI asking for its approval PIN (or refusing a wrong one), 410 an expired approval:
+        # both go through, so the app can ask for the PIN or say so.
+        raise HTTPException(status_code=response.status_code if response.status_code in (403, 404, 409, 410, 422) else 502, detail=f"SirisAI: {detail}")
     body = response.json()
     return {"item": service.from_ai(body["item"]), "result": body.get("result")}
 
@@ -72,7 +76,7 @@ async def _relay_ai(hub: Hub, item_id: str, action: str, edited: str | None = No
 async def act(item_id: str, request: ActRequest, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     origin, _, rest = item_id.partition(":")
     if origin == "ai" and rest.isdigit():
-        return await _relay_ai(hub, rest, request.action, request.body)
+        return await _relay_ai(hub, rest, request.action, request.body, request.pin)
     if origin == "os" and rest:
         if request.action != "dismiss":
             raise HTTPException(status_code=422, detail="SirisOS's own items can only be dismissed.")

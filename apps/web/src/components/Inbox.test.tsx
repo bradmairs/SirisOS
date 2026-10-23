@@ -98,3 +98,33 @@ describe("<InboxScreen />", () => {
     expect(await screen.findByText("Nothing needs you right now.")).toBeInTheDocument();
   });
 });
+
+describe("SirisAI's approval PIN", () => {
+  it("asks for it when SirisAI does, and sends it with the action", async () => {
+    signIn();
+    const UPDATES = item({ id: "ai:9", kind: "suggestion", title: "2 updates waiting on 192.168.0.127", source: "server-updates",
+      actions: [{ id: "install", label: "Install updates", style: "primary" }, { id: "later", label: "Not now", style: "secondary" }] });
+    const bodies: unknown[] = [];
+    mockFetch({
+      "/api/v1/attention/stream": () => sseResponse([{ type: "snapshot", items: [UPDATES], counts: { open: 1, urgent: 0 } }]),
+      "/api/v1/attention/ai%3A9/act": (_url, init) => {
+        const body = JSON.parse(String(init.body));
+        bodies.push(body);
+        if (!body.pin) return jsonResponse({ detail: "SirisAI: pin_required: approving this needs your PIN" }, 403);
+        if (body.pin !== "4321") return jsonResponse({ detail: "SirisAI: Wrong PIN. 4 more and big approvals lock for 10 minutes." }, 403);
+        return jsonResponse({ item: { id: "ai:9", status: "done" }, result: null });
+      },
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><InboxPanel /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Install updates" }));
+    const pin = await screen.findByLabelText("Approval PIN", { selector: "input" });
+    expect(screen.queryByRole("alert")).toBeNull();  // asking, not an error
+    await user.type(pin, "0000");
+    await user.click(screen.getByRole("button", { name: "Install updates" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Wrong PIN. 4 more");
+    await user.type(screen.getByLabelText("Approval PIN", { selector: "input" }), "4321{enter}");
+    await waitFor(() => expect(screen.queryByText("2 updates waiting on 192.168.0.127")).toBeNull());
+    expect(bodies).toEqual([{ action: "install" }, { action: "install", pin: "0000" }, { action: "install", pin: "4321" }]);
+  });
+});
