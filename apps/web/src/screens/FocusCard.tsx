@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { CalendarClock, MoonStar, Sunrise, Target } from "lucide-react";
 import type { HomeContext } from "../api/home";
+import { prepLink } from "../api/meetings";
 import type { Hud } from "../api/types";
 import { Glass } from "../components/Glass";
 
@@ -38,6 +39,7 @@ export function FocusCard({ ctx, events }: { ctx: HomeContext; events: Hud["next
         ) : <p className="muted" style={{ margin: 0 }}>No more meetings today.</p>}
         {ctx.top3.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 14 }}><Target size={13} aria-hidden="true" /> Top 3: {ctx.top3.join(" · ")}</p>}
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {soon && <Link to={prepLink(soon.summary, soon.start)} className="button button--small button--primary">Prepare</Link>}
           <Link to="/tasks" className="button button--small">Tasks</Link>
           <Link to="/engineering" className="button button--small">Engineering</Link>
         </div>

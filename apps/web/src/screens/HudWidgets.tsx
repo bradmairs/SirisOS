@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, ShieldCheck } from "lucide-react";
 import { assistant } from "../api/hub";
+import { prepLink } from "../api/meetings";
 import { useResource } from "../api/resource";
 import type { HubApp, Hud } from "../api/types";
 import { Glass } from "../components/Glass";
@@ -118,7 +119,9 @@ export function ComingUpWidget({ events, delay }: { events: NonNullable<Hud["nex
             <li key={`${e.summary}-${i}`} className="item">
               <span className="item__dot" aria-hidden="true" />
               <span className="item__text">
-                <div className="item__title">{e.summary}</div>
+                {e.start?.includes("T") ? (
+                  <Link to={prepLink(e.summary, e.start)} className="item__title" style={{ color: "inherit", display: "block" }}>{e.summary}</Link>
+                ) : <div className="item__title">{e.summary}</div>}
                 <div className="item__subtitle">{formatWhen(e.start)}</div>
               </span>
             </li>
