@@ -11,6 +11,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Wallpaper } from "./components/Wallpaper";
 import { Home, useApps } from "./screens/Home";
 import { Login } from "./screens/Login";
+import { ActScreen } from "./screens/Act";
 
 // Home ships in the main bundle; every other screen is its own chunk,
 // fetched in the background once the shell is idle (see warmScreens).
@@ -87,7 +88,10 @@ export function App() {
   return (
     <BrowserRouter>
       <Wallpaper />
-      {user === null ? <Login onLogin={setUser} /> : <Shell user={user} onSignOut={() => { session.clear(); setUser(null); }} />}
+      <Routes>
+        <Route path="/act" element={<ActScreen signedIn={user !== null} />} />
+        <Route path="*" element={user === null ? <Login onLogin={setUser} /> : <Shell user={user} onSignOut={() => { session.clear(); setUser(null); }} />} />
+      </Routes>
     </BrowserRouter>
   );
 }
