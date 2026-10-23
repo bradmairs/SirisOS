@@ -134,6 +134,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Access from here: test SirisOS from wherever the phone is, with fixes in plain words (3.9)
 - [x] Projects: one page per Siris project with its tasks, meetings, emails and links (4.0)
 - [x] Your year: CPD, running, tasks done, journal days and Inbox load, month by month (4.1)
+- [x] Home controls: lights, garage, locks and scenes on Home, with a yes first for the garage and unlocking (4.2)
 
 ## Terminal (ADR 113)
 

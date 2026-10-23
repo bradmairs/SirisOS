@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { BatteryCharging, Camera, Car, Eye, Package, ShieldCheck, Undo2, Zap } from "lucide-react";
+import { BatteryCharging, Camera, Car, Eye, Lightbulb, Lock, LockOpen, Package, Power, ShieldCheck, Sparkles, Undo2, Warehouse, Zap } from "lucide-react";
 import { assistant } from "../api/hub";
 import { useResource } from "../api/resource";
-import type { ProtocolPreview, ProtocolRunResult, SirisCar, SirisEnergy, SirisParcel, SirisProtocol, SirisWidgets } from "../api/types";
+import type { HomeControl, HomeControls, ProtocolPreview, ProtocolRunResult, SirisCar, SirisEnergy, SirisParcel, SirisProtocol, SirisWidgets } from "../api/types";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 
@@ -248,6 +248,108 @@ export function SirisParcelsWidget({ parcels }: { parcels: SirisParcel[] }) {
           </li>
         ))}
       </ul>
+    </Card>
+  );
+}
+
+const ACTION_FOR: Record<HomeControl["kind"], (state: string) => string> = {
+  light: () => "toggle",
+  switch: () => "toggle",
+  garage: (s) => (s === "open" || s === "opening" ? "close" : "open"),
+  lock: (s) => (s === "locked" ? "unlock" : "lock"),
+};
+
+function stateWords(c: HomeControl): string {
+  if (c.kind === "light" || c.kind === "switch") return c.state === "on" ? (c.brightness_pct != null ? `On · ${c.brightness_pct}%` : "On") : c.state === "off" ? "Off" : c.state;
+  return c.state.charAt(0).toUpperCase() + c.state.slice(1);
+}
+
+/** Lights, the garage, locks and scenes, one tap each (4.2). The garage and
+ * unlocking ask first; SirisAI refuses them otherwise. */
+export function HomeControlsWidget() {
+  const { data, reload } = useResource<HomeControls>("sirisai:controls", () => assistant.controls(), { refreshMs: 30_000, persist: true });
+  const [asking, setAsking] = useState<HomeControl | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<{ tone: "good" | "critical"; text: string } | null>(null);
+  const [states, setStates] = useState<Record<string, string>>({});
+  if (!data || (!data.configured && data.scenes.length === 0) || (data.controls.length === 0 && data.scenes.length === 0)) return null;
+
+  async function act(c: HomeControl, confirmed = false) {
+    const state = states[c.entity_id] ?? c.state;
+    const action = ACTION_FOR[c.kind](state);
+    if ((c.kind === "garage" || action === "unlock") && !confirmed) {
+      setAsking(c);
+      return;
+    }
+    setAsking(null);
+    setBusy(c.entity_id);
+    setNote(null);
+    try {
+      const r = await assistant.control(c.entity_id, action, confirmed);
+      if (r.state) setStates((s) => ({ ...s, [c.entity_id]: r.state! }));
+      reload(true).catch(() => undefined);
+    } catch (e) {
+      setNote({ tone: "critical", text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function scene(id: string, name: string) {
+    setBusy(id);
+    setNote(null);
+    try {
+      await assistant.scene(id);
+      setNote({ tone: "good", text: `${name}: done.` });
+      reload(true).catch(() => undefined);
+    } catch (e) {
+      setNote({ tone: "critical", text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const confirmText = (c: HomeControl) => {
+    const action = ACTION_FOR[c.kind](states[c.entity_id] ?? c.state);
+    return `${action.charAt(0).toUpperCase() + action.slice(1)} ${c.name}?`;
+  };
+  return (
+    <Card title="Home controls" Icon={Lightbulb} wide id="home-controls">
+      {data.controls.length > 0 && (
+        <div className="controls-grid">
+          {data.controls.map((c) => {
+            const state = states[c.entity_id] ?? c.state;
+            const on = state === "on" || state === "open" || state === "unlocked";
+            const Icon = c.kind === "garage" ? Warehouse : c.kind === "lock" ? (state === "locked" ? Lock : LockOpen) : c.kind === "switch" ? Power : Lightbulb;
+            return (
+              <button key={c.entity_id} type="button" className={`control-tile ${on ? "control-tile--on" : ""} ${c.kind === "garage" || c.kind === "lock" ? `control-tile--${c.kind}` : ""}`}
+                aria-pressed={c.kind === "light" || c.kind === "switch" ? on : undefined} disabled={busy === c.entity_id}
+                aria-label={`${c.name}: ${stateWords({ ...c, state })}`} onClick={() => act(c)}>
+                <Icon size={18} aria-hidden="true" />
+                <span className="control-tile__name">{c.name}</span>
+                <span className="control-tile__state">{busy === c.entity_id ? "…" : stateWords({ ...c, state })}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {asking && (
+        <div className="row control-confirm" role="alertdialog" aria-label={confirmText(asking)}>
+          <span style={{ fontWeight: 600 }}>{confirmText(asking)}</span>
+          <button type="button" className="button button--small button--primary" onClick={() => act(asking, true)}>Yes</button>
+          <button type="button" className="button button--small" onClick={() => setAsking(null)}>Cancel</button>
+        </div>
+      )}
+      {data.scenes.length > 0 && (
+        <div className="protocol-buttons" aria-label="Scenes">
+          {data.scenes.map((s) => (
+            <button key={s.id} type="button" className="button button--small" disabled={busy === s.id} onClick={() => scene(s.id, s.name)}>
+              <Sparkles size={14} aria-hidden="true" /> {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {data.guest_mode && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Guest mode: the garage and locks are hidden.</p>}
+      {note && <p className={`tone-${note.tone}`} role="status" style={{ margin: 0, fontSize: 14 }}>{note.text}</p>}
     </Card>
   );
 }

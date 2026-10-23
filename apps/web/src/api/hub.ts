@@ -2,6 +2,7 @@ import { api, json, request } from "./client";
 import { readEvents } from "./sse";
 import { readNdjson, type VoiceEvent } from "./voice";
 import type {
+  HomeControls,
   BrainDeleted, BrainDeleteResult, BrainHit, BrainInsights, BrainNote, CameraLook, ChatEvent, ConversationSummary, HubApp, Hud, Inbox, InboxEvent, InboxItem,
   PendingToolCall, ProtocolPreview, ProtocolRunResult, SirisMemory, SirisWidgets,
 } from "./types";
@@ -70,6 +71,10 @@ export const assistant = {
   /** The camera's latest frame as an object URL (the request carries the session token). Revoke it when done. */
   frame: (camera: string) =>
     request(`/api/v1/assistant/cameras/${encodeURIComponent(camera)}/latest.jpg?t=${Date.now()}`).then((r) => r.blob()).then((b) => URL.createObjectURL(b)),
+  controls: () => api<HomeControls>("/api/v1/assistant/controls"),
+  control: (entityId: string, action: string, confirmed = false) =>
+    api<{ entity_id: string; action: string; state: string | null }>(`/api/v1/assistant/controls/${encodeURIComponent(entityId)}`, json({ action, confirmed })),
+  scene: (id: string) => api<{ entity_id: string; action: string }>(`/api/v1/assistant/scenes/${encodeURIComponent(id)}/run`, { method: "POST" }),
   voice: () => api<{ stt: boolean; tts: boolean }>("/api/v1/assistant/voice"),
   /** One voice turn: a recording (or typed text) in, transcript + spoken sentences out. */
   async *converse(input: { audio?: Blob; text?: string }, conversationId?: string | null, signal?: AbortSignal): AsyncGenerator<VoiceEvent> {
