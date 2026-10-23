@@ -642,3 +642,10 @@ body.no-scroll { overflow: hidden; }
 .email__draft { font: 15px/1.45 inherit; resize: vertical; }
 .terminal__output { margin: 0; max-height: 50dvh; overflow: auto; padding: 10px 12px; border-radius: 12px; background: #0b0f17; color: #e6edf3; font: 12.5px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
 .terminal__keys--shortcuts { display: flex !important; }
+
+/* Fitness card (3.6) */
+.fitness-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 64px; align-items: end; }
+.fitness-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.fitness-day__bar { width: 100%; max-width: 22px; border-radius: 6px 6px 2px 2px; background: var(--accent); }
+.fitness-day--future .fitness-day__bar { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.fitness-day__label { font-size: 11px; color: var(--ink-3); }

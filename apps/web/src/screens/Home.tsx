@@ -15,6 +15,7 @@ import { AppSheet } from "./AppSheet";
 import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
+import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
 import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
@@ -142,6 +143,7 @@ export function Home() {
     { id: "tasks", label: "Tasks", node: !hideMine && <TasksWidget delay={20} /> },
     { id: "coming-up", label: "Coming up", node: !hideMine && (hud?.next_events ? <ComingUpWidget events={hud.next_events} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },
     { id: "career", label: "Career", node: !hideMine && <CareerWidget delay={30} /> },
+    { id: "fitness", label: "Fitness", node: !hideMine && <FitnessWidget delay={40} /> },
     ...(appsLoading
       ? [0, 1].map((i) => ({ id: `loading-app-${i}`, label: "Loading apps", node: <LoadingWidget title="Loading apps" delay={60 + i * 50} /> }))
       : widgets.map((app, i) => ({ id: `app:${app.id}`, label: app.name, node: <WidgetCard app={app} delay={i * 50} /> }))),

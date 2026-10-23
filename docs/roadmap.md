@@ -128,6 +128,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Email triage: SirisAI's drafted replies, edit and send, snooze, leave (3.3)
 - [x] Terminal shortcuts: one-tap commands behind a fresh code, output inline (3.4)
 - [x] Weekly review: the week in numbers, quiet projects, next week's crunch points, what matters (3.5)
+- [x] iPhone home-screen widget (Scriptable), fitness card, backups/updates/certificates on System status (3.6)
 
 ## Terminal (ADR 113)
 
