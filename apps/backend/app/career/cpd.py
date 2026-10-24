@@ -22,12 +22,18 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import logging
+import posixpath
 import re
+import zipfile
+from xml.etree import ElementTree
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from app.career import defaults
 from app.career.store import CareerDocument, CpdImport, CpdRecord, save
+
+log = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_ROWS = 5000
@@ -43,9 +49,11 @@ FIELDS: list[tuple[str, re.Pattern[str]]] = [
     ("end", re.compile(r"^(end|finish)\s*date|^to$|date\s*to", re.I)),
     ("risk", re.compile(r"risk", re.I)),
     ("business", re.compile(r"business|management\s*(hours|skills)", re.I)),
-    ("area", re.compile(r"area\s*of\s*practice|technical\s*hours|engineering\s*hours|practice\s*area\s*hours", re.I)),
+    # Engineers Australia names this column after the area itself ("Civil Engineering").
+    ("area", re.compile(r"area\s*of\s*practice|technical\s*hours|engineering\s*hours|practice\s*area\s*hours|^[a-z &/-]*engineering$", re.I)),
     ("hours", re.compile(r"hours|duration|^cpd$|^time", re.I)),
-    ("type", re.compile(r"type|category|kind|format", re.I)),
+    # Not Engineers Australia's "Type I" to "Type VIII" hour columns.
+    ("type", re.compile(r"type(?!\s+[ivx]+$)|category|kind|format", re.I)),
     ("provider", re.compile(r"provider|organi[sz]|presenter|host|institution|delivered\s*by", re.I)),
     ("title", re.compile(r"title|^activity|topic|^name|course|event|subject|description", re.I)),
     ("notes", re.compile(r"note|outcome|learning|reflect|comment|how|relevance", re.I)),
@@ -89,8 +97,15 @@ def _rows_from_xlsx(raw: bytes) -> list[list[str]]:
 
     try:
         book = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
-    except Exception as exc:  # noqa: BLE001 - any unreadable workbook
-        raise CpdImportError("That Excel file couldn't be read.") from exc
+    except Exception as exc:  # noqa: BLE001 - any workbook openpyxl rejects
+        # Engineers Australia's export has an invalid colour in its styles, which
+        # Excel ignores but openpyxl won't open; the cells themselves are fine.
+        log.info("openpyxl couldn't open the CPD workbook (%s); reading its cells directly", exc)
+        try:
+            return _rows_from_xlsx_xml(raw)
+        except Exception as inner:  # noqa: BLE001 - not a workbook at all
+            log.warning("CPD workbook unreadable: %s", inner)
+            raise CpdImportError("That Excel file couldn't be read.") from exc
     best: list[list[str]] = []
     for sheet in book.worksheets:  # the sheet that looks most like a CPD table
         rows = [[_cell(v) for v in row] for _, row in zip(range(MAX_ROWS + 20), sheet.iter_rows(values_only=True))]
@@ -98,6 +113,65 @@ def _rows_from_xlsx(raw: bytes) -> list[list[str]]:
             best = rows
     book.close()
     return best
+
+
+def _rows_from_xlsx_xml(raw: bytes) -> list[list[str]]:
+    """The cells of each sheet, read from the workbook's XML without its styles.
+    Dates come back as Excel day numbers, which parse_date reads."""
+    local = lambda tag: tag.rsplit("}", 1)[-1]  # noqa: E731 - transitional and strict namespaces alike
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        names = set(z.namelist())
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in names:
+            for si in ElementTree.fromstring(z.read("xl/sharedStrings.xml")):
+                shared.append("".join(t.text or "" for t in si.iter() if local(t.tag) == "t"))
+        rels = {}
+        if "xl/_rels/workbook.xml.rels" in names:
+            for rel in ElementTree.fromstring(z.read("xl/_rels/workbook.xml.rels")):
+                target = rel.get("Target", "")
+                rels[rel.get("Id")] = target.lstrip("/") if target.startswith("/") else posixpath.normpath(posixpath.join("xl", target))
+        sheets = []
+        for el in ElementTree.fromstring(z.read("xl/workbook.xml")).iter():
+            if local(el.tag) == "sheet":
+                rid = next((v for k, v in el.attrib.items() if local(k) == "id"), None)
+                if rels.get(rid) in names:
+                    sheets.append(rels[rid])
+        sheets = sheets or sorted(n for n in names if re.match(r"xl/worksheets/sheet\d+\.xml$", n))
+        best: list[list[str]] = []
+        for path in sheets:
+            rows: list[list[str]] = []
+            for row in ElementTree.fromstring(z.read(path)).iter():
+                if local(row.tag) != "row":
+                    continue
+                cells: list[str] = []
+                for c in row:
+                    if local(c.tag) != "c":
+                        continue
+                    ref = re.match(r"[A-Z]+", c.get("r", ""))
+                    col = _column_number(ref.group(0)) - 1 if ref else len(cells)
+                    kind = c.get("t", "n")
+                    value = next((x.text or "" for x in c if local(x.tag) == "v"), "")
+                    if kind == "s":
+                        value = shared[int(value)] if value.isdigit() and int(value) < len(shared) else ""
+                    elif kind == "inlineStr":
+                        value = "".join(t.text or "" for t in c.iter() if local(t.tag) == "t")
+                    elif kind == "b":
+                        value = "TRUE" if value == "1" else "FALSE"
+                    cells.extend([""] * (col - len(cells) + 1))
+                    cells[col] = value.strip()
+                rows.append(cells)
+                if len(rows) >= MAX_ROWS + 20:
+                    break
+            if _header_index(rows) is not None and len(rows) > len(best):
+                best = rows
+        return best
+
+
+def _column_number(letters: str) -> int:
+    n = 0
+    for ch in letters:
+        n = n * 26 + ord(ch) - 64
+    return n
 
 
 def _columns(header: list[str]) -> dict[str, int]:
@@ -272,6 +346,9 @@ def summary(doc: CareerDocument, today: date | None = None) -> dict[str, Any]:
     start = _years_before(today, req["years"])
     drops_by = _years_before(today + timedelta(days=90), req["years"])
     totals = {c: 0.0 for c in defaults.CPD_CATEGORIES}
+    # An activity's hours can count toward more than one minimum (Engineers Australia
+    # lets an hour be both risk and area of practice), so the total is the activities' hours.
+    total = 0.0
     expiring = 0.0
     by_year: dict[str, float] = {}
     guessed = 0
@@ -284,12 +361,12 @@ def summary(doc: CareerDocument, today: date | None = None) -> dict[str, Any]:
         split, basis = split_for(r, doc.cpd.overrides)
         for c, h in split.items():
             totals[c if c in totals else "other"] += h
+        total += r.hours
         by_year[str(d.year)] = by_year.get(str(d.year), 0.0) + r.hours
         guessed += basis == "guess"
         # Drops out of the window within 90 days.
         if d <= drops_by:
             expiring += r.hours
-    total = sum(totals.values())
     minimums = [
         {"category": c, "label": defaults.CPD_CATEGORIES[c], "hours": round(totals[c], 1), "minimum": m,
          "short": round(max(0.0, m - totals[c]), 1)}
