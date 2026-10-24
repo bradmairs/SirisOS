@@ -36,6 +36,9 @@ describe("<HouseScreen />", () => {
     const now = await screen.findByRole("region", { name: "Network now" });
     expect(await within(now).findByText("20 Mb/s")).toBeInTheDocument();
     expect(within(now).getByText("1.0 Mb/s")).toBeInTheDocument();
+    // The lights, garage and scenes card lives here since 4.8, not on Home; no link back to this page.
+    const card = await screen.findByRole("region", { name: "Home controls" });
+    expect(within(card).queryByText("The house in 3D →")).not.toBeInTheDocument();
     const devices = await screen.findByRole("region", { name: "Devices" });
     const titles = within(devices).getAllByText(/UCG Ultra|Lounge Apple TV|Home Assistant|Kitchen lights/).map((e) => e.textContent);
     expect(titles[0]).toBe("UCG Ultra");

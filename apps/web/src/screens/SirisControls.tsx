@@ -267,7 +267,7 @@ function stateWords(c: HomeControl): string {
 
 /** Lights, the garage, locks and scenes, one tap each (4.2). The garage and
  * unlocking ask first; SirisAI refuses them otherwise. */
-export function HomeControlsWidget() {
+export function HomeControlsWidget({ onHousePage = false }: { onHousePage?: boolean } = {}) {
   const { data, reload } = useResource<HomeControls>("sirisai:controls", () => assistant.controls(), { refreshMs: 30_000, persist: true });
   const [asking, setAsking] = useState<HomeControl | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -350,7 +350,7 @@ export function HomeControlsWidget() {
         </div>
       )}
       {data.guest_mode && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Guest mode: the garage and locks are hidden.</p>}
-      <Link to="/house" className="widget__more">The house in 3D →</Link>
+      {!onHousePage && <Link to="/house" className="widget__more">The house in 3D →</Link>}
       {note && <p className={`tone-${note.tone}`} role="status" style={{ margin: 0, fontSize: 14 }}>{note.text}</p>}
     </Card>
   );

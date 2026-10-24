@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Activity, CalendarClock, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
+import { Activity, CalendarClock, Clock3, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
 import { hub } from "../api/hub";
-import { EMPTY_LAYOUT, SECTION_ORDER, adaptive, arrange, home, homeContext, localPhase, setAdaptive, type DeviceLayout, type HomeContext, type HomeLayout } from "../api/home";
+import { EMPTY_LAYOUT, adaptive, arrange, home, homeContext, localPhase, sectionOrder, setAdaptive, type DeviceLayout, type HomeContext, type HomeLayout } from "../api/home";
 import { oldestUpdate, useResource } from "../api/resource";
 import { useOnline } from "../api/online";
 import { session } from "../api/client";
@@ -13,13 +13,14 @@ import { Glass } from "../components/Glass";
 import { LoadingWidget, WidgetCard } from "../components/WidgetCard";
 import { AppSheet } from "./AppSheet";
 import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
+import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
 import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
-import { CamerasWidget, CarWidget, EnergyWidget, HomeControlsWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
+import { CamerasWidget, CarWidget, EnergyWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
 
 const REFRESH_MS = 60_000;
 
@@ -123,6 +124,7 @@ export function Home() {
   const device = phone ? "phone" : "desktop";
   const { layout, save: saveLayout } = useHomeLayout(device);
   const [customising, setCustomising] = useState(false);
+  const [timing, setTiming] = useState(false);
   const [adapt, setAdapt] = useState(adaptive);
   const ctxRes = useResource<HomeContext>("home:context", () => homeContext(), { refreshMs: 5 * 60_000, persist: true });
   const ctx = ctxRes.data ?? null;
@@ -150,11 +152,13 @@ export function Home() {
     { id: "activity", label: "SirisAI activity", node: hud?.autonomy ? <ActivityWidget entries={hud.autonomy} /> : hudLoading && <LoadingWidget title="SirisAI activity" Icon={Activity} /> },
     { id: "parcels", label: "Parcels", node: siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} /> },
   ];
+  // Lights and scenes are left to Siri and the Home app (4.8); protocols show while you're home
+  // (or when SirisAI can't tell).
+  const atHome = ctx?.home !== false;
   const homeControls: Slot[] = sirisLoading
-    ? [{ id: "loading-home", label: "Home controls", node: <LoadingWidget title="Home controls" Icon={House} wide /> }]
+    ? [{ id: "loading-home", label: "Home", node: <LoadingWidget title="Home" Icon={House} wide /> }]
     : [
-        { id: "controls", label: "Lights, garage and scenes", node: <HomeControlsWidget /> },
-        { id: "protocols", label: "Protocols", node: siris && siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} /> },
+        { id: "protocols", label: "Protocols (while you're home)", node: atHome && siris && siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} /> },
         { id: "cameras", label: "Cameras", node: siris && siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} /> },
         { id: "car", label: "Car", node: siris?.car && <CarWidget car={siris.car} /> },
         { id: "energy", label: "Power", node: siris?.energy && <EnergyWidget energy={siris.energy} /> },
@@ -166,7 +170,8 @@ export function Home() {
   ];
   // The part of the day decides which section leads (3.1); widgets inside keep your order.
   const phase = ctx?.phase ?? localPhase();
-  const sections = adapt ? [...sectionList].sort((a, b) => SECTION_ORDER[phase].indexOf(a.title) - SECTION_ORDER[phase].indexOf(b.title)) : sectionList;
+  const order = sectionOrder(phase, ctx);
+  const sections = adapt ? [...sectionList].sort((a, b) => order.indexOf(a.title) - order.indexOf(b.title)) : sectionList;
   const editableSource = sectionList;
   // Placeholders aren't widgets you can arrange.
   const editable: SectionInfo[] = editableSource.map(({ title, slots }) => ({
@@ -245,6 +250,11 @@ export function Home() {
         <button type="button" className="show-more" onClick={() => { setAdaptive(!adapt); setAdapt(!adapt); }}>
           {adapt ? "Changes with the time of day · turn off" : "Same order all day · let it change with the time of day"}
         </button>
+        {adapt && (
+          <button type="button" className="show-more" onClick={() => setTiming(true)}>
+            <Clock3 size={13} aria-hidden="true" /> Times of day
+          </button>
+        )}
       </div>
       {!phone && apps && apps.length > 0 && (
         <>
@@ -253,6 +263,7 @@ export function Home() {
         </>
       )}
       {open && <AppSheet appId={open.id} initial={open} onClose={() => setOpen(null)} />}
+      {timing && <HomeTimes onClose={() => setTiming(false)} onSaved={() => ctxRes.reload(true).catch(() => undefined)} />}
       {customising && <HomeCustomise device={device} sections={editable} layout={layout} onChange={saveLayout} onClose={() => setCustomising(false)} />}
     </>
   );

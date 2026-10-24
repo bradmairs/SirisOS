@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { FocusCard } from "./FocusCard";
-import { SECTION_ORDER, localPhase, type HomeContext } from "../api/home";
+import { SECTION_ORDER, localPhase, sectionOrder, type HomeContext } from "../api/home";
 
 const ctx = (over: Partial<HomeContext>): HomeContext => ({ phase: "morning", local_time: "", home: null, wrapped_up: false, top3: [], tomorrow_top3: [], ...over });
 const show = (c: HomeContext, events?: { summary: string; start: string }[]) =>
@@ -39,13 +39,22 @@ describe("<FocusCard />", () => {
 });
 
 describe("the part of the day", () => {
-  it("matches the server's rules", () => {
-    expect(localPhase(new Date(2026, 9, 22, 7, 30))).toBe("morning");
-    expect(localPhase(new Date(2026, 9, 22, 11))).toBe("work");
+  it("matches the server's default schedule: work is 8:30 to 4:30 on weekdays", () => {
+    expect(localPhase(new Date(2026, 9, 22, 7, 30))).toBe("morning");   // Thursday
+    expect(localPhase(new Date(2026, 9, 22, 8, 29))).toBe("morning");
+    expect(localPhase(new Date(2026, 9, 22, 8, 30))).toBe("work");
+    expect(localPhase(new Date(2026, 9, 22, 16, 29))).toBe("work");
+    expect(localPhase(new Date(2026, 9, 22, 16, 30))).toBe("evening");
+    expect(localPhase(new Date(2026, 9, 24, 9))).toBe("morning");       // Saturday: no work
     expect(localPhase(new Date(2026, 9, 24, 11))).toBe("weekend");
-    expect(localPhase(new Date(2026, 9, 22, 18))).toBe("evening");
     expect(localPhase(new Date(2026, 9, 22, 23, 30))).toBe("night");
     expect(SECTION_ORDER.work[0]).toBe("Today");
-    expect(SECTION_ORDER.evening[0]).toBe("Home");
+  });
+
+  it("follows the schedule's order, and puts Home last while you're out", () => {
+    expect(sectionOrder("weekend", null)).toEqual(["Home", "Today", "Now"]);
+    expect(sectionOrder("work", { sections: ["Now", "Home", "Today"], home: null })).toEqual(["Now", "Home", "Today"]);
+    expect(sectionOrder("weekend", { home: false })).toEqual(["Today", "Now", "Home"]);
+    expect(sectionOrder("weekend", { home: true })).toEqual(["Home", "Today", "Now"]);
   });
 });

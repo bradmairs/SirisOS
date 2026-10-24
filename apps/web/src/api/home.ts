@@ -43,6 +43,8 @@ export type DayPhase = "morning" | "work" | "weekend" | "evening" | "night";
 
 export interface HomeContext {
   phase: DayPhase;
+  /** The sections in the order they lead now (from the schedule); older servers leave it out. */
+  sections?: string[];
   local_time: string;
   home: boolean | null;
   wrapped_up: boolean;
@@ -52,15 +54,37 @@ export interface HomeContext {
 
 export const homeContext = () => api<HomeContext>("/api/v1/home/context");
 
-/** Which Home sections come first at each part of the day (3.1). Within a
+/** Start times (HH:MM) through a day: `day` is work on a weekday, the daytime on a weekend. */
+export interface DayTimes { morning: string; day: string; evening: string; night: string }
+
+/** When each part of the day starts, and which sections lead in each (4.8). Shared by every device. */
+export interface HomeSchedule {
+  weekday: DayTimes;
+  weekend: DayTimes;
+  sections: Record<DayPhase, string[]>;
+}
+
+export const schedule = {
+  get: () => api<HomeSchedule>("/api/v1/home/schedule"),
+  save: (s: HomeSchedule) => api<HomeSchedule>("/api/v1/home/schedule", { method: "PUT", body: JSON.stringify(s) }),
+};
+
+/** Which Home sections come first at each part of the day, until the server's
+ *  schedule answers (the same defaults as app/home/schedule.py). Within a
  *  section, widgets keep the order you set in Customise Home. */
 export const SECTION_ORDER: Record<DayPhase, string[]> = {
   morning: ["Now", "Today", "Home"],
   work: ["Today", "Now", "Home"],
   weekend: ["Home", "Today", "Now"],
-  evening: ["Home", "Today", "Now"],
+  evening: ["Today", "Home", "Now"],
   night: ["Today", "Home", "Now"],
 };
+
+/** The section order for now: the schedule's, with Home last while you're out (it's for when you're there). */
+export function sectionOrder(phase: DayPhase, ctx: Pick<HomeContext, "sections" | "home"> | null): string[] {
+  const order = ctx?.sections?.length ? ctx.sections : SECTION_ORDER[phase];
+  return ctx?.home === false ? [...order.filter((s) => s !== "Home"), "Home"] : order;
+}
 
 const ADAPT_KEY = "sirisos.home.adaptive";
 
@@ -80,11 +104,13 @@ export function setAdaptive(on: boolean): void {
   }
 }
 
-/** The part of the day from the device clock, until the server answers (same rules as app/home/context.py). */
+/** The part of the day from the device clock, until the server answers (the default schedule). */
 export function localPhase(at = new Date()): DayPhase {
-  const h = at.getHours();
-  if (h >= 5 && h < 10) return "morning";
-  if (h >= 10 && h < 17) return at.getDay() === 0 || at.getDay() === 6 ? "weekend" : "work";
-  if (h >= 17 && h < 23) return "evening";
-  return "night";
+  const m = at.getHours() * 60 + at.getMinutes();
+  const weekend = at.getDay() === 0 || at.getDay() === 6;
+  const [day, evening] = weekend ? [10 * 60, 17 * 60] : [8 * 60 + 30, 16 * 60 + 30];
+  if (m < 5 * 60 || m >= 23 * 60) return "night";
+  if (m < day) return "morning";
+  if (m < evening) return weekend ? "weekend" : "work";
+  return "evening";
 }

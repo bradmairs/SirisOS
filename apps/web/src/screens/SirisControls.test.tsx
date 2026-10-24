@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { Home } from "./Home";
 import { CameraSheet, ProtocolsWidget, protocolLabel } from "./SirisControls";
 import { resetInbox } from "../components/Inbox";
+import { clearResources } from "../api/resource";
 import { jsonResponse, mockFetch, signIn, sseResponse } from "../test/helpers";
 import type { SirisWidgets } from "../api/types";
 
@@ -85,6 +86,21 @@ describe("<Home /> with SirisAI's widgets", () => {
     expect(screen.getByRole("region", { name: "Parcels" })).toHaveTextContent("New drill");
     expect(screen.getByText("Dentist")).toBeInTheDocument();
     expect(screen.queryByText(/Guest mode is on/)).not.toBeInTheDocument();
+  });
+
+  it("shows protocols only while you're home, and no lights or scenes card", async () => {
+    signIn();
+    clearResources();
+    localStorage.removeItem("sirisos.resource.home:context");
+    mockFetch({ ...routes(false), "/api/v1/home/context": () => jsonResponse({ phase: "weekend", sections: ["Home", "Today", "Now"], home: false,
+      local_time: "2026-10-24T11:00", wrapped_up: false, top3: [], tomorrow_top3: [] }) });
+    render(<MemoryRouter><Home /></MemoryRouter>);
+    expect(await screen.findByRole("region", { name: "Car" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Protocols" })).not.toBeInTheDocument());
+    expect(screen.queryByRole("region", { name: /Lights|Home controls/ })).not.toBeInTheDocument();
+    // Out: Home goes last even though the weekend leads with it.
+    const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent).filter((t) => ["Now", "Today", "Home"].includes(t ?? ""));
+    expect(titles.at(-1)).toBe("Home");
   });
 
   it("hides the calendar in guest mode and says why", async () => {
