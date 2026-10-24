@@ -29,15 +29,13 @@ from app.push.api import router as push_router
 from app.search.api import router as search_router
 from app.siris_projects.api import router as siris_projects_router
 from app.security.api import router as security_router
-from app.shortcuts.api import router as shortcuts_router
 from app.tasks.api import router as tasks_router
 from app.wrapup.api import router as wrapup_router
-from app.meetings.api import router as meetings_router
-from app.email_triage.api import router as email_router
 from app.review.api import router as review_router
 from app.fitness.api import router as fitness_router
 from app.terminal.api import router as terminal_router
 from app.trends.api import router as trends_router
+from app.goals.api import router as goals_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -51,13 +49,10 @@ for router in (
     attention_router,
     search_router,
     security_router,
-    shortcuts_router,
     tasks_router,
     command_router,
     siris_projects_router,
     wrapup_router,
-    meetings_router,
-    email_router,
     review_router,
     fitness_router,
     backup_router,
@@ -65,6 +60,7 @@ for router in (
     terminal_router,
     week_router,
     trends_router,
+    goals_router,
     career_router,
     links_router,
     push_router,

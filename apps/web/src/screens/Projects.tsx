@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CalendarDays, CheckCircle2, Circle, FolderKanban, Link2, Mail, Plus } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, FolderKanban, Link2, Plus } from "lucide-react";
 import { useResource } from "../api/resource";
 import { dueWords, FINISHED, projects, type ProjectPage, type ProjectSummary } from "../api/projects";
 import { dueLabel, tasks, type TaskItem } from "../api/tasks";
@@ -60,7 +60,7 @@ function ProjectRow({ project: p }: { project: ProjectSummary }) {
   );
 }
 
-/** One project: the note, its tasks, meetings and emails, from everywhere (4.0). */
+/** One project: the note, its tasks and calendar (4.0; personal projects only, no work email, since 4.4). */
 export function ProjectScreen() {
   const title = decodeURIComponent(useParams().title ?? "");
   const { data, error, loading, reload } = useResource(`siris-project:${title}`, () => projects.get(title), { staleMs: 60_000, persist: true });
@@ -121,7 +121,6 @@ function ProjectBody({ page: p, text, setText, busy, add, tick, finish, note }: 
   page: ProjectPage; text: string; setText: (s: string) => void; busy: boolean; add: (e: FormEvent) => void; tick: (t: TaskItem) => void; finish: () => void; note: string | null;
 }) {
   const related = useShowMore([...new Set([...p.links, ...p.backlinks])]);
-  const emails = useShowMore(p.emails);
   const due = p.deadline ? dueWords(p.deadline.days_left) : null;
   const finished = FINISHED.includes(p.status);
   const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
@@ -156,18 +155,16 @@ function ProjectBody({ page: p, text, setText, busy, add, tick, finish, note }: 
         </form>
       </Glass>
 
-      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Meetings">
-        <header className="widget__head"><CalendarDays aria-hidden="true" /><span>Meetings</span></header>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Calendar">
+        <header className="widget__head"><CalendarDays aria-hidden="true" /><span>Calendar</span></header>
         {p.meetings.upcoming.length + p.meetings.recent.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 14 }}>{p.unavailable.includes("calendar") ? "The calendar didn't answer." : `None in the calendar naming ${p.names.join(" or ")}.`}</p>
         ) : (
           <ul className="items">
             {p.meetings.upcoming.map((e, i) => (
-              <li key={`u${i}`}>
-                <Link className="item" to={`/meeting?title=${encodeURIComponent(e.title)}&start=${encodeURIComponent(e.start ?? "")}`}>
-                  <span className="item__dot dot-good" aria-hidden="true" />
-                  <span className="item__text"><div className="item__title">{e.title}</div><div className="item__subtitle">{when(e.start)} · Prepare</div></span>
-                </Link>
+              <li key={`u${i}`} className="item">
+                <span className="item__dot dot-good" aria-hidden="true" />
+                <span className="item__text"><div className="item__title">{e.title}</div><div className="item__subtitle">{when(e.start)}</div></span>
               </li>
             ))}
             {p.meetings.recent.map((e, i) => (
@@ -178,24 +175,6 @@ function ProjectBody({ page: p, text, setText, busy, add, tick, finish, note }: 
             ))}
           </ul>
         )}
-      </Glass>
-
-      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Emails">
-        <header className="widget__head"><Mail aria-hidden="true" /><span>Emails</span></header>
-        {p.emails.length === 0 ? (
-          <p className="muted" style={{ margin: 0, fontSize: 14 }}>
-            {p.guest_mode ? "Hidden in guest mode." : p.unavailable.includes("email") ? "Email didn't answer (SirisAI 2.25 or later searches it)." : !p.email_configured ? "Email isn't set up in SirisAI." : "None in the last 90 days with the project's name in the subject."}
-          </p>
-        ) : (
-          <ul className="items">
-            {emails.shown.map((m) => (
-              <li key={m.uid} className="item">
-                <span className="item__text"><div className="item__title">{m.subject}</div><div className="item__subtitle">{m.sender}{m.date ? ` · ${new Date(m.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""} · {m.snippet}</div></span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {emails.toggle}
       </Glass>
 
       {related.shown.length > 0 && (

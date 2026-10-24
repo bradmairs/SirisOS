@@ -20,7 +20,7 @@ describe("<FocusCard />", () => {
     if (soon.getDate() !== new Date().getDate()) return; // just before midnight: nothing "today" to show
     show(ctx({ phase: "work" }), [{ summary: "Werribee design review", start: soon.toISOString() }]);
     expect(screen.getByText("Werribee design review")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Prepare" }).getAttribute("href")).toMatch(/^\/meeting\?title=Werribee/);
+    expect(screen.queryByRole("link", { name: "Prepare" })).toBeNull();  // meeting prep archived (4.4)
   });
 
   it("offers the wrap-up in the evening, then tomorrow's top 3 once it's done", () => {

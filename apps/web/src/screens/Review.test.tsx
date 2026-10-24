@@ -35,7 +35,7 @@ describe("<ReviewScreen />", () => {
     const next = screen.getByRole("region", { name: "Next week" });
     expect(within(next).getByText("Clash: Site visit and Design review")).toBeInTheDocument();
     expect(within(next).getByText("Submit the drainage report")).toBeInTheDocument();
-    expect(within(next).getByRole("link", { name: "Open next week" })).toHaveAttribute("href", "/week?start=2026-10-26");
+    expect(within(next).queryByRole("link", { name: "Open next week" })).toBeNull();  // This week archived (4.4)
 
     await user.type(screen.getByLabelText("Your note for next week"), "Finish the report.");
     await user.click(screen.getByRole("button", { name: "Save" }));

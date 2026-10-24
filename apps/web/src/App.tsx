@@ -23,18 +23,14 @@ const loadBrief = () => import("./screens/Brief");
 const loadSearch = () => import("./components/SearchPalette");
 const loadCareer = () => import("./screens/Career");
 const loadInbox = () => import("./components/Inbox");
-const loadWeek = () => import("./screens/Week");
 const loadStatus = () => import("./screens/Status");
 const loadSecurity = () => import("./screens/Security");
 const loadTerminal = () => import("./screens/Terminal");
 const loadTasks = () => import("./screens/Tasks");
 const loadWrapUp = () => import("./screens/WrapUp");
-const loadMeeting = () => import("./screens/Meeting");
-const loadEmail = () => import("./screens/Email");
 const loadReview = () => import("./screens/Review");
 const loadCapture = () => import("./components/QuickCapture");
 const loadTalk = () => import("./components/Talk");
-const loadShortcuts = () => import("./screens/Shortcuts");
 const loadProjects = () => import("./screens/Projects");
 const loadTrends = () => import("./screens/Trends");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
@@ -47,29 +43,25 @@ const Career = lazy(() => loadCareer().then((m) => ({ default: m.Career })));
 const ProjectsScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectsScreen })));
 const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectScreen })));
 const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
-const ShortcutsScreen = lazy(() => loadShortcuts().then((m) => ({ default: m.ShortcutsScreen })));
 const Talk = lazy(() => loadTalk().then((m) => ({ default: m.Talk })));
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
 const SecurityScreen = lazy(() => loadSecurity().then((m) => ({ default: m.SecurityScreen })));
 const TerminalScreen = lazy(() => loadTerminal().then((m) => ({ default: m.TerminalScreen })));
 const TasksScreen = lazy(() => loadTasks().then((m) => ({ default: m.TasksScreen })));
 const WrapUpScreen = lazy(() => loadWrapUp().then((m) => ({ default: m.WrapUpScreen })));
-const MeetingScreen = lazy(() => loadMeeting().then((m) => ({ default: m.MeetingScreen })));
-const EmailScreen = lazy(() => loadEmail().then((m) => ({ default: m.EmailScreen })));
 const ReviewScreen = lazy(() => loadReview().then((m) => ({ default: m.ReviewScreen })));
 const StatusScreen = lazy(() => loadStatus().then((m) => ({ default: m.StatusScreen })));
-const WeekScreen = lazy(() => loadWeek().then((m) => ({ default: m.WeekScreen })));
 const InboxScreen = lazy(() => loadInbox().then((m) => ({ default: m.InboxScreen })));
 const SearchPalette = lazy(() => loadSearch().then((m) => ({ default: m.SearchPalette })));
 
 function warmScreens() {
-  const warm = () => [loadAssistant, loadBrain, loadLinks, loadEngineering, loadBrief, loadSearch, loadCareer, loadInbox, loadWeek, loadCapture].forEach((load) => load().catch(() => undefined));
+  const warm = () => [loadAssistant, loadBrain, loadLinks, loadEngineering, loadBrief, loadSearch, loadCareer, loadInbox, loadCapture].forEach((load) => load().catch(() => undefined));
   const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
   if (idle) idle(warm, { timeout: 3000 });
   else window.setTimeout(warm, 1500);
 }
 
-/** /capture (a Home Screen or Shortcuts link): open quick capture over Home. */
+/** /capture (a Home Screen link): open quick capture over Home. */
 function OpenCapture({ onOpen }: { onOpen: () => void }) {
   const navigate = useNavigate();
   useEffect(() => {
@@ -164,8 +156,6 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/brief" element={<BriefScreen />} />
           <Route path="/career" element={<Career />} />
           <Route path="/inbox" element={<InboxScreen />} />
-          <Route path="/week" element={<WeekScreen />} />
-          <Route path="/shortcuts" element={<ShortcutsScreen />} />
           <Route path="/status" element={<StatusScreen />} />
           <Route path="/security" element={<SecurityScreen />} />
           <Route path="/terminal" element={<TerminalScreen />} />
@@ -174,8 +164,6 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/year" element={<TrendsScreen />} />
           <Route path="/projects/:title" element={<ProjectScreen />} />
           <Route path="/wrapup" element={<WrapUpScreen />} />
-          <Route path="/meeting" element={<MeetingScreen />} />
-          <Route path="/email" element={<EmailScreen />} />
           <Route path="/review" element={<ReviewScreen />} />
           <Route path="/capture" element={<OpenCapture onOpen={openCapture} />} />
           <Route path="/talk" element={<OpenCapture onOpen={openTalk} />} />

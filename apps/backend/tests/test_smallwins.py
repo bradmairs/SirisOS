@@ -1,4 +1,4 @@
-"""3.6: the iPhone widget's glance, the fitness card and upkeep on System status."""
+"""3.6: the fitness card and upkeep on System status (the iPhone widget went with iPhone shortcuts in 4.4)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from app.entrypoint import app
 from app.hub import service as hub_service
 from app.hub import upkeep
 from app.hub.service import reset_hub
-from app.shortcuts import keys
 from app.tasks import service as tasks
 from app.tasks import store as task_store
 from tests.test_hub import AUTH, ENV
@@ -49,15 +48,6 @@ def client(monkeypatch, tmp_path):
     reset_hub(ENV)
     yield TestClient(app)
     reset_hub({})
-
-
-def test_the_widget_glance_needs_a_today_key(client):
-    tasks.add(task_store.Task(title="Call the plumber", due=TODAY.isoformat()))
-    _, capture_only = keys.create("Capture", ["capture"])
-    assert client.get("/api/v1/shortcuts/glance", headers={"Authorization": f"Bearer {capture_only}"}).status_code == 403
-    _, key = keys.create("Widget", ["today"])
-    body = client.get("/api/v1/shortcuts/glance", headers={"Authorization": f"Bearer {key}"}).json()
-    assert body["top_task"] == "Call the plumber" and body["tasks_today"] == 1 and body["needs_you"] is not None and body["next_event"] is None
 
 
 def test_fitness_week_and_goal(client):

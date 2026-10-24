@@ -18,7 +18,7 @@ const item = (over: Partial<TaskItem>): TaskItem => ({ id: "sirisos:a", source: 
 function listOf(items: TaskItem[]): TaskList {
   const groups = { overdue: [], today: [], week: [], later: [], someday: [] } as TaskList["groups"];
   items.forEach((t) => groups[t.group].push(t));
-  return { date: iso(0), groups, counts: Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length])) as TaskList["counts"], sources: { siris: true, reminders: true } };
+  return { date: iso(0), groups, counts: Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length])) as TaskList["counts"] };
 }
 
 const LIST = listOf([
@@ -76,12 +76,11 @@ describe("<TasksScreen />", () => {
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/snooze"))!.init.body))).toEqual({ until: "tomorrow" });
   });
 
-  it("says when SirisAI's sources are missing", async () => {
+  it("says when there's nothing to do", async () => {
     signIn();
-    mockFetch({ "/api/v1/tasks": () => jsonResponse({ ...listOf([]), sources: { siris: false, reminders: false } }) });
+    mockFetch({ "/api/v1/tasks": () => jsonResponse(listOf([])) });
     render(<TasksScreen />);
-    expect(await screen.findByText(/SirisAI didn't answer/)).toBeInTheDocument();
-    expect(screen.getByText(/No tasks/)).toBeInTheDocument();
+    expect(await screen.findByText(/No tasks/)).toBeInTheDocument();
   });
 });
 

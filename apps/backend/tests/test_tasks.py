@@ -52,12 +52,14 @@ class FakeSirisAI:
                       {"task": "Read the stormwater guide", "note": "Learning", "due": None, "type": "note"}]
         self.reminders = [{"id": 7, "message": "Call Mum", "due_at": (datetime.utcnow() + timedelta(hours=3)).isoformat(timespec="seconds") + "Z", "status": "pending"}]
         self.posts: list[tuple[str, dict]] = []
+        self.gets: list[str] = []
         self.down = False
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         if self.down:
             raise httpx.ConnectError("down")
         path = request.url.path
+        self.gets.append(path)
         if request.method == "POST":
             self.posts.append((path, json.loads(request.content or b"{}")))
             if path == "/siris/brain/done":
@@ -86,31 +88,22 @@ def client():
     return TestClient(app)
 
 
-def test_one_list_from_every_source(client, ai):
+def test_only_sirisos_own_tasks(client, ai):
+    # 4.4: the list is the few things to get done, not a mirror of Siris notes or SirisAI's reminders.
     assert client.get("/api/v1/tasks").status_code == 401
     made = client.post("/api/v1/tasks", headers=AUTH, json={"text": "remind me to put the bins out today at 7pm"}).json()
     assert made["title"] == "Put the bins out" and made["time"] == "19:00"
     client.post("/api/v1/tasks", headers=AUTH, json={"title": "Plan the garden"})
     body = client.get("/api/v1/tasks", headers=AUTH).json()
-    assert body["sources"] == {"siris": True, "reminders": True}
-    assert [t["title"] for t in body["groups"]["overdue"]] == ["Send levels to Dana"]
-    assert body["groups"]["overdue"][0]["source"] == "siris" and body["groups"]["overdue"][0]["detail"] == "Werribee Drainage"
-    today_titles = [t["title"] for t in body["groups"]["today"] + body["groups"]["week"]]
-    assert "Put the bins out" in today_titles and "Call Mum" in today_titles
-    assert {t["title"] for t in body["groups"]["someday"]} == {"Plan the garden", "Read the stormwater guide"}
-
-
-def test_sirisai_down_still_shows_sirisos_tasks(client, ai):
-    ai.down = True
-    client.post("/api/v1/tasks", headers=AUTH, json={"title": "Plan the garden"})
-    body = client.get("/api/v1/tasks", headers=AUTH).json()
-    assert body["sources"] == {"siris": False, "reminders": False} and body["counts"]["someday"] == 1
+    every = [t for g in body["groups"].values() for t in g]
+    assert {t["title"] for t in every} == {"Put the bins out", "Plan the garden"} and {t["source"] for t in every} == {"sirisos"}
+    assert not any(path in ("/siris/brain/tasks", "/siris/hub/v1/reminders") for path in ai.gets)
 
 
 def test_ticking_each_kind_where_it_lives(client, ai):
     own = client.post("/api/v1/tasks", headers=AUTH, json={"title": "Plan the garden"}).json()
     assert client.post(f"/api/v1/tasks/sirisos:{own['id']}/done", headers=AUTH).json() == {"id": f"sirisos:{own['id']}", "action": "done"}
-    assert client.get("/api/v1/tasks", headers=AUTH).json()["counts"]["someday"] == 1  # only the vault one left
+    assert client.get("/api/v1/tasks", headers=AUTH).json()["counts"]["someday"] == 0
     assert service.done_today()[0]["title"] == "Plan the garden"
 
     r = client.post("/api/v1/tasks/siris:Werribee Drainage|Send levels to Dana/done", headers=AUTH)
@@ -126,13 +119,7 @@ def test_a_repeating_task_moves_on_instead_of_finishing(client, ai):
     assert r["action"] == "repeated" and r["next_due"] == (service.today() + timedelta(days=7)).isoformat()
 
 
-def test_snoozing_moves_a_task_and_leaves_notes_alone(client, ai):
-    r = client.post("/api/v1/tasks/siris:Werribee Drainage|Send levels to Dana/snooze", headers=AUTH, json={"until": "next-week"})
-    assert r.status_code == 200
-    body = client.get("/api/v1/tasks", headers=AUTH).json()
-    moved = next(t for g in body["groups"].values() for t in g if t["title"] == "Send levels to Dana")
-    assert moved["group"] in ("week", "later") and moved["snoozed_until"] == r.json()["snoozed_until"]
-    assert not any(p[0] == "/siris/brain/done" for p in ai.posts)
+def test_snoozing_moves_a_task(client, ai):
     own = client.post("/api/v1/tasks", headers=AUTH, json={"title": "Wash the car", "due": service.today().isoformat()}).json()
     client.post(f"/api/v1/tasks/sirisos:{own['id']}/snooze", headers=AUTH, json={"until": "tomorrow"})
     assert store.load().tasks[-1].due == (service.today() + timedelta(days=1)).isoformat()
@@ -157,11 +144,3 @@ def test_a_task_with_a_time_is_pushed_once(ai):
     assert t.id in {x.id for x in store.load().tasks}
 
 
-def test_remind_me_from_the_shortcut_adds_a_task(client, ai, monkeypatch):
-    from app.shortcuts import keys
-
-    monkeypatch.setenv("SIRISOS_SHORTCUT_KEYS_PATH", str(store._path().with_name("keys.json")))
-    _, secret = keys.create("Test", ["capture"])
-    r = client.post("/api/v1/shortcuts/capture", headers={"Authorization": f"Bearer {secret}"}, content="remind me to pay rego on Friday")
-    assert r.status_code == 200 and r.text.startswith("Added to your tasks: “Pay rego” for ")
-    assert not ai.posts  # nothing sent to Siris

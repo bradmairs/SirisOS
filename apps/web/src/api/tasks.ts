@@ -20,7 +20,6 @@ export interface TaskList {
   date: string;
   groups: Record<TaskGroup, TaskItem[]>;
   counts: Record<TaskGroup, number>;
-  sources: { siris: boolean; reminders: boolean };
 }
 
 export interface NewTask {

@@ -7,11 +7,6 @@ import { Glass } from "../components/Glass";
 
 const dayName = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
 
-function nextMonday(monday: string): string {
-  const d = new Date(`${monday}T12:00:00`);
-  d.setDate(d.getDate() + 7);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 function Metric({ value, label }: { value: string | number | null; label: string }) {
   if (value === null || value === undefined) return null;
@@ -121,7 +116,6 @@ export function ReviewScreen() {
                   </li>
                 ))}
               </ul>
-              <Link to={`/week?start=${nextMonday(data.week_of)}`} className="show-more">Open next week</Link>
             </Glass>
 
             <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="What matters next week">
