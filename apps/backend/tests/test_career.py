@@ -91,6 +91,54 @@ def test_reads_excel_below_a_title_row_and_excel_dates() -> None:
     ]
 
 
+def _broken_styles(raw: bytes) -> bytes:
+    """The workbook with an empty colour in its styles, as Engineers Australia's export has."""
+    import zipfile
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(raw)) as src, zipfile.ZipFile(out, "w") as dst:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename == "xl/styles.xml":
+                data = data.replace(b"</fonts>", b'<font><color rgb=""/></font></fonts>')
+            dst.writestr(item, data)
+    return out.getvalue()
+
+
+def test_reads_engineers_australias_export_despite_its_broken_styles() -> None:
+    """Its real layout: a title above the table, hours like "2h30m", a column per
+    minimum named after the area ("Civil Engineering"), hours that count toward
+    more than one minimum, Type I-VIII hour columns, and a total row."""
+    from openpyxl import load_workbook
+
+    raw = _broken_styles(_xlsx([
+        ["List of CPD records for a participant"],
+        ["Title", "Start Date", "End Date", "Total Hours", "Provider", "Key Learnings", "Source", "Status", "Type I", "Type II",
+         "Risk Management", "Business & Management", "Civil Engineering", "Other"],
+        ["Water Engineering Services Half Yearly Meeting", 45077, 45077, "4h", "Downer", "Planning for the half", "User Entry", "Finalised",
+         "", "4h", "2h", "2h", "4h", ""],
+        ["Sewer rehab webinar", 45138, 45138, "1h30m", "WSAA", "", "User Entry", "Finalised", "", "", "15m", "", "1h30m", ""],
+        ["Total Finalised", "", "", "5h30m"],
+    ]))
+    with pytest.raises(ValueError):
+        load_workbook(io.BytesIO(raw), read_only=True)
+    records = cpd.parse(raw, "participant_records_20261024.xlsx")
+    assert [(r.date, r.title, r.hours, r.split, r.type, r.provider) for r in records] == [
+        ("2023-05-31", "Water Engineering Services Half Yearly Meeting", 4.0, {"risk": 2.0, "business": 2.0, "area": 4.0}, "", "Downer"),
+        ("2023-07-31", "Sewer rehab webinar", 1.5, {"risk": 0.25, "area": 1.5}, "", "WSAA"),
+    ]
+    assert records[0].notes == "Planning for the half"
+
+
+def test_overlapping_minimums_dont_inflate_the_total(career_file) -> None:
+    doc = store.load()
+    rec = cpd.CpdRecord(id="a", date="2026-05-01", title="Meeting", hours=4, split={"risk": 2, "business": 2, "area": 4}, basis="export")
+    doc.cpd.records = [rec]
+    s = cpd.summary(doc, TODAY)
+    assert s["total"] == 4
+    assert s["categories"]["area"] == 4 and s["categories"]["risk"] == 2
+
+
 @pytest.mark.parametrize("raw,name,message", [
     (b"%PDF-1.4", "report.pdf", "export your CPD as CSV or Excel"),
     (b"a,b,c\n1,2,3\n", "x.csv", "Couldn't find the CPD table"),
