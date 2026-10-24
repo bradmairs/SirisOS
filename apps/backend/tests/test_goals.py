@@ -59,6 +59,17 @@ def test_measured_goals_track_themselves(setup):
     assert (journal["value"], journal["state"]) == (1, "behind")
 
 
+def test_chartered_application_goal_follows_readiness(setup):
+    service.add(2026, service.Goal(title="Chartered application ready", kind="chartered_ready", target=100))
+    doc = career_store.load()
+    doc.application.area_of_practice = "Civil"
+    doc.application.signed = True
+    career_store.save(doc)
+    goal = overview()["goals"][0]
+    assert goal["unit"] == "%" and goal["source"] == "Chartered application"
+    assert (goal["value"], goal["percent"], goal["state"]) == (25, 25, "behind")
+
+
 def test_counted_and_done_goals(setup):
     books = service.add(2026, service.Goal(title="Read 12 books", kind="count", target=12, unit="books"))
     charter = service.add(2026, service.Goal(title="Get chartered", kind="done"))

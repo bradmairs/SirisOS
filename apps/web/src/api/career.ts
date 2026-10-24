@@ -47,7 +47,8 @@ export interface CareerOverview {
   pathways: { id: string; name: string; done: number; total: number; next: { id: string; title: string; status: StepStatus } | null }[];
   competencies: { total: number; evidenced: number; counts: Record<string, number>; gaps: Element[] };
   goals: Goal[];
-  next_steps: { title: string; detail: string; kind: "pathway" | "goal" | "cpd" | "evidence" }[];
+  next_steps: { title: string; detail: string; kind: "pathway" | "goal" | "cpd" | "evidence" | "application" }[];
+  application: { percent: number; done: number; total: number };
   categories: Record<CpdCategory, string>;
 }
 
@@ -124,3 +125,61 @@ export const claims = {
 };
 
 export const EA_PORTAL = "https://portal.engineersaustralia.org.au/";
+
+export type FormId = "cpd" | "reflection" | "bia";
+export type BiaState = "VIC" | "WA" | "ACT";
+
+export interface ApplicationAnswers {
+  area_of_practice: string;
+  additional_area: string;
+  additional_reason: string;
+  cpd_evidence: "log" | "questionnaire" | null;
+  cpd_answers: Record<string, string>;
+  part1: Record<string, "yes" | "not_sure">;
+  part2: Record<string, "yes" | "no">;
+  part3: Record<string, string>;
+  signed: boolean;
+  bia: { required: boolean | null; state: BiaState | null; cv: boolean; building_cpd: boolean; statement: string };
+  files: Partial<Record<FormId, { filename: string; size: number; at: string }>>;
+}
+
+export interface ApplicationView {
+  application: ApplicationAnswers;
+  documents: { id: FormId; title: string; form: string; summary: string }[];
+  cpd_questions: { id: string; q: string; type: string }[];
+  part1: { id: string; q: string; elements: string[] }[];
+  part2: { id: string; q: string }[];
+  elements: (Element & { meaning: string })[];
+  bia_states: Record<BiaState, { name: string; years: number; laws: string }>;
+  readiness: {
+    percent: number; done: number; total: number;
+    items: { id: string; label: string; done: boolean; detail: string }[];
+    prepare: { id: string; q: string; elements: string[] }[];
+  };
+}
+
+const A = "/api/v1/career/application";
+
+export const application = {
+  get: () => api<ApplicationView>(A),
+  save: (answers: ApplicationAnswers) => {
+    const edit: Partial<ApplicationAnswers> = { ...answers };
+    delete edit.files;
+    return api<ApplicationView>(A, { method: "PUT", body: JSON.stringify(edit) });
+  },
+  draftCpd: (id: string) => api<{ id: string; text: string }>(`${A}/draft/cpd/${encodeURIComponent(id)}`),
+  draftElement: (id: string) => api<{ id: string; text: string }>(`${A}/draft/element/${encodeURIComponent(id)}`),
+  upload: async (form: FormId, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    const r = await request(`${A}/${form}/file`, { method: "POST", body });
+    return (await r.json()) as ApplicationView;
+  },
+  async download(form: FormId, filename: string) {
+    const url = URL.createObjectURL(await (await request(`${A}/${form}/file`)).blob());
+    const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  },
+  remove: (form: FormId) => api<ApplicationView>(`${A}/${form}/file`, { method: "DELETE" }),
+};

@@ -1,6 +1,6 @@
 import { api, json } from "./client";
 
-export type GoalKind = "running_km" | "cpd_hours" | "journal_days" | "tasks_done" | "count" | "done";
+export type GoalKind = "running_km" | "cpd_hours" | "journal_days" | "tasks_done" | "chartered_ready" | "count" | "done";
 
 export interface YearGoal {
   id: string;
@@ -32,6 +32,7 @@ export const KIND_LABEL: Record<GoalKind, string> = {
   cpd_hours: "CPD hours (counted for you)",
   journal_days: "Journal days (counted for you)",
   tasks_done: "Tasks done (counted for you)",
+  chartered_ready: "Chartered application ready (%, from Career)",
   count: "A number I'll count",
   done: "Done or not",
 };

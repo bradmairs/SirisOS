@@ -76,6 +76,10 @@ PATHWAYS: list[dict[str, Any]] = [
         "summary": "Show all 16 Stage 2 competency elements, then a professional interview.",
         "steps": _steps(
             ("self-assess", "Self-assess against the 16 elements", "Use the Competencies view: every element needs evidence from your own work."),
+            ("reflection", "Self-reflection questionnaire",
+             "Engineers Australia's form: your area of practice, Parts 1 and 2, a short comment on each element from a recent episode, and the signed statement. Work through it in Application."),
+            ("cpd-evidence", "CPD evidence", "Your Engineers Australia CPD log, or the CPD questionnaire. No minimum hours to apply; 150 hours every three years once Chartered."),
+            ("bia", "Building Industry Assessment, if needed", "Only for building-industry work in Victoria, WA or the ACT (Victoria's Building Industry Endorsement). Say Yes or No on the form."),
             ("evidence", "Collect evidence for every element", "Projects, reports, reviews and decisions you led. Link them in Competencies."),
             ("route", "Choose the application route", "For example the Engineering Competency Claim. Check Engineers Australia's current options."),
             ("referees", "Line up referees and a verifier", "People who supervised or know your work and can confirm your claims."),
@@ -110,6 +114,12 @@ PATHWAYS: list[dict[str, Any]] = [
         ),
     },
 ]
+
+# Additions made to existing career files when they're loaded, once each:
+# version -> (pathway id, step ids, the step they go after).
+UPGRADES: dict[int, tuple[str, tuple[str, ...], str]] = {
+    2: ("cpeng", ("reflection", "cpd-evidence", "bia"), "self-assess"),
+}
 
 # Siris notes that hold the career story (shown and linked in the tab).
 BRAIN_NOTES = ["CPEng Chartership", "Brad's Career History"]

@@ -119,6 +119,36 @@ class Profile(BaseModel):
     brain_notes: list[str] = Field(default_factory=lambda: list(defaults.BRAIN_NOTES), max_length=10)
 
 
+class UploadedFile(BaseModel):
+    filename: str = Field(max_length=200)
+    stored: str = Field(max_length=80)
+    size: int = 0
+    at: str
+
+
+class Bia(BaseModel):
+    required: bool | None = None
+    state: Literal["VIC", "WA", "ACT"] | None = None
+    cv: bool = False
+    building_cpd: bool = False
+    statement: str = Field(default="", max_length=8000)
+
+
+class Application(BaseModel):
+    area_of_practice: str = Field(default="", max_length=120)
+    additional_area: str = Field(default="", max_length=120)
+    additional_reason: str = Field(default="", max_length=2000)
+    # How CPD is evidenced: the EA log export, or the questionnaire.
+    cpd_evidence: Literal["log", "questionnaire"] | None = None
+    cpd_answers: dict[str, str] = Field(default_factory=dict)
+    part1: dict[str, Literal["yes", "not_sure"]] = Field(default_factory=dict)
+    part2: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)
+    part3: dict[str, str] = Field(default_factory=dict)
+    signed: bool = False
+    bia: Bia = Field(default_factory=Bia)
+    files: dict[str, UploadedFile] = Field(default_factory=dict)
+
+
 class CareerDocument(BaseModel):
     profile: Profile = Field(default_factory=Profile)
     pathways: list[Pathway] = Field(default_factory=list, max_length=12)
@@ -126,6 +156,10 @@ class CareerDocument(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list, max_length=500)
     goals: list[Goal] = Field(default_factory=list, max_length=50)
     cpd: Cpd = Field(default_factory=Cpd)
+    # The Chartered application forms (application.py, 4.6).
+    application: Application = Field(default_factory=Application)
+    # Which default additions this file has had (see _upgrade).
+    defaults_version: int = 1
     updated_at: str | None = None
 
 
@@ -142,7 +176,28 @@ def seeded() -> CareerDocument:
     return CareerDocument(
         pathways=[Pathway.model_validate(p) for p in copy.deepcopy(defaults.PATHWAYS)],
         elements=[Element.model_validate(e) for e in defaults.STAGE2_ELEMENTS],
+        defaults_version=max(defaults.UPGRADES, default=1),
     )
+
+
+def _upgrade(doc: CareerDocument) -> CareerDocument:
+    """Add steps that came with later versions to a file made before them,
+    once: a step removed after that stays removed."""
+    latest = max(defaults.UPGRADES, default=1)
+    if doc.defaults_version >= latest:
+        return doc
+    by_id = {p["id"]: p for p in defaults.PATHWAYS}
+    for version in sorted(v for v in defaults.UPGRADES if v > doc.defaults_version):
+        pathway_id, step_ids, after = defaults.UPGRADES[version]
+        pathway = next((p for p in doc.pathways if p.id == pathway_id), None)
+        if pathway is None:
+            continue
+        have = {s.id for s in pathway.steps}
+        new = [Step.model_validate(s) for s in by_id[pathway_id]["steps"] if s["id"] in step_ids and s["id"] not in have]
+        at = next((i + 1 for i, s in enumerate(pathway.steps) if s.id == after), len(pathway.steps))
+        pathway.steps[at:at] = new
+    doc.defaults_version = latest
+    return doc
 
 
 def load() -> CareerDocument:
@@ -152,7 +207,7 @@ def load() -> CareerDocument:
     doc = CareerDocument.model_validate_json(path.read_text(encoding="utf-8"))
     if not doc.elements:
         doc.elements = [Element.model_validate(e) for e in defaults.STAGE2_ELEMENTS]
-    return doc
+    return _upgrade(doc)
 
 
 def save(doc: CareerDocument) -> CareerDocument:
