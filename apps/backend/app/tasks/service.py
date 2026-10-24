@@ -1,16 +1,13 @@
-"""One task list (2.9) from three places:
+"""Tasks (2.9; only SirisOS's own since 4.4): the few things to get done,
+added on the Tasks screen, by the wrap-up's top 3, by voice or by "remind me
+to…" in quick capture, with a due date, an optional time and a repeat. A
+repeating task moves to its next date when ticked.
 
-- **SirisOS's own** tasks (tasks.json): added on the Tasks screen or by
-  "remind me to…" in quick capture, with a due date, an optional time and a
-  repeat. A repeating task moves to its next date when ticked.
-- **Siris notes**: every open `- [ ]` task in the vault (SirisAI's
-  /siris/brain/tasks). Ticking one ticks it in its note.
-- **SirisAI reminders** ("remind me at 7" said to SirisAI). Ticking one
-  cancels it.
-
-Each comes back in one shape and in one of these groups: overdue, today,
-this week, later or someday. Snoozing moves a task to a later day; for notes
-and reminders that's remembered here, and their home is left as it is.
+The list no longer mirrors the open `- [ ]` tasks in Siris notes or SirisAI's
+reminders (they doubled up on Apple Reminders). A project's page still shows
+its note's own tasks, and ticking one there (`siris:` ids) ticks it in the
+note. Each task comes back in one of these groups: overdue, today, this
+week, later or someday.
 """
 
 from __future__ import annotations
@@ -124,8 +121,7 @@ def _snoozed(doc: store.TasksDocument, key: str) -> date | None:
 
 
 async def collect(hub: Hub, on: date | None = None) -> dict[str, Any]:
-    """{groups: {overdue: [...], ...}, counts, sources: {siris, reminders}}.
-    A source that didn't answer is marked False in `sources`, and the rest still show."""
+    """{groups: {overdue: [...], ...}, counts}: SirisOS's own open tasks."""
     on = on or today()
     doc = store.load()
     items: list[dict[str, Any]] = []
@@ -137,34 +133,11 @@ async def collect(hub: Hub, on: date | None = None) -> dict[str, Any]:
         items.append({"id": f"sirisos:{t.id}", "source": "sirisos", "title": t.title, "detail": t.notes or None,
                       "due": t.due, "time": t.time, "repeat": t.repeat, "group": group_of(due, on)})
 
-    vault = await sirisai_api.get(hub, "/siris/brain/tasks")
-    for t in (vault or {}).get("tasks") or []:
-        key = _key_siris(t)
-        snooze = _snoozed(doc, key)
-        due = date.fromisoformat(t["due"]) if t.get("due") else None
-        shown = max(due, snooze) if (due and snooze) else (snooze or due)
-        items.append({"id": key, "source": "siris", "title": t.get("task"), "detail": t.get("note"), "due": t.get("due"),
-                      "time": None, "repeat": "none", "group": group_of(shown, on), "snoozed_until": snooze.isoformat() if snooze else None,
-                      "note": t.get("note")})
-
-    reminders = await sirisai_api.get(hub, "/siris/hub/v1/reminders")
-    for r in (reminders or {}).get("reminders") or []:
-        try:
-            local = datetime.fromisoformat(str(r["due_at"]).replace("Z", "+00:00")).astimezone(zone())
-        except ValueError:
-            continue
-        key = f"reminder:{r['id']}"
-        snooze = _snoozed(doc, key)
-        shown = max(local.date(), snooze) if snooze else local.date()
-        items.append({"id": key, "source": "reminder", "title": r.get("message"), "detail": "SirisAI reminder",
-                      "due": local.date().isoformat(), "time": local.strftime("%H:%M"), "repeat": "none", "group": group_of(shown, on)})
-
     def order(i: dict[str, Any]) -> tuple:
         return (i["due"] is None, i["due"] or "", i.get("time") or "99:99", (i["title"] or "").lower())
 
     groups = {g: sorted((i for i in items if i["group"] == g), key=order) for g in GROUPS}
-    return {"date": on.isoformat(), "groups": groups, "counts": {g: len(v) for g, v in groups.items()},
-            "sources": {"siris": vault is not None, "reminders": reminders is not None}}
+    return {"date": on.isoformat(), "groups": groups, "counts": {g: len(v) for g, v in groups.items()}}
 
 
 def done_today(on: date | None = None) -> list[dict[str, Any]]:

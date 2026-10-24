@@ -94,7 +94,7 @@ export function SecurityScreen() {
               );
             })}
           </ul>
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>Wrong passwords are limited to 8 every 15 minutes from one device. Shortcut keys are managed on the iPhone shortcuts screen.</p>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>Wrong passwords are limited to 8 every 15 minutes from one device.</p>
         </Glass>
       </div>
     </>

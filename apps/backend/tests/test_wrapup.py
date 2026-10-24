@@ -1,5 +1,5 @@
 """The evening wrap-up (2.10): today's tasks, CPD-looking meetings, tomorrow's
-top 3 (as tasks, and in tomorrow's brief), a journal line to Siris, and the
+top 3 (as tasks, and in tomorrow's brief), the day's line and top 3 to Siris as memories, and the
 once-a-day notification."""
 
 from __future__ import annotations
@@ -86,15 +86,21 @@ def test_logging_a_meeting_as_cpd_adds_a_task_and_stops_suggesting_it(client, ai
     assert client.get("/api/v1/wrapup", headers=AUTH).json()["meetings"][0]["cpd"] is None
 
 
-def test_saving_makes_tomorrows_top_3_and_a_journal_note(client, ai):
+def test_saving_makes_tomorrows_top_3_and_sends_memories_not_a_day_note(client, ai):
     tomorrow = (tasks.today() + timedelta(days=1)).isoformat()
     existing = tasks.add(task_store.Task(title="Draft the drainage report", due=(tasks.today() + timedelta(days=5)).isoformat()))
     r = client.post("/api/v1/wrapup", headers=AUTH, json={"top3": ["Draft the drainage report", "Call Dana", " "], "journal": "Good site visit; pumps arrived."}).json()
-    assert r["top3"] == ["Draft the drainage report", "Call Dana"] and r["journal_saved_as"].startswith("Day ")
+    assert r["top3"] == ["Draft the drainage report", "Call Dana"] and r["journal_saved_as"] == "memories"
     titles = {t.title: t.due for t in task_store.load().tasks}
     assert titles["Call Dana"] == tomorrow and titles["Draft the drainage report"] == tomorrow  # moved up, not duplicated
     assert sum(1 for t in task_store.load().tasks if t.title == "Draft the drainage report") == 1 and existing.id
-    assert ai.captures == [{"title": f"Day {tasks.today().isoformat()}", "text": "Good site visit; pumps arrived.", "tags": ["journal", "wrap-up"]}]
+    today, tom = tasks.today(), tasks.today() + timedelta(days=1)
+    assert ai.captures == [
+        {"text": f"{today.strftime('%A %-d %B %Y')}: Good site visit; pumps arrived.", "kind": "memory", "tags": ["wrap-up"]},
+        {"text": f"Brad's focus for {tom.strftime('%A %-d %B %Y')}: Draft the drainage report", "kind": "memory", "tags": ["wrap-up"]},
+        {"text": f"Brad's focus for {tom.strftime('%A %-d %B %Y')}: Call Dana", "kind": "memory", "tags": ["wrap-up"]},
+    ]
+    assert not any("title" in c for c in ai.captures)  # never a "Day …" note
     assert service.top3_for(tasks.today() + timedelta(days=1)) == ["Draft the drainage report", "Call Dana"]
     assert client.get("/api/v1/wrapup", headers=AUTH).json()["saved"]["top3"] == ["Draft the drainage report", "Call Dana"]
     assert client.post("/api/v1/wrapup", headers=AUTH, json={"top3": ["a", "b", "c", "d"]}).status_code == 422

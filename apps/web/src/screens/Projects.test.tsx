@@ -14,8 +14,7 @@ const page = {
   links: ["Dana Lee", "Werribee"], backlinks: ["GVW Projects"], deadline: { title: "Werribee Drainage", due: "2026-10-27", days_left: 4 }, days_idle: null,
   tasks: [{ id: "siris:Werribee Drainage|Send levels to Dana", source: "siris", title: "Send levels to Dana", detail: "Werribee Drainage", note: "Werribee Drainage", due: null, time: null, repeat: "none", group: "someday" }],
   meetings: { upcoming: [{ title: "WD design review", start: "2026-10-25T10:00:00+11:00", end: null, all_day: false, location: null, calendar: "Work" }], recent: [] },
-  emails: [{ uid: "41", sender: "Dana Lee", subject: "Werribee Drainage levels", date: "Tue, 20 Oct 2026 09:12:00 +1100", snippet: "Attached." }],
-  email_configured: true, guest_mode: false, unavailable: [],
+  guest_mode: false, unavailable: [],
 };
 
 function at(path: string) {
@@ -45,7 +44,7 @@ describe("Projects", () => {
     expect(within(active).getByRole("link", { name: /Werribee Drainage/ })).toHaveAttribute("href", "/projects/Werribee%20Drainage");
   });
 
-  it("shows one project's note, tasks, meetings and emails, and adds a task", async () => {
+  it("shows one project's note, tasks and calendar, and adds a task", async () => {
     signIn();
     clearResources();
     const calls = mockFetch({
@@ -58,8 +57,8 @@ describe("Projects", () => {
     expect(screen.getByText("Upgrading the Werribee outfall drains.")).toBeInTheDocument();
     expect(screen.getByText("Due in 4 days")).toBeInTheDocument();
     expect(screen.getByText("Send levels to Dana")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /WD design review/ }).getAttribute("href")).toContain("/meeting?title=WD%20design%20review");
-    expect(screen.getByText("Werribee Drainage levels")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Calendar" })).getByText("WD design review")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Emails" })).toBeNull();  // no work email (4.4)
     expect(screen.getByText("GVW Projects")).toBeInTheDocument();
     await user.type(screen.getByRole("textbox", { name: "New task for this project" }), "ring Dana friday");
     await user.click(screen.getByRole("button", { name: "Add task" }));
@@ -67,13 +66,12 @@ describe("Projects", () => {
     expect(JSON.parse(String(post.init.body))).toEqual({ text: "ring Dana friday" });
   });
 
-  it("explains an empty email list", async () => {
+  it("explains an empty page", async () => {
     signIn();
     clearResources();
-    mockFetch({ "/api/v1/siris-projects/X": () => jsonResponse({ ...page, title: "X", emails: [], email_configured: false, meetings: { upcoming: [], recent: [] }, tasks: [] }) });
+    mockFetch({ "/api/v1/siris-projects/X": () => jsonResponse({ ...page, title: "X", meetings: { upcoming: [], recent: [] }, tasks: [] }) });
     at("/projects/X");
-    expect(await screen.findByText("Email isn't set up in SirisAI.")).toBeInTheDocument();
-    expect(screen.getByText("Nothing open.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing open.")).toBeInTheDocument();
     expect(screen.getByText("None in the calendar naming Werribee Drainage or WD.")).toBeInTheDocument();
   });
 });

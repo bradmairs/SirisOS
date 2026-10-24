@@ -94,7 +94,7 @@ function Group({ group, items, onChanged }: { group: TaskGroup; items: TaskItem[
   );
 }
 
-/** Every task in one place (2.9): SirisOS's own, Siris notes' and SirisAI's reminders. */
+/** The few things to get done (2.9; only SirisOS's own since 4.4, not Siris notes or reminders). */
 export function TasksScreen() {
   const res = useTasks();
   const data = res.data ?? null;
@@ -145,11 +145,6 @@ export function TasksScreen() {
       </Glass>
       {note && <p className="tone-good suggest__done" role="status" style={{ marginTop: 10 }}><Check size={14} aria-hidden="true" /> {note}</p>}
       {error && <p className="tone-critical" role="alert">{error}</p>}
-      {data && (!data.sources.siris || !data.sources.reminders) && (
-        <p className="muted" style={{ fontSize: 13 }}>
-          {!data.sources.siris && !data.sources.reminders ? "SirisAI didn't answer, so Siris tasks and reminders aren't shown." : !data.sources.siris ? "Siris tasks aren't shown: SirisAI didn't answer, or needs updating." : "SirisAI's reminders aren't shown right now."}
-        </p>
-      )}
       <div className="stack" style={{ marginTop: 14 }}>
         {!data && !res.error && <div className="skeleton" style={{ height: 160 }} aria-label="Loading tasks" />}
         {!data && res.error && <p className="tone-critical">{res.error}</p>}

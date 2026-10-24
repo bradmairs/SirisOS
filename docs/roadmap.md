@@ -136,6 +136,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Your year: CPD, running, tasks done, journal days and Inbox load, month by month (4.1)
 - [x] Home controls: lights, garage, locks and scenes on Home, with a yes first for the garage and unlocking (4.2)
 - [x] Talk to SirisOS: tasks, what's on, CPD reminders and notes by voice; anything else to SirisAI (4.3)
+- [x] Yearly goals on Your year; tasks only your own; personal projects only; wrap-up as memories; Meetings, Email, iPhone shortcuts and This week archived (4.4)
 
 ## Terminal (ADR 113)
 

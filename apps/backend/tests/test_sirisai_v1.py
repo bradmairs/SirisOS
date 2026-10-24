@@ -198,6 +198,14 @@ def test_inbox_merges_sirisai_and_sirisos_items(client, ai, monkeypatch) -> None
     assert client.post("/api/v1/attention/nope/act", json={"action": "x"}, headers=AUTH).status_code == 404
 
 
+def test_email_reply_drafts_stay_in_sirisai(client, ai, monkeypatch) -> None:
+    # 4.4: SirisOS doesn't do email, so SirisAI's drafted replies aren't in its inbox.
+    draft = {**ai.attention["items"][0], "id": 99, "source": "triage", "title": "Reply to Dana Lee"}
+    monkeypatch.setitem(ai.attention, "items", [*ai.attention["items"], draft])
+    ids = [i["id"] for i in client.get("/api/v1/attention", headers=AUTH).json()["items"]]
+    assert "ai:99" not in ids and ids
+
+
 def test_inbox_survives_sirisai_being_down(client, ai, monkeypatch) -> None:
     monkeypatch.setattr(hub_service, "transport", httpx.MockTransport(lambda r: httpx.Response(503)))
     inbox = client.get("/api/v1/attention", headers=AUTH).json()

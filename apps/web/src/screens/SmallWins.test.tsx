@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FitnessWidget } from "./FitnessWidget";
 import { StatusScreen } from "./Status";
-import { widgetScript } from "./Shortcuts";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 
 const WEEK = { available: true, guest_mode: false, goal_km: 20, km: 9.2, runs: 2, exercise_minutes: 65, steps_avg: 8000,
@@ -51,15 +50,5 @@ describe("System status upkeep", () => {
     expect(await screen.findByText("Newest 5 h ago · 14 kept")).toBeInTheDocument();
     expect(screen.getByText("2.2 is out: update from the Inbox")).toBeInTheDocument();
     expect(screen.getByText("Runs out in 9 days")).toBeInTheDocument();
-  });
-});
-
-describe("the home-screen widget script", () => {
-  it("reads the glance with the key", () => {
-    const s = widgetScript("https://sirisos.home:8444", "sk_abc");
-    expect(s).toContain('const URL = "https://sirisos.home:8444";');
-    expect(s).toContain('const KEY = "sk_abc";');
-    expect(s).toContain("/api/v1/shortcuts/glance");
-    expect(s).toContain("Script.setWidget(w);");
   });
 });

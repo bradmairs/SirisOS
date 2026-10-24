@@ -215,7 +215,8 @@ async def ai_items(hub: Hub) -> list[dict[str, Any]] | None:
     if response.status_code == 404:
         return None
     response.raise_for_status()
-    return [from_ai(i) for i in response.json().get("items") or []]
+    # SirisAI's drafted email replies (source "triage") stay in SirisAI: SirisOS doesn't do email (4.4).
+    return [from_ai(i) for i in response.json().get("items") or [] if i.get("source") != "triage"]
 
 
 def backup_items() -> list[dict[str, Any]]:

@@ -24,8 +24,6 @@ export interface ProjectPage extends Omit<ProjectSummary, "due" | "days_left" | 
   deadline: { title: string; due: string; days_left: number } | null;
   tasks: TaskItem[];
   meetings: { upcoming: WeekEvent[]; recent: WeekEvent[] };
-  emails: { uid: string; sender: string; subject: string; date: string | null; snippet: string }[];
-  email_configured: boolean;
   guest_mode: boolean;
   unavailable: string[];
 }

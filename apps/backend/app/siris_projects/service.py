@@ -6,10 +6,12 @@ project (`/siris/brain/projects`), what's due and what's gone quiet
 SirisOS can find about it everywhere else, by its name and aliases:
 
 - the note itself: what it's about, its links and what links to it
-- open tasks: the note's own, plus SirisOS tasks and SirisAI reminders that
-  name the project
-- meetings: calendar events in the last fortnight and next month that name it
-- emails: the latest with its name in the subject (SirisAI 2.25)
+- open tasks: the note's own, plus SirisOS tasks that name the project
+- calendar: events in the last fortnight and next month that name it
+
+Only personal projects and the home lab (4.4): work ones are left out, i.e.
+anything under `Work/` in the vault and anything whose name has a word from
+SIRISOS_PROJECTS_EXCLUDE (default "CMP,GVW").
 
 Every source fails alone; `unavailable` names the ones that didn't answer.
 """
@@ -17,6 +19,7 @@ Every source fails alone; `unavailable` names the ones that didn't answer.
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from datetime import date, timedelta
 from typing import Any
@@ -29,6 +32,22 @@ from app.tasks import service as tasks
 
 class NotFound(Exception):
     pass
+
+
+def _excluded_words() -> list[str]:
+    return [w.strip() for w in os.getenv("SIRISOS_PROJECTS_EXCLUDE", "CMP,GVW").split(",") if w.strip()]
+
+
+def personal(project: dict[str, Any]) -> bool:
+    """Not a work project: outside the vault's Work/ folder and not named for a work organisation."""
+    if str(project.get("path") or "").replace("\\", "/").startswith("Work/"):
+        return False
+    return not mentions(" ".join([project.get("title") or "", *(project.get("aliases") or [])]), _excluded_words())
+
+
+async def _listed(hub: Hub) -> list[dict[str, Any]] | None:
+    found = await sirisai_api.get(hub, "/siris/brain/projects")
+    return None if found is None else [p for p in found.get("projects") or [] if personal(p)]
 
 
 def names(project: dict[str, Any]) -> list[str]:
@@ -60,7 +79,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
     """Every project with what's due, how quiet it's been and its open tasks."""
     today = today or tasks.today()
     listed, insights, vault = await asyncio.gather(
-        sirisai_api.get(hub, "/siris/brain/projects"),
+        _listed(hub),
         sirisai_api.get(hub, "/siris/brain/insights", params={"days": 30}),
         sirisai_api.get(hub, "/siris/brain/tasks"),
     )
@@ -72,7 +91,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
     for t in (vault or {}).get("tasks") or []:
         open_tasks[t.get("note")] = open_tasks.get(t.get("note"), 0) + 1
     out = []
-    for p in listed.get("projects") or []:
+    for p in listed:
         d = deadlines.get(p["title"]) or {}
         out.append({**p, "due": d.get("due"), "days_left": d.get("days_left"), "days_idle": quiet.get(p["title"]),
                     "open_tasks": open_tasks.get(p["title"], 0)})
@@ -86,27 +105,29 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
 
 async def page(hub: Hub, title: str, today: date | None = None) -> dict[str, Any]:
     today = today or tasks.today()
-    listed = await sirisai_api.get(hub, "/siris/brain/projects")
+    listed = await _listed(hub)
     if listed is None:
         raise NotFound("Siris isn't reachable.")
-    project = next((p for p in listed.get("projects") or [] if p["title"].lower() == title.lower()), None)
+    project = next((p for p in listed if p["title"].lower() == title.lower()), None)
     if project is None:
         raise NotFound(title)
     words = names(project)
-    note, insights, todo, cal, mail = await asyncio.gather(
+    note, insights, todo, vault, cal = await asyncio.gather(
         sirisai_api.get(hub, "/siris/brain/note", params={"title": project["title"]}),
         sirisai_api.get(hub, "/siris/brain/insights", params={"days": 30}),
         tasks.collect(hub, today),
+        sirisai_api.get(hub, "/siris/brain/tasks"),
         calendar.events(hub, today - timedelta(days=14), today + timedelta(days=31)),
-        sirisai_api.get(hub, "/siris/hub/v1/email/about", params=[("q", w) for w in words if len(w) >= 4][:6] + [("limit", 6)]),
     )
-    unavailable = [name for name, value in (("note", note), ("email", mail)) if value is None]
+    unavailable = ["note"] if note is None else []
     if cal["events"] is None and not cal["guest_mode"]:
         unavailable.append("calendar")
 
-    open_tasks = [t for group in todo["groups"].values() for t in group
-                  if (t["source"] == "siris" and (t.get("note") or "").lower() == project["title"].lower())
-                  or (t["source"] != "siris" and (mentions(t["title"], words) or mentions(t.get("detail"), words)))]
+    own = [t for group in todo["groups"].values() for t in group if mentions(t["title"], words) or mentions(t.get("detail"), words)]
+    in_note = [{"id": tasks._key_siris(t), "source": "siris", "title": t.get("task"), "detail": t.get("note"),
+                "note": t.get("note"), "due": t.get("due"), "time": None, "repeat": "none", "group": tasks.group_of(date.fromisoformat(t["due"]) if t.get("due") else None, today)}
+               for t in (vault or {}).get("tasks") or [] if (t.get("note") or "").lower() == project["title"].lower()]
+    open_tasks = in_note + own
     events = [e for e in cal["events"] or [] if mentions(e.get("title"), words) or mentions(e.get("location"), words)]
     start_today = today.isoformat()
     deadline = next((d for d in (insights or {}).get("deadlines") or [] if d.get("title") == project["title"]), None)
@@ -125,9 +146,7 @@ async def page(hub: Hub, title: str, today: date | None = None) -> dict[str, Any
         "tasks": open_tasks,
         "meetings": {"upcoming": [e for e in events if (e.get("start") or "")[:10] >= start_today],
                      "recent": [e for e in reversed(events) if (e.get("start") or "")[:10] < start_today]},
-        "emails": (mail or {}).get("messages") or [],
-        "email_configured": bool((mail or {}).get("configured")),
-        "guest_mode": bool(cal["guest_mode"] or (mail or {}).get("guest_mode")),
+        "guest_mode": bool(cal["guest_mode"]),
         "unavailable": unavailable,
     }
 

@@ -171,7 +171,6 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
             </a>
           )}
           {link.to && <Link to={link.to} className="inbox-row__open">Open</Link>}
-          {item.source === "triage" && item.title.startsWith("Reply to ") && <Link to="/email" className="inbox-row__open">Edit the reply</Link>}
         </div>
         {error && <div className="inbox-row__error" role="alert">{error}</div>}
         {needsPin ? (

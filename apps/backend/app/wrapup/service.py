@@ -7,7 +7,10 @@
    CPD" stops it being suggested.
 3. Tomorrow's top 3, saved as tasks due tomorrow and shown first in
    tomorrow's brief.
-4. One line about the day, saved to Siris (tagged `journal`).
+4. One line about the day. It and tomorrow's top 3 go to Siris as memories
+   (SirisAI 2.66 `kind: "memory"`), filed overnight onto the notes they're
+   about ("Running", "SirisOS"...). There's no day note: those cluttered
+   the brain (4.4).
 
 Saved per day in wrapup.json (60 days kept). A phone notification at
 SIRISOS_WRAPUP_HOUR (17) offers it once, unless it's already done.
@@ -108,16 +111,8 @@ async def save(hub: Hub, day: date, top3: list[str], journal: str) -> dict[str, 
                     t.due = tomorrow
     task_store.save(doc)
 
-    journal_saved = None
     line = journal.strip()
-    if line:
-        try:
-            r = await sirisai_api.post(hub, "/siris/brain/capture", json={
-                "title": f"Day {day.isoformat()}", "text": line, "tags": ["journal", "wrap-up"]})
-            journal_saved = (r or {}).get("title") or f"Day {day.isoformat()}"
-        except sirisai_api.SirisAIError:
-            journal_saved = None
-
+    journal_saved = await remember(hub, day, line, picks)
     entry = {"top3": picks, "journal": line, "journal_saved_as": journal_saved,
              "at": datetime.now(zone()).isoformat(timespec="minutes")}
     state = _load()
@@ -130,6 +125,22 @@ async def save(hub: Hub, day: date, top3: list[str], journal: str) -> dict[str, 
     if line:
         log.mark("journal", day)
     return entry
+
+
+async def remember(hub: Hub, day: date, line: str, picks: list[str]) -> str | None:
+    """The day's line and tomorrow's top 3 into Siris as memories, one each, so
+    each is filed onto the note it's about. "memories" when they went in."""
+    tomorrow = day + timedelta(days=1)
+    memories = ([f"{day.strftime('%A %-d %B %Y')}: {line}"] if line else []) + \
+               [f"Brad's focus for {tomorrow.strftime('%A %-d %B %Y')}: {p}" for p in picks]
+    if not memories:
+        return None
+    try:
+        for text in memories:
+            await sirisai_api.post(hub, "/siris/brain/capture", json={"text": text, "kind": "memory", "tags": ["wrap-up"]})
+    except sirisai_api.SirisAIError:
+        return None
+    return "memories"
 
 
 def log_cpd(day: date, key: str, title: str, hours: float) -> dict[str, Any]:

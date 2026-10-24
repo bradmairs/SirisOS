@@ -71,10 +71,10 @@ async def _whats_on(hub: Hub, day: date, label: str) -> dict[str, Any]:
     if found["guest_mode"]:
         return {"intent": "calendar", "reply": "Guest mode is on, so the calendar is hidden.", "link": None}
     if found["events"] is None:
-        return {"intent": "calendar", "reply": "The calendar isn't answering right now.", "link": "/week"}
+        return {"intent": "calendar", "reply": "The calendar isn't answering right now.", "link": None}
     events = [e for e in found["events"] if (e.get("start") or "")[:10] <= day.isoformat()]
     if not events:
-        return {"intent": "calendar", "reply": f"Nothing in the calendar {'for ' if label not in ('today', 'tomorrow') else ''}{label}.", "link": "/week"}
+        return {"intent": "calendar", "reply": f"Nothing in the calendar {'for ' if label not in ('today', 'tomorrow') else ''}{label}.", "link": None}
     parts = []
     for e in events[:6]:
         start = e.get("start") or ""
@@ -84,7 +84,7 @@ async def _whats_on(hub: Hub, day: date, label: str) -> dict[str, Any]:
             at = datetime.fromisoformat(start).astimezone(zone())
             parts.append(f"{at.strftime('%-I:%M %p').lower().replace(':00', '')} {e['title']}")
     more = f", and {len(events) - 6} more" if len(events) > 6 else ""
-    return {"intent": "calendar", "reply": f"{label.capitalize()}: " + "; ".join(parts) + more + ".", "link": "/week", "events": events[:6]}
+    return {"intent": "calendar", "reply": f"{label.capitalize()}: " + "; ".join(parts) + more + ".", "link": None, "events": events[:6]}
 
 
 async def _ask(hub: Hub, text: str) -> dict[str, Any]:

@@ -107,14 +107,11 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         from app.review import service as review
 
         out += review.push_message(now)
+        from app.goals import service as goals
+
+        out += goals.push_message(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: wrap-up unavailable: %s", exc)
-    try:
-        from app.meetings import service as meetings
-
-        out += await meetings.push_messages(hub, now)
-    except Exception as exc:  # noqa: BLE001
-        logger.info("Push: meetings unavailable: %s", exc)
     try:
         out += task_messages(now)
     except Exception as exc:  # noqa: BLE001
