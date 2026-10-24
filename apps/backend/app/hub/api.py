@@ -289,6 +289,12 @@ class ControlAction(BaseModel):
     confirmed: bool = False
 
 
+@router.get("/assistant/network", tags=["assistant"])
+async def home_network(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """UniFi's gateway, switches, access points and clients with live traffic (SirisAI 2.76), for the house view."""
+    return await _forward(connector, "GET", "/siris/hub/v1/network")
+
+
 @router.get("/assistant/controls", tags=["assistant"])
 async def home_controls(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/hub/v1/controls")

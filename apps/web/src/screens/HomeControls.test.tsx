@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { clearResources } from "../api/resource";
 import { HomeControlsWidget } from "./SirisControls";
@@ -26,7 +27,7 @@ describe("<HomeControlsWidget />", () => {
       "/api/v1/assistant/scenes/": () => jsonResponse({ entity_id: "siris:3", action: "run" }),
     });
     const user = userEvent.setup();
-    render(<HomeControlsWidget />);
+    render(<MemoryRouter><HomeControlsWidget /></MemoryRouter>);
     await user.click(await screen.findByRole("button", { name: "Kitchen: On · 50%" }));
     expect(await screen.findByRole("button", { name: "Kitchen: Off" })).toBeInTheDocument();
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith("light.kitchen"))!.init.body))).toEqual({ action: "toggle", confirmed: false });
@@ -52,7 +53,7 @@ describe("<HomeControlsWidget />", () => {
     signIn();
     clearResources();
     mockFetch({ "/api/v1/assistant/controls": () => jsonResponse({ configured: false, guest_mode: false, controls: [], scenes: [] }) });
-    const { container } = render(<HomeControlsWidget />);
+    const { container } = render(<MemoryRouter><HomeControlsWidget /></MemoryRouter>);
     await new Promise((r) => setTimeout(r, 50));
     expect(container).toBeEmptyDOMElement();
   });
