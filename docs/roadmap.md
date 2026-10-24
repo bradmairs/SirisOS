@@ -137,6 +137,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Home controls: lights, garage, locks and scenes on Home, with a yes first for the garage and unlocking (4.2)
 - [x] Talk to SirisOS: tasks, what's on, CPD reminders and notes by voice; anything else to SirisAI (4.3)
 - [x] Yearly goals on Your year; tasks only your own; personal projects only; wrap-up as memories; Meetings, Email, iPhone shortcuts and This week archived (4.4)
+- [x] Smart home: the house in 3D, floor by floor, with every network device in its room and live UniFi traffic flowing along neuron-style links (4.5)
 
 ## Terminal (ADR 113)
 

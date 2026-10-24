@@ -36,6 +36,7 @@ from app.fitness.api import router as fitness_router
 from app.terminal.api import router as terminal_router
 from app.trends.api import router as trends_router
 from app.goals.api import router as goals_router
+from app.house.api import router as house_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -61,6 +62,7 @@ for router in (
     week_router,
     trends_router,
     goals_router,
+    house_router,
     career_router,
     links_router,
     push_router,

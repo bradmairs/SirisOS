@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { BatteryCharging, Camera, Car, Eye, Lightbulb, Lock, LockOpen, Package, Power, ShieldCheck, Sparkles, Undo2, Warehouse, Zap } from "lucide-react";
 import { assistant } from "../api/hub";
 import { useResource } from "../api/resource";
@@ -349,6 +350,7 @@ export function HomeControlsWidget() {
         </div>
       )}
       {data.guest_mode && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Guest mode: the garage and locks are hidden.</p>}
+      <Link to="/house" className="widget__more">The house in 3D →</Link>
       {note && <p className={`tone-${note.tone}`} role="status" style={{ margin: 0, fontSize: 14 }}>{note.text}</p>}
     </Card>
   );
