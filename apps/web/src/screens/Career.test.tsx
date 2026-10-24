@@ -44,6 +44,7 @@ function data(): CareerData {
       pathways: [{ id: "cpeng", name: "Chartered Professional Engineer (CPEng)", done: 0, total: 2, next: { id: "s0", title: "Self-assess against the 16 elements", status: "todo" } }],
       competencies: { total: 2, evidenced: 0, counts: { "1": 0, "6": 0 }, gaps: [] },
       goals: [],
+      application: { percent: 25, done: 2, total: 8 },
       next_steps: [
         { title: "Self-assess against the 16 elements", detail: "Chartered Professional Engineer (CPEng)", kind: "pathway" },
         { title: "8 more hours of risk management CPD", detail: "CPD minimum", kind: "cpd" },

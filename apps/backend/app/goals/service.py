@@ -2,7 +2,8 @@
 
 A goal is one of:
 
-- **measured**: running km, CPD hours, journal days or tasks done. SirisOS
+- **measured**: running km, CPD hours, journal days, tasks done, or how
+  ready the Chartered application is (Career → Application, 4.6). SirisOS
   counts it from what it already knows for that calendar year (SirisAI's
   health by day, career records, the wrap-up and the daily log), e.g.
   "Run 1,000 km", "40 CPD hours".
@@ -30,12 +31,13 @@ from app.tasks import service as tasks
 from app.tasks import store as task_store
 from app.trends import log
 
-Kind = Literal["running_km", "cpd_hours", "journal_days", "tasks_done", "count", "done"]
+Kind = Literal["running_km", "cpd_hours", "journal_days", "tasks_done", "chartered_ready", "count", "done"]
 MEASURED: dict[str, tuple[str, str]] = {
     "running_km": ("km", "Running"),
     "cpd_hours": ("h", "CPD hours"),
     "journal_days": ("days", "Journal days"),
     "tasks_done": ("tasks", "Tasks done"),
+    "chartered_ready": ("%", "Chartered application"),
 }
 
 
@@ -117,7 +119,11 @@ async def measured(hub: Hub, year: int, today: date) -> dict[str, float | None]:
     journal |= {iso for iso, e in wrapup._load().items() if e.get("journal") and within(iso)}
     done = sum(int(e.get("tasks_done") or 0) for iso, e in daily.items() if within(iso))
     done += sum(1 for t in task_store.load().tasks if t.done_at and within(t.done_at) and (log_from is None or t.done_at[:10] < log_from))
-    return {"running_km": running, "cpd_hours": cpd, "journal_days": float(len(journal)), "tasks_done": float(done)}
+    from app.career import application
+
+    ready = float(application.readiness(career_store.load())["percent"])
+    return {"running_km": running, "cpd_hours": cpd, "journal_days": float(len(journal)), "tasks_done": float(done),
+            "chartered_ready": ready}
 
 
 def _fraction_of_year(year: int, today: date) -> float:

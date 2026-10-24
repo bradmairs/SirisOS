@@ -8,10 +8,11 @@ from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
-from app.career import claims, cpd, defaults, store, suggest
+from app.career import application, claims, cpd, defaults, store, suggest
 from app.calendar import service as calendar
 from app.hub.connectors.sirisai import SirisAIConnector
 from app.hub.connectors.sirislearn import SirisLearnConnector
@@ -40,6 +41,13 @@ def overview(doc: store.CareerDocument) -> dict[str, Any]:
     goals.sort(key=lambda g: g["target_date"] or "9999")
     summary = cpd.summary(doc)
     steps = []
+    ready = application.readiness(doc)
+    # The application first: it's what Chartered waits on.
+    for item in [i for i in ready["items"] if not i["done"] and i["id"] != "evidence"][:2]:
+        steps.append({"title": item["label"], "detail": f"Chartered application · {item['detail']}", "kind": "application"})
+    if ready["prepare"]:
+        steps.append({"title": f"Prepare {len(ready['prepare'])} topic{'' if len(ready['prepare']) == 1 else 's'} you marked Not sure",
+                      "detail": "Self-reflection, for the interview", "kind": "application"})
     for p in pathways:
         if p["next"] and p["done"] < p["total"]:
             steps.append({"title": p["next"]["title"], "detail": p["name"], "kind": "pathway"})
@@ -59,6 +67,7 @@ def overview(doc: store.CareerDocument) -> dict[str, Any]:
         "pathways": pathways,
         "competencies": {"total": len(doc.elements), "evidenced": len(doc.elements) - len(gaps), "counts": counts, "gaps": gaps},
         "goals": goals,
+        "application": {k: ready[k] for k in ("percent", "done", "total")},
         "next_steps": steps[:8],
         "categories": defaults.CPD_CATEGORIES,
     }
@@ -204,3 +213,61 @@ def mark_suggestion(key: str, body: SuggestionStatus) -> dict[str, Any]:
     marks[key[:40]] = body.status
     store.save(doc.model_copy(update={"cpd": doc.cpd.model_copy(update={"suggestions": dict(list(marks.items())[-500:])})}))
     return {"key": key, "status": body.status}
+
+
+# ---- the Chartered application (4.6) -------------------------------------
+
+@router.get("/application")
+def get_application() -> dict[str, Any]:
+    """The three forms, your answers so far and what's left."""
+    return application.view(store.load())
+
+
+@router.put("/application")
+def put_application(edit: application.ApplicationEdit) -> dict[str, Any]:
+    return application.view(application.apply_edit(edit))
+
+
+@router.get("/application/draft/cpd/{question_id}")
+def draft_cpd_answer(question_id: str) -> dict[str, Any]:
+    """A starting answer from your CPD records for one questionnaire question."""
+    try:
+        return {"id": question_id, "text": application.cpd_draft(store.load(), question_id)}
+    except LookupError:
+        raise HTTPException(status_code=404, detail="No such question.") from None
+
+
+@router.get("/application/draft/element/{element_id}")
+def draft_element_comment(element_id: str) -> dict[str, Any]:
+    """A Part 3 comment started from your latest evidence for the element."""
+    try:
+        return {"id": element_id, "text": application.element_draft(store.load(), element_id)}
+    except LookupError:
+        raise HTTPException(status_code=404, detail="No Stage 2 element with that id.") from None
+
+
+@router.post("/application/{doc_id}/file")
+async def upload_form(doc_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+    """Your filled-in copy of a form (PDF or Word), kept with the career file."""
+    raw = await file.read(application.MAX_FILE_BYTES + 1)
+    try:
+        doc = application.save_file(doc_id, file.filename or "form.pdf", raw)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="No such form.") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return application.view(doc)
+
+
+@router.get("/application/{doc_id}/file")
+def download_form(doc_id: str) -> FileResponse:
+    found = application.file_path(doc_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No copy of that form uploaded.")
+    path, meta = found
+    return FileResponse(path, filename=meta.filename)
+
+
+@router.delete("/application/{doc_id}/file")
+def delete_form(doc_id: str) -> dict[str, Any]:
+    return application.view(application.remove_file(doc_id))

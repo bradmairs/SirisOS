@@ -155,7 +155,8 @@ def test_first_look_is_seeded_with_the_pathways_and_16_elements(client, career_f
     assert [p["id"] for p in doc["pathways"]] == ["ea-member", "cpeng", "ner", "vic-rpe"]
     assert len(doc["elements"]) == 16 and doc["elements"][0]["title"] == "Deal with ethical issues"
     assert ov["competencies"] == {**ov["competencies"], "total": 16, "evidenced": 0}
-    assert ov["next_steps"][0] == {"title": "Qualification recognised", "detail": "Engineers Australia membership", "kind": "pathway"}
+    assert ov["next_steps"][0]["kind"] == "application"  # the Chartered application leads (4.6)
+    assert {"title": "Qualification recognised", "detail": "Engineers Australia membership", "kind": "pathway"} in ov["next_steps"]
     assert any(s["kind"] == "cpd" for s in ov["next_steps"])
     assert not career_file.exists()  # nothing written until something changes
 
@@ -210,7 +211,7 @@ def test_search_and_brief_see_career(client, career_file) -> None:
 
     brief = brief_service._career()
     assert brief["cpd"]["records"] == 5 and brief["goals"] == [{"title": "Chartered by mid 2027", "target_date": None}]
-    assert brief["next_steps"][0]["detail"] == "Engineers Australia membership"
+    assert brief["next_steps"][0]["detail"].startswith("Chartered application")
 
 
 def test_sirisai_service_key_reads_but_never_writes(client, career_file, monkeypatch) -> None:

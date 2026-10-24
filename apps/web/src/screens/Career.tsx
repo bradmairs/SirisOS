@@ -9,6 +9,7 @@ import {
   CircleDashed,
   CircleDot,
   CircleSlash,
+  ClipboardCheck,
   CalendarPlus,
   Compass,
   Copy,
@@ -41,9 +42,11 @@ import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
+import { ApplicationTab } from "./CareerApplication";
 
 const VIEWS = [
   { id: "overview", label: "Overview" },
+  { id: "application", label: "Application" },
   { id: "cpd", label: "CPD" },
   { id: "pathways", label: "Pathways" },
   { id: "competencies", label: "Competencies" },
@@ -110,6 +113,7 @@ export function Career() {
       {saveError && <div className="error-banner" role="alert">{saveError}</div>}
       {!career && !error && <div className="skeleton" style={{ height: 180, marginTop: 16 }} aria-busy="true" />}
       {career && view === "overview" && <Overview career={career} />}
+      {career && view === "application" && <ApplicationTab areaHint={career.document.profile.area_of_practice} />}
       {career && view === "cpd" && <CpdView career={career} onChange={mutate} />}
       {career && view === "pathways" && <Pathways doc={career.document} onSave={save} />}
       {career && view === "competencies" && <Competencies career={career} onSave={save} />}
@@ -171,7 +175,7 @@ function Overview({ career }: { career: Career }) {
           <ul className="items">
             {ov.next_steps.map((s, i) => (
               <li key={i} className="item">
-                <span className={`item__dot ${s.kind === "cpd" ? "dot-warning" : ""}`} aria-hidden="true" />
+                <span className={`item__dot ${s.kind === "cpd" ? "dot-warning" : s.kind === "application" ? "dot-good" : ""}`} aria-hidden="true" />
                 <span className="item__text">
                   <span className="item__title career-wrap">{s.title}</span>
                   <span className="item__subtitle career-wrap">{s.detail}</span>
@@ -182,6 +186,17 @@ function Overview({ career }: { career: Career }) {
         ) : (
           <p className="muted" style={{ margin: 0 }}>Nothing outstanding.</p>
         )}
+      </Card>
+
+      <Card title="Chartered application" Icon={ClipboardCheck} action={<Link to="/career?view=application" className="widget__source">Open</Link>}>
+        <ul className="career-mins">
+          <li className="career-path">
+            <span className="career-mins__label">Ready for the interview</span>
+            <Bar value={ov.application.done} max={ov.application.total} tone={ov.application.done === ov.application.total ? "career-bar__fill--good" : ""} />
+            <span className="career-mins__value">{ov.application.percent}%</span>
+          </li>
+        </ul>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>The CPD questionnaire, the self-reflection on the chartered competencies, and the Building Industry Assessment.</p>
       </Card>
 
       <Card title="CPD" Icon={Award} action={<Link to="/career?view=cpd" className="widget__source">Details</Link>}>
