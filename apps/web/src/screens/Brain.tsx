@@ -170,8 +170,7 @@ export function Brain() {
             )}
           </Glass>
         </div>
-        <BrainInsights />
-        <BrainMap />
+        <BrainInsights map={<BrainMap />} />
         <BrainManage onRestored={restored} />
         </>
       )}
