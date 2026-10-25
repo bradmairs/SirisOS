@@ -777,3 +777,16 @@ body.no-scroll { overflow: hidden; }
 .career-app__check input { margin-top: 3px; }
 .career-app__file { gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
 .career-app__prepare { margin: 0; padding-left: 18px; font-size: 13px; display: grid; gap: 4px; }
+
+/* Protocol editor (4.91) */
+.protocol__field { display: grid; gap: 4px; font-size: 13px; color: var(--ink-3); }
+.protocol__steps { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+.protocol__step { padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 4%, transparent); display: grid; gap: 8px; box-sizing: border-box; min-width: 0; }
+.protocol__step-head { gap: 4px; align-items: center; }
+.protocol__step-title { flex: 1; min-width: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.protocol__step-head .icon-link:disabled { opacity: 0.3; }
+.protocol__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr)); gap: 8px; min-width: 0; }
+.protocol__grid label { display: grid; gap: 3px; font-size: 12px; color: var(--ink-3); min-width: 0; }
+.protocol__grid .field { font-size: 14px; padding: 6px 8px; width: 100%; min-width: 0; box-sizing: border-box; }
+.protocol__field .field { width: 100%; box-sizing: border-box; }
+.protocol__wide { grid-column: 1 / -1; }

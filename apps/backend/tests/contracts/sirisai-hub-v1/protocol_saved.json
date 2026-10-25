@@ -1,0 +1,22 @@
+{
+  "name": "movie_night",
+  "description": "Film time",
+  "builtin": false,
+  "customised": false,
+  "steps": [
+    {
+      "tool": "home_assistant_call_service",
+      "arguments": {
+        "domain": "light",
+        "service": "turn_on",
+        "entity_id": "all",
+        "service_data": {
+          "brightness_pct": 20
+        }
+      },
+      "label": "Dim the lights",
+      "when": "night",
+      "undo": null
+    }
+  ]
+}

@@ -217,6 +217,12 @@ export function prefetch<T>(key: string, fetcher: (fresh: boolean) => Promise<T>
   if (Date.now() - e.updatedAt > staleMs && !e.inflight) load(e).catch(() => undefined);
 }
 
+/** Fetch a key again if anything has read it (e.g. Home's widgets after an edit elsewhere). */
+export function refreshResource(key: string) {
+  const e = entries.get(key);
+  if (e) load(e, true).catch(() => undefined);
+}
+
 /** Forget everything (sign-out, tests). */
 export function clearResources() {
   entries.forEach((e) => {
