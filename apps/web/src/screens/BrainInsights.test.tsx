@@ -26,6 +26,18 @@ const INSIGHTS: Insights = {
 };
 
 describe("<BrainInsights />", () => {
+  it("puts the mind map, full width, after what the brain noticed and before Going quiet", async () => {
+    signIn();
+    mockFetch({ "/api/v1/brain/insights": () => jsonResponse(INSIGHTS) });
+    render(<BrainInsights map={<section aria-label="Mind map">map</section>} />);
+    const quiet = await screen.findByText("Going quiet");
+    const map = screen.getByRole("region", { name: "Mind map" });
+    const noticed = screen.getByText("What the brain noticed");
+    expect(noticed.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(map.compareDocumentPosition(quiet) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(map.parentElement).toHaveClass("insights__map");
+  });
+
   it("shows what the brain noticed, the numbers, and what needs attention", async () => {
     signIn();
     const calls = mockFetch({ "/api/v1/brain/insights": () => jsonResponse(INSIGHTS) });

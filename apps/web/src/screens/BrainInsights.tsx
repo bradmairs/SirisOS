@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { CalendarClock, Check, CircleCheck, Hourglass, Link2, Sparkles, TrendingUp, Unlink, WandSparkles, X } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
@@ -312,7 +312,8 @@ function Topics({ topics }: { topics: Insights["topics"] }) {
   );
 }
 
-export function BrainInsights() {
+/** `map` (the mind map) goes in the grid, full width, before Going quiet (4.94). */
+export function BrainInsights({ map }: { map?: ReactNode } = {}) {
   // Insights scan the whole vault, so keep the last result for a few minutes.
   const res = useResource<Insights>("brain:insights", () => brain.insights(), { staleMs: 300_000 });
   const data = res.data ?? null;
@@ -329,7 +330,7 @@ export function BrainInsights() {
       </Glass>
     );
   }
-  if (!data) return <div className="skeleton" style={{ height: 120, marginTop: 14 }} aria-label="Loading insights" />;
+  if (!data) return <><div className="skeleton" style={{ height: 120, marginTop: 14 }} aria-label="Loading insights" />{map}</>;
 
   const s = data.summary;
   const trend = s.this_week - s.previous_week;
@@ -392,6 +393,8 @@ export function BrainInsights() {
             />
           </Glass>
         )}
+
+        {map && <div className="insights__map">{map}</div>}
 
         {(data.stale_projects.length > 0 || (data.inbox.count > 0 && data.inbox.oldest)) && (
           <Glass className="widget">

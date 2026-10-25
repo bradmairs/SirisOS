@@ -816,3 +816,7 @@ h3.note__heading { font-size: 17px; }
 .note__table { border-collapse: collapse; font-size: 14px; }
 .note__table th, .note__table td { padding: 4px 8px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); text-align: left; vertical-align: top;
   overflow-wrap: normal; word-break: normal; min-width: 4.5em; }
+
+/* The mind map among the insights (4.94): full width, before Going quiet. */
+.insights__map { grid-column: 1 / -1; min-width: 0; }
+.insights__map .brain-map { margin-top: 0; }

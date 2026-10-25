@@ -64,14 +64,6 @@ describe("Searching your notes", () => {
     await waitFor(() => expect(unifi).toHaveAttribute("aria-expanded", "false"));
   });
 
-  it("puts the mind map below the insights", async () => {
-    setup();
-    await screen.findByText("Learned today");
-    const map = screen.getByRole("button", { name: "Redraw the mind map" });
-    const insights = await screen.findByText("Insights").catch(() => null);
-    if (insights) expect(insights.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText("Learned today").compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
 });
 
 describe("<NoteBody />", () => {
