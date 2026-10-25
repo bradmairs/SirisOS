@@ -23,6 +23,8 @@ class Task(BaseModel):
     time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     notes: str = Field(default="", max_length=2000)
     repeat: Repeat = "none"
+    # Work or personal, for Home's work hours and evenings (4.9); None lets service.area_of guess.
+    area: Literal["work", "personal"] | None = None
     created_at: str = ""
     done_at: str | None = None
     reminded_for: str | None = None  # the due date+time a notification already went out for

@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -30,6 +30,7 @@ class NewTask(BaseModel):
     time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     repeat: store.Repeat = "none"
     notes: str = Field(default="", max_length=2000)
+    area: Literal["work", "personal"] | None = None
 
 
 class Change(BaseModel):
@@ -38,6 +39,7 @@ class Change(BaseModel):
     time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     repeat: store.Repeat | None = None
     notes: str | None = Field(default=None, max_length=2000)
+    area: Literal["work", "personal"] | None = None
 
 
 class Snooze(BaseModel):
@@ -58,8 +60,9 @@ async def list_tasks(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
 def add_task(body: NewTask) -> dict[str, Any]:
     if body.text and body.text.strip():
         task = service.parse(body.text)
+        task.area = body.area
     elif body.title and body.title.strip():
-        task = store.Task(title=body.title.strip(), due=body.due, time=body.time, repeat=body.repeat, notes=body.notes)
+        task = store.Task(title=body.title.strip(), due=body.due, time=body.time, repeat=body.repeat, notes=body.notes, area=body.area)
     else:
         raise HTTPException(status_code=422, detail="Give the task a title.")
     if task.repeat != "none" and not task.due:

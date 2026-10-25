@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { AlarmClock, BrainCircuit, Check, Circle, ListTodo, Plus, Repeat2, Sparkles, Trash2 } from "lucide-react";
+import { AlarmClock, BrainCircuit, Briefcase, Check, Circle, House, ListTodo, Plus, Repeat2, Sparkles, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
 import { dueLabel, GROUP_LABEL, tasks, type TaskGroup, type TaskItem, type TaskList } from "../api/tasks";
 import { Glass } from "../components/Glass";
@@ -68,6 +68,18 @@ export function TaskRow({ task, onChanged, compact }: { task: TaskItem; onChange
           <button type="button" className="icon-link" disabled={busy} onClick={() => setSnoozing(true)} aria-label={`Snooze ${task.title}`} title="Later">
             <AlarmClock size={15} aria-hidden="true" />
           </button>
+          {task.source === "sirisos" && !compact && task.area && (
+            <button type="button" className={`chip chip--button task__area${task.area_set ? "" : " task__area--guess"}`} disabled={busy}
+              aria-label={`${task.title}: ${task.area}${task.area_set ? "" : " (a guess)"}. Make it ${task.area === "work" ? "personal" : "work"}`}
+              title={task.area_set ? "Tap to change" : "Guessed from its words: tap to change"}
+              onClick={() => run(async () => {
+                const next = task.area === "work" ? "personal" : "work";
+                await tasks.update(task.id, { area: next });
+                return `“${task.title}” is ${next} now`;
+              })}>
+              {task.area === "work" ? <Briefcase size={12} aria-hidden="true" /> : <House size={12} aria-hidden="true" />} {task.area === "work" ? "Work" : "Personal"}
+            </button>
+          )}
           {task.source === "sirisos" && !compact && (
             <button type="button" className="icon-link" disabled={busy} aria-label={`Delete ${task.title}`} title="Delete"
               onClick={() => run(async () => { await tasks.remove(task.id); return `Deleted “${task.title}”`; })}>

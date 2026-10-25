@@ -2,11 +2,11 @@ import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode 
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
 import { hub } from "../api/hub";
-import { EMPTY_LAYOUT, adaptive, arrange, home, homeContext, localPhase, sectionOrder, setAdaptive, type DeviceLayout, type HomeContext, type HomeLayout } from "../api/home";
+import { DAY_HIDDEN, EMPTY_LAYOUT, adaptive, arrange, hiddenNow, home, homeContext, localPhase, sectionOrder, setAdaptive, type DeviceLayout, type HomeContext, type HomeLayout } from "../api/home";
 import { oldestUpdate, useResource } from "../api/resource";
 import { useOnline } from "../api/online";
 import { session } from "../api/client";
-import type { HubApp } from "../api/types";
+import type { HubApp, Hud, SirisCar } from "../api/types";
 import { isWidget } from "../api/types";
 import { AppIcon } from "../components/AppIcon";
 import { Glass } from "../components/Glass";
@@ -16,6 +16,7 @@ import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
 import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
+import { BrainTodayWidget, CaptureWidget } from "./DayWidgets";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
@@ -84,6 +85,37 @@ interface Slot {
   node: ReactNode;
 }
 
+/** Server health worth a look: a busy CPU, full memory or a full disk, or running hot. */
+function serverNeedsYou(system: Hud["system"] | undefined): boolean {
+  if (!system) return false;
+  const disks = Object.values(system.disk ?? {}).some((d) => d.percent_used >= 90);
+  const hot = Object.values(system.temperatures_celsius ?? {}).some((t) => t >= 80);
+  return system.cpu_percent >= 85 || (system.memory?.percent_used ?? 0) >= 90 || disks || hot;
+}
+
+/** The car wants plugging in tonight: low, or under half and not on charge. */
+function carNeedsCharge(car: SirisCar | null | undefined): boolean {
+  if (!car) return false;
+  return car.low_battery || (car.battery_percent != null && car.battery_percent < 50 && !car.plugged_in && !car.charging);
+}
+
+/** Coming up for the part of the day (4.9): this morning, the rest of the work day, tonight and
+ *  tomorrow morning, or today on a weekend. The context's events, else the HUD's next few. */
+function dayEvents(phase: string, ctx: HomeContext | null, hud: Hud["next_events"] | undefined, now: Date): NonNullable<Hud["next_events"]> | undefined {
+  if (!ctx?.events) return hud;
+  const day = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = day(now), tomorrow = day(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  const hour = (iso: string) => (iso.includes("T") ? new Date(iso).getHours() : 0);
+  const ahead = (iso: string) => !iso.includes("T") || new Date(iso).getTime() > now.getTime() - 15 * 60_000;
+  const keep = ctx.events.filter((e) => {
+    const on = e.start.slice(0, 10);
+    if (phase === "morning") return on === today && ahead(e.start) && hour(e.start) < 12;
+    if (phase === "work" || phase === "weekend") return on === today && ahead(e.start);
+    return (on === today && ahead(e.start)) || (on === tomorrow && hour(e.start) < 12);
+  });
+  return keep.map((e) => ({ summary: e.title, start: e.start }));
+}
+
 function arrangeSlots(slots: Slot[], layout: DeviceLayout) {
   const present = slots.filter((s) => s.node);
   const byId = new Map(present.map((s) => [s.id, s]));
@@ -132,6 +164,11 @@ export function Home() {
   const now = new Date();
 
   const widgets = useMemo(() => (apps ?? []).filter((a) => a.widget && (isWidget(a.widget) || a.status.state !== "unconfigured")), [apps]);
+  const phase = ctx?.phase ?? localPhase();
+  const [showAll, setShowAll] = useState(false);
+  // Tasks and Coming up follow the part of the day (4.9): work tasks in work hours, yours after.
+  const taskArea = phase === "work" ? "work" : phase === "morning" ? undefined : "personal";
+  const comingUp = dayEvents(phase, ctx, hud?.next_events, now);
   const attention = (apps ?? []).filter((a) => a.status.state === "degraded" || a.status.state === "down").length;
 
   // Until a source answers, its widgets hold their place with a "Loading…" card.
@@ -142,8 +179,8 @@ export function Home() {
     { id: "app-health", label: "Siris apps", node: apps ? <AppHealthWidget apps={apps} delay={120} /> : appsLoading && <LoadingWidget title="Siris apps" Icon={ShieldCheck} delay={120} /> },
   ];
   const today: Slot[] = [
-    { id: "tasks", label: "Tasks", node: !hideMine && <TasksWidget delay={20} /> },
-    { id: "coming-up", label: "Coming up", node: !hideMine && (hud?.next_events ? <ComingUpWidget events={hud.next_events} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },
+    { id: "tasks", label: "Tasks", node: !hideMine && <TasksWidget delay={20} area={adapt ? taskArea : undefined} /> },
+    { id: "coming-up", label: "Coming up", node: !hideMine && (comingUp ? <ComingUpWidget events={comingUp} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },
     { id: "career", label: "Career", node: !hideMine && <CareerWidget delay={30} /> },
     { id: "fitness", label: "Fitness", node: !hideMine && <FitnessWidget delay={40} /> },
     ...(appsLoading
@@ -151,6 +188,8 @@ export function Home() {
       : widgets.map((app, i) => ({ id: `app:${app.id}`, label: app.name, node: <WidgetCard app={app} delay={i * 50} /> }))),
     { id: "activity", label: "SirisAI activity", node: hud?.autonomy ? <ActivityWidget entries={hud.autonomy} /> : hudLoading && <LoadingWidget title="SirisAI activity" Icon={Activity} /> },
     { id: "parcels", label: "Parcels", node: siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} /> },
+    { id: "brain", label: "Learned today", node: !hideMine && hud?.brain && <BrainTodayWidget items={hud.brain} /> },
+    { id: "capture", label: "Quick capture", node: !hideMine && <CaptureWidget /> },
   ];
   // Lights and scenes are left to Siri and the Home app (4.8); protocols show while you're home
   // (or when SirisAI can't tell).
@@ -168,10 +207,22 @@ export function Home() {
     { title: "Today", slots: arrangeSlots(today, layout) },
     { title: "Home", slots: arrangeSlots(homeControls, layout) },
   ];
+  // What this part of the day leaves out (4.9), unless you asked for everything; some widgets only
+  // show when they need you. Customise Home's own hiding applies on top, on every part of the day.
+  const dayHidden = ctx?.hidden ?? DAY_HIDDEN[phase];
+  const quiet = (id: string) => {
+    if (id === "server") return phase !== "weekend" && !serverNeedsYou(hud?.system);
+    if (id === "app-health") return attention === 0;
+    if (id === "energy") return !(siris?.energy && (siris.energy.cheap_now || siris.energy.waiting_jobs > 0));
+    if (id === "car") return phase === "evening" && !carNeedsCharge(siris?.car);
+    return false;
+  };
+  const leftOut = (id: string) => adapt && !showAll && !id.startsWith("loading-") && (hiddenNow(id, dayHidden) || quiet(id));
+  const daySections = sectionList.map((sec) => ({ ...sec, slots: { ...sec.slots, shown: sec.slots.shown.filter((slot) => !leftOut(slot.id)) } }));
+  const leftOutCount = sectionList.reduce((n, sec) => n + sec.slots.shown.filter((slot) => leftOut(slot.id)).length, 0);
   // The part of the day decides which section leads (3.1); widgets inside keep your order.
-  const phase = ctx?.phase ?? localPhase();
   const order = sectionOrder(phase, ctx);
-  const sections = adapt ? [...sectionList].sort((a, b) => order.indexOf(a.title) - order.indexOf(b.title)) : sectionList;
+  const sections = adapt ? [...daySections].sort((a, b) => order.indexOf(a.title) - order.indexOf(b.title)) : daySections;
   const editableSource = sectionList;
   // Placeholders aren't widgets you can arrange.
   const editable: SectionInfo[] = editableSource.map(({ title, slots }) => ({
@@ -185,7 +236,7 @@ export function Home() {
   }
 
   return (
-    <>
+    <div className={`home${adapt && (phase === "winddown" || phase === "night") ? " home--quiet" : ""}`}>
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">
@@ -231,7 +282,7 @@ export function Home() {
         </p>
       )}
 
-      {adapt && ctx && !hideMine && <FocusCard ctx={ctx} events={hud?.next_events} />}
+      {adapt && ctx && !hideMine && <FocusCard ctx={ctx} events={hud?.next_events} parcels={siris?.parcels?.length ?? 0} inbox={siris?.attention?.open ?? 0} />}
 
       {sections.map(({ title, slots }) =>
         slots.shown.length > 0 && (
@@ -242,6 +293,11 @@ export function Home() {
             </div>
           </section>
         ),
+      )}
+      {adapt && (leftOutCount > 0 || showAll) && (
+        <button type="button" className="show-more home__everything" onClick={() => setShowAll(!showAll)}>
+          {showAll ? "Show less" : `Show everything (${leftOutCount} more)`}
+        </button>
       )}
       <div className="customise-entry">
         <Glass as="button" shape="pill" interactive className="button button--small" onClick={() => setCustomising(true)}>
@@ -265,7 +321,7 @@ export function Home() {
       {open && <AppSheet appId={open.id} initial={open} onClose={() => setOpen(null)} />}
       {timing && <HomeTimes onClose={() => setTiming(false)} onSaved={() => ctxRes.reload(true).catch(() => undefined)} />}
       {customising && <HomeCustomise device={device} sections={editable} layout={layout} onChange={saveLayout} onClose={() => setCustomising(false)} />}
-    </>
+    </div>
   );
 }
 

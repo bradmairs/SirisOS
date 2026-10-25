@@ -111,6 +111,19 @@ def parse(text: str, on: date | None = None) -> store.Task:
 
 # -- the list ----------------------------------------------------------------------
 
+# Words that make an unlabelled task work (4.9): Home shows work tasks in work hours, the rest after.
+WORK_WORDS = re.compile(
+    r"\b(gvw|cmp|client|council|project|report|rfi|drawings?|design|tender|proposal|invoice|timesheet|cpd|"
+    r"meeting|minutes|review|submission|deliverable|spec(ification)?|scope|site visit|hydraulic|sewer|"
+    r"stormwater|water main|pump station|catchment|civil 3d|12d|autocad|boss|manager|colleague|email \w+ re)\b", re.I)
+
+
+def area_of(title: str, detail: str | None = None, set_to: str | None = None) -> str:
+    """"work" or "personal": what the task says it is, else a guess from its words."""
+    if set_to in ("work", "personal"):
+        return set_to
+    return "work" if WORK_WORDS.search(f"{title} {detail or ''}") else "personal"
+
 def _key_siris(t: dict[str, Any]) -> str:
     return f"siris:{t.get('note')}|{t.get('task')}"
 
@@ -131,7 +144,8 @@ async def collect(hub: Hub, on: date | None = None) -> dict[str, Any]:
             continue
         due = date.fromisoformat(t.due) if t.due else None
         items.append({"id": f"sirisos:{t.id}", "source": "sirisos", "title": t.title, "detail": t.notes or None,
-                      "due": t.due, "time": t.time, "repeat": t.repeat, "group": group_of(due, on)})
+                      "due": t.due, "time": t.time, "repeat": t.repeat, "group": group_of(due, on),
+                      "area": area_of(t.title, t.notes, t.area), "area_set": t.area is not None})
 
     def order(i: dict[str, Any]) -> tuple:
         return (i["due"] is None, i["due"] or "", i.get("time") or "99:99", (i["title"] or "").lower())
@@ -174,7 +188,7 @@ def _own(doc: store.TasksDocument, task_id: str) -> store.Task:
 def update(task_id: str, changes: dict[str, Any]) -> store.Task:
     doc = store.load()
     t = _own(doc, task_id)
-    merged = store.Task.model_validate({**t.model_dump(), **{k: v for k, v in changes.items() if k in ("title", "due", "time", "notes", "repeat")}})
+    merged = store.Task.model_validate({**t.model_dump(), **{k: v for k, v in changes.items() if k in ("title", "due", "time", "notes", "repeat", "area")}})
     doc.tasks = [merged if x.id == t.id else x for x in doc.tasks]
     store.save(doc)
     return merged

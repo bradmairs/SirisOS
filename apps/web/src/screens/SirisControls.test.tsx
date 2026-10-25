@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -68,6 +68,10 @@ describe("cameras", () => {
 });
 
 describe("<Home /> with SirisAI's widgets", () => {
+  // These check the widgets themselves; what each part of the day shows is HomeDay.test.tsx.
+  beforeEach(() => localStorage.setItem("sirisos.home.adaptive", "off"));
+  afterEach(() => localStorage.removeItem("sirisos.home.adaptive"));
+
   const routes = (guest: boolean) => ({
     "/api/v1/hub/apps": () => jsonResponse({ apps: [], guest_mode: guest }),
     "/api/v1/assistant/hud": () => jsonResponse({ next_events: [{ summary: "Dentist", start: "2026-10-09T10:00:00+11:00" }] }),
