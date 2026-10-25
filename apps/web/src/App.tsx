@@ -5,6 +5,7 @@ import { onUnauthorised, session } from "./api/client";
 import { Dock } from "./components/Dock";
 import { LogoMark } from "./components/Logo";
 import { useMorningBrief } from "./components/MorningBrief";
+import { useEdgeSwipe } from "./components/EdgeSwipe";
 import { useSearchShortcut } from "./components/searchShortcut";
 import { AppSheet } from "./screens/AppSheet";
 import { Sidebar } from "./components/Sidebar";
@@ -101,6 +102,8 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
   const { apps } = useApps(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // Swipe in from the left edge to open the menu, and back to close it (phones and tablets).
+  useEdgeSwipe({ open: menuOpen, onOpen: () => setMenuOpen(true), onClose: closeMenu });
   const morning = useMorningBrief();
   const onBriefScreen = useLocation().pathname === "/brief";
   const [searching, setSearching] = useState(false);
