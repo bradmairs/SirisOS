@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Brain as BrainIcon, Check, Search } from "lucide-react";
+import { Check, Search } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainHit } from "../api/types";
@@ -11,7 +11,7 @@ import { DeleteNoteButton } from "./BrainDelete";
 import { BrainInsights } from "./BrainInsights";
 import { BrainManage, DeletedBar, useDeletedNotes } from "./BrainManage";
 import { BrainMap } from "./BrainMap";
-import { NoteConnections } from "./NoteConnections";
+import { NoteHit } from "./NoteHit";
 
 export function Brain() {
   const [q, setQ] = useState("");
@@ -26,6 +26,13 @@ export function Brain() {
   const learned = useShowMore(today ?? []);
   const [lastDeleted, setLastDeleted] = useState<{ title: string; permanent: boolean } | null>(null);
   const [searchNonce, setSearchNonce] = useState(0);
+  // A [[link]] in an open note searches for that note and opens it.
+  const [opening, setOpening] = useState<string | null>(null);
+  function openNote(title: string) {
+    setOpening(title.toLowerCase());
+    setQ(title);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   const [capture, setCapture] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -97,7 +104,7 @@ export function Brain() {
 
       <Glass as="label" shape="pill" className="ask-bar" htmlFor="brain-search">
         <Search aria-hidden="true" />
-        <input id="brain-search" className="ask-bar__input" placeholder="Search your notes" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input id="brain-search" className="ask-bar__input" placeholder="Search your notes" value={q} onChange={(e) => { setOpening(null); setQ(e.target.value); }} />
       </Glass>
 
       {error && <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{error}</div>}
@@ -116,27 +123,12 @@ export function Brain() {
           <h2 className="section-title">{searching ? "Searching…" : `${hits.length} note${hits.length === 1 ? "" : "s"}`}</h2>
           <div className="stack">
             {hits.map((hit) => (
-              <Glass key={hit.path ?? hit.title} className="widget" style={{ minHeight: 0 }}>
-                <div className="widget__head">
-                  <BrainIcon style={{ color: "#a78bfa" }} aria-hidden="true" />
-                  <span style={{ color: "var(--ink)", fontSize: 16 }}>{hit.title}</span>
-                  {hit.type && <span className="chip" style={{ marginLeft: "auto" }}>{hit.type}</span>}
-                </div>
-                {(hit.excerpts ?? []).slice(0, 2).map((x, i) => (
-                  <p key={i} className="muted" style={{ margin: 0 }}>{x}</p>
-                ))}
-                {hit.path && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{hit.path}</p>}
-                <div className="row note-actions">
-                  <NoteConnections title={hit.title} />
-                  <DeleteNoteButton title={hit.title} onDeleted={deleted} />
-                </div>
-              </Glass>
+              <NoteHit key={hit.path ?? hit.title} hit={hit} onOpen={openNote} onDeleted={deleted} start={hit.title.toLowerCase() === opening} />
             ))}
           </div>
         </>
       ) : (
         <>
-        <BrainMap />
         <div className="widget-grid" style={{ marginTop: 14 }}>
           <Glass as="form" className="widget" onSubmit={save} aria-label="Quick capture">
             <div className="widget__head">Quick capture</div>
@@ -179,6 +171,7 @@ export function Brain() {
           </Glass>
         </div>
         <BrainInsights />
+        <BrainMap />
         <BrainManage onRestored={restored} />
         </>
       )}
