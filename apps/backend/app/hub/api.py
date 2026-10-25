@@ -258,6 +258,30 @@ async def assistant_widgets(connector: SirisAIConnector = Depends(_sirisai)) -> 
     return await _forward(connector, "GET", "/siris/hub/v1/widgets")
 
 
+@router.get("/assistant/protocols", tags=["assistant"])
+async def protocol_catalogue(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Every protocol with its steps, and what a step can do: the editor (SirisAI 2.91)."""
+    return await _forward(connector, "GET", "/siris/hub/v1/protocols")
+
+
+class ProtocolSave(BaseModel):
+    description: str = Field(default="", max_length=300)
+    steps: list[dict[str, Any]] = Field(min_length=1, max_length=30)
+
+
+@router.put("/assistant/protocols/{name}", tags=["assistant"])
+async def protocol_save(name: SafeName, body: ProtocolSave, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Make or change a protocol. SirisAI checks every step (only lights, switches, covers, locks,
+    media, climate, scenes, notifications and guest mode can be set from here)."""
+    return await _forward(connector, "PUT", f"/siris/hub/v1/protocols/{name}", json=body.model_dump())
+
+
+@router.delete("/assistant/protocols/{name}", tags=["assistant"])
+async def protocol_delete(name: SafeName, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Delete yours; a built-in you'd changed comes back."""
+    return await _forward(connector, "DELETE", f"/siris/hub/v1/protocols/{name}")
+
+
 @router.get("/assistant/protocols/{name}", tags=["assistant"])
 async def protocol_preview(name: SafeName, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """What running the protocol would do right now, step by step."""

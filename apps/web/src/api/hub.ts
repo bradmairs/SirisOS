@@ -4,7 +4,7 @@ import { readNdjson, type VoiceEvent } from "./voice";
 import type {
   HomeControls,
   BrainDeleted, BrainDeleteResult, BrainHit, BrainInsights, BrainNote, CameraLook, ChatEvent, ConversationSummary, HubApp, Hud, Inbox, InboxEvent, InboxItem,
-  PendingToolCall, ProtocolPreview, ProtocolRunResult, SirisMemory, SirisWidgets,
+  PendingToolCall, ProtocolCatalogue, ProtocolDef, ProtocolPreview, ProtocolRunResult, ProtocolStepDef, SirisMemory, SirisWidgets,
 } from "./types";
 
 export const hub = {
@@ -67,6 +67,12 @@ export const assistant = {
   protocol: (name: string) => api<ProtocolPreview>(`/api/v1/assistant/protocols/${encodeURIComponent(name)}`),
   runProtocol: (name: string) => api<ProtocolRunResult>(`/api/v1/assistant/protocols/${encodeURIComponent(name)}/run`, json({ confirmed: true })),
   undoProtocol: () => api<ProtocolRunResult>("/api/v1/assistant/protocols/undo", json({ confirmed: true })),
+  /** The editor (4.91): every protocol with its steps, and what a step can do. */
+  protocols: () => api<ProtocolCatalogue>("/api/v1/assistant/protocols"),
+  saveProtocol: (name: string, body: { description: string; steps: ProtocolStepDef[] }) =>
+    api<ProtocolDef>(`/api/v1/assistant/protocols/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteProtocol: (name: string) =>
+    api<{ name: string; deleted: boolean; restored_builtin: boolean }>(`/api/v1/assistant/protocols/${encodeURIComponent(name)}`, { method: "DELETE" }),
   look: (camera: string, question?: string) =>
     api<CameraLook>(`/api/v1/assistant/cameras/${encodeURIComponent(camera)}/look`, json(question ? { question } : {})),
   /** The camera's latest frame as an object URL (the request carries the session token). Revoke it when done. */

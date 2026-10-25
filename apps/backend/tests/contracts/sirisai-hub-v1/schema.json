@@ -15,6 +15,12 @@
     "search": {
       "$ref": "#/$defs/SearchResults"
     },
+    "calendar": {
+      "$ref": "#/$defs/CalendarRange"
+    },
+    "forecast": {
+      "$ref": "#/$defs/Forecast"
+    },
     "attention": {
       "$ref": "#/$defs/AttentionList"
     },
@@ -36,6 +42,18 @@
     "protocol_run": {
       "$ref": "#/$defs/ProtocolRunResult"
     },
+    "protocols": {
+      "$ref": "#/$defs/ProtocolCatalogue"
+    },
+    "protocol_save": {
+      "$ref": "#/$defs/ProtocolSave"
+    },
+    "protocol_saved": {
+      "$ref": "#/$defs/ProtocolDef"
+    },
+    "protocol_deleted": {
+      "$ref": "#/$defs/ProtocolDeleted"
+    },
     "camera_look_request": {
       "$ref": "#/$defs/CameraLookRequest"
     },
@@ -47,6 +65,36 @@
     },
     "llm_complete": {
       "$ref": "#/$defs/LLMCompleteResult"
+    },
+    "presence": {
+      "$ref": "#/$defs/Presence"
+    },
+    "reminders": {
+      "$ref": "#/$defs/ReminderList"
+    },
+    "reminder_done": {
+      "$ref": "#/$defs/ReminderDone"
+    },
+    "email_with": {
+      "$ref": "#/$defs/EmailWith"
+    },
+    "upkeep": {
+      "$ref": "#/$defs/Upkeep"
+    },
+    "health_days": {
+      "$ref": "#/$defs/HealthDays"
+    },
+    "controls": {
+      "$ref": "#/$defs/Controls"
+    },
+    "control_request": {
+      "$ref": "#/$defs/ControlRequest"
+    },
+    "control": {
+      "$ref": "#/$defs/ControlResult"
+    },
+    "network": {
+      "$ref": "#/$defs/Network"
     }
   },
   "$defs": {
@@ -56,6 +104,34 @@
         "action": {
           "title": "Action",
           "type": "string"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a triage reply's 'send': the reply as edited, instead of the draft.",
+          "title": "Body"
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The approval PIN, when SirisAI has one and this approves a high-risk action. Without it the reply is 403 with detail starting 'pin_required'.",
+          "title": "Pin"
         }
       },
       "required": [
@@ -393,6 +469,60 @@
       "title": "AutonomyItem",
       "type": "object"
     },
+    "BackupStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "newest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the newest backup was made, ISO.",
+          "title": "Newest"
+        },
+        "count": {
+          "default": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "last_drill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Drill"
+        },
+        "drill_ok": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Drill Ok"
+        }
+      },
+      "title": "BackupStatus",
+      "type": "object"
+    },
     "BrainSummary": {
       "additionalProperties": false,
       "properties": {
@@ -666,12 +796,70 @@
           "default": null,
           "description": "Which calendar it's on, e.g. Gmail or an iCloud calendar's name.",
           "title": "Calendar"
+        },
+        "attendees": {
+          "default": [],
+          "description": "Attendee and organiser email addresses, when the calendar has them.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Attendees",
+          "type": "array"
         }
       },
       "required": [
         "title"
       ],
       "title": "CalendarEvent",
+      "type": "object"
+    },
+    "CalendarRange": {
+      "additionalProperties": false,
+      "description": "Every event from `start` up to (not including) `end`, local dates.",
+      "properties": {
+        "start": {
+          "description": "First day, YYYY-MM-DD.",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "description": "The day after the last day, YYYY-MM-DD.",
+          "title": "End",
+          "type": "string"
+        },
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "events": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CalendarEvent"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null in guest mode or when no calendar answered.",
+          "title": "Events"
+        },
+        "unavailable": {
+          "default": false,
+          "description": "No calendar is set up, or every calendar failed.",
+          "title": "Unavailable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "guest_mode"
+      ],
+      "title": "CalendarRange",
       "type": "object"
     },
     "CameraLook": {
@@ -832,6 +1020,162 @@
       "title": "CarSummary",
       "type": "object"
     },
+    "Control": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "light",
+            "switch",
+            "garage",
+            "lock"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "state": {
+          "description": "Home Assistant's state: on/off, open/closed/opening/closing, locked/unlocked...",
+          "title": "State",
+          "type": "string"
+        },
+        "brightness_pct": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightness Pct"
+        },
+        "confirm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set when the action needs the user's yes first (garage doors and locks).",
+          "title": "Confirm"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name",
+        "kind",
+        "state"
+      ],
+      "title": "Control",
+      "type": "object"
+    },
+    "ControlRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "toggle",
+            "turn_on",
+            "turn_off",
+            "open",
+            "close",
+            "lock",
+            "unlock"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "confirmed": {
+          "default": false,
+          "description": "Garage doors and locks: the user said yes.",
+          "title": "Confirmed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "ControlRequest",
+      "type": "object"
+    },
+    "ControlResult": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        }
+      },
+      "required": [
+        "entity_id",
+        "action"
+      ],
+      "title": "ControlResult",
+      "type": "object"
+    },
+    "Controls": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "controls": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Control"
+          },
+          "title": "Controls",
+          "type": "array"
+        },
+        "scenes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SceneControl"
+          },
+          "title": "Scenes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "configured",
+        "guest_mode"
+      ],
+      "title": "Controls",
+      "type": "object"
+    },
     "Deadline": {
       "additionalProperties": false,
       "properties": {
@@ -849,6 +1193,47 @@
         "days_left"
       ],
       "title": "Deadline",
+      "type": "object"
+    },
+    "EmailBrief": {
+      "additionalProperties": false,
+      "properties": {
+        "uid": {
+          "title": "Uid",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "snippet": {
+          "default": "",
+          "title": "Snippet",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uid",
+        "sender",
+        "subject"
+      ],
+      "title": "EmailBrief",
       "type": "object"
     },
     "EmailSummary": {
@@ -871,6 +1256,41 @@
         "unread"
       ],
       "title": "EmailSummary",
+      "type": "object"
+    },
+    "EmailWith": {
+      "additionalProperties": false,
+      "properties": {
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "messages": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/EmailBrief"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Newest first; null in guest mode or when email isn't set up.",
+          "title": "Messages"
+        }
+      },
+      "required": [
+        "guest_mode",
+        "configured"
+      ],
+      "title": "EmailWith",
       "type": "object"
     },
     "EnergySummary": {
@@ -939,6 +1359,35 @@
         "cheap_now"
       ],
       "title": "EnergySummary",
+      "type": "object"
+    },
+    "Forecast": {
+      "additionalProperties": false,
+      "description": "The daily forecast at home, today first.",
+      "properties": {
+        "days": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ForecastDay"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null when no forecast is set up or it failed.",
+          "title": "Days"
+        },
+        "unavailable": {
+          "default": false,
+          "title": "Unavailable",
+          "type": "boolean"
+        }
+      },
+      "title": "Forecast",
       "type": "object"
     },
     "ForecastDay": {
@@ -1018,6 +1467,58 @@
         }
       },
       "title": "ForecastDay",
+      "type": "object"
+    },
+    "HealthDay": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "title": "Metrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "date"
+      ],
+      "title": "HealthDay",
+      "type": "object"
+    },
+    "HealthDays": {
+      "additionalProperties": false,
+      "properties": {
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "days": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/HealthDay"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Oldest first; null in guest mode.",
+          "title": "Days"
+        }
+      },
+      "required": [
+        "guest_mode"
+      ],
+      "title": "HealthDays",
       "type": "object"
     },
     "HealthMetric": {
@@ -1307,6 +1808,149 @@
       "title": "LastProtocolRun",
       "type": "object"
     },
+    "Network": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "checked_at": {
+          "title": "Checked At",
+          "type": "string"
+        },
+        "wan": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The internet link: rx_bps, tx_bps, isp.",
+          "title": "Wan"
+        },
+        "nodes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/NetworkNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "configured",
+        "guest_mode",
+        "checked_at"
+      ],
+      "title": "Network",
+      "type": "object"
+    },
+    "NetworkNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The MAC address.",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "gateway",
+            "switch",
+            "access_point",
+            "client"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "wired": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wired"
+        },
+        "online": {
+          "default": true,
+          "title": "Online",
+          "type": "boolean"
+        },
+        "uplink": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The id of the switch or access point it connects through (null: the gateway).",
+          "title": "Uplink"
+        },
+        "rx_bps": {
+          "default": 0,
+          "description": "Bytes per second it's receiving now.",
+          "title": "Rx Bps",
+          "type": "number"
+        },
+        "tx_bps": {
+          "default": 0,
+          "description": "Bytes per second it's sending now.",
+          "title": "Tx Bps",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ],
+      "title": "NetworkNode",
+      "type": "object"
+    },
     "OverdueTask": {
       "additionalProperties": false,
       "properties": {
@@ -1427,6 +2071,194 @@
       "title": "ParcelSummary",
       "type": "object"
     },
+    "Presence": {
+      "additionalProperties": false,
+      "properties": {
+        "home": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether the last presence check found someone home; null when presence isn't set up.",
+          "title": "Home"
+        },
+        "checked_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checked At"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When that state began (an arrival or a departure); null until there's been a change since tracking started.",
+          "title": "Since"
+        }
+      },
+      "required": [
+        "home"
+      ],
+      "title": "Presence",
+      "type": "object"
+    },
+    "ProtocolCatalogue": {
+      "additionalProperties": false,
+      "properties": {
+        "protocols": {
+          "items": {
+            "$ref": "#/$defs/ProtocolDef"
+          },
+          "title": "Protocols",
+          "type": "array"
+        },
+        "actions": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Home Assistant actions a step can take, per domain.",
+          "title": "Actions",
+          "type": "object"
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProtocolEntity"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "home_assistant": {
+          "title": "Home Assistant",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocols",
+        "actions",
+        "home_assistant"
+      ],
+      "title": "ProtocolCatalogue",
+      "type": "object"
+    },
+    "ProtocolDef": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "builtin": {
+          "default": false,
+          "description": "A built-in as it comes; false once it's yours (made here or in chat).",
+          "title": "Builtin",
+          "type": "boolean"
+        },
+        "customised": {
+          "default": false,
+          "description": "Your version of a built-in: deleting it brings the original back.",
+          "title": "Customised",
+          "type": "boolean"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/ProtocolStepDef"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "steps"
+      ],
+      "title": "ProtocolDef",
+      "type": "object"
+    },
+    "ProtocolDeleted": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "deleted": {
+          "title": "Deleted",
+          "type": "boolean"
+        },
+        "restored_builtin": {
+          "default": false,
+          "title": "Restored Builtin",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "deleted"
+      ],
+      "title": "ProtocolDeleted",
+      "type": "object"
+    },
+    "ProtocolEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "device_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device Class"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name",
+        "domain"
+      ],
+      "title": "ProtocolEntity",
+      "type": "object"
+    },
     "ProtocolInfo": {
       "additionalProperties": false,
       "properties": {
@@ -1542,6 +2374,30 @@
       "title": "ProtocolRunResult",
       "type": "object"
     },
+    "ProtocolSave": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/ProtocolStepDef"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps"
+      ],
+      "title": "ProtocolSave",
+      "type": "object"
+    },
     "ProtocolStep": {
       "additionalProperties": false,
       "properties": {
@@ -1576,6 +2432,170 @@
         "would_run"
       ],
       "title": "ProtocolStep",
+      "type": "object"
+    },
+    "ProtocolStepDef": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "description": "home_assistant_call_service, notify or set_guest_mode (others only as made in chat).",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Arguments",
+          "type": "object"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "when": {
+          "default": null,
+          "description": "nobody_home, someone_home, night, day, {entity, state|not_state}, or null for always.",
+          "title": "When"
+        },
+        "undo": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A step's own undo (set in chat; kept as it is).",
+          "title": "Undo"
+        }
+      },
+      "required": [
+        "tool"
+      ],
+      "title": "ProtocolStepDef",
+      "type": "object"
+    },
+    "Reminder": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "due_at": {
+          "description": "ISO date-time, UTC.",
+          "title": "Due At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "sent"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "message",
+        "due_at",
+        "status"
+      ],
+      "title": "Reminder",
+      "type": "object"
+    },
+    "ReminderDone": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "title": "ReminderDone",
+      "type": "object"
+    },
+    "ReminderList": {
+      "additionalProperties": false,
+      "properties": {
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "reminders": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Reminder"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pending and recently sent reminders; null in guest mode.",
+          "title": "Reminders"
+        }
+      },
+      "required": [
+        "guest_mode"
+      ],
+      "title": "ReminderList",
+      "type": "object"
+    },
+    "SceneControl": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "siris:<n> for a Siris scene, or a Home Assistant scene.* entity id.",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "siris",
+            "home_assistant"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "source"
+      ],
+      "title": "SceneControl",
       "type": "object"
     },
     "SearchHit": {
@@ -1703,6 +2723,73 @@
         "summary"
       ],
       "title": "TodoItem",
+      "type": "object"
+    },
+    "UpdateStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "title": "Current",
+          "type": "string"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest"
+        },
+        "available": {
+          "default": false,
+          "title": "Available",
+          "type": "boolean"
+        },
+        "checked_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checked At"
+        }
+      },
+      "required": [
+        "current"
+      ],
+      "title": "UpdateStatus",
+      "type": "object"
+    },
+    "Upkeep": {
+      "additionalProperties": false,
+      "properties": {
+        "backups": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackupStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "update": {
+          "$ref": "#/$defs/UpdateStatus"
+        }
+      },
+      "required": [
+        "update"
+      ],
+      "title": "Upkeep",
       "type": "object"
     },
     "Weather": {
