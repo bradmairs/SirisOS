@@ -81,9 +81,10 @@ describe("<ProtocolsManager />", () => {
     expect(JSON.parse(String(put.init.body))).toEqual({
       description: "Film time",
       steps: [
-        { tool: "home_assistant_call_service", when: "night", arguments: { domain: "light", service: "turn_on", entity_id: "light.lounge", service_data: { brightness_pct: 20 } } },
-        { tool: "notify", arguments: { message: "Enjoy the film", title: "" } },
-        { tool: "home_assistant_call_service", arguments: { domain: "cover", service: "close_cover", entity_id: "cover.lounge_blind" } },
+        { tool: "home_assistant_call_service", when: "night", label: "Turn on Lounge lamp",
+          arguments: { domain: "light", service: "turn_on", entity_id: "light.lounge", service_data: { brightness_pct: 20 } } },
+        { tool: "notify", label: "Notify: Enjoy the film", arguments: { message: "Enjoy the film", title: "" } },
+        { tool: "home_assistant_call_service", label: "Close Lounge blind", arguments: { domain: "cover", service: "close_cover", entity_id: "cover.lounge_blind" } },
       ],
     });
   });

@@ -135,7 +135,10 @@ function ProtocolSheet({ catalogue: cat, protocol, onClose, onChanged }: {
     setBusy(true);
     setError(null);
     try {
-      await assistant.saveProtocol(slug, { description: description.trim(), steps });
+      // A step with no name gets one from what it does, so previews and Home's card read well.
+      // Steps from chat (other tools, their own undo) go back exactly as they came.
+      const named = steps.map((st) => (st.label || kindOf(st) === "other" || st.undo ? st : { ...st, label: describeStep(st, cat) }));
+      await assistant.saveProtocol(slug, { description: description.trim(), steps: named });
       onChanged(`Saved ${protocolLabel(slug)}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message.replace(/^SirisAI: /, "") : "Couldn't save it.");
