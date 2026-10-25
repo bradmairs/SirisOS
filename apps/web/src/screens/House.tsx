@@ -10,6 +10,7 @@ import type { HouseScene, Pick } from "../house/scene";
 import { Glass } from "../components/Glass";
 import { useShowMore } from "../components/ShowMore";
 import { HomeControlsWidget } from "./SirisControls";
+import { ProtocolsManager } from "./ProtocolEditor";
 
 const KIND_LABEL: Record<NetNode["kind"], string> = { gateway: "Gateway", switch: "Switch", access_point: "Access point", client: "Device" };
 
@@ -151,6 +152,7 @@ export function HouseScreen() {
       <div className="stack" style={{ marginTop: 16 }}>
         {/* Off the main Home page since 4.8 (Siri and the Home app do this day to day); kept here. */}
         <HomeControlsWidget onHousePage />
+        <ProtocolsManager />
 
         <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Network now">
           <header className="widget__head"><NetworkIcon aria-hidden="true" /><span>Network now</span></header>

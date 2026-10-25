@@ -1,0 +1,210 @@
+{
+  "protocols": [
+    {
+      "name": "away",
+      "description": "Everyone's out: lights and media off, doors locked, garage closed.",
+      "builtin": true,
+      "customised": false,
+      "steps": [
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "light",
+            "service": "turn_off",
+            "entity_id": "all"
+          },
+          "label": "Lights off",
+          "when": null,
+          "undo": null
+        },
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "media_player",
+            "service": "turn_off",
+            "entity_id": "all"
+          },
+          "label": "Media off",
+          "when": null,
+          "undo": null
+        },
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "lock",
+            "service": "lock",
+            "entity_id": "all"
+          },
+          "label": "Lock every lock",
+          "when": null,
+          "undo": null
+        },
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "cover",
+            "service": "close_cover",
+            "entity_id": {
+              "select": {
+                "domain": "cover",
+                "device_class": [
+                  "garage",
+                  "gate"
+                ]
+              }
+            }
+          },
+          "label": "Close garage doors and gates",
+          "when": null,
+          "undo": null
+        }
+      ]
+    },
+    {
+      "name": "guest",
+      "description": "Visitors over: guest mode on for 24 hours (no personal info volunteered), guest Wi-Fi on.",
+      "builtin": true,
+      "customised": false,
+      "steps": [
+        {
+          "tool": "set_guest_mode",
+          "arguments": {
+            "on": true,
+            "hours": 24
+          },
+          "label": "Guest mode on",
+          "when": null,
+          "undo": null
+        }
+      ]
+    },
+    {
+      "name": "guest_off",
+      "description": "Visitors gone: guest mode off, guest Wi-Fi off.",
+      "builtin": true,
+      "customised": false,
+      "steps": [
+        {
+          "tool": "set_guest_mode",
+          "arguments": {
+            "on": false
+          },
+          "label": "Guest mode off",
+          "when": null,
+          "undo": null
+        }
+      ]
+    },
+    {
+      "name": "lockdown",
+      "description": "Secure the house: lock every lock, close garage doors and gates, lights on at night, tell everyone.",
+      "builtin": true,
+      "customised": false,
+      "steps": [
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "lock",
+            "service": "lock",
+            "entity_id": "all"
+          },
+          "label": "Lock every lock",
+          "when": null,
+          "undo": null
+        },
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "cover",
+            "service": "close_cover",
+            "entity_id": {
+              "select": {
+                "domain": "cover",
+                "device_class": [
+                  "garage",
+                  "gate"
+                ]
+              }
+            }
+          },
+          "label": "Close garage doors and gates",
+          "when": null,
+          "undo": null
+        },
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "light",
+            "service": "turn_on",
+            "entity_id": "all"
+          },
+          "label": "All lights on (deterrent)",
+          "when": "night",
+          "undo": null
+        }
+      ]
+    }
+  ],
+  "actions": {
+    "light": [
+      "turn_on",
+      "turn_off",
+      "toggle"
+    ],
+    "switch": [
+      "turn_on",
+      "turn_off",
+      "toggle"
+    ],
+    "fan": [
+      "turn_on",
+      "turn_off"
+    ],
+    "media_player": [
+      "turn_on",
+      "turn_off",
+      "media_play",
+      "media_pause"
+    ],
+    "climate": [
+      "turn_on",
+      "turn_off",
+      "set_temperature"
+    ],
+    "cover": [
+      "open_cover",
+      "close_cover"
+    ],
+    "lock": [
+      "lock",
+      "unlock"
+    ],
+    "scene": [
+      "turn_on"
+    ],
+    "script": [
+      "turn_on"
+    ]
+  },
+  "entities": [
+    {
+      "entity_id": "cover.garage_door",
+      "name": "cover.garage_door",
+      "domain": "cover",
+      "device_class": "garage"
+    },
+    {
+      "entity_id": "light.kitchen",
+      "name": "light.kitchen",
+      "domain": "light",
+      "device_class": null
+    },
+    {
+      "entity_id": "lock.front_door",
+      "name": "lock.front_door",
+      "domain": "lock",
+      "device_class": null
+    }
+  ],
+  "home_assistant": true
+}

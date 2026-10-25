@@ -274,6 +274,34 @@ export interface SirisProtocol {
   steps: string[];
 }
 
+/** One step of a protocol, as the editor reads and saves it (SirisAI 2.91). */
+export interface ProtocolStepDef {
+  tool: string;
+  arguments: Record<string, unknown>;
+  label?: string | null;
+  /** nobody_home, someone_home, night, day, {entity, state|not_state}, or null for always. */
+  when?: string | { entity: string; state?: string; not_state?: string } | null;
+  undo?: Record<string, unknown> | null;
+}
+
+export interface ProtocolDef {
+  name: string;
+  description: string;
+  /** A built-in as it comes. */
+  builtin: boolean;
+  /** Your version of a built-in: deleting it brings the original back. */
+  customised: boolean;
+  steps: ProtocolStepDef[];
+}
+
+export interface ProtocolCatalogue {
+  protocols: ProtocolDef[];
+  /** Home Assistant actions a step can take, per domain. */
+  actions: Record<string, string[]>;
+  entities: { entity_id: string; name: string; domain: string; device_class?: string | null }[];
+  home_assistant: boolean;
+}
+
 export interface SirisWidgets {
   generated_at: string;
   guest_mode: boolean;

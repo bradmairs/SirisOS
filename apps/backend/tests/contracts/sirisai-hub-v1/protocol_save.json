@@ -1,0 +1,18 @@
+{
+  "description": "Film time",
+  "steps": [
+    {
+      "tool": "home_assistant_call_service",
+      "label": "Dim the lights",
+      "when": "night",
+      "arguments": {
+        "domain": "light",
+        "service": "turn_on",
+        "entity_id": "all",
+        "service_data": {
+          "brightness_pct": 20
+        }
+      }
+    }
+  ]
+}

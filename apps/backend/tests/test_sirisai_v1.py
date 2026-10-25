@@ -68,6 +68,15 @@ class FakeSirisAI:
             item["status"] = "done"
             assert json.loads(request.content) == {"action": "approve"}
             return httpx.Response(200, json={"item": item, "result": {"ok": True}})
+        if path == "/siris/hub/v1/protocols":
+            return httpx.Response(200, json=example("protocols"))
+        if path == "/siris/hub/v1/protocols/movie_night" and request.method == "PUT":
+            body = json.loads(request.content)
+            if body["steps"][0]["tool"] != "home_assistant_call_service":
+                return httpx.Response(422, json={"detail": "'docker_restart_container' steps can't be added or changed here: ask Siris in chat."})
+            return httpx.Response(200, json=example("protocol_saved"))
+        if path == "/siris/hub/v1/protocols/movie_night" and request.method == "DELETE":
+            return httpx.Response(200, json=example("protocol_deleted"))
         if path == "/siris/hub/v1/protocols/lockdown":
             return httpx.Response(200, json=example("protocol_preview"))
         if path == "/siris/hub/v1/protocols/lockdown/run":
@@ -171,6 +180,21 @@ def test_protocols_cameras_widgets(client, ai) -> None:
     frame = client.get("/api/v1/assistant/cameras/front_door/latest.jpg", headers=AUTH)
     assert frame.status_code == 200 and frame.content.startswith(b"\xff\xd8")
     assert client.get("/api/v1/assistant/cameras/..%2Fstatus/latest.jpg", headers=AUTH).status_code in (404, 422)
+
+
+def test_protocols_are_edited_through_sirisai(client, ai) -> None:
+    cat = client.get("/api/v1/assistant/protocols", headers=AUTH).json()
+    assert {p["name"] for p in cat["protocols"]} >= {"lockdown", "away"} and "light" in cat["actions"]
+    save = example("protocol_save")
+    saved = client.put("/api/v1/assistant/protocols/movie_night", json=save, headers=AUTH)
+    assert saved.status_code == 200 and saved.json()["name"] == "movie_night"
+    sent = json.loads(next(r for r in ai.requests if r.method == "PUT").content)
+    assert sent == save
+    refused = client.put("/api/v1/assistant/protocols/movie_night", json={"steps": [{"tool": "docker_restart_container"}]}, headers=AUTH)
+    assert refused.status_code == 422 and "ask Siris in chat" in refused.json()["detail"]
+    assert client.put("/api/v1/assistant/protocols/movie_night", json={"steps": []}, headers=AUTH).status_code == 422
+    assert client.put("/api/v1/assistant/protocols/a%20b", json=save, headers=AUTH).status_code in (404, 422)
+    assert client.delete("/api/v1/assistant/protocols/movie_night", headers=AUTH).json()["deleted"] is True
 
 
 def test_inbox_merges_sirisai_and_sirisos_items(client, ai, monkeypatch) -> None:
