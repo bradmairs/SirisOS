@@ -790,3 +790,29 @@ body.no-scroll { overflow: hidden; }
 .protocol__grid .field { font-size: 14px; padding: 6px 8px; width: 100%; min-width: 0; box-sizing: border-box; }
 .protocol__field .field { width: 100%; box-sizing: border-box; }
 .protocol__wide { grid-column: 1 / -1; }
+
+/* Brain search: notes open in place (4.93) */
+.note-hit__head { width: 100%; background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.note-hit__title { color: var(--ink); font-size: 16px; text-transform: none; letter-spacing: 0; flex: 1; min-width: 0; }
+.note-hit__head .chip { margin-left: auto; }
+.note-hit__chevron { transition: transform 0.2s var(--ease); flex: 0 0 auto; }
+.note-hit--open .note-hit__chevron { transform: rotate(180deg); }
+.note-hit__body { display: grid; gap: 10px; }
+.note-hit__meta { margin: 0; font-size: 12px; }
+.note-hit__links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.note { display: grid; gap: 8px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.note__p, .note__list, .note__quote { margin: 0; }
+.note__heading { margin: 6px 0 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+h3.note__heading { font-size: 17px; }
+.note__list { padding-left: 20px; display: grid; gap: 2px; }
+.note__nested { margin-left: 16px; }
+.note__task { list-style: none; margin-left: -20px; }
+.note__task input { margin: 0 4px 0 0; vertical-align: -2px; }
+.note__quote { padding-left: 10px; border-left: 2px solid var(--accent); color: var(--ink-2, var(--ink)); }
+.note__code { margin: 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 6%, transparent); overflow-x: auto; font-size: 13px; }
+.note code { font-size: 0.9em; padding: 1px 4px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.note__link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-align: inherit; display: inline; text-decoration: underline; text-underline-offset: 2px; }
+.note__table-wrap { overflow-x: auto; }
+.note__table { border-collapse: collapse; font-size: 14px; }
+.note__table th, .note__table td { padding: 4px 8px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); text-align: left; vertical-align: top;
+  overflow-wrap: normal; word-break: normal; min-width: 4.5em; }

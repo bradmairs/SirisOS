@@ -163,6 +163,12 @@ export interface BrainNote {
   path: string;
   links: string[];
   backlinks: string[];
+  /** The note's Markdown, without its frontmatter. */
+  body?: string;
+  tags?: string[];
+  aliases?: string[];
+  /** When it was last updated (YYYY-MM-DD). */
+  as_of?: string | null;
 }
 
 export function isWidget(w: WidgetResult | null | undefined): w is Widget {
