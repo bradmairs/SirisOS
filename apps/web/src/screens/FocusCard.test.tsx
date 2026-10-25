@@ -32,9 +32,11 @@ describe("<FocusCard />", () => {
     expect(screen.queryByRole("link", { name: /Wrap up/ })).not.toBeInTheDocument();
   });
 
-  it("has nothing to lead with at the weekend", () => {
-    const { container } = show(ctx({ phase: "weekend" }));
-    expect(container).toBeEmptyDOMElement();
+  it("leads a weekend with what's on and the weather outside", () => {
+    show(ctx({ phase: "weekend", weather_today: { date: "2026-10-24", high_c: 22, rain_chance_percent: 70, conditions: "showers" } }));
+    const card = screen.getByRole("region", { name: "Today" });
+    expect(card).toHaveTextContent("Nothing planned");
+    expect(card).toHaveTextContent("70% chance of rain. Take an umbrella.");
   });
 });
 

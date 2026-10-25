@@ -14,6 +14,9 @@ export interface TaskItem {
   group: TaskGroup;
   snoozed_until?: string | null;
   note?: string;
+  /** Work or personal (4.9): set on the task, else guessed from its words (`area_set` false). */
+  area?: "work" | "personal";
+  area_set?: boolean;
 }
 
 export interface TaskList {
@@ -29,6 +32,7 @@ export interface NewTask {
   time?: string | null;
   repeat?: Repeat;
   notes?: string;
+  area?: "work" | "personal";
 }
 
 export const tasks = {

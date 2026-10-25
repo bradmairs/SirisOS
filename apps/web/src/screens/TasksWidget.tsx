@@ -5,18 +5,20 @@ import { Glass } from "../components/Glass";
 import { LoadingWidget } from "../components/WidgetCard";
 import { TaskRow, useTasks } from "./Tasks";
 
-/** Home: what's due today (and anything overdue), ticked off in place. */
-export function TasksWidget({ delay = 0 }: { delay?: number }) {
+/** Home: what's due today (and anything overdue), ticked off in place. `area` keeps it to work
+ *  tasks in work hours and personal ones after (4.9). */
+export function TasksWidget({ delay = 0, area }: { delay?: number; area?: "work" | "personal" }) {
   const res = useTasks();
   const [note, setNote] = useState<string | null>(null);
   if (!res.data) return res.error ? null : <LoadingWidget title="Tasks" Icon={ListTodo} delay={delay} />;
-  const due = [...res.data.groups.overdue, ...res.data.groups.today];
-  const soon = res.data.groups.week.slice(0, 1);
+  const mine = (t: { area?: string }) => !area || !t.area || t.area === area;
+  const due = [...res.data.groups.overdue, ...res.data.groups.today].filter(mine);
+  const soon = res.data.groups.week.filter(mine).slice(0, 1);
   return (
     <Glass as="section" className="widget" style={{ animationDelay: `${delay}ms` }} aria-label="Tasks">
       <header className="widget__head">
         <ListTodo aria-hidden="true" />
-        <span>Tasks</span>
+        <span>{area === "work" ? "Work tasks" : area === "personal" ? "Your tasks" : "Tasks"}</span>
         <Link to="/tasks" className="widget__source">{res.data.counts.week + res.data.counts.later + res.data.counts.someday > 0 ? "All tasks" : "Open"}</Link>
       </header>
       {due.length === 0 ? (

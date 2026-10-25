@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -31,6 +31,10 @@ describe("greeting", () => {
 });
 
 describe("<Home />", () => {
+  // These check the widgets themselves; what each part of the day shows is HomeDay.test.tsx.
+  beforeEach(() => localStorage.setItem("sirisos.home.adaptive", "off"));
+  afterEach(() => localStorage.removeItem("sirisos.home.adaptive"));
+
   it("shows widgets, app tiles and an app's status sheet", async () => {
     signIn("brad");
     mockFetch({

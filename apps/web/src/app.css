@@ -557,10 +557,32 @@ body.no-scroll { overflow: hidden; }
 .customise__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .customise__row--off .customise__label { color: var(--ink-3); text-decoration: line-through; }
 .customise__row .icon-link:disabled { opacity: 0.3; }
-.times__grid { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 10px; align-items: center; margin-top: 12px; }
+.times__grid { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 8px; align-items: center; margin-top: 12px; }
 .times__head { font-size: 12px; font-weight: 600; color: var(--ink-3); text-align: center; }
 .times__label { font-size: 15px; }
-.times__input { width: 7.5em; padding: 6px 8px; font-size: 15px; }
+.times__input { width: 8.1em; padding: 6px 6px; font-size: 15px; }
+.times__leave { gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.times__leave .times__input { width: 5em; }
+.times__widgets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; margin: 6px 0 4px; }
+.times__widget { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 4px 2px; }
+
+/* Home through the day (4.9) */
+.focus__rain { margin: 0; color: var(--accent); font-weight: 600; }
+.focus__leave { color: var(--accent); font-weight: 600; }
+.focus__when { color: var(--accent); font-weight: 600; }
+.focus__welcome { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; font-size: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.focus__clock { margin: 0; font-size: 40px; font-weight: 300; letter-spacing: -0.02em; }
+.focus__top3 { margin: 0; }
+.task--done .item__title { text-decoration: line-through; color: var(--ink-3); }
+.task__area { font-size: 12px; padding: 3px 8px; gap: 4px; }
+.task__area--guess { opacity: 0.65; }
+.home__everything { display: block; margin: 12px auto 0; }
+/* Wind down and night: dimmer, smaller, still. */
+.home--quiet { filter: brightness(0.82) saturate(0.7); }
+.home--quiet .widget { animation: none; }
+.home--quiet .page-head__title { font-size: 26px; }
+.home--quiet .widget, .home--quiet .item__title { font-size: 0.95em; }
 .customise-entry { display: flex; justify-content: center; margin: 22px 0 4px; }
 
 /* Notifications on this device */

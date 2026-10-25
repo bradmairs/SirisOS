@@ -140,6 +140,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Smart home: the house in 3D, floor by floor, with every network device in its room and live UniFi traffic flowing along neuron-style links (4.5)
 - [x] Smart home: devices as small models of themselves, grouped when close, dragged to where they really are; the floor plan corrected (4.7)
 - [x] Home: times of day you set (work 8:30–4:30 on weekdays), section order per part of the day, protocols only when you're home (4.8)
+- [x] Home through the day: what each part of the day shows, wind down from 8 pm, work and personal tasks, welcome home (4.9)
 - [x] Chartered application in Career: the self-reflection, the CPD questionnaire and the Building Industry Assessment, with a readiness checklist feeding next steps and a yearly goal (4.6)
 
 ## Terminal (ADR 113)

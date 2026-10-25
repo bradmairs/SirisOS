@@ -135,6 +135,24 @@ def test_editing_and_deleting_own_tasks(client, ai):
     assert client.post("/api/v1/tasks", headers=AUTH, json={"title": "  "}).status_code == 422
 
 
+def test_tasks_are_work_or_personal_by_what_they_say_or_what_you_set(client, ai):
+    from app.tasks.service import area_of
+
+    assert area_of("Send the GVW report") == "work" and area_of("Buy milk") == "personal"
+    assert area_of("Review the RFI from council") == "work" and area_of("Call Dad") == "personal"
+    assert area_of("Buy milk", None, "work") == "work"
+    made = client.post("/api/v1/tasks", headers=AUTH, json={"title": "Order seals for pump station 4"}).json()
+    personal = client.post("/api/v1/tasks", headers=AUTH, json={"title": "Book the vet", "area": "work"}).json()
+    groups = client.get("/api/v1/tasks", headers=AUTH).json()["groups"]
+    items = {i["title"]: i for g in groups.values() for i in g}
+    assert items["Order seals for pump station 4"]["area"] == "work" and items["Order seals for pump station 4"]["area_set"] is False
+    assert items["Book the vet"]["area"] == "work" and items["Book the vet"]["area_set"] is True
+    client.patch(f"/api/v1/tasks/sirisos:{personal['id']}", headers=AUTH, json={"area": "personal"})
+    groups = client.get("/api/v1/tasks", headers=AUTH).json()["groups"]
+    assert next(i for g in groups.values() for i in g if i["title"] == "Book the vet")["area"] == "personal"
+    assert made["area"] is None
+
+
 def test_a_task_with_a_time_is_pushed_once(ai):
     now = datetime.now(zone()).replace(second=0, microsecond=0)
     t = service.add(store.Task(title="Call the plumber", due=now.date().isoformat(), time=now.strftime("%H:%M")))
