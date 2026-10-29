@@ -4,9 +4,11 @@ Weekdays and weekends have their own times. A weekday runs morning, work,
 evening, wind down, night; a weekend runs morning, weekend (its daytime),
 evening, wind down, night. Each part starts at its time and lasts until the
 next one; night runs past midnight to the morning. Per part of the day: the
-order of Home's sections ("Now", "Today", "Home") and the widgets it hides
-(ids as Home names them; "app:*" is every app's widget). Saved on the
-server, so every device follows the same day.
+order of Home's sections ("Now", "Today", "Home"), the widgets it hides
+(ids as Home names them; "app:*" is every app's widget), and the phone tab
+bar's last two buttons ("auto" lets SirisOS pick: the brief in the morning,
+wrap up from wind down, Smart home when you're home, Career at work, Tasks
+when you're out). Saved on the server, so every device follows the same day.
 """
 
 from __future__ import annotations
@@ -82,13 +84,45 @@ def _default_hidden() -> dict[str, list[str]]:
     }
 
 
+# Screens the tab bar's last two buttons can be (4.95), or "auto".
+DOCK_CHOICES = ("auto", "/links", "/career", "/house", "/tasks", "/wrapup", "/brief", "/projects", "/engineering",
+                "/review", "/year", "/status")
+
+
+class DockSlots(BaseModel):
+    fourth: str = "auto"
+    fifth: str = "auto"
+
+    @field_validator("fourth", "fifth")
+    @classmethod
+    def _choice(cls, v: str) -> str:
+        if v not in DOCK_CHOICES:
+            raise ValueError(f"the tab bar can show {', '.join(DOCK_CHOICES)}")
+        return v
+
+
+def _default_dock() -> dict[str, DockSlots]:
+    return {p: DockSlots() for p in PHASES}
+
+
 class Schedule(BaseModel):
     weekday: DayTimes = Field(default_factory=lambda: DayTimes(morning="05:00", day="08:30", evening="16:30", night="23:00"))
     weekend: DayTimes = Field(default_factory=lambda: DayTimes(morning="05:00", day="10:00", evening="17:00", night="23:00"))
     sections: dict[str, list[str]] = Field(default_factory=_default_sections)
     hidden: dict[str, list[str]] = Field(default_factory=_default_hidden)
+    dock: dict[str, DockSlots] = Field(default_factory=_default_dock)
     # Minutes before an event with a place to suggest leaving (the morning card), without traffic.
     leave_minutes: int = Field(default=30, ge=0, le=180)
+
+    @field_validator("dock")
+    @classmethod
+    def _dock(cls, v: dict[str, DockSlots]) -> dict[str, DockSlots]:
+        out = _default_dock()
+        for phase, slots in v.items():
+            if phase not in PHASES:
+                raise ValueError(f"unknown part of the day {phase!r}")
+            out[phase] = slots
+        return out
 
     @field_validator("hidden")
     @classmethod

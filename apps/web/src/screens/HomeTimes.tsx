@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, RotateCcw } from "lucide-react";
-import { DAY_HIDDEN, DAY_WIDGETS, SECTION_ORDER, move, schedule, type DayPhase, type DayTimes, type HomeSchedule } from "../api/home";
+import { AUTO_DOCK, DAY_HIDDEN, DAY_WIDGETS, DOCK_CHOICES, SECTION_ORDER, move, schedule, type DayPhase, type DayTimes, type HomeSchedule } from "../api/home";
 import { Sheet } from "../components/Sheet";
 
 const DEFAULT: HomeSchedule = {
@@ -9,6 +9,7 @@ const DEFAULT: HomeSchedule = {
   sections: SECTION_ORDER,
   hidden: DAY_HIDDEN,
   leave_minutes: 30,
+  dock: AUTO_DOCK,
 };
 
 const PARTS: { phase: DayPhase; label: string }[] = [
@@ -39,7 +40,7 @@ export function HomeTimes({ onClose, onSaved }: { onClose: () => void; onSaved: 
     schedule.get().then((p) => setPlan({
       ...DEFAULT, ...p,
       weekday: { ...DEFAULT.weekday, ...p.weekday }, weekend: { ...DEFAULT.weekend, ...p.weekend },
-      sections: { ...DEFAULT.sections, ...p.sections }, hidden: { ...DEFAULT.hidden, ...p.hidden },
+      sections: { ...DEFAULT.sections, ...p.sections }, hidden: { ...DEFAULT.hidden, ...p.hidden }, dock: { ...DEFAULT.dock, ...p.dock },
     })).catch(() => setPlan(DEFAULT));
   }, []);
 
@@ -55,6 +56,10 @@ export function HomeTimes({ onClose, onSaved }: { onClose: () => void; onSaved: 
     if (!plan) return;
     const hidden = plan.hidden[phase] ?? [];
     setPlan({ ...plan, hidden: { ...plan.hidden, [phase]: hidden.includes(id) ? hidden.filter((h) => h !== id) : [...hidden, id] } });
+  }
+  function setDock(phase: DayPhase, slot: "fourth" | "fifth", value: string) {
+    if (!plan) return;
+    setPlan({ ...plan, dock: { ...plan.dock, [phase]: { ...plan.dock[phase], [slot]: value } } });
   }
   async function save() {
     if (!plan) return;
@@ -119,6 +124,15 @@ export function HomeTimes({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 <button type="button" className="show-more" aria-expanded={open === phase} onClick={() => setOpen(open === phase ? null : phase)}>
                   {open === phase ? "Done choosing" : `Widgets: ${showing} of ${DAY_WIDGETS.length} showing · choose`}
                 </button>
+                <div className="row times__dock" role="group" aria-label={`${label} tab bar`}>
+                  <span className="muted">Tab bar</span>
+                  {(["fourth", "fifth"] as const).map((slot) => (
+                    <select key={slot} className="field" value={plan.dock[phase]?.[slot] ?? "auto"} onChange={(e) => setDock(phase, slot, e.target.value)}
+                      aria-label={`${label}: tab bar ${slot === "fourth" ? "4th" : "5th"} button`}>
+                      {DOCK_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  ))}
+                </div>
                 {open === phase && (
                   <div className="times__widgets" role="group" aria-label={`${label} widgets`}>
                     {DAY_WIDGETS.map((w) => (
@@ -134,7 +148,9 @@ export function HomeTimes({ onClose, onSaved }: { onClose: () => void; onSaved: 
           })}
           <p className="muted" style={{ margin: "12px 0 0", fontSize: 13 }}>
             Whatever you pick, Home server, Siris apps and Power only show when they need you (the server always on weekends), and the
-            car in the evening only when it needs charging. While you're out, Home goes last and protocols are hidden.
+            car in the evening only when it needs charging. While you're out, Home goes last and protocols are hidden. On the tab
+            bar, Automatic is the brief in the morning and Wrap up from wind down (else Links), then Career at work, Smart home at
+            home and Tasks when you're out.
           </p>
           {error && <div className="error-banner" role="alert" style={{ marginTop: 10 }}>{error}</div>}
           <div className="row" style={{ justifyContent: "space-between", marginTop: 18 }}>

@@ -60,6 +60,8 @@ async def current(hub: Hub, now: datetime | None = None) -> dict[str, Any]:
         "sections": plan.sections[current_phase],
         "hidden": plan.hidden[current_phase],
         "leave_minutes": plan.leave_minutes,
+        # The phone tab bar's last two buttons for now: "auto", or the screen you picked.
+        "dock": plan.dock[current_phase].model_dump(),
         "local_time": at.isoformat(timespec="minutes"),
         "home": (presence or {}).get("home"),
         # When you got home (or left): null until SirisAI has seen a change.

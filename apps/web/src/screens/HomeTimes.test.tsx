@@ -24,11 +24,15 @@ describe("<HomeTimes />", () => {
     expect(work).toHaveValue("08:30");
     fireEvent.change(work, { target: { value: "09:00" } });   // jsdom types into time fields one segment at a time
     await user.click(screen.getByRole("button", { name: "Evening: move Home up" }));
+    expect(screen.getByLabelText("Evening: tab bar 5th button")).toHaveValue("auto");   // an older schedule: Automatic
+    await user.selectOptions(screen.getByLabelText("Evening: tab bar 4th button"), "/tasks");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const saved = JSON.parse(String(calls.find((c) => c.init.method === "PUT")!.init.body));
     expect(saved.weekday.day).toBe("09:00");
     expect(saved.sections.evening).toEqual(["Home", "Today", "Now"]);
+    expect(saved.dock.evening).toEqual({ fourth: "/tasks", fifth: "auto" });
+    expect(saved.dock.morning).toEqual({ fourth: "auto", fifth: "auto" });
     expect(onClose).toHaveBeenCalled();
   });
 

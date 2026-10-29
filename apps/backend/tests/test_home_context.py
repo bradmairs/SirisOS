@@ -70,6 +70,11 @@ def test_the_schedule_is_saved_checked_and_used():
     assert client.get("/api/v1/home/schedule", headers=AUTH).json()["sections"]["work"] == ["Now", "Today", "Home"]
     bad_order = {**got, "weekday": {"morning": "05:00", "day": "18:00", "evening": "17:00", "winddown": "20:00", "night": "23:00"}}
     assert client.put("/api/v1/home/schedule", headers=AUTH, json=bad_order).status_code == 422
+    assert got["dock"]["evening"] == {"fourth": "auto", "fifth": "auto"}
+    got["dock"]["evening"] = {"fourth": "/tasks", "fifth": "auto"}
+    assert client.put("/api/v1/home/schedule", headers=AUTH, json=got).status_code == 200
+    assert client.get("/api/v1/home/schedule", headers=AUTH).json()["dock"]["evening"]["fourth"] == "/tasks"
+    assert client.put("/api/v1/home/schedule", headers=AUTH, json={**got, "dock": {"evening": {"fourth": "/terminal"}}}).status_code == 422
     bad_sections = {**got, "sections": {"work": ["Now", "Now", "Home"]}}
     assert client.put("/api/v1/home/schedule", headers=AUTH, json=bad_sections).status_code == 422
     assert client.put("/api/v1/home/schedule", headers=AUTH, json={**got, "weekday": {**got["weekday"], "night": "25:00"}}).status_code == 422
@@ -105,10 +110,11 @@ def test_context_has_presence_and_last_nights_top_3(ai, tmp_path):
     today = datetime.now(zone()).date()
     (tmp_path / "wrapup.json").write_text(json.dumps({(today - timedelta(days=1)).isoformat(): {"top3": ["Draft the report"]}}))
     body = TestClient(app).get("/api/v1/home/context", headers=AUTH).json()
-    assert body["phase"] in ("morning", "work", "weekend", "evening", "night")
+    assert body["phase"] in ("morning", "work", "weekend", "evening", "winddown", "night")
     assert body["home"] is False and body["top3"] == ["Draft the report"] and body["wrapped_up"] is False
     assert sorted(body["sections"]) == ["Home", "Now", "Today"] and isinstance(body["hidden"], list)
     assert body["home_since"] == "2026-10-22T07:40:00" and body["leave_minutes"] == 30
+    assert body["dock"] == {"fourth": "auto", "fifth": "auto"}
     assert [e["title"] for e in body["events"]] == ["Bin night", "Site meeting", "Dentist"]   # all-day first on its day
     assert body["events"][2]["location"] == "Northcote"
     assert body["weather_today"]["rain_chance_percent"] == 80 and body["weather_tomorrow"]["high_c"] == 21

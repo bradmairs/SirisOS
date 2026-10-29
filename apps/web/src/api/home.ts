@@ -55,6 +55,8 @@ export interface HomeContext {
   hidden?: string[];
   /** Minutes before an event with a place to suggest leaving. */
   leave_minutes?: number;
+  /** The phone tab bar's last two buttons now: "auto" or a screen's path (4.95). */
+  dock?: DockSlots;
   /** When you got home (or left), from SirisAI's presence check. */
   home_since?: string | null;
   /** Today's and tomorrow's events (null in guest mode), and their weather. */
@@ -80,7 +82,23 @@ export interface HomeSchedule {
   sections: Record<DayPhase, string[]>;
   hidden: Record<DayPhase, string[]>;
   leave_minutes: number;
+  dock: Record<DayPhase, DockSlots>;
 }
+
+/** The tab bar's fourth and fifth buttons: "auto" (SirisOS picks), or a screen. */
+export interface DockSlots { fourth: string; fifth: string }
+
+/** Screens those buttons can be, as the schedule allows (app/home/schedule.py). */
+export const DOCK_CHOICES: { value: string; label: string }[] = [
+  { value: "auto", label: "Automatic" }, { value: "/links", label: "Links" }, { value: "/career", label: "Career" },
+  { value: "/house", label: "Smart home" }, { value: "/tasks", label: "Tasks" }, { value: "/wrapup", label: "Wrap up" },
+  { value: "/brief", label: "Today's brief" }, { value: "/projects", label: "Projects" }, { value: "/engineering", label: "Engineering" },
+  { value: "/review", label: "Weekly review" }, { value: "/year", label: "Your year" }, { value: "/status", label: "System status" },
+];
+export const AUTO_DOCK: Record<DayPhase, DockSlots> = {
+  morning: { fourth: "auto", fifth: "auto" }, work: { fourth: "auto", fifth: "auto" }, weekend: { fourth: "auto", fifth: "auto" },
+  evening: { fourth: "auto", fifth: "auto" }, winddown: { fourth: "auto", fifth: "auto" }, night: { fourth: "auto", fifth: "auto" },
+};
 
 export const schedule = {
   get: () => api<HomeSchedule>("/api/v1/home/schedule"),

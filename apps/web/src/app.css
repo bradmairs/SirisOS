@@ -820,3 +820,5 @@ h3.note__heading { font-size: 17px; }
 /* The mind map among the insights (4.94): full width, before Going quiet. */
 .insights__map { grid-column: 1 / -1; min-width: 0; }
 .insights__map .brain-map { margin-top: 0; }
+.times__dock { gap: 6px; margin-top: 6px; flex-wrap: wrap; font-size: 13px; }
+.times__dock .field { width: auto; flex: 1 1 8em; min-width: 0; font-size: 14px; padding: 6px 8px; }
