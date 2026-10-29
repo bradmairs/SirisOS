@@ -381,7 +381,7 @@ a {
 @media (max-width: 640px) {
   .dock { width: calc(100vw - 2 * var(--gutter)); gap: 0; }
   .dock__item { min-width: 0; padding: 0 4px; flex: 1 1 auto; letter-spacing: 0; }
-  .dock__item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dock__item > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (max-width: 380px) { .dock__item { font-size: 10.5px; } }
 
@@ -703,3 +703,8 @@ textarea.field { height: auto; min-height: 52px; padding: 14px 18px; resize: non
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Something waiting behind a tab (4.95). */
+.dock__icon { position: relative; display: inline-flex; }
+.dock__dot { position: absolute; top: -2px; right: -4px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--accent); }
