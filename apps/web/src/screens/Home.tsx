@@ -16,7 +16,7 @@ import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
 import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
-import { BrainTodayWidget, CaptureWidget } from "./DayWidgets";
+import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
@@ -189,6 +189,7 @@ export function Home() {
     { id: "activity", label: "SirisAI activity", node: hud?.autonomy ? <ActivityWidget entries={hud.autonomy} /> : hudLoading && <LoadingWidget title="SirisAI activity" Icon={Activity} /> },
     { id: "parcels", label: "Parcels", node: siris?.parcels && siris.parcels.length > 0 && <SirisParcelsWidget parcels={siris.parcels} /> },
     { id: "brain", label: "Learned today", node: !hideMine && hud?.brain && <BrainTodayWidget items={hud.brain} /> },
+    { id: "resurface", label: "From your notes", node: !hideMine && <ResurfaceWidget /> },
     { id: "capture", label: "Quick capture", node: !hideMine && <CaptureWidget /> },
   ];
   // Lights and scenes are left to Siri and the Home app (4.8); protocols show while you're home

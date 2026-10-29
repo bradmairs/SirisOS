@@ -142,6 +142,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Home: times of day you set (work 8:30–4:30 on weekdays), section order per part of the day, protocols only when you're home (4.8)
 - [x] Home through the day: what each part of the day shows, wind down from 8 pm, work and personal tasks, welcome home (4.9)
 - [x] Chartered application in Career: the self-reflection, the CPD questionnaire and the Building Industry Assessment, with a readiness checklist feeding next steps and a yearly goal (4.6)
+- [x] From your notes: one older Siris note a day on Home, related to your projects, tasks and calendar (5.1)
 
 ## Terminal (ADR 113)
 

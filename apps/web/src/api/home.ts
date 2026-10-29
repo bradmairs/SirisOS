@@ -124,17 +124,17 @@ export const DAY_WIDGETS: { id: string; label: string }[] = [
   { id: "career", label: "Career" }, { id: "fitness", label: "Fitness" }, { id: "app:*", label: "App widgets (Engineering…)" },
   { id: "activity", label: "SirisAI activity" }, { id: "parcels", label: "Parcels" }, { id: "protocols", label: "Protocols" },
   { id: "cameras", label: "Cameras" }, { id: "car", label: "Car" }, { id: "energy", label: "Power" },
-  { id: "brain", label: "Learned today" }, { id: "capture", label: "Quick capture" },
+  { id: "brain", label: "Learned today" }, { id: "resurface", label: "From your notes" }, { id: "capture", label: "Quick capture" },
 ];
 
 /** Until the server's schedule answers: the same defaults as app/home/schedule.py. */
 const keep = (...ids: string[]) => DAY_WIDGETS.map((w) => w.id).filter((id) => !ids.includes(id));
 export const DAY_HIDDEN: Record<DayPhase, string[]> = {
-  morning: keep("clock", "weather", "tasks", "coming-up", "parcels", "protocols", "server", "app-health", "energy"),
+  morning: keep("clock", "weather", "tasks", "coming-up", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
   work: keep("clock", "weather", "tasks", "coming-up", "career", "app:*", "brain", "protocols", "server", "app-health"),
-  weekend: keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health"),
+  weekend: keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "resurface"),
   evening: keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health"),
-  winddown: keep("brain", "capture"),
+  winddown: keep("brain", "resurface", "capture"),
   night: keep("clock"),
 };
 
