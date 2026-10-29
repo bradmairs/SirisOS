@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, Wrench, X } from "lucide-react";
 import { assistant, brain } from "../api/hub";
 import type { ChatEvent, ChatResponse, ConversationSummary, PendingToolCall } from "../api/types";
-import { ReplyPlayer, micUnavailableReason, startRecording, type Recording } from "../api/voice";
+import { ReplyPlayer, micContext, micUnavailableReason, startRecording, type Recording } from "../api/voice";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 import { SirisOrb, type OrbState } from "../components/SirisOrb";
@@ -65,6 +65,12 @@ export function Assistant() {
   const [params, setParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  // The latest conversation, for a voice follow-up that starts inside the
+  // previous turn's call (where conversationId is still that render's value).
+  const conversationRef = useRef<string | null>(null);
+  useEffect(() => {
+    conversationRef.current = conversationId;
+  }, [conversationId]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<ConversationSummary[] | null>(null);
@@ -78,6 +84,13 @@ export function Assistant() {
   const [recording, setRecording] = useState<Recording | null>(null);
   const player = useRef<ReplyPlayer | null>(null);
   if (player.current === null) player.current = new ReplyPlayer();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   // What Siris picked up today, refreshed after each turn.
   const [learned, setLearned] = useState<{ title: string; action: string }[] | null>(null);
@@ -202,18 +215,33 @@ export function Assistant() {
       return;
     }
     p.unlock();
+    micContext();
+    await listen(false);
+  }
+
+  /**
+   * Records one turn and sends it. followUp: SirisAI has just asked something, so
+   * this starts by itself; if nothing is said it stops quietly instead of sending silence.
+   */
+  async function listen(followUp: boolean) {
     let rec: Recording;
     try {
-      rec = await startRecording();
+      rec = await startRecording(followUp ? { maxSeconds: 8 } : {});
     } catch (err) {
-      setHint(`Microphone unavailable: ${err instanceof Error ? err.message : "permission denied"}`);
+      setHint(followUp ? "Tap to answer" : `Microphone unavailable: ${err instanceof Error ? err.message : "permission denied"}`);
       return;
     }
     setRecording(rec);
     setOrb("listening");
-    setHint("Listening…");
+    setHint(followUp ? "Listening for your answer…" : "Listening…");
     const wav = await rec.done;
     setRecording(null);
+    if (!alive.current) return;
+    if (followUp && !rec.heard()) {
+      setOrb("idle");
+      setHint("Tap to talk");
+      return;
+    }
     await converse(wav);
   }
 
@@ -228,7 +256,7 @@ export function Assistant() {
     let started = false;
     const update = (fn: (m: Message) => Message) => setMessages((all) => [...all.slice(0, -1), fn(all[all.length - 1])]);
     try {
-      for await (const event of assistant.converse({ audio: wav }, conversationId, controller.signal)) {
+      for await (const event of assistant.converse({ audio: wav }, conversationRef.current, controller.signal)) {
         if (event.type === "transcript") {
           if (!event.text) {
             setHint("I didn't catch that. Tap to try again");
@@ -242,7 +270,10 @@ export function Assistant() {
         } else if ((event.type === "tool_start" || event.type === "tool_end") && started) {
           update((m) => applyEvent(m, event.type === "tool_start" ? { type: "tool_start", name: event.name, arguments: {} } : { type: "tool_end", name: event.name, status: (event.status as "ok") ?? "ok" }));
         } else if (event.type === "final") {
-          if (event.conversation_id) setConversationId(event.conversation_id);
+          if (event.conversation_id) {
+            conversationRef.current = event.conversation_id;
+            setConversationId(event.conversation_id);
+          }
           expectsReply = !!event.expects_reply;
           if (started) update((m) => ({ ...m, text: m.text || event.response || "", streaming: false, status: undefined }));
         } else if (event.type === "error") {
@@ -261,6 +292,7 @@ export function Assistant() {
     await p.finished();
     setOrb("idle");
     setHint((h) => (h === "Thinking…" ? (expectsReply ? "Tap to answer" : "Tap to talk") : h));
+    if (expectsReply && !controller.signal.aborted && alive.current) await listen(true);
   }
 
   /** Files a reply (and what was asked) into Siris' inbox. */
