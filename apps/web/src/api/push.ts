@@ -1,12 +1,13 @@
 import { api, json } from "./client";
 
-export type Topic = "apps" | "inbox" | "brief" | "career";
+export type Topic = "apps" | "inbox" | "brief" | "career" | "home";
 
 export const TOPIC_LABELS: Record<Topic, string> = {
   apps: "An app goes down",
   inbox: "Alerts and approvals from SirisAI",
   brief: "Your daily brief is ready",
   career: "Career goals due and CPD reminders",
+  home: "Home jobs due, warranties, the network and power",
 };
 
 export interface DeviceSubscription {

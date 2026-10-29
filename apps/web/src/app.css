@@ -826,3 +826,12 @@ h3.note__heading { font-size: 17px; }
 /* From your notes (5.1) */
 .resurface__title { font-size: 17px; white-space: normal; }
 .resurface__excerpt { margin: 0; font-size: 14px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Maintenance (5.2) */
+.maint__job { flex-wrap: wrap; row-gap: 6px; }
+.maint__acts, .maint__when { gap: 6px; margin-left: auto; align-items: center; }
+.maint__when .field { height: 34px; padding: 4px 8px; width: auto; }
+.maint__h { margin: 10px 0 0; font-size: 14px; }
+.maint__form { gap: 10px; }
+.maint__room { display: grid; gap: 6px; margin-top: 6px; }
+.widget__head .icon-link.widget__source { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; flex-direction: row; }

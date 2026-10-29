@@ -1,0 +1,94 @@
+"""5.2: home maintenance jobs and appliances, in the house's rooms."""
+
+from __future__ import annotations
+
+import json
+from datetime import date, datetime
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.entrypoint import app
+from app.maintenance import service
+from app.push import actions, store as push_store
+from app.tasks import service as tasks
+from tests.test_hub import AUTH
+
+TODAY = date(2026, 10, 29)
+
+
+@pytest.fixture
+def client(monkeypatch, tmp_path):
+    for env, name in (("SIRISOS_MAINTENANCE_PATH", "m.json"), ("SIRISOS_PUSH_ACTIONS_PATH", "used.json"),
+                      ("SIRISOS_PUSH_SUBSCRIPTIONS_PATH", "subs.json")):
+        monkeypatch.setenv(env, str(tmp_path / name))
+    monkeypatch.setattr(tasks, "today", lambda: TODAY)
+    return TestClient(app)
+
+
+def test_starters_wait_until_you_say_when_you_last_did_them(client):
+    body = client.get("/api/v1/maintenance", headers=AUTH).json()
+    assert len(body["jobs"]) == len(service.STARTERS) and all(j["state"] == "unset" for j in body["jobs"])
+    assert body["summary"]["rooms"] == [] and body["summary"]["unset"] == len(service.STARTERS)
+    # Seeded once: deleting one keeps it deleted.
+    first = body["jobs"][0]["id"]
+    client.delete(f"/api/v1/maintenance/jobs/{first}", headers=AUTH)
+    assert first not in {j["id"] for j in client.get("/api/v1/maintenance", headers=AUTH).json()["jobs"]}
+
+
+def test_due_states_done_and_snooze(client):
+    client.get("/api/v1/maintenance", headers=AUTH)
+    r = client.post("/api/v1/maintenance/jobs", headers=AUTH,
+                    json={"title": "Clean the dryer lint trap", "room": "store", "every_days": 30, "last_done": "2026-09-20"})
+    job = next(j for j in r.json()["jobs"] if j["title"] == "Clean the dryer lint trap")
+    assert (job["state"], job["due_on"], job["days"]) == ("overdue", "2026-10-20", -9)
+    assert r.json()["jobs"][0]["id"] == job["id"]  # overdue first
+    assert r.json()["summary"]["rooms"] == ["store"]
+
+    snoozed = next(j for j in client.post(f"/api/v1/maintenance/jobs/{job['id']}/snooze", headers=AUTH).json()["jobs"] if j["id"] == job["id"])
+    assert (snoozed["state"], snoozed["due_on"]) == ("soon", "2026-11-05")
+    done = next(j for j in client.post(f"/api/v1/maintenance/jobs/{job['id']}/done", headers=AUTH, json={}).json()["jobs"] if j["id"] == job["id"])
+    assert (done["last_done"], done["due_on"], done["state"], done["snoozed_until"]) == ("2026-10-29", "2026-11-28", "ok", None)
+
+
+def test_appliances_with_warranty_and_a_manual(client):
+    r = client.post("/api/v1/maintenance/appliances", headers=AUTH, json={
+        "name": "Office split system", "room": "office", "make": "Daikin", "model": "FTXM35", "bought_on": "2021-11-20",
+        "warranty_until": "2026-11-20", "manual_url": "https://example.com/ftxm.pdf"})
+    a = r.json()["appliances"][0]
+    assert a["warranty_days"] == 22 and r.json()["summary"]["warranties_ending"] == [a["id"]]
+    assert client.post("/api/v1/maintenance/appliances", headers=AUTH, json={"name": "x", "room": "office", "manual_url": "javascript:alert(1)"}).status_code == 422
+    up = client.post(f"/api/v1/maintenance/appliances/{a['id']}/manual", headers=AUTH, files={"file": ("FTXM manual.pdf", b"%PDF-1.4", "application/pdf")})
+    assert up.json()["appliances"][0]["manual"]["filename"] == "FTXM manual.pdf"
+    assert client.get(f"/api/v1/maintenance/appliances/{a['id']}/manual", headers=AUTH).content == b"%PDF-1.4"
+    assert client.post(f"/api/v1/maintenance/appliances/{a['id']}/manual", headers=AUTH, files={"file": ("x.exe", b"MZ", "x")}).status_code == 422
+    client.delete(f"/api/v1/maintenance/appliances/{a['id']}", headers=AUTH)
+    assert client.get("/api/v1/maintenance", headers=AUTH).json()["appliances"] == []
+
+
+def test_notifications_once_with_buttons_that_work(client):
+    doc = service.load()
+    doc.jobs = [service.Job(id="j1", title="Clean the AC filters", room="office", every_days=90, last_done="2026-07-31")]
+    doc.appliances = [service.Appliance(id="a1", name="Dishwasher", room="kitchen", warranty_until="2026-11-10")]
+    service.save(doc)
+    assert service.push_messages(datetime(2026, 10, 29, 8, 0)) == []  # before 9
+    msgs = service.push_messages(datetime(2026, 10, 29, 9, 5))
+    assert [m["key"] for m in msgs] == ["home:job:j1:2026-10-29", "home:warranty:a1:2026-11-10"]
+    assert msgs[0]["topic"] == "home" and [a["id"] for a in msgs[0]["actions"]] == ["done", "snooze"]
+
+    t = actions.sign(msgs[0]["target"], msgs[0]["actions"], msgs[0]["title"], msgs[0]["body"], msgs[0]["url"])
+    r = client.post("/api/v1/push/act", json={"token": t, "action": "done"})
+    assert r.status_code == 200 and r.json()["message"] == "Done. Next one in 90 days."
+    assert service.load().jobs[0].last_done == "2026-10-29"
+
+
+def test_existing_devices_get_the_home_topic_once(client, tmp_path):
+    path = tmp_path / "subs.json"
+    sub = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "x" * 20, "auth": "y" * 10}}
+    path.write_text(json.dumps({"subscriptions": [{**sub, "topics": ["apps", "inbox", "brief", "career"]},
+                                                  {**sub, "endpoint": "https://push.example/def", "topics": ["apps"]}]}))
+    subs = push_store.subscriptions()
+    assert subs[0].topics[-1] == "home" and subs[1].topics == ["apps"]
+    # Turned off later: stays off.
+    push_store.upsert(subs[0].model_copy(update={"topics": ["apps", "inbox", "brief", "career"]}))
+    assert "home" not in next(s for s in push_store.subscriptions() if s.endpoint.endswith("abc")).topics

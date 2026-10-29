@@ -39,7 +39,7 @@ describe("<NotificationSettings />", () => {
     signIn();
     const { pushManager, subscription } = stubPush();
     const calls = mockFetch({
-      "/api/v1/push/key": () => jsonResponse({ public_key: "BKz0", topics: ["apps", "inbox", "brief", "career"] }),
+      "/api/v1/push/key": () => jsonResponse({ public_key: "BKz0", topics: ["apps", "inbox", "brief", "career", "home"] }),
       "/api/v1/push/subscriptions": () => jsonResponse({ subscriptions: [] }),
       "/api/v1/push/subscribe": (_u, init) => {
         const body = JSON.parse(String(init?.body));
@@ -55,7 +55,7 @@ describe("<NotificationSettings />", () => {
     expect(await screen.findByRole("button", { name: /Send a test/ })).toBeInTheDocument();
     expect(pushManager.subscribe).toHaveBeenCalledWith(expect.objectContaining({ userVisibleOnly: true }));
     const sent = JSON.parse(String(calls.find((c) => c.url.endsWith("/subscribe"))!.init.body));
-    expect(sent.topics).toEqual(["apps", "inbox", "career"]);
+    expect(sent.topics).toEqual(["apps", "inbox", "career", "home"]);
     expect(sent.keys.auth).toBe("a".repeat(12));
 
     await user.click(screen.getByRole("button", { name: /Send a test/ }));

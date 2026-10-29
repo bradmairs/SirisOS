@@ -17,6 +17,7 @@ import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
 import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
+import { HomeJobsWidget } from "./Maintenance";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
@@ -201,6 +202,7 @@ export function Home() {
         { id: "protocols", label: "Protocols (while you're home)", node: atHome && siris && siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} /> },
         { id: "cameras", label: "Cameras", node: siris && siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} /> },
         { id: "car", label: "Car", node: siris?.car && <CarWidget car={siris.car} /> },
+        { id: "upkeep", label: "Around the house", node: !hideMine && <HomeJobsWidget /> },
         { id: "energy", label: "Power", node: siris?.energy && <EnergyWidget energy={siris.energy} /> },
       ];
   const sectionList = [

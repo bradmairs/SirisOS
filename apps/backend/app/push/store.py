@@ -5,6 +5,7 @@ Each subscription picks its topics:
 - inbox:  urgent and needs-attention inbox items (SirisAI alerts, approvals...)
 - brief:  the daily brief is ready (once a morning)
 - career: a career goal is due within a week, CPD hours about to drop out
+- home:   a home job comes due, a warranty is ending, the network or power needs you (5.2)
 """
 
 from __future__ import annotations
@@ -16,8 +17,10 @@ from pydantic import BaseModel, Field
 
 from app.services import json_store
 
-Topic = Literal["apps", "inbox", "brief", "career"]
-TOPICS: tuple[str, ...] = ("apps", "inbox", "brief", "career")
+Topic = Literal["apps", "inbox", "brief", "career", "home"]
+TOPICS: tuple[str, ...] = ("apps", "inbox", "brief", "career", "home")
+# The topics before "home" (5.2): a device that had all of them gets it too.
+_BEFORE_HOME = {"apps", "inbox", "brief", "career"}
 MAX_SENT = 2000
 
 
@@ -32,6 +35,8 @@ class Subscription(BaseModel):
     label: str = Field(default="", max_length=80)
     topics: list[Topic] = Field(default_factory=lambda: list(TOPICS))
     created_at: str = ""
+    # 2 from 5.2; a stored subscription without it predates the "home" topic.
+    v: int = 2
 
 
 def _subs_path():
@@ -42,8 +47,17 @@ def _sent_path():
     return json_store.data_path("SIRISOS_PUSH_SENT_PATH", "push-sent.json")
 
 
+def _upgrade(raw: dict) -> dict:
+    if "v" not in raw:
+        topics = list(raw.get("topics") or TOPICS)
+        if _BEFORE_HOME <= set(topics) and "home" not in topics:
+            topics.append("home")
+        raw = {**raw, "topics": topics, "v": 2}
+    return raw
+
+
 def subscriptions() -> list[Subscription]:
-    return [Subscription.model_validate(s) for s in json_store.read(_subs_path(), {}).get("subscriptions", [])]
+    return [Subscription.model_validate(_upgrade(s)) for s in json_store.read(_subs_path(), {}).get("subscriptions", [])]
 
 
 def _save(subs: list[Subscription]) -> None:

@@ -65,7 +65,7 @@ def _default_sections() -> dict[str, list[str]]:
 
 
 EVERYTHING = ["clock", "weather", "server", "app-health", "tasks", "coming-up", "career", "fitness", "app:*", "activity",
-              "parcels", "protocols", "cameras", "car", "energy", "brain", "resurface", "capture"]
+              "parcels", "protocols", "cameras", "car", "upkeep", "energy", "brain", "resurface", "capture"]
 
 
 def _default_hidden() -> dict[str, list[str]]:
@@ -76,9 +76,9 @@ def _default_hidden() -> dict[str, list[str]]:
         "morning": keep("clock", "weather", "tasks", "coming-up", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
         "work": keep("clock", "weather", "tasks", "coming-up", "career", "app:*", "brain", "protocols", "server", "app-health"),
         "weekend": keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras",
-                        "energy", "server", "app-health", "resurface"),
+                        "energy", "server", "app-health", "resurface", "upkeep"),
         "evening": keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras",
-                        "energy", "server", "app-health"),
+                        "energy", "server", "app-health", "upkeep"),
         "winddown": keep("brain", "resurface", "capture"),
         "night": keep("clock"),
     }
