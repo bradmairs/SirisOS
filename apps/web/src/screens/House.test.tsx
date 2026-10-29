@@ -6,7 +6,7 @@ import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { clearResources } from "../api/resource";
 import { HouseScreen } from "./House";
 
-const scene = vi.hoisted(() => ({ setFloor: vi.fn(), setNetwork: vi.fn(), setSelected: vi.fn(), setLinksVisible: vi.fn(), focusRoom: vi.fn(), dispose: vi.fn() }));
+const scene = vi.hoisted(() => ({ setFloor: vi.fn(), setNetwork: vi.fn(), setSelected: vi.fn(), setLinksVisible: vi.fn(), setRoomGlow: vi.fn(), focusRoom: vi.fn(), dispose: vi.fn() }));
 vi.mock("../house/scene", () => ({ createHouseScene: () => scene }));
 
 const network = {

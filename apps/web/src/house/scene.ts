@@ -22,6 +22,8 @@ export interface HouseScene {
   setSelected(ids: string[]): void;
   setLinksVisible(on: boolean): void;
   focusRoom(roomId: string): void;
+  /** Rooms that glow and pulse gently: home jobs due (5.2), power use (5.4). Strength 0 to 1. */
+  setRoomGlow(glow: Record<string, { color: number; strength: number }>): void;
   dispose(): void;
 }
 
@@ -117,6 +119,9 @@ export function createHouseScene(container: HTMLElement, onPick: (p: Pick) => vo
   }
 
   const pickables: THREE.Object3D[] = [];
+  const tiles = new Map<string, THREE.MeshStandardMaterial>();
+  let roomGlow: Record<string, { color: number; strength: number }> = {};
+  const glowColour = new THREE.Color();
   const floors: FloorGroup[] = FLOORS.map((f) => {
     const group = new THREE.Group();
     group.position.y = f.level;
@@ -128,6 +133,7 @@ export function createHouseScene(container: HTMLElement, onPick: (p: Pick) => vo
         mat(new THREE.MeshStandardMaterial({ color: room.outdoor ? COLORS.floorOutdoor : COLORS.floor, roughness: 0.9 })));
       tile.position.set(room.x + room.w / 2, -0.06, room.z + room.d / 2);
       tile.userData = { pick: { type: "room", id: room.id }, room };
+      tiles.set(room.id, tile.material as THREE.MeshStandardMaterial);
       group.add(tile);
       pickables.push(tile);
 
@@ -458,6 +464,13 @@ export function createHouseScene(container: HTMLElement, onPick: (p: Pick) => vo
       const pulse = reduced ? 0 : Math.sin(now / (900 - a * 600)) * 0.08 * (0.3 + a);
       d.halo.scale.setScalar((d.infra ? 1.1 : 0.8) * (d.marker.ids.length > 1 ? 1.3 : 1) * (1 + a * 0.5 + pulse));
     }
+    for (const [id, m] of tiles) {
+      const g = roomGlow[id];
+      if (!g || g.strength <= 0) { m.emissive.setRGB(0, 0, 0); continue; }
+      const breathe = reduced ? 1 : 0.7 + 0.3 * Math.sin(now / 700);
+      glowColour.setHex(g.color).multiplyScalar(Math.min(1, g.strength) * 0.9 * breathe);
+      m.emissive.copy(glowColour);
+    }
     renderer.render(scene, camera);
     placeLabels();
   }
@@ -468,6 +481,7 @@ export function createHouseScene(container: HTMLElement, onPick: (p: Pick) => vo
     setNetwork,
     setSelected(ids) { selected = ids; applyVisibility(); },
     setLinksVisible(on) { showLinks = on; applyVisibility(); },
+    setRoomGlow(glow) { roomGlow = glow; },
     focusRoom,
     dispose() {
       stopped = true;

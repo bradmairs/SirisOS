@@ -3,7 +3,7 @@ import { BellOff, BellRing, Send } from "lucide-react";
 import { TOPIC_LABELS, currentSubscription, disablePush, enablePush, isIOS, isStandalone, push, pushSupported, type Topic } from "../api/push";
 import { Glass } from "./Glass";
 
-const ALL: Topic[] = ["apps", "inbox", "brief", "career"];
+const ALL: Topic[] = ["apps", "inbox", "brief", "career", "home"];
 
 type State = { kind: "checking" } | { kind: "unsupported" } | { kind: "off" } | { kind: "on"; endpoint: string; topics: Topic[] };
 

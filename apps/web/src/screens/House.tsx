@@ -11,6 +11,9 @@ import { Glass } from "../components/Glass";
 import { useShowMore } from "../components/ShowMore";
 import { HomeControlsWidget } from "./SirisControls";
 import { ProtocolsManager } from "./ProtocolEditor";
+import { AppliancesCard, MaintenanceCard, RoomUpkeep, useMaintenance } from "./Maintenance";
+import { roomGlow } from "../api/maintenance";
+import { useSearchParams } from "react-router-dom";
 
 const KIND_LABEL: Record<NetNode["kind"], string> = { gateway: "Gateway", switch: "Switch", access_point: "Access point", client: "Device" };
 
@@ -36,9 +39,12 @@ export function HouseScreen() {
   const holder = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HouseScene | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const [floor, setFloor] = useState<FloorId | null>(null);
   const [linksOn, setLinksOn] = useState(true);
   const [picked, setPicked] = useState<Pick>(null);
+  const upkeep = useMaintenance();
+  const [params] = useSearchParams();
 
   const nodes = useMemo(() => {
     const base = net.data?.nodes ?? [];
@@ -59,6 +65,7 @@ export function HouseScreen() {
       if (gone || !holder.current) return;
       try {
         sceneRef.current = createHouseScene(holder.current, setPicked, (ids, dx, dz) => dragged.current(ids, dx, dz));
+        setReady(true);
       } catch {
         setProblem("This device can't draw 3D (WebGL is off or unsupported).");
       }
@@ -69,6 +76,11 @@ export function HouseScreen() {
   useEffect(() => { sceneRef.current?.setSelected(selectedIds); }, [selectedIds, drawn, problem]);
   useEffect(() => { sceneRef.current?.setFloor(floor); }, [floor]);
   useEffect(() => { sceneRef.current?.setLinksVisible(linksOn); }, [linksOn]);
+  useEffect(() => { sceneRef.current?.setRoomGlow(roomGlow(upkeep.data)); }, [upkeep.data, ready]);
+  // From a notification or Home's "All jobs": straight to the maintenance card.
+  useEffect(() => {
+    if (params.get("view") === "maintenance") window.setTimeout(() => document.getElementById("maintenance")?.scrollIntoView({ behavior: "smooth" }), 300);
+  }, [params]);
 
   function save(next: Placements) {
     setPlacements(next);
@@ -142,6 +154,7 @@ export function HouseScreen() {
                     ))}
                   </ul>
                 )}
+                <RoomUpkeep roomId={selectedRoom.id} />
                 <button type="button" className="button button--small" style={{ marginTop: 6 }} onClick={() => sceneRef.current?.focusRoom(selectedRoom.id)}>Look inside</button>
               </>
             )}
@@ -152,6 +165,8 @@ export function HouseScreen() {
       <div className="stack" style={{ marginTop: 16 }}>
         {/* Off the main Home page since 4.8 (Siri and the Home app do this day to day); kept here. */}
         <HomeControlsWidget onHousePage />
+        <MaintenanceCard />
+        <AppliancesCard />
         <ProtocolsManager />
 
         <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Network now">

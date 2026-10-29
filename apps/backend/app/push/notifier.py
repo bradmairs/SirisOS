@@ -117,6 +117,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: tasks unavailable: %s", exc)
     try:
+        from app.maintenance import service as maintenance
+
+        out += maintenance.push_messages(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: maintenance unavailable: %s", exc)
+    try:
         out += career_messages(career_store.load(), now.date())
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: career unavailable: %s", exc)

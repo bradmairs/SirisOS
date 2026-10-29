@@ -124,6 +124,19 @@ async def perform(hub, payload: dict[str, Any], action: str, now: datetime | Non
             return "Snoozed for 3 hours."
         await inbox.act(ref, inbox.ActRequest(action=action, pin=pin), hub)
         return "Dismissed." if action == "dismiss" else f"{next((a['title'] for a in payload['a'] if a['id'] == action), action)}: done."
+    if kind == "homejob":
+        from app.maintenance import service as maintenance
+        from app.tasks import service as tasks
+
+        try:
+            if action == "done":
+                job = maintenance.done(ref, tasks.today())
+                return f"Done. Next one in {job.every_days} days."
+            if action == "snooze":
+                job = maintenance.snooze(ref, tasks.today())
+                return f"Moved to {job.snoozed_until}."
+        except LookupError as exc:
+            raise LookupError(ref) from exc
     raise BadToken("SirisOS doesn't know what this notification is for.")
 
 
