@@ -73,6 +73,24 @@ export interface Recording {
   /** Resolves with the WAV once speech ends (1.2 s of quiet), 12 s pass, or stop() is called. */
   done: Promise<Blob>;
   stop: () => void;
+  /** Whether anything louder than background noise was picked up. */
+  heard: () => boolean;
+}
+
+let micCtx: AudioContext | null = null;
+
+/**
+ * The mic's audio context: made once (call this from a tap) and kept. On iPhone a
+ * context created later without a tap, as when listening again for an answer,
+ * starts suspended and records silence.
+ */
+export function micContext(): AudioContext {
+  if (!micCtx) {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    micCtx = new Ctx();
+  }
+  if (micCtx.state === "suspended") micCtx.resume().catch(() => {});
+  return micCtx;
 }
 
 export interface RecordOptions {
@@ -106,8 +124,7 @@ export function downsample(chunks: Float32Array[], from: number, to: number): { 
 export async function startRecording(options: RecordOptions = {}): Promise<Recording> {
   const { stopOnSilence = true, maxSeconds = 12, sampleRate } = options;
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
-  const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const ctx = new Ctx();
+  const ctx = micContext();
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
@@ -127,7 +144,7 @@ export async function startRecording(options: RecordOptions = {}): Promise<Recor
     source.disconnect();
     stream.getTracks().forEach((t) => t.stop());
     const shrunk = sampleRate ? downsample(chunks, ctx.sampleRate, sampleRate) : { chunks, rate: ctx.sampleRate };
-    ctx.close().finally(() => resolve(encodeWav(shrunk.chunks, shrunk.rate)));
+    resolve(encodeWav(shrunk.chunks, shrunk.rate));
   };
   processor.onaudioprocess = (e) => {
     const samples = new Float32Array(e.inputBuffer.getChannelData(0));
@@ -145,7 +162,7 @@ export async function startRecording(options: RecordOptions = {}): Promise<Recor
   source.connect(processor);
   processor.connect(ctx.destination);
   const timer = window.setTimeout(stop, maxSeconds * 1000);
-  return { analyser, done, stop };
+  return { analyser, done, stop, heard: () => heard };
 }
 
 /**

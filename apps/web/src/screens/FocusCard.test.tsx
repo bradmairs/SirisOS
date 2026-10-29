@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { FocusCard } from "./FocusCard";
@@ -16,11 +16,17 @@ describe("<FocusCard />", () => {
   });
 
   it("shows the next meeting at work", () => {
-    const soon = new Date(Date.now() + 30 * 60_000);
-    if (soon.getDate() !== new Date().getDate()) return; // just before midnight: nothing "today" to show
-    show(ctx({ phase: "work" }), [{ summary: "Werribee design review", start: soon.toISOString() }]);
-    expect(screen.getByText("Werribee design review")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Prepare" })).toBeNull();  // meeting prep archived (4.4)
+    // A local start time, as calendar events have: toISOString() is UTC, whose date is still
+    // yesterday before 11 am in Melbourne, so the meeting wasn't "today" in the mornings.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 22, 10, 0));   // a Thursday, 10 am
+    try {
+      show(ctx({ phase: "work" }), [{ summary: "Werribee design review", start: "2026-10-22T10:30:00" }]);
+      expect(screen.getByText("Werribee design review")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Prepare" })).toBeNull();  // meeting prep archived (4.4)
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers the wrap-up in the evening, then tomorrow's top 3 once it's done", () => {
