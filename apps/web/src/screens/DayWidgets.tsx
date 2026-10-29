@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Brain, PenLine } from "lucide-react";
+import { Brain, History, PenLine } from "lucide-react";
 import { brain } from "../api/hub";
+import { ago, resurface } from "../api/resurface";
+import { useResource } from "../api/resource";
 import { isTaskText, tasks } from "../api/tasks";
 import type { Hud } from "../api/types";
 import { Glass } from "../components/Glass";
@@ -23,6 +25,38 @@ export function BrainTodayWidget({ items }: { items: NonNullable<Hud["brain"]> }
           ))}
         </ul>
       )}
+    </Glass>
+  );
+}
+
+/** One older note a day, related to what you're working on (5.1). Hidden when there's none. */
+export function ResurfaceWidget() {
+  const res = useResource("resurface", () => resurface.today(), { staleMs: 30 * 60_000, persist: true });
+  const [busy, setBusy] = useState(false);
+  const note = res.data?.note;
+  if (!note) return null;
+  async function answer(kind: "seen" | "not_useful") {
+    if (!note) return;
+    setBusy(true);
+    try {
+      res.mutate(await resurface.respond(note.title, kind));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const when = ago(note.age_days);
+  return (
+    <Glass as="section" className="widget" aria-label="From your notes">
+      <header className="widget__head"><History aria-hidden="true" /><span>From your notes</span>
+        {when && <span className="widget__source">{when}</span>}</header>
+      <Link to={`/brain?q=${encodeURIComponent(note.title)}`} className="item__title resurface__title">{note.title}</Link>
+      {note.excerpt && <p className="resurface__excerpt">{note.excerpt}</p>}
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>{note.why}</p>
+      <div className="row" style={{ gap: 6, marginTop: 4 }}>
+        <Link to={`/brain?q=${encodeURIComponent(note.title)}`} className="button button--small button--primary">Read it</Link>
+        <button type="button" className="button button--small" disabled={busy} onClick={() => answer("seen")}>Seen it</button>
+        <button type="button" className="button button--small" disabled={busy} onClick={() => answer("not_useful")}>Not useful</button>
+      </div>
     </Glass>
   );
 }

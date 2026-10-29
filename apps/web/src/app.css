@@ -822,3 +822,7 @@ h3.note__heading { font-size: 17px; }
 .insights__map .brain-map { margin-top: 0; }
 .times__dock { gap: 6px; margin-top: 6px; flex-wrap: wrap; font-size: 13px; }
 .times__dock .field { width: auto; flex: 1 1 8em; min-width: 0; font-size: 14px; padding: 6px 8px; }
+
+/* From your notes (5.1) */
+.resurface__title { font-size: 17px; white-space: normal; }
+.resurface__excerpt { margin: 0; font-size: 14px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
