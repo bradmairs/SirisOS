@@ -93,7 +93,7 @@ export const DOCK_CHOICES: { value: string; label: string }[] = [
   { value: "auto", label: "Automatic" }, { value: "/links", label: "Links" }, { value: "/career", label: "Career" },
   { value: "/house", label: "Smart home" }, { value: "/tasks", label: "Tasks" }, { value: "/wrapup", label: "Wrap up" },
   { value: "/brief", label: "Today's brief" }, { value: "/projects", label: "Projects" }, { value: "/engineering", label: "Engineering" },
-  { value: "/review", label: "Weekly review" }, { value: "/year", label: "Your year" }, { value: "/status", label: "System status" },
+  { value: "/review", label: "Weekly review" }, { value: "/year", label: "Your year" }, { value: "/status", label: "System status" }, { value: "/training", label: "Training" },
 ];
 export const AUTO_DOCK: Record<DayPhase, DockSlots> = {
   morning: { fourth: "auto", fifth: "auto" }, work: { fourth: "auto", fifth: "auto" }, weekend: { fourth: "auto", fifth: "auto" },
@@ -121,7 +121,7 @@ export const SECTION_ORDER: Record<DayPhase, string[]> = {
 export const DAY_WIDGETS: { id: string; label: string }[] = [
   { id: "clock", label: "Local time" }, { id: "weather", label: "Outside" }, { id: "server", label: "Home server" },
   { id: "app-health", label: "Siris apps" }, { id: "tasks", label: "Tasks" }, { id: "coming-up", label: "Coming up" },
-  { id: "career", label: "Career" }, { id: "fitness", label: "Fitness" }, { id: "app:*", label: "App widgets (Engineering…)" },
+  { id: "career", label: "Career" }, { id: "fitness", label: "Fitness" }, { id: "training", label: "Today's run" }, { id: "app:*", label: "App widgets (Engineering…)" },
   { id: "activity", label: "SirisAI activity" }, { id: "parcels", label: "Parcels" }, { id: "protocols", label: "Protocols" },
   { id: "cameras", label: "Cameras" }, { id: "car", label: "Car" }, { id: "upkeep", label: "Around the house" }, { id: "energy", label: "Power" },
   { id: "brain", label: "Learned today" }, { id: "resurface", label: "From your notes" }, { id: "capture", label: "Quick capture" },
@@ -130,10 +130,10 @@ export const DAY_WIDGETS: { id: string; label: string }[] = [
 /** Until the server's schedule answers: the same defaults as app/home/schedule.py. */
 const keep = (...ids: string[]) => DAY_WIDGETS.map((w) => w.id).filter((id) => !ids.includes(id));
 export const DAY_HIDDEN: Record<DayPhase, string[]> = {
-  morning: keep("clock", "weather", "tasks", "coming-up", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
+  morning: keep("clock", "weather", "tasks", "coming-up", "training", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
   work: keep("clock", "weather", "tasks", "coming-up", "career", "app:*", "brain", "protocols", "server", "app-health"),
-  weekend: keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "resurface", "upkeep"),
-  evening: keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "upkeep"),
+  weekend: keep("clock", "weather", "tasks", "coming-up", "training", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "resurface", "upkeep"),
+  evening: keep("clock", "weather", "tasks", "coming-up", "training", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "upkeep"),
   winddown: keep("brain", "resurface", "capture"),
   night: keep("clock"),
 };

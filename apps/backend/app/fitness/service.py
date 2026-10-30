@@ -18,6 +18,15 @@ def _path():
 
 
 def goal() -> float | None:
+    """This week's km from the training plan when there's a race (5.5), else the one you set."""
+    from app.training import service as training
+
+    try:
+        planned = training.week_target(tasks.today())
+    except Exception:  # noqa: BLE001 - a broken plan never breaks the card
+        planned = None
+    if planned:
+        return planned
     value = json_store.read(_path(), {}).get("weekly_km")
     return float(value) if value else None
 
