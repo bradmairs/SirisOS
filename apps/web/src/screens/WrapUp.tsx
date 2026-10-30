@@ -163,7 +163,7 @@ export function WrapUpScreen() {
                   aria-label={`Top ${i + 1}`} onChange={(e) => setTop3((all) => (all ?? ["", "", ""]).map((v, j) => (j === i ? e.target.value : v)))} />
               ))}
               <header className="widget__head" style={{ marginTop: 6 }}><MoonStar aria-hidden="true" /><span>4 · One line about today</span></header>
-              <textarea className="field" rows={2} placeholder="How did it go? Saved to Siris." value={journal} onChange={(e) => setJournal(e.target.value)} aria-label="One line about today" />
+              <textarea className="field" rows={2} placeholder="How did it go? Each sentence is filed in Siris, on the note it's about." value={journal} onChange={(e) => setJournal(e.target.value)} aria-label="One line about today" />
               <button type="submit" className="button button--primary" disabled={busy}>{busy ? "Saving…" : "Done for today"}</button>
               {error && <p className="tone-critical" role="alert" style={{ margin: 0 }}>{error}</p>}
             </Glass>
