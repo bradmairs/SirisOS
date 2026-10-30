@@ -5,6 +5,7 @@ import { systemStatus, type AppHealth } from "../api/status";
 import { fitness } from "../api/fitness";
 import { Glass } from "../components/Glass";
 import { AccessCheckCard } from "./AccessCheck";
+import { SetupCard } from "./SetupCard";
 import { BackupsCard } from "./BackupsCard";
 import { hueFor, iconFor } from "../components/icons";
 
@@ -41,6 +42,7 @@ export function StatusScreen() {
       {error && !data && <div className="error-banner" role="alert">{error}</div>}
       {data && apps.length === 0 && <p className="muted">No apps are set up yet.</p>}
       <div className="stack" style={{ marginTop: 16 }}>
+        <SetupCard />
         <AccessCheckCard />
         <UpkeepCard />
         <BackupsCard />

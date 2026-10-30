@@ -846,3 +846,11 @@ h3.note__heading { font-size: 17px; }
 .training__steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
 .training__steps code, .training__key code { overflow-wrap: anywhere; font-size: 12px; }
 .training__key { display: grid; gap: 6px; justify-items: start; }
+
+/* Setup checklist (5.6) */
+.setup__item { align-items: flex-start; }
+.setup__item > svg { flex: none; margin-top: 2px; }
+.setup__area { font-size: 12px; font-weight: 400; }
+.setup__fix { font-size: 13px; }
+.setup__settings { display: flex; flex-wrap: wrap; gap: 4px; }
+.setup__settings code { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--text, #fff) 8%, transparent); }
