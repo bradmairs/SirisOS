@@ -42,6 +42,7 @@ describe("training", () => {
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/training/race"))!.init.body))).toMatchObject({ name: "Run Melbourne", date: "2027-01-24", distance_km: 10, start_km: null });
     expect(await screen.findByRole("link", { name: "Subscribe" })).toHaveAttribute("href", expect.stringMatching(/^webcal:\/\/.*calendar\.ics\?t=abc123abc123$/));
 
+    expect(screen.queryByText("What the phone sent lately")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Make a key" }));
     expect(await screen.findByText("hk_secret123")).toBeInTheDocument();
   });
@@ -58,5 +59,21 @@ describe("training", () => {
     mockFetch({ "/api/v1/training": () => jsonResponse(none) });
     const { container } = render(<MemoryRouter><TodaysRunWidget /></MemoryRouter>);
     await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+});
+
+
+describe("the import log", () => {
+  it("shows why the phone's export failed", async () => {
+    signIn();
+    clearResources();
+    mockFetch({
+      "/api/v1/training": () => jsonResponse(none),
+      "/api/v1/health/import/status": () => jsonResponse({ ...status, has_key: true, key_hint: "abcd",
+        attempts: [{ at: "2026-10-30T08:39:00+00:00", status: 401, outcome: "The key doesn't match: copy it again", bytes: 48_000 }] }),
+    });
+    render(<MemoryRouter><TrainingScreen /></MemoryRouter>);
+    expect(await screen.findByText("The key doesn't match: copy it again")).toBeInTheDocument();
+    expect(screen.getByText(/· 401 · 48 KB/)).toBeInTheDocument();
   });
 });

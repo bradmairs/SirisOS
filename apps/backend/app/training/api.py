@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from app.auth import require_user
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
-from app.training import health_import, service
+from app.training import auto_export, health_import, service
 
 router = APIRouter(prefix="/api/v1", tags=["training"], dependencies=[Depends(require_user)])
 public_router = APIRouter(prefix="/api/v1", tags=["training"])
@@ -70,24 +70,43 @@ def import_key() -> dict[str, Any]:
 
 @public_router.post("/health/import")
 async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Health Auto Export's JSON is read here (training/auto_export.py) and sent
+    to SirisAI a day at a time, in the plain {date, metrics} shape every SirisAI
+    takes. Anything else is passed on as it is. Every attempt is logged, with
+    the reason when it fails, for the Training page."""
+    raw = await request.body()
+
+    def fail(status: int, why: str) -> HTTPException:
+        health_import.attempt(status, why, len(raw))
+        return HTTPException(status_code=status, detail=why)
+
     auth = request.headers.get("authorization", "")
     key = auth[7:] if auth.lower().startswith("bearer ") else request.headers.get("x-health-key")
     if not health_import.check(key):
-        raise HTTPException(status_code=401, detail="That isn't SirisOS's health key. Make one on the Training page.")
-    raw = await request.body()
+        why = ("No Authorization header: add one with Bearer and your key." if not key
+               else "The key doesn't match: copy \"Bearer …\" again from the Training page (a new key stops the old one).")
+        raise fail(401, why)
     if len(raw) > health_import.MAX_BYTES:
-        raise HTTPException(status_code=413, detail="That's more than 10 MB: export fewer days at a time.")
+        raise fail(413, "More than 50 MB: choose fewer metrics, or a shorter date range, or turn on Batch Requests.")
     try:
         body = json.loads(raw or b"{}")
     except ValueError:
-        raise HTTPException(status_code=422, detail="Send JSON.") from None
+        raise fail(422, "That wasn't JSON: set Export Format to JSON.") from None
     try:
-        result = await sirisai_api.post(hub, "/siris/health/metrics", json=body, timeout=60.0)
+        if auto_export.looks_like(body):
+            days, ignored = auto_export.parse(body)
+            for day, metrics in sorted(days.items()):
+                await sirisai_api.post(hub, "/siris/health/metrics", json={"date": day, "metrics": metrics}, timeout=30.0)
+            result: dict[str, Any] = {"format": "health_auto_export", "days": days, "ignored": ignored}
+        else:
+            result = await sirisai_api.post(hub, "/siris/health/metrics", json=body, timeout=60.0) or {}
     except sirisai_api.SirisAIError as exc:
         health_import.note(None, str(exc))
-        raise HTTPException(status_code=exc.status if 400 <= exc.status < 500 else 502, detail=str(exc)) from None
+        raise fail(exc.status if 400 <= exc.status < 500 else 502, str(exc)) from None
     health_import.note(result)
-    return {"ok": True, **{k: v for k, v in (result or {}).items() if k in ("date", "days", "format", "ignored", "stored")}}
+    n = len(result.get("days") or {}) if isinstance(result.get("days"), dict) else 1
+    health_import.attempt(200, f"Saved {n} day{'s' if n != 1 else ''}" if n else "Nothing SirisOS uses in it (that's fine)", len(raw))
+    return {"ok": True, **{k: v for k, v in result.items() if k in ("date", "days", "format", "ignored", "stored")}}
 
 
 @public_router.get("/training/calendar.ics")

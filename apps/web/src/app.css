@@ -854,3 +854,4 @@ h3.note__heading { font-size: 17px; }
 .setup__fix { font-size: 13px; }
 .setup__settings { display: flex; flex-wrap: wrap; gap: 4px; }
 .setup__settings code { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--text, #fff) 8%, transparent); }
+.training__attempts summary { cursor: pointer; font-size: 14px; font-weight: 600; }
