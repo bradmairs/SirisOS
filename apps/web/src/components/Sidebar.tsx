@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, FolderKanban, Footprints, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, FolderKanban, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -17,6 +17,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/wrapup", label: "Wrap up", Icon: MoonStar, end: false, dock: false },
   { to: "/review", label: "Weekly review", Icon: CalendarRange, end: false, dock: false },
   { to: "/year", label: "Your year", Icon: ChartColumn, end: false, dock: false },
+  { to: "/health", label: "Health", Icon: HeartPulse, end: false, dock: false },
   { to: "/training", label: "Training", Icon: Footprints, end: false, dock: false },
   { to: "/assistant", label: "SirisAI", Icon: Sparkles, end: false },
   { to: "/brain", label: "Siris", Icon: Brain, end: false },

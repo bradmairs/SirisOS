@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ReadinessRing } from "./Health";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Target,
@@ -7,6 +8,7 @@ import {
   Brain,
   CalendarDays,
   CloudSun,
+  Gauge,
   HeartPulse,
   History,
   House,
@@ -178,6 +180,15 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
 
           <h2 className="section-title">Your day</h2>
           <div className="widget-grid">
+            {brief.readiness && (
+              <Card title="Readiness" Icon={Gauge}>
+                <div className="row readiness-row"><ReadinessRing r={brief.readiness} size={96} /><p style={{ margin: 0, fontSize: 14 }}>{brief.readiness.advice}</p></div>
+                <ul className="items">
+                  {brief.readiness.contributors.slice(0, 3).map((c) => <Row key={c.key} title={c.text} tone={c.score >= 60 ? "good" : c.score >= 40 ? "warning" : "critical"} />)}
+                </ul>
+                <Link to="/health" className="brief-link">Health</Link>
+              </Card>
+            )}
             {(wx?.today || wx?.now) && (
               <Card title="Weather" Icon={CloudSun}>
                 <div className="row" style={{ alignItems: "baseline", gap: 12 }}>

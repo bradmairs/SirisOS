@@ -106,7 +106,17 @@ def recovery(days: list[dict[str, Any]], today: date) -> dict[str, Any]:
     if rhr and (b := base("resting_heart_rate")) and rhr >= b + 5:
         notes.append(f"Resting heart rate is {rhr:.0f}, up from your usual {b:.0f}")
     level = "rest" if len(notes) >= 2 else "easy" if notes else "good"
-    return {"level": level, "notes": notes, "known": bool(latest)}
+    # The Health section's readiness score (5.7) can only make the day easier, never harder.
+    from app.health import scores
+
+    ready = scores.readiness({str(d.get("date")): d.get("metrics") or {} for d in days}, today)
+    if ready:
+        order = ["good", "easy", "rest"]
+        by_score = "rest" if ready["score"] < 30 else "easy" if ready["band"] == "Recover" else "good"
+        if order.index(by_score) > order.index(level):
+            level = by_score
+            notes.append(f"Readiness {ready['score']}: {ready['summary']}")
+    return {"level": level, "notes": notes, "known": bool(latest), "readiness": ready["score"] if ready else None}
 
 
 def build(r: Race, days: list[dict[str, Any]] | None, today: date) -> dict[str, Any]:

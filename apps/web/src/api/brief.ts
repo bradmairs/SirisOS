@@ -37,6 +37,8 @@ export interface Brief {
   todo: string[];
   email: { unread: number; important: { from: string; subject: string }[] } | null;
   health: string[];
+  /** Today's readiness (5.7), from the Health section; null without enough data or in guest mode. */
+  readiness?: import("./health").Readiness | null;
   home: string[];
   apps_attention: { name: string; state: string; detail: string }[];
   brain: { inbox: number; auto_linked: number; pending_links: number; unsure_links: number; highlights: string[] };

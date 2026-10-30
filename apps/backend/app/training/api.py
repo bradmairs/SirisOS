@@ -94,6 +94,9 @@ async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, 
         raise fail(422, "That wasn't JSON: set Export Format to JSON.") from None
     try:
         if auto_export.looks_like(body):
+            from app.health import ingest
+
+            ingest.store(ingest.parse(body))  # everything, for the Health section (5.7)
             days, ignored = auto_export.parse(body)
             for day, metrics in sorted(days.items()):
                 await sirisai_api.post(hub, "/siris/health/metrics", json={"date": day, "metrics": metrics}, timeout=30.0)
