@@ -37,12 +37,12 @@ async def get(hub: Hub, path: str, params: Any = None, timeout: float = 20.0) ->
         return None
 
 
-async def post(hub: Hub, path: str, json: Any = None, timeout: float = 60.0) -> Any:
+async def post(hub: Hub, path: str, json: Any = None, timeout: float = 60.0, headers: dict[str, str] | None = None) -> Any:
     c = connector(hub)
     if c is None:
         raise SirisAIError("SirisAI isn't connected.", 503)
     try:
-        response = await shared_client().post(f"{c.base_url}{path}", headers=c.headers(), json=json, timeout=timeout)
+        response = await shared_client().post(f"{c.base_url}{path}", headers={**c.headers(), **(headers or {})}, json=json, timeout=timeout)
     except httpx.HTTPError as exc:
         raise SirisAIError(f"SirisAI unreachable: {type(exc).__name__}") from exc
     if response.status_code >= 400:
@@ -52,3 +52,15 @@ async def post(hub: Hub, path: str, json: Any = None, timeout: float = 60.0) -> 
             detail = response.text
         raise SirisAIError(f"SirisAI: {detail}", 502 if response.status_code in (401, 403) else response.status_code)
     return response.json() if response.content else None
+
+
+async def raw(hub: Hub, method: str, path: str, timeout: float = 60.0, **kwargs: Any) -> httpx.Response:
+    """Pass a request through as it is (an upload, a CSV or page to hand back).
+    Raises SirisAIError when SirisAI isn't there; the caller reads the status."""
+    c = connector(hub)
+    if c is None:
+        raise SirisAIError("SirisAI isn't connected.", 503)
+    try:
+        return await shared_client().request(method, f"{c.base_url}{path}", headers=c.headers(), timeout=timeout, **kwargs)
+    except httpx.HTTPError as exc:
+        raise SirisAIError(f"SirisAI unreachable: {type(exc).__name__}") from exc

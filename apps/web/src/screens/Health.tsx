@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Activity, BedDouble, Dumbbell, Gauge, HeartPulse } from "lucide-react";
-import { BAND_TONE, health, type Health, type Point, type Readiness, type Vital } from "../api/health";
+import { Activity, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Scale, Target, ThermometerSun } from "lucide-react";
+import { BAND_TONE, health, type Goal, type Health, type LogKind, type Point, type Readiness, type Vital } from "../api/health";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
-const VIEWS = [{ id: "today", label: "Today" }, { id: "sleep", label: "Sleep" }, { id: "fitness", label: "Fitness" }, { id: "vitals", label: "Vitals" }] as const;
+const VIEWS = [{ id: "today", label: "Today" }, { id: "sleep", label: "Sleep" }, { id: "fitness", label: "Fitness" }, { id: "vitals", label: "Vitals" },
+  { id: "log", label: "Log" }, { id: "data", label: "Data" }] as const;
 type View = (typeof VIEWS)[number]["id"];
 const day = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 const hm = (h: number | null | undefined) => (h == null ? "–" : `${Math.floor(h)}h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}m`);
@@ -63,17 +64,21 @@ export function HealthScreen() {
       </div>
       {!h && res.error && <div className="error-banner" role="alert">{res.error}</div>}
       {!h && !res.error && <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />}
-      {h && !h.available && (
+      {h && !h.available && view !== "data" && (
         <Glass className="widget" style={{ marginTop: 16, minHeight: 0 }}>
-          <p style={{ margin: 0 }}>No health data yet. Set up Apple Health on the <Link to="/training#health" className="brief-link">Training page</Link> and it fills in from the next sync.</p>
+          <p style={{ margin: 0 }}>{h.guest_mode ? "Health is hidden in guest mode." : !h.sources.sirisai ? "SirisAI isn't answering, so there's no health data to show."
+            : <>No health data yet. Set up Apple Health on the <Link to="/training#health" className="brief-link">Training page</Link>, or bring in your history from the Data tab.</>}</p>
         </Glass>
       )}
-      {h?.available && (
+      {h?.migrating && <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>Moving your earlier health history into SirisAI…</p>}
+      {h && view === "data" && <div className="stack" style={{ marginTop: 16 }}><DataView onChange={() => res.reload?.()} /></div>}
+      {h?.available && view !== "data" && (
         <div className="stack" style={{ marginTop: 16 }}>
           {view === "today" && <TodayView h={h} />}
           {view === "sleep" && <SleepView h={h} />}
           {view === "fitness" && <FitnessView h={h} />}
           {view === "vitals" && <VitalsView h={h} />}
+          {view === "log" && <LogView h={h} onChange={() => res.reload?.()} />}
         </div>
       )}
     </>
@@ -84,6 +89,12 @@ function TodayView({ h }: { h: Health }) {
   const r = h.readiness;
   return (
     <>
+      {h.getting_sick && (
+        <div className="error-banner" role="alert" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <ThermometerSun aria-hidden="true" />
+          <span>Your body may be fighting something off: {h.getting_sick.today.join(", ")}. Go easy today; the training plan rests.</span>
+        </div>
+      )}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Readiness today">
         <header className="widget__head"><Gauge aria-hidden="true" /><span>Readiness</span></header>
         {r ? (
@@ -115,7 +126,16 @@ function TodayView({ h }: { h: Health }) {
         <Tile title="Sleep" Icon={BedDouble} to="/health?view=sleep" big={hm(h.sleep.last_night?.hours)} sub={h.sleep.score != null ? `Sleep score ${h.sleep.score} · need ${hm(h.sleep.need)}` : `You need about ${hm(h.sleep.need)}`} />
         <Tile title="Training load" Icon={Dumbbell} to="/health?view=fitness" big={h.activity.load.ratio != null ? h.activity.load.ratio.toFixed(2) : "–"} sub={h.activity.load.zone ? `This week against the last four: ${h.activity.load.zone}` : "Needs a few weeks of exercise data"} />
         <Tile title="Today" Icon={Activity} to="/health?view=fitness" big={h.activity.steps != null ? Math.round(h.activity.steps).toLocaleString() : "–"} sub={`steps · ${Math.round(h.activity.exercise_minutes ?? 0)} min exercise · ${Math.round(h.activity.active_energy_kcal ?? 0)} kcal`} />
+        {h.bedtime && <Tile title="Tonight" Icon={Moon} to="/health?view=sleep" big={h.bedtime.bedtime} sub={h.bedtime.text} />}
+        {h.weight && <Tile title="Weight" Icon={Scale} to="/health?view=vitals" big={`${h.weight.trend.toFixed(1)} kg`}
+          sub={`Trend, ${h.weight.per_week >= 0 ? "+" : ""}${h.weight.per_week.toFixed(2)} kg a week${h.weight.to_go_kg != null ? ` · ${h.weight.to_go_kg} kg to go${h.weight.weeks_to_goal ? `, about ${h.weight.weeks_to_goal} weeks` : ""}` : ""}`} />}
       </div>
+      {!!h.insights?.length && (
+        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="What your sleep goes with">
+          <header className="widget__head"><Lightbulb aria-hidden="true" /><span>What your sleep goes with</span></header>
+          <ul className="items">{h.insights.map((i) => <li key={i.factor} className="item"><span className={`item__dot ${i.minutes < 0 ? "dot-warning" : "dot-good"}`} aria-hidden="true" /><span className="item__text"><span className="item__title career-wrap">{i.text}</span></span></li>)}</ul>
+        </Glass>
+      )}
     </>
   );
 }
@@ -190,6 +210,7 @@ function FitnessView({ h }: { h: Health }) {
   const a = h.activity;
   return (
     <>
+      <GoalsCard />
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Training load">
         <header className="widget__head"><Dumbbell aria-hidden="true" /><span>Training load</span></header>
         <div className="metrics">
@@ -254,5 +275,137 @@ function VitalsView({ h }: { h: Health }) {
         </Glass>
       ))}
     </div>
+  );
+}
+
+
+const GOAL_METRICS: [string, string][] = [["running_km", "km run"], ["walk_run_km", "km walked or run"], ["exercise_minutes", "minutes of exercise"], ["steps", "steps"]];
+
+/** Goals tied to a health number (5.8): progress and pace, worked out by SirisAI from the data. */
+function GoalsCard() {
+  const res = useResource("health:goals", () => health.goals(), { staleMs: 10 * 60_000 });
+  const year = new Date().getFullYear();
+  const [metric, setMetric] = useState("running_km");
+  const [target, setTarget] = useState("");
+  const [end, setEnd] = useState(`${year}-12-31`);
+  const [error, setError] = useState<string | null>(null);
+  const goals: Goal[] = Array.isArray(res.data?.goals) ? res.data!.goals : [];
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await health.addGoal({ metric, target: Number(target), end });
+      setTarget("");
+      res.reload?.();
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+  }
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Goals">
+      <header className="widget__head"><Target aria-hidden="true" /><span>Goals</span></header>
+      {goals.length ? (
+        <ul className="items">
+          {goals.map((g) => (
+            <li key={g.goal_id} className="item contributor">
+              <span className="item__text">
+                <span className="item__title career-wrap">{g.title}</span>
+                <span className="career-bar" role="presentation"><span className={`career-bar__fill ${g.on_pace ? "career-bar__fill--good" : ""}`} style={{ width: `${Math.min(100, g.percent ?? 0)}%` }} /></span>
+                <span className="item__subtitle">{Math.round(g.done).toLocaleString()} so far · {g.on_pace ? "on pace" : g.needed_per_week ? `behind: ${Math.round(g.needed_per_week).toLocaleString()} a week to make it` : "behind"}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="muted" style={{ margin: 0, fontSize: 14 }}>No goals yet. "Run 1,000 km this year" works.</p>}
+      <form className="row" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={add}>
+        <input className="input" type="number" min={1} required placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Target" style={{ width: 110 }} />
+        <select className="input" value={metric} onChange={(e) => setMetric(e.target.value)} aria-label="What">{GOAL_METRICS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+        <label className="muted" style={{ fontSize: 13 }}>by <input className="input" type="date" required value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+        <button className="btn" type="submit">Add goal</button>
+      </form>
+      {error && <div className="error-banner" role="alert">{error}</div>}
+    </Glass>
+  );
+}
+
+const QUICK: { label: string; kind: LogKind; amount: number }[] = [
+  { label: "+250 ml water", kind: "water", amount: 250 }, { label: "+500 ml water", kind: "water", amount: 500 },
+  { label: "Coffee", kind: "caffeine", amount: 80 }, { label: "A drink", kind: "alcohol", amount: 1 },
+];
+
+/** Quick logs (5.8): water, coffee, drinks, mood, symptoms and supplements, kept by SirisAI. Voice works too. */
+function LogView({ h, onChange }: { h: Health; onChange: () => void }) {
+  const [text, setText] = useState("");
+  const [kind, setKind] = useState<LogKind>("symptom");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  async function run(fn: () => Promise<unknown>, done: string) {
+    setBusy(true); setNote(null);
+    try { await fn(); setNote(done); onChange(); } catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+  const l = h.logged;
+  return (
+    <>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's log">
+        <header className="widget__head"><NotebookPen aria-hidden="true" /><span>Today</span></header>
+        <div className="metrics metrics--compact">
+          <div><div className="metric__value">{l?.water_ml ? `${(l.water_ml / 1000).toFixed(2)} L` : "–"}</div><div className="metric__label">Water</div></div>
+          <div><div className="metric__value">{l?.caffeine_mg ? `${Math.round(l.caffeine_mg)} mg` : "–"}</div><div className="metric__label">Caffeine</div></div>
+          <div><div className="metric__value">{l?.alcohol_drinks ?? "–"}</div><div className="metric__label">Drinks</div></div>
+          <div><div className="metric__value">{l?.mood ?? "–"}</div><div className="metric__label">Mood (1-5)</div></div>
+        </div>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {QUICK.map((q) => <button key={q.label} type="button" className="chip chip--button" disabled={busy} onClick={() => run(() => health.log(q.kind, q.amount), `Logged ${q.label.toLowerCase()}`)}>{q.label}</button>)}
+          {[1, 2, 3, 4, 5].map((m) => <button key={m} type="button" className="chip chip--button" disabled={busy} aria-label={`Mood ${m} of 5`} onClick={() => run(() => health.log("mood", m), `Mood ${m}`)}>Mood {m}</button>)}
+        </div>
+        <form className="row" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (text.trim()) run(() => health.log(kind, undefined, text.trim()), "Noted").then(() => setText("")); }}>
+          <select className="input" value={kind} onChange={(e) => setKind(e.target.value as LogKind)} aria-label="Kind">
+            {["symptom", "supplement", "medication", "feeling", "note"].map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <input className="input" placeholder="Headache since lunch, took vitamin D…" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} style={{ flex: 1, minWidth: 180 }} aria-label="Note" />
+          <button className="btn" type="submit" disabled={busy}>Log</button>
+        </form>
+        <label className="muted" style={{ fontSize: 13 }}>A meal photo, for a rough estimate:{" "}
+          <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) run(() => health.meal(f), "Meal logged (a rough estimate)"); }} /></label>
+        {note && <p className="muted" role="status" style={{ margin: 0 }}>{note}</p>}
+      </Glass>
+      {!!l?.notes?.length && (
+        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="This week's notes">
+          <header className="widget__head"><NotebookPen aria-hidden="true" /><span>This week</span></header>
+          <ul className="items">{l.notes.map((n) => <li key={n.id} className="item"><span className="item__text"><span className="item__title career-wrap">{n.text}</span><span className="item__subtitle">{day(n.day)} · {n.kind}</span></span></li>)}</ul>
+        </Glass>
+      )}
+    </>
+  );
+}
+
+/** Your data (5.8): years of history from the Health app, export, a summary for a doctor, and deleting a range. */
+function DataView({ onChange }: { onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  async function run(fn: () => Promise<string>) {
+    setBusy(true); setNote(null);
+    try { setNote(await fn()); onChange(); } catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your health data">
+      <header className="widget__head"><Database aria-hidden="true" /><span>Your health data</span></header>
+      <p style={{ margin: 0, fontSize: 14 }}>Bring in years of history: in the Health app, tap your picture, then <strong>Export All Health Data</strong>, and choose the <code>export.zip</code> here. Days Health Auto Export already sent keep its values.</p>
+      <input type="file" accept=".zip,.xml" disabled={busy} aria-label="Apple Health export"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) run(async () => { const r = await health.backfill(f); return `Brought in ${r.days} days${r.from ? ` from ${day(r.from)}` : ""} and ${r.workouts} workouts.`; }); }} />
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="btn" disabled={busy} onClick={() => run(async () => { await health.download("/api/v1/health/export.csv", "health.csv"); return "Exported."; })}>Export CSV</button>
+        <button type="button" className="btn" disabled={busy} onClick={() => run(async () => { await health.report(); return "The summary opened in a new tab; print it to save a PDF."; })}>Summary for a doctor</button>
+      </div>
+      <form className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}
+        onSubmit={(e) => { e.preventDefault(); if (window.confirm(`Delete all health data from ${start} to ${end}? This can't be undone.`)) run(async () => { const r = await health.remove(start, end); return `Deleted ${r.readings} readings and ${r.workouts} workouts.`; }); }}>
+        <span className="muted" style={{ fontSize: 13 }}>Delete from</span>
+        <input className="input" type="date" required value={start} onChange={(e) => setStart(e.target.value)} aria-label="From" />
+        <span className="muted" style={{ fontSize: 13 }}>to</span>
+        <input className="input" type="date" required value={end} onChange={(e) => setEnd(e.target.value)} aria-label="To" />
+        <button className="btn btn--danger" type="submit" disabled={busy}>Delete</button>
+      </form>
+      {note && <p className="muted" role="status" style={{ margin: 0 }}>{note}</p>}
+    </Glass>
   );
 }

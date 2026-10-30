@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from app.auth import require_user
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
-from app.training import auto_export, health_import, service
+from app.training import health_import, service
 
 router = APIRouter(prefix="/api/v1", tags=["training"], dependencies=[Depends(require_user)])
 public_router = APIRouter(prefix="/api/v1", tags=["training"])
@@ -70,10 +70,11 @@ def import_key() -> dict[str, Any]:
 
 @public_router.post("/health/import")
 async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
-    """Health Auto Export's JSON is read here (training/auto_export.py) and sent
-    to SirisAI a day at a time, in the plain {date, metrics} shape every SirisAI
-    takes. Anything else is passed on as it is. Every attempt is logged, with
-    the reason when it fails, for the Training page."""
+    """Health Auto Export's JSON goes to SirisAI as it is (5.8): SirisAI 3.51
+    reads it and keeps everything (every metric, sleep, workouts) for the
+    Health section, chat and voice. Anything else (a Shortcut's simple
+    {date, metrics}) is passed on too. Every attempt is logged, with the
+    reason when it fails, for the Training page."""
     raw = await request.body()
 
     def fail(status: int, why: str) -> HTTPException:
@@ -92,18 +93,15 @@ async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, 
         body = json.loads(raw or b"{}")
     except ValueError:
         raise fail(422, "That wasn't JSON: set Export Format to JSON.") from None
+    exported = isinstance(body, dict) and isinstance(body.get("data"), dict)
     try:
-        if auto_export.looks_like(body):
-            from app.health import ingest
-
-            ingest.store(ingest.parse(body))  # everything, for the Health section (5.7)
-            days, ignored = auto_export.parse(body)
-            for day, metrics in sorted(days.items()):
-                await sirisai_api.post(hub, "/siris/health/metrics", json={"date": day, "metrics": metrics}, timeout=30.0)
-            result: dict[str, Any] = {"format": "health_auto_export", "days": days, "ignored": ignored}
-        else:
-            result = await sirisai_api.post(hub, "/siris/health/metrics", json=body, timeout=60.0) or {}
+        result = await sirisai_api.post(hub, "/siris/health/metrics", json=body, timeout=180.0,
+                                        headers={"X-Health-Source": "health_auto_export" if exported else "shortcut"}) or {}
     except sirisai_api.SirisAIError as exc:
+        if exported and exc.status == 422 and "No recognised metrics" in str(exc):
+            health_import.note({"format": "health_auto_export", "days": {}})
+            health_import.attempt(200, "Nothing SirisAI uses in it (that's fine)", len(raw))
+            return {"ok": True, "format": "health_auto_export", "days": {}}
         health_import.note(None, str(exc))
         raise fail(exc.status if 400 <= exc.status < 500 else 502, str(exc)) from None
     health_import.note(result)

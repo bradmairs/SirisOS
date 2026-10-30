@@ -82,6 +82,15 @@ def sessions(week_km: float, distance_km: float, week_of: date, race_day: date |
         if race_day and day == race_day:
             continue
         out.append({"date": day.isoformat(), "kind": kind, "km": max(2.0, round(km)), "title": title(kind, max(2.0, round(km)))})
+    # Strength and mobility (5.8): a short mobility session on Monday and
+    # strength on Wednesday, left out in race week. They count towards load
+    # (exercise minutes) but not distance.
+    if not (race_day and monday(race_day) == week_of):
+        for offset, kind in ((0, "mobility"), (2, "strength")):
+            day = week_of + timedelta(days=offset)
+            if not race_day or day < race_day:
+                out.append({"date": day.isoformat(), "kind": kind, "km": 0, "title": title(kind, 0)})
+        out.sort(key=lambda s: s["date"])
     if race_day and monday(race_day) == week_of:
         out = [s for s in out if s["kind"] != "long"]
         out.append({"date": race_day.isoformat(), "kind": "race", "km": distance_km, "title": f"Race day: {distance_km:g} km"})
@@ -94,4 +103,6 @@ def title(kind: str, km: float) -> str:
         "easy": f"Easy run, {km:g} km",
         "quality": f"Tempo run, {km:g} km (warm up, then 20 min at a comfortably hard pace)",
         "long": f"Long run, {km:g} km, easy pace",
+        "strength": "Strength, 30 min: squats, lunges, deadlifts, calf raises, core",
+        "mobility": "Mobility, 20 min: hips, hamstrings, calves and ankles",
     }.get(kind, f"Run, {km:g} km")
