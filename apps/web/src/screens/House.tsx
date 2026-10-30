@@ -12,6 +12,7 @@ import { useShowMore } from "../components/ShowMore";
 import { HomeControlsWidget } from "./SirisControls";
 import { ProtocolsManager } from "./ProtocolEditor";
 import { AppliancesCard, MaintenanceCard, RoomUpkeep, useMaintenance } from "./Maintenance";
+import { NetworkWatchCard } from "./NetworkWatch";
 import { roomGlow } from "../api/maintenance";
 import { useSearchParams } from "react-router-dom";
 
@@ -79,7 +80,8 @@ export function HouseScreen() {
   useEffect(() => { sceneRef.current?.setRoomGlow(roomGlow(upkeep.data)); }, [upkeep.data, ready]);
   // From a notification or Home's "All jobs": straight to the maintenance card.
   useEffect(() => {
-    if (params.get("view") === "maintenance") window.setTimeout(() => document.getElementById("maintenance")?.scrollIntoView({ behavior: "smooth" }), 300);
+    const view = params.get("view");
+    if (view === "maintenance" || view === "network") window.setTimeout(() => document.getElementById(view)?.scrollIntoView({ behavior: "smooth" }), 300);
   }, [params]);
 
   function save(next: Placements) {
@@ -184,6 +186,8 @@ export function HouseScreen() {
             </>
           )}
         </Glass>
+
+        <NetworkWatchCard />
 
         {nodes.length > 0 && (
           <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Devices">

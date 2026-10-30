@@ -39,6 +39,7 @@ from app.goals.api import router as goals_router
 from app.house.api import router as house_router
 from app.resurface.api import router as resurface_router
 from app.maintenance.api import router as maintenance_router
+from app.netwatch.api import router as netwatch_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -67,6 +68,7 @@ for router in (
     house_router,
     resurface_router,
     maintenance_router,
+    netwatch_router,
     career_router,
     links_router,
     push_router,
