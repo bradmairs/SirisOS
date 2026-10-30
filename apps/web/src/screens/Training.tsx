@@ -174,6 +174,23 @@ function HealthImportCard({ health }: { health: boolean }) {
           : health ? "SirisAI has health data, but none has come through here yet." : "No health data yet."}
         {s?.last?.error ? ` The last try failed: ${s.last.error}` : ""}
       </p>
+      {(s?.attempts?.length ?? 0) > 0 && (
+        <details className="training__attempts" open={s!.attempts![0].status >= 400}>
+          <summary>What the phone sent lately</summary>
+          <ul className="items">
+            {s!.attempts!.slice(0, 6).map((a) => (
+              <li key={a.at + a.status} className="item">
+                <span className={`item__dot ${a.status < 300 ? "dot-good" : "dot-critical"}`} aria-hidden="true" />
+                <span className="item__text">
+                  <span className="item__title career-wrap">{a.outcome}</span>
+                  <span className="item__subtitle">{new Date(a.at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} · {a.status}{a.bytes ? ` · ${a.bytes > 1e6 ? `${(a.bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(a.bytes / 1000))} KB`}` : ""}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {s && !s.attempts?.length && s.has_key && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Nothing has reached this address yet. If the app says the export failed, check SirisOS is reachable from your phone at this address (try it in Safari), and that the server is on 5.62 or later.</p>}
       <ol className="training__steps">
         <li>Install <strong>Health Auto Export</strong> on your iPhone and allow it to read Health.</li>
         <li>In it: Automations → New → <strong>REST API</strong>. URL: <code>{url}</code> <button type="button" className="icon-link" aria-label="Copy the address" onClick={() => copy(url)}><Copy size={13} aria-hidden="true" /></button></li>

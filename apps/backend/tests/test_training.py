@@ -96,10 +96,25 @@ def test_health_import_with_its_own_key(client):
     assert client.post("/api/v1/health/import", json=body).status_code == 401
     key = client.post("/api/v1/health/import/key", headers=AUTH).json()["key"]
     r = client.post("/api/v1/health/import", json=body, headers={"Authorization": f"Bearer {key}"})
-    assert r.status_code == 200 and r.json()["format"] == "health_auto_export" and posted == [body]
+    # Read here and sent a day at a time in the plain shape, so any SirisAI version takes it (5.62).
+    assert r.status_code == 200 and r.json()["format"] == "health_auto_export" and posted == [{"date": "2026-10-29", "metrics": {"steps": 9000.0}}]
     status = client.get("/api/v1/health/import/status", headers=AUTH).json()
     assert status["has_key"] and status["key_hint"] == key[-4:] and status["last_ok"]["days"] == ["2026-10-29"]
     assert client.post("/api/v1/health/import", content=b"nope", headers={"X-Health-Key": key}).status_code == 422
     client.post("/api/v1/health/import/key", headers=AUTH)
     assert client.post("/api/v1/health/import", json=body, headers={"Authorization": f"Bearer {key}"}).status_code == 401
-    assert "key" not in json.dumps(health_import.status()).replace("key_hint", "").replace("has_key", "")
+    assert key not in json.dumps(health_import.status()) and key[:-4] not in json.dumps(health_import.status())
+
+
+def test_every_attempt_is_logged_with_why(client):
+    assert client.post("/api/v1/health/import", json={}).status_code == 401
+    key = client.post("/api/v1/health/import/key", headers=AUTH).json()["key"]
+    assert client.post("/api/v1/health/import", json={}, headers={"Authorization": "Bearer wrong"}).status_code == 401
+    # Only metrics SirisOS doesn't use: fine, not an error the app would show.
+    only_other = {"data": {"metrics": [{"name": "walking_speed", "units": "km/hr", "data": [{"date": "2026-10-29 00:00:00 +1100", "qty": 5}]}]}}
+    r = client.post("/api/v1/health/import", json=only_other, headers={"Authorization": f"Bearer {key}"})
+    assert r.status_code == 200 and posted == []
+    attempts = client.get("/api/v1/health/import/status", headers=AUTH).json()["attempts"]
+    assert [a["status"] for a in attempts] == [200, 401, 401]
+    assert attempts[0]["outcome"] == "Nothing SirisOS uses in it (that's fine)"
+    assert attempts[1]["outcome"].startswith("The key doesn't match") and attempts[2]["outcome"].startswith("No Authorization header")

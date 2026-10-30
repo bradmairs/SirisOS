@@ -21,6 +21,8 @@ export interface HealthImportStatus {
   path: string;
   last: { at: string; days?: string[]; format?: string; error?: string } | null;
   last_ok: { at: string; days?: string[]; format?: string } | null;
+  /** Every request to the import address, newest first, with why it failed (5.62). */
+  attempts?: { at: string; status: number; outcome: string; bytes: number }[];
 }
 
 export const training = {

@@ -27,7 +27,8 @@ from typing import Any
 
 from app.services import json_store
 
-MAX_BYTES = 10 * 1024 * 1024
+MAX_BYTES = 50 * 1024 * 1024
+KEEP_ATTEMPTS = 12
 
 
 def _path():
@@ -71,7 +72,16 @@ def note(result: dict[str, Any] | None, error: str | None = None) -> None:
     json_store.write(_path(), doc)
 
 
+def attempt(status: int, outcome: str, size: int = 0) -> None:
+    """Every request to the import address, kept so the Training page can say
+    why an app's export failed (its own message is only "did not complete")."""
+    doc = _load()
+    entry = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "status": status, "outcome": outcome[:300], "bytes": size}
+    doc["attempts"] = ([entry] + list(doc.get("attempts") or []))[:KEEP_ATTEMPTS]
+    json_store.write(_path(), doc)
+
+
 def status() -> dict[str, Any]:
     doc = _load()
     return {"has_key": bool(doc.get("key_hash")), "key_hint": doc.get("key_hint"), "made": doc.get("made"),
-            "last": doc.get("last"), "last_ok": doc.get("last_ok")}
+            "last": doc.get("last"), "last_ok": doc.get("last_ok"), "attempts": doc.get("attempts") or []}
