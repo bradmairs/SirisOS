@@ -77,6 +77,8 @@ export function Sidebar({
           </button>
         </div>
 
+        {/* The list scrolls inside the panel, so the glass (and its edge) stays the full height (5.71). */}
+        <div className="sidebar__scroll">
         {onSearch && (
           <button type="button" className="sidebar__search" onClick={onSearch}>
             <Search size={16} aria-hidden="true" />
@@ -129,6 +131,7 @@ export function Sidebar({
             </ul>
           </>
         )}
+        </div>
 
         <div className="sidebar__foot">
           <span className="sidebar__user">
