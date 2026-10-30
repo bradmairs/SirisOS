@@ -89,17 +89,21 @@ def test_logging_a_meeting_as_cpd_adds_a_task_and_stops_suggesting_it(client, ai
 def test_saving_makes_tomorrows_top_3_and_sends_memories_not_a_day_note(client, ai):
     tomorrow = (tasks.today() + timedelta(days=1)).isoformat()
     existing = tasks.add(task_store.Task(title="Draft the drainage report", due=(tasks.today() + timedelta(days=5)).isoformat()))
-    r = client.post("/api/v1/wrapup", headers=AUTH, json={"top3": ["Draft the drainage report", "Call Dana", " "], "journal": "Good site visit; pumps arrived."}).json()
+    r = client.post("/api/v1/wrapup", headers=AUTH, json={"top3": ["Draft the drainage report", "Call Dana", " "],
+                     "journal": "Good site visit at Melrose; the pumps arrived. Ran 8 km after work!\nDom's parents are visiting on Saturday. ok"}).json()
     assert r["top3"] == ["Draft the drainage report", "Call Dana"] and r["journal_saved_as"] == "memories"
     titles = {t.title: t.due for t in task_store.load().tasks}
     assert titles["Call Dana"] == tomorrow and titles["Draft the drainage report"] == tomorrow  # moved up, not duplicated
     assert sum(1 for t in task_store.load().tasks if t.title == "Draft the drainage report") == 1 and existing.id
-    today, tom = tasks.today(), tasks.today() + timedelta(days=1)
+    today = tasks.today()
+    # One memory per sentence, each filed on its own; tomorrow's top 3 stay out of Siris (5.61).
+    d = today.strftime('%A %-d %B %Y')
     assert ai.captures == [
-        {"text": f"{today.strftime('%A %-d %B %Y')}: Good site visit; pumps arrived.", "kind": "memory", "tags": ["wrap-up"]},
-        {"text": f"Brad's focus for {tom.strftime('%A %-d %B %Y')}: Draft the drainage report", "kind": "memory", "tags": ["wrap-up"]},
-        {"text": f"Brad's focus for {tom.strftime('%A %-d %B %Y')}: Call Dana", "kind": "memory", "tags": ["wrap-up"]},
+        {"text": f"{d}: Good site visit at Melrose; the pumps arrived.", "kind": "memory", "tags": ["wrap-up"]},
+        {"text": f"{d}: Ran 8 km after work!", "kind": "memory", "tags": ["wrap-up"]},
+        {"text": f"{d}: Dom's parents are visiting on Saturday.", "kind": "memory", "tags": ["wrap-up"]},
     ]
+    assert not any("focus" in c["text"] or "Call Dana" in c["text"] for c in ai.captures)
     assert not any("title" in c for c in ai.captures)  # never a "Day …" note
     assert service.top3_for(tasks.today() + timedelta(days=1)) == ["Draft the drainage report", "Call Dana"]
     assert client.get("/api/v1/wrapup", headers=AUTH).json()["saved"]["top3"] == ["Draft the drainage report", "Call Dana"]

@@ -7,10 +7,11 @@
    CPD" stops it being suggested.
 3. Tomorrow's top 3, saved as tasks due tomorrow and shown first in
    tomorrow's brief.
-4. One line about the day. It and tomorrow's top 3 go to Siris as memories
-   (SirisAI 2.66 `kind: "memory"`), filed overnight onto the notes they're
-   about ("Running", "SirisOS"...). There's no day note: those cluttered
-   the brain (4.4).
+4. A line or two about the day. Each sentence goes to Siris as its own
+   memory (SirisAI 2.66 `kind: "memory"`), filed overnight onto the note
+   it's about ("Running", "SirisOS"...), or a new note when nothing fits.
+   There's no day note: those cluttered the brain (4.4). Tomorrow's top 3
+   stay in SirisOS (5.61).
 
 Saved per day in wrapup.json (60 days kept). A phone notification at
 SIRISOS_WRAPUP_HOUR (17) offers it once, unless it's already done.
@@ -19,6 +20,7 @@ SIRISOS_WRAPUP_HOUR (17) offers it once, unless it's already done.
 from __future__ import annotations
 
 import os
+import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -112,7 +114,7 @@ async def save(hub: Hub, day: date, top3: list[str], journal: str) -> dict[str, 
     task_store.save(doc)
 
     line = journal.strip()
-    journal_saved = await remember(hub, day, line, picks)
+    journal_saved = await remember(hub, day, line)
     entry = {"top3": picks, "journal": line, "journal_saved_as": journal_saved,
              "at": datetime.now(zone()).isoformat(timespec="minutes")}
     state = _load()
@@ -127,12 +129,19 @@ async def save(hub: Hub, day: date, top3: list[str], journal: str) -> dict[str, 
     return entry
 
 
-async def remember(hub: Hub, day: date, line: str, picks: list[str]) -> str | None:
-    """The day's line and tomorrow's top 3 into Siris as memories, one each, so
-    each is filed onto the note it's about. "memories" when they went in."""
-    tomorrow = day + timedelta(days=1)
-    memories = ([f"{day.strftime('%A %-d %B %Y')}: {line}"] if line else []) + \
-               [f"Brad's focus for {tomorrow.strftime('%A %-d %B %Y')}: {p}" for p in picks]
+def sentences(text: str) -> list[str]:
+    """The summary's sentences (and lines), each whole, nothing reworded."""
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text.strip())
+    return [p.strip(" -•\t") for p in parts if len(p.strip(" -•\t").split()) >= 2]
+
+
+async def remember(hub: Hub, day: date, line: str) -> str | None:
+    """The day's summary into Siris, one memory per sentence (5.61), so each is
+    filed on its own: onto the existing note it's about, or as a new note when
+    nothing fits (SirisAI's nightly filing). Tomorrow's top 3 stay in SirisOS
+    (tasks and the brief); they don't go to Siris. "memories" when they went in."""
+    stamp = day.strftime("%A %-d %B %Y")
+    memories = [f"{stamp}: {s}" for s in sentences(line)]
     if not memories:
         return None
     try:
