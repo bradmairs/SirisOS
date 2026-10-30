@@ -64,7 +64,7 @@ def _default_sections() -> dict[str, list[str]]:
     }
 
 
-EVERYTHING = ["clock", "weather", "server", "app-health", "tasks", "coming-up", "career", "fitness", "app:*", "activity",
+EVERYTHING = ["clock", "weather", "server", "app-health", "tasks", "coming-up", "career", "fitness", "training", "app:*", "activity",
               "parcels", "protocols", "cameras", "car", "upkeep", "energy", "brain", "resurface", "capture"]
 
 
@@ -73,11 +73,11 @@ def _default_hidden() -> dict[str, list[str]]:
     something needs you, and the car in the evening only when it needs charging (Home decides)."""
     keep = lambda *ids: [w for w in EVERYTHING if w not in ids]  # noqa: E731
     return {
-        "morning": keep("clock", "weather", "tasks", "coming-up", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
+        "morning": keep("clock", "weather", "tasks", "coming-up", "training", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
         "work": keep("clock", "weather", "tasks", "coming-up", "career", "app:*", "brain", "protocols", "server", "app-health"),
-        "weekend": keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras",
+        "weekend": keep("clock", "weather", "tasks", "coming-up", "training", "fitness", "parcels", "car", "protocols", "cameras",
                         "energy", "server", "app-health", "resurface", "upkeep"),
-        "evening": keep("clock", "weather", "tasks", "coming-up", "fitness", "parcels", "car", "protocols", "cameras",
+        "evening": keep("clock", "weather", "tasks", "coming-up", "training", "fitness", "parcels", "car", "protocols", "cameras",
                         "energy", "server", "app-health", "upkeep"),
         "winddown": keep("brain", "resurface", "capture"),
         "night": keep("clock"),
@@ -86,7 +86,7 @@ def _default_hidden() -> dict[str, list[str]]:
 
 # Screens the tab bar's last two buttons can be (4.95), or "auto".
 DOCK_CHOICES = ("auto", "/links", "/career", "/house", "/tasks", "/wrapup", "/brief", "/projects", "/engineering",
-                "/review", "/year", "/status")
+                "/review", "/year", "/status", "/training")
 
 
 class DockSlots(BaseModel):

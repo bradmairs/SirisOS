@@ -146,6 +146,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Home maintenance: repeating jobs and appliances (manuals, warranties) in the house's rooms, due rooms glowing, on Home and as notifications with Done (5.2)
 - [x] Network alerts: a notification when an unknown device joins (It's mine or Block it) or a watched one drops off, through SirisAI and UniFi (5.3)
 - [x] Power use: rooms in the house lit by what they draw, a Power card with today's kWh, and kWh by month on Your year (5.4)
+- [x] Training: a race plan from your recent running, today's run adjusted for sleep and recovery, a subscribed calendar; Apple Health arriving on its own through Health Auto Export (5.5)
 
 ## Terminal (ADR 113)
 

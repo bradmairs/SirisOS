@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FitnessWidget } from "./FitnessWidget";
@@ -17,7 +18,7 @@ describe("<FitnessWidget />", () => {
       "/api/v1/fitness": () => jsonResponse({ ...WEEK, goal_km: goal }),
     });
     const user = userEvent.setup();
-    render(<FitnessWidget />);
+    render(<MemoryRouter><FitnessWidget /></MemoryRouter>);
     expect(await screen.findByText("of 20 km this week")).toBeInTheDocument();
     expect(screen.getByText(/2 runs · 65 min exercise · 8,000 steps a day/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Goal" }));
@@ -32,7 +33,7 @@ describe("<FitnessWidget />", () => {
   it("stays out of the way without health data", async () => {
     signIn();
     mockFetch({ "/api/v1/fitness": () => jsonResponse({ available: false, guest_mode: false, goal_km: null }) });
-    const { container } = render(<FitnessWidget />);
+    const { container } = render(<MemoryRouter><FitnessWidget /></MemoryRouter>);
     await new Promise((r) => setTimeout(r, 50));
     expect(container.querySelector("[aria-label='Fitness']")).toBeNull();
   });

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Footprints } from "lucide-react";
+import { Link } from "react-router-dom";
 import { fitness, type FitnessWeek } from "../api/fitness";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
@@ -50,6 +51,7 @@ export function FitnessWidget({ delay = 0 }: { delay?: number }) {
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         {data.runs} run{data.runs === 1 ? "" : "s"} · {data.exercise_minutes} min exercise{data.steps_avg ? ` · ${data.steps_avg.toLocaleString()} steps a day` : ""}
+        {" · "}<Link to="/training" className="brief-link">Training</Link>
       </p>
       {editing && (
         <form className="row" style={{ gap: 8 }} onSubmit={save}>
