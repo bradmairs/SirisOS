@@ -114,8 +114,27 @@ function PlanCard({ t, onEdit }: { t: Training; onEdit: () => void }) {
           <div><div className="metric__value">{p.days_to_go}</div><div className="metric__label">Days to {p.race.name}</div></div>
           <div><div className="metric__value">{t.this_week ? `${t.this_week.done_km ?? 0}/${t.this_week.km}` : "–"}</div><div className="metric__label">km this week</div></div>
           <div><div className="metric__value">{p.start_km}</div><div className="metric__label">km/week at the start</div></div>
+          {t.prediction && <div><div className="metric__value">{t.prediction.time}</div><div className="metric__label">Predicted, from {t.prediction.from}</div></div>}
         </div>
       </Glass>
+      {(t.paces || t.zones) && (
+        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Paces and zones">
+          <header className="widget__head"><HeartPulse aria-hidden="true" /><span>Paces and heart-rate zones</span></header>
+          {t.paces && (
+            <div className="metrics metrics--compact">
+              <div><div className="metric__value">{t.paces.easy}</div><div className="metric__label">Easy</div></div>
+              <div><div className="metric__value">{t.paces.long}</div><div className="metric__label">Long</div></div>
+              <div><div className="metric__value">{t.paces.tempo}</div><div className="metric__label">Tempo</div></div>
+            </div>
+          )}
+          {t.zones && (
+            <ul className="items">
+              {t.zones.zones.map((z) => <li key={z.name} className="item"><span className="item__text"><span className="item__title">{z.name}</span></span><span className="muted">{z.low}–{z.high} bpm</span></li>)}
+            </ul>
+          )}
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>{t.zones ? `Zones from the highest heart rate your workouts recorded (${t.zones.max_hr} bpm). ` : ""}Paces from your best recent run.</p>
+        </Glass>
+      )}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="The plan">
         <header className="widget__head"><Trophy aria-hidden="true" /><span>The plan · {p.race.distance_km} km{p.race.goal_time ? ` in ${p.race.goal_time}` : ""}</span></header>
         <ul className="training__weeks">
@@ -126,7 +145,7 @@ function PlanCard({ t, onEdit }: { t: Training; onEdit: () => void }) {
                 <span className="muted">{w.done_km != null ? `${w.done_km} / ` : ""}{w.km} km · {w.kind === "easier" ? "easier week" : w.kind}</span>
               </div>
               <span className="career-bar" role="presentation"><span className="career-bar__fill" style={{ width: `${(w.km / peak) * 100}%` }} /></span>
-              <span className="muted training__sessions">{w.sessions.map((s) => `${day(s.date).split(" ")[0]} ${s.kind === "race" ? "race" : `${s.km} km ${s.kind}`}`).join(" · ")}</span>
+              <span className="muted training__sessions">{w.sessions.map((s) => `${day(s.date).split(" ")[0]} ${s.kind === "race" ? "race" : s.km ? `${s.km} km ${s.kind}` : s.kind}${s.status === "done" ? " ✓" : s.status === "missed" ? " (missed)" : s.status === "partly" ? ` (${s.done_km} km)` : ""}`).join(" · ")}</span>
             </li>
           ))}
         </ul>
