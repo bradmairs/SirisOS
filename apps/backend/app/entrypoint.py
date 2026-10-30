@@ -40,6 +40,7 @@ from app.house.api import router as house_router
 from app.resurface.api import router as resurface_router
 from app.maintenance.api import router as maintenance_router
 from app.netwatch.api import router as netwatch_router
+from app.power.api import router as power_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -69,6 +70,7 @@ for router in (
     resurface_router,
     maintenance_router,
     netwatch_router,
+    power_router,
     career_router,
     links_router,
     push_router,
@@ -99,6 +101,10 @@ async def lifespan(application):
             tasks.append(asyncio.create_task(status_history.sampler(get_hub)))
         if backups.enabled():
             tasks.append(asyncio.create_task(backups.loop()))
+        from app.power import service as power
+
+        if power.enabled():
+            tasks.append(asyncio.create_task(power.loop(get_hub)))
         try:
             yield state
         finally:

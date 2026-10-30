@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Award, BookOpen, Footprints, Inbox, ListChecks, Table2 } from "lucide-react";
+import { Award, BookOpen, Footprints, Inbox, ListChecks, Table2, Zap } from "lucide-react";
 import { useResource } from "../api/resource";
 import { trends, type TrendMonth, type Trends } from "../api/trends";
 import { Glass } from "../components/Glass";
@@ -44,6 +44,7 @@ function metrics(data: Trends): Metric[] {
     { key: "tasks_done", title: "Tasks done", unit: "", Icon: ListChecks, total: "sum" },
     { key: "journal_days", title: "Journal days", unit: "", Icon: BookOpen, total: "sum", note: `${data.journal.current}-day streak now · longest ${data.journal.longest}` },
     { key: "inbox", title: "Inbox at its busiest", unit: "", Icon: Inbox, total: "avg", note: "Average of each day's most" },
+    ...(data.available.energy ? [{ key: "energy_kwh" as const, title: "Power used", unit: " kWh", Icon: Zap, total: "sum" as const, note: "From Home Assistant, counted by SirisOS" }] : []),
   ];
 }
 
