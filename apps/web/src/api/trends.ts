@@ -11,6 +11,8 @@ export interface TrendMonth {
   journal_days: number;
   wrapups: number;
   reviews: number;
+  /** kWh used that month (5.4); null before SirisOS started counting. */
+  energy_kwh?: number | null;
 }
 
 export interface Trends {
@@ -19,7 +21,7 @@ export interface Trends {
   cpd: { window_total: number; required: number };
   journal: { current: number; longest: number };
   since: { health: string | null; log: string | null };
-  available: { health: boolean };
+  available: { health: boolean; energy?: boolean };
 }
 
 export const trends = { get: () => api<Trends>("/api/v1/trends") };

@@ -13,6 +13,9 @@ import { HomeControlsWidget } from "./SirisControls";
 import { ProtocolsManager } from "./ProtocolEditor";
 import { AppliancesCard, MaintenanceCard, RoomUpkeep, useMaintenance } from "./Maintenance";
 import { NetworkWatchCard } from "./NetworkWatch";
+import { PowerCard } from "./PowerCard";
+import { power, powerGlow, roomWatts } from "../api/power";
+import { Zap } from "lucide-react";
 import { roomGlow } from "../api/maintenance";
 import { useSearchParams } from "react-router-dom";
 
@@ -45,6 +48,8 @@ export function HouseScreen() {
   const [linksOn, setLinksOn] = useState(true);
   const [picked, setPicked] = useState<Pick>(null);
   const upkeep = useMaintenance();
+  const powerUse = useResource("house:power", () => power.get(), { refreshMs: 30_000, staleMs: 20_000 });
+  const [powerOn, setPowerOn] = useState(false);
   const [params] = useSearchParams();
 
   const nodes = useMemo(() => {
@@ -77,7 +82,11 @@ export function HouseScreen() {
   useEffect(() => { sceneRef.current?.setSelected(selectedIds); }, [selectedIds, drawn, problem]);
   useEffect(() => { sceneRef.current?.setFloor(floor); }, [floor]);
   useEffect(() => { sceneRef.current?.setLinksVisible(linksOn); }, [linksOn]);
-  useEffect(() => { sceneRef.current?.setRoomGlow(roomGlow(upkeep.data)); }, [upkeep.data, ready]);
+  // Jobs that need doing glow over power use (5.4), which shows when you turn it on.
+  useEffect(() => {
+    const jobs = roomGlow(upkeep.data);
+    sceneRef.current?.setRoomGlow(powerOn ? { ...powerGlow(roomWatts(powerUse.data, placements)), ...jobs } : jobs);
+  }, [upkeep.data, ready, powerOn, powerUse.data, placements]);
   // From a notification or Home's "All jobs": straight to the maintenance card.
   useEffect(() => {
     const view = params.get("view");
@@ -87,6 +96,11 @@ export function HouseScreen() {
   function save(next: Placements) {
     setPlacements(next);
     house.place(next).catch(() => undefined);
+  }
+
+  /** A power sensor's room (5.4): it isn't on the network, so "No room" just hides it from the glow. */
+  function placeSensor(id: string, room: string | null) {
+    save({ ...placements, [id]: room === null ? { room: "office", hidden: true } : { room } });
   }
 
   function move(id: string, room: string | null) {
@@ -117,7 +131,10 @@ export function HouseScreen() {
         {[{ id: null, name: "All" }, ...[...FLOORS].reverse()].map((f) => (
           <button key={f.name} type="button" className={`chip ${floor === f.id ? "chip--on" : ""}`} aria-pressed={floor === f.id} onClick={() => setFloor(f.id as FloorId | null)}>{f.name}</button>
         ))}
-        <button type="button" className={`chip ${linksOn ? "chip--on" : ""}`} aria-pressed={linksOn} onClick={() => setLinksOn((x) => !x)} style={{ marginLeft: "auto" }}>
+        <button type="button" className={`chip ${powerOn ? "chip--on" : ""}`} aria-pressed={powerOn} onClick={() => setPowerOn((x) => !x)} style={{ marginLeft: "auto" }}>
+          <Zap size={13} aria-hidden="true" /> Power
+        </button>
+        <button type="button" className={`chip ${linksOn ? "chip--on" : ""}`} aria-pressed={linksOn} onClick={() => setLinksOn((x) => !x)}>
           <NetworkIcon size={13} aria-hidden="true" /> Network
         </button>
       </div>
@@ -188,6 +205,7 @@ export function HouseScreen() {
         </Glass>
 
         <NetworkWatchCard />
+        <PowerCard data={powerUse.data ?? null} error={powerUse.data ? null : powerUse.error} placements={placements} onRoom={placeSensor} />
 
         {nodes.length > 0 && (
           <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Devices">

@@ -52,7 +52,13 @@ async def year(hub: Hub, today: date | None = None) -> dict[str, Any]:
     months = months_back(today)
     first = date.fromisoformat(months[0] + "-01")
     rows = {m: {"month": m, "cpd_hours": 0.0, "running_km": 0.0, "exercise_minutes": 0.0, "steps": [], "tasks_done": 0,
-                "inbox": [], "journal_days": 0, "wrapups": 0, "reviews": 0} for m in months}
+                "inbox": [], "journal_days": 0, "wrapups": 0, "reviews": 0, "energy_kwh": None} for m in months}
+    from app.power import service as power
+
+    kwh = power.by_month()
+    for m, v in kwh.items():
+        if m in rows:
+            rows[m]["energy_kwh"] = v
 
     doc = career_store.load()
     for r in doc.cpd.records:
@@ -117,5 +123,5 @@ async def year(hub: Hub, today: date | None = None) -> dict[str, Any]:
         "cpd": {"window_total": window["total"], "required": window["required"]},
         "journal": streaks(journal, today),
         "since": {"health": health_from, "log": log_from},
-        "available": {"health": health is not None},
+        "available": {"health": health is not None, "energy": bool(kwh)},
     }
