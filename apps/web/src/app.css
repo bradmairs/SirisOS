@@ -136,7 +136,14 @@ body.no-scroll { overflow: hidden; }
 .sidebar {
   position: fixed; z-index: 50; top: calc(var(--safe-top) + 12px); bottom: calc(var(--safe-bottom) + 12px); left: 12px;
   width: min(272px, calc(100vw - 48px)); display: flex; flex-direction: column; gap: 6px; padding: 18px 14px 14px;
-  overflow-y: auto; transform: translateX(calc(-100% - 24px)); transition: transform 0.45s var(--spring);
+  overflow: hidden; transform: translateX(calc(-100% - 24px)); transition: transform 0.45s var(--spring);
+}
+/* Scrolling happens in here, not on .sidebar: the glass's edge and sheen are drawn by
+   ::before/::after at the panel's size, so they'd scroll away with the content. */
+.sidebar__scroll {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  margin: 0 -8px; padding: 0 8px 8px;
 }
 .sidebar > * { position: relative; z-index: 2; }
 .sidebar--open { transform: none; }
