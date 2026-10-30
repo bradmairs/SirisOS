@@ -147,6 +147,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Network alerts: a notification when an unknown device joins (It's mine or Block it) or a watched one drops off, through SirisAI and UniFi (5.3)
 - [x] Power use: rooms in the house lit by what they draw, a Power card with today's kWh, and kWh by month on Your year (5.4)
 - [x] Training: a race plan from your recent running, today's run adjusted for sleep and recovery, a subscribed calendar; Apple Health arriving on its own through Health Auto Export (5.5)
+- [x] Setup checklist on System status: every integration tested live, on, off or needing a look, with the fix and the setting names (5.6)
 
 ## Terminal (ADR 113)
 
