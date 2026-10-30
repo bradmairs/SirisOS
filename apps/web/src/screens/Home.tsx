@@ -19,6 +19,7 @@ import { FocusCard } from "./FocusCard";
 import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
 import { HomeJobsWidget } from "./Maintenance";
 import { TodaysRunWidget } from "./Training";
+import { ReadinessWidget } from "./Health";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
 import { InboxPanel } from "../components/Inbox";
@@ -185,6 +186,7 @@ export function Home() {
     { id: "coming-up", label: "Coming up", node: !hideMine && (comingUp ? <ComingUpWidget events={comingUp} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },
     { id: "career", label: "Career", node: !hideMine && <CareerWidget delay={30} /> },
     { id: "fitness", label: "Fitness", node: !hideMine && <FitnessWidget delay={40} /> },
+    { id: "readiness", label: "Readiness", node: !hideMine && <ReadinessWidget /> },
     { id: "training", label: "Today's run", node: !hideMine && <TodaysRunWidget /> },
     ...(appsLoading
       ? [0, 1].map((i) => ({ id: `loading-app-${i}`, label: "Loading apps", node: <LoadingWidget title="Loading apps" delay={60 + i * 50} /> }))

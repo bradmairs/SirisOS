@@ -342,6 +342,9 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         lines.append(f"{attention[0]['name']} needs a look ({attention[0]['state']}).")
     if brain["inbox"]:
         lines.append(f"{brain['inbox']} thing{'s' if brain['inbox'] != 1 else ''} waiting in Siris' inbox.")
+    ready = parts.get("readiness")
+    if isinstance(ready, dict) and ready.get("score") is not None:
+        lines.insert(0, f"Readiness {ready['score']}, {ready['band'].lower()}: {ready['advice']}")
     attention_counts = parts.get("attention") if isinstance(parts.get("attention"), dict) else None
     if attention_counts and attention_counts.get("urgent"):
         n = attention_counts["urgent"]
@@ -360,6 +363,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "todo": todo[:8],
         "email": {"unread": unread, "important": important} if isinstance(email, list) else None,
         "health": health_lines,
+        "readiness": parts.get("readiness"),
         "home": home,
         "apps_attention": attention,
         "brain": brain,
@@ -430,6 +434,10 @@ class BriefService:
                 return None
 
             parts["career"] = _career()
+            from app.health import service as health_service
+
+            if not parts.get("guest_mode"):  # personal, like the rest of health
+                parts["readiness"] = await _safe("readiness", health_service.readiness(hub), failed)
             parts["news"] = await _safe(
                 "news",
                 news_service.stories(shared_client(), ai.note_body if ai else no_note, hot, fresh=fresh),

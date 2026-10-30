@@ -855,3 +855,27 @@ h3.note__heading { font-size: 17px; }
 .setup__settings { display: flex; flex-wrap: wrap; gap: 4px; }
 .setup__settings code { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--text, #fff) 8%, transparent); }
 .training__attempts summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+
+/* Health (5.7) */
+.ring { position: relative; flex: none; }
+.ring__track { fill: none; stroke: color-mix(in srgb, var(--text, #fff) 10%, transparent); }
+.ring__arc { fill: none; stroke: currentColor; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+.ring__label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.ring__score { font-size: 34px; font-weight: 700; line-height: 1; color: var(--text, inherit); }
+.ring__band { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.readiness-row { gap: 16px; align-items: center; flex-wrap: wrap; }
+.contributor .item__text { display: grid; gap: 4px; }
+.contributor__score { font-variant-numeric: tabular-nums; font-size: 13px; }
+.hbars { display: grid; gap: 6px; }
+.hbars__readout { margin: 0; font-size: 13px; }
+.hbars__plot { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+.hbars__bar { flex: 1; height: 100%; display: flex; align-items: flex-end; cursor: default; outline: none; }
+.hbars__bar > span { display: block; width: 100%; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.hbars__bar--on > span, .hbars__bar:focus-visible > span { background: var(--accent); }
+.hbars__line { position: absolute; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, var(--text, #fff) 45%, transparent); pointer-events: none; }
+.spark { width: 100%; height: 48px; }
+.spark__band { fill: color-mix(in srgb, var(--accent) 14%, transparent); }
+.spark__line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.spark__dot { fill: var(--accent); }
+.ring svg { width: 100%; height: 100%; display: block; }
+.metric__value { white-space: nowrap; }
