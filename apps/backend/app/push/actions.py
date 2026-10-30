@@ -137,6 +137,18 @@ async def perform(hub, payload: dict[str, Any], action: str, now: datetime | Non
                 return f"Moved to {job.snoozed_until}."
         except LookupError as exc:
             raise LookupError(ref) from exc
+    if kind == "netdev":
+        from app.netwatch import service as netwatch
+
+        if action == "trust":
+            try:
+                netwatch.trust(ref)
+            except LookupError as exc:
+                raise LookupError(ref) from exc
+            return "Marked as yours. SirisOS won't ask about it again."
+        if action == "block":
+            await netwatch.set_blocked(hub, ref, True)
+            return "Blocked. Unblock it on the Smart home page if that was a mistake."
     raise BadToken("SirisOS doesn't know what this notification is for.")
 
 

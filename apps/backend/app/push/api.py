@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.hub.service import Hub, get_hub, shared_client
+from app.hub.sirisai_api import SirisAIError
 from app.push import actions, store, webpush
 
 router = APIRouter(prefix="/api/v1/push", tags=["push"], dependencies=[Depends(require_user)])
@@ -57,6 +58,8 @@ async def press(body: Press, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="That's already gone.") from exc
+    except SirisAIError as exc:  # e.g. Block, when SirisAI or UniFi can't do it right now
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     actions.mark_used(p["n"], body.action, p["e"])
     return {"done": body.action, "message": said, "url": p["u"]}
 
