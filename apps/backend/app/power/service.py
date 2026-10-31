@@ -208,6 +208,9 @@ async def loop(get_hub) -> None:
                 from app.maintenance import service as maintenance
 
                 maintenance.sample_usage(u, time.time())  # jobs that come due by use (6.2)
+                from app.standby import service as standby
+
+                await standby.run(get_hub(), datetime.now(zone()))  # plugs off overnight and when away (6.4)
         except Exception as exc:  # noqa: BLE001 - keep sampling
             logger.info("Power sample failed: %s", exc)
         await asyncio.sleep(SAMPLE_SECONDS)

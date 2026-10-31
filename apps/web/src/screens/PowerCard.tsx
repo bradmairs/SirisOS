@@ -1,9 +1,46 @@
+import { useState } from "react";
 import { Zap } from "lucide-react";
+import { useResource } from "../api/resource";
+import { standby, type Standby } from "../api/standby";
 import type { Placements } from "../api/house";
 import { sensorRoom, watts, type Power } from "../api/power";
 import { FLOORS } from "../house/layout";
 import { Glass } from "../components/Glass";
 import { useShowMore } from "../components/ShowMore";
+
+/** Turn the plug behind an always-on device off overnight and when nobody's home (6.4). */
+function StandbySwitches() {
+  const res = useResource<Standby>("standby", () => standby.get(), { staleMs: 60_000 });
+  const [busy, setBusy] = useState(false);
+  const s = res.data;
+  if (!s || !s.suggestions.length) return null;
+  async function toggle(sw: string, on: boolean) {
+    setBusy(true);
+    try {
+      const next = on ? [...s!.switches, sw] : s!.switches.filter((x) => x !== sw);
+      await standby.set(next);
+      res.mutate?.({ ...s!, switches: next });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section aria-label="Standby killer">
+      <h3 className="maint__h">Off overnight ({s.hours}) and when nobody's home</h3>
+      <ul className="items">
+        {s.suggestions.map((x) => (
+          <li key={x.switch} className="item">
+            <label className="row" style={{ gap: 10, fontSize: 14, flex: 1 }}>
+              <input type="checkbox" disabled={busy} checked={s.switches.includes(x.switch)} onChange={(e) => toggle(x.switch, e.target.checked)} />
+              <span className="item__text"><span className="item__title">{x.name}</span>
+                <span className="item__subtitle">{watts(x.watts)} always · {x.switch}{s.off_now.includes(x.switch) ? " · off now" : ""}</span></span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /** Power use (5.4): the house now, today's kWh, and each sensor in its room. */
 export function PowerCard({ data, error, placements, onRoom }: {
@@ -44,6 +81,7 @@ export function PowerCard({ data, error, placements, onRoom }: {
               {data.always_on.devices.length > 0 && <> Never off: {data.always_on.devices.map((d) => `${d.name} ${watts(d.watts)}`).join(", ")}.</>}
             </p>
           )}
+          {data.always_on && data.always_on.devices.length > 0 && <StandbySwitches />}
           {!data.power.length && <p className="muted" style={{ margin: 0, fontSize: 13 }}>No power sensors in Home Assistant yet: smart plugs and a whole-house meter show up here.</p>}
           {data.power.length > 0 && (
             <>

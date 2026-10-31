@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Scale, Target, ThermometerSun, TrendingUp } from "lucide-react";
-import { BAND_TONE, health, type Energy, type Goal, type Health, type LogKind, type Point, type Readiness, type Trend, type Vital } from "../api/health";
+import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Flame, Scale, Target, ThermometerSun, TrendingUp } from "lucide-react";
+import { BAND_TONE, health, type Energy, type Goal, type SleepWeek, type Strain, type Health, type LogKind, type Point, type Readiness, type Trend, type Vital } from "../api/health";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
@@ -168,6 +168,7 @@ function TodayView({ h }: { h: Health }) {
           <EnergyMeter e={h.energy} />
         </Glass>
       )}
+      {h.strain && <StrainCard s={h.strain} />}
       {h.trends && h.trends.length > 0 && <TrendsCard trends={h.trends} />}
       <div className="widget-grid">
         <Tile title="Sleep" Icon={BedDouble} to="/health?view=sleep" big={hm(h.sleep.last_night?.hours)} sub={h.sleep.score != null ? `Sleep score ${h.sleep.score} · need ${hm(h.sleep.need)}` : `You need about ${hm(h.sleep.need)}`} />
@@ -184,6 +185,60 @@ function TodayView({ h }: { h: Health }) {
         </Glass>
       )}
     </>
+  );
+}
+
+const STRAIN_TONE = { under: "tone-warning", "in range": "tone-good", over: "tone-critical" } as const;
+
+/** Strain (6.4): today on 0-21 with the target band from readiness, the workouts, and the week. */
+export function StrainCard({ s, compact = false }: { s: Strain; compact?: boolean }) {
+  const pct = (v: number) => `${(v / 21) * 100}%`;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Strain">
+      <header className="widget__head"><Flame aria-hidden="true" /><span>Strain</span></header>
+      <div className="energy__head">
+        <span className={`hud-big ${STRAIN_TONE[s.status]}`}>{s.today.toFixed(1)}</span>
+        <span className="muted energy__of">/ 21 · target {s.target[0]}–{s.target[1]}</span>
+      </div>
+      <div className="strain__bar" role="meter" aria-valuemin={0} aria-valuemax={21} aria-valuenow={s.today} aria-label={`Strain ${s.today} of 21`}>
+        <span className="strain__band" style={{ left: pct(s.target[0]), width: pct(s.target[1] - s.target[0]) }} />
+        <span className={`strain__mark ${STRAIN_TONE[s.status]}`} style={{ left: pct(Math.min(s.today, 21)) }} />
+      </div>
+      <p style={{ margin: 0, fontSize: 14 }}>{s.advice}</p>
+      {!compact && s.workouts.length > 0 && (
+        <ul className="items">{s.workouts.map((w) => (
+          <li key={`${w.start}-${w.name}`} className="item"><span className="item__text"><span className="item__title">{w.name ?? "Workout"}</span>
+            <span className="item__subtitle">{w.minutes ? `${Math.round(w.minutes)} min · ` : ""}strain {w.strain.toFixed(1)}</span></span></li>
+        ))}</ul>
+      )}
+      {!compact && (
+        <div className="strain__week" aria-label="Strain this week">
+          {s.week.map((d) => (
+            <span key={d.date} className="strain__day" title={`${day(d.date)}: ${d.strain.toFixed(1)}`}>
+              <span className="strain__col" style={{ height: `${Math.max(4, (d.strain / 21) * 100)}%` }} />
+              <span className="strain__lbl">{new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "narrow" })}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </Glass>
+  );
+}
+
+/** The week's sleep (6.4): average against need, debt, regularity, best and worst, and one thing to try. */
+export function SleepWeekCard({ w }: { w: SleepWeek }) {
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your week of sleep">
+      <header className="widget__head"><Moon aria-hidden="true" /><span>Your week of sleep</span></header>
+      <div className="metrics">
+        <div><div className="metric__value">{hm(w.average)}</div><div className="metric__label">Average (need {hm(w.need)})</div></div>
+        <div><div className="metric__value">{w.debt.toFixed(1)} h</div><div className="metric__label">Short this week</div></div>
+        <div><div className="metric__value">{w.bedtime_spread_min != null ? `±${w.bedtime_spread_min} min` : "–"}</div><div className="metric__label">Bedtime varied</div></div>
+      </div>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>Best {day(w.best.date)} ({hm(w.best.hours)}), shortest {day(w.worst.date)} ({hm(w.worst.hours)}){w.short_nights ? ` · ${w.short_nights} short night${w.short_nights === 1 ? "" : "s"}` : ""}.</p>
+      {w.factors.map((f) => <p key={f} className="muted" style={{ margin: 0, fontSize: 13 }}>{f}</p>)}
+      <p style={{ margin: 0, fontSize: 14 }}><strong>Next week:</strong> {w.tip}</p>
+    </Glass>
   );
 }
 
@@ -248,6 +303,7 @@ function SleepView({ h }: { h: Health }) {
   const stages = n && [["Deep", n.deep], ["REM", n.rem], ["Core", n.core], ["Awake", n.awake]].filter(([, v]) => v != null) as [string, number][];
   return (
     <>
+      {h.sleep_week && <SleepWeekCard w={h.sleep_week} />}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Last night">
         <header className="widget__head"><BedDouble aria-hidden="true" /><span>Last night</span></header>
         {n ? (

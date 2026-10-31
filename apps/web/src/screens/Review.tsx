@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { SleepWeekCard } from "./Health";
 import { Award, CalendarRange, Check, Compass, Hourglass, TrendingUp } from "lucide-react";
 import { useResource } from "../api/resource";
 import { review, type WeeklyReview } from "../api/review";
@@ -86,6 +87,8 @@ export function ReviewScreen() {
                 </ul>
               </Glass>
             )}
+
+            {data.sleep && <SleepWeekCard w={data.sleep} />}
 
             {data.chartership && data.chartership.next.length > 0 && (
               <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Chartership">

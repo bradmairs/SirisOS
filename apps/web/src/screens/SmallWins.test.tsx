@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -49,7 +49,25 @@ describe("System status upkeep", () => {
     });
     render(<StatusScreen />);
     expect(await screen.findByText("Newest 5 h ago · 14 kept")).toBeInTheDocument();
-    expect(screen.getByText("2.2 is out: update from the Inbox")).toBeInTheDocument();
+    expect(screen.getByText("2.2 is out")).toBeInTheDocument();
     expect(screen.getByText("Runs out in 9 days")).toBeInTheDocument();
+  });
+
+  it("6.4: updates both apps from the button, and says when the updater isn't running", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/hub/upkeep/update": () => jsonResponse({ requested: true, version: "4.13" }),
+      "/api/v1/hub/upkeep": () => jsonResponse({ sirisos: { version: "6.4" }, sirisai: { backups: null,
+        update: { current: "4.03", latest: "4.13", available: true, updater_running: false } }, certificates: [] }),
+      "/api/v1/hub/status": () => jsonResponse({ apps: [], sample_every_minutes: 5 }),
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(<StatusScreen />);
+    expect(await screen.findByText(/The updater isn't running on the server/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Update now" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Asked for 4.13.");
+    expect(calls.some((c) => c.url === "/api/v1/hub/upkeep/update" && c.init.method === "POST")).toBe(true);
+    confirm.mockRestore();
   });
 });

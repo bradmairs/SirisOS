@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Runs scripts/check.sh before every push (git config core.hooksPath .githooks).
+[ "${SKIP_CHECKS:-}" = "1" ] && exit 0
+exec "$(git rev-parse --show-toplevel)/scripts/check.sh"

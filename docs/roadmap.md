@@ -156,6 +156,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.1: training uses overnight HRV and energy, today's session in the brief, weekly trends, early run-down heads-up, body in the wrap-up
 6.2: device inventory (name, owner, type, room) in alerts and the house, energy by device and always-on, maintenance by use
 6.3: chartership readiness by element (weekly next steps), nudges with a daily cap and quiet hours, offline capture, house jobs and appliances in search
+6.4: strain, week of sleep, Health Auto Export check, Update now on System status, standby killer, ask the manuals, pre-push check
 
 ## Terminal (ADR 113)
 

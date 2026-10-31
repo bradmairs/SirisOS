@@ -123,3 +123,37 @@ def test_a_job_can_come_due_by_use(client):
     client.post(f"/api/v1/maintenance/jobs/{dryer['id']}/done", headers=AUTH, json={})
     again = {j["title"]: j for j in client.get("/api/v1/maintenance", headers=AUTH).json()["jobs"]}["Clean the dryer filter"]
     assert again["used"] == 0.0 and again["state"] == "ok"
+
+
+def test_asking_the_manuals_finds_the_page_and_cites_it(client, monkeypatch):
+    """6.4: the best pages by the question's words, answered by SirisAI from just those pages."""
+    import httpx
+
+    from app.hub import service as hub_service
+    from app.hub.service import reset_hub
+    from app.maintenance import manuals
+    from tests.test_hub import ENV
+
+    r = client.post("/api/v1/maintenance/appliances", headers=AUTH, json={"name": "Coffee machine", "room": "kitchen", "make": "Breville"})
+    a = r.json()["appliances"][0]
+    client.post(f"/api/v1/maintenance/appliances/{a['id']}/manual", headers=AUTH, files={"file": ("Barista.pdf", b"%PDF-1.4", "application/pdf")})
+    stored = service.load().appliances[0].manual.stored
+    (service.manuals_dir() / f"{stored}.pages.json").write_text(json.dumps([
+        "Safety. Read all instructions.", "Descaling: fill the tank with descaling solution, press the clean button for 3 seconds.",
+        "Cleaning the steam wand after each use."]))
+    hits = manuals.search("how do I descale it?")
+    assert hits[0]["page"] == 2 and hits[0]["appliance"] == "Coffee machine"
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/siris/ask":
+            asked.append(json.loads(request.content)["prompt"])
+            return httpx.Response(200, text="Fill the tank with descaler, then hold Clean for 3 seconds (p. 2).")
+        return httpx.Response(404)
+
+    monkeypatch.setattr(hub_service, "transport", httpx.MockTransport(handler))
+    reset_hub(ENV)
+    body = client.post("/api/v1/maintenance/manuals/ask", headers=AUTH, json={"question": "How do I descale the coffee machine?"}).json()
+    assert body["answer"].endswith("(p. 2).") and body["sources"][0]["page"] == 2
+    assert "[Coffee machine, page 2]" in asked[0] and "Safety" not in asked[0]
+    assert client.post("/api/v1/maintenance/manuals/ask", headers=AUTH, json={"question": "replace the timing belt"}).json()["sources"] == []

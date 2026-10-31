@@ -18,6 +18,8 @@ export interface WeeklyReview {
   done: string[];
   quiet: { title: string; days_idle: number }[];
   /** The weakest competency elements and what to do next (6.3). */
+  /** The week's sleep report (6.4). */
+  sleep?: import("./health").SleepWeek | null;
   chartership?: { counts: { solid: number; thin: number; none: number }; next: { id: string; title: string; strength: string; next: string }[] } | null;
   next_week: {
     busy_days: { date: string; meetings: number; clashes: string[] }[];

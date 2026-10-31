@@ -12,6 +12,7 @@ Read [README.md](README.md) (the handover) and [docs/roadmap.md](docs/roadmap.md
 
 - Backend: `cd apps/backend && pytest -q`
 - Web: `cd apps/web && npx tsc -b --noEmit && npm test`
+- Both at once: `scripts/check.sh` (`VISUAL=1` adds the visual check). Turn on the pre-push hook once per clone so it runs before every push: `git config core.hooksPath .githooks`.
 
 ## Siris: record what you build (Brad's standing instruction)
 

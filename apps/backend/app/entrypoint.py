@@ -41,6 +41,7 @@ from app.resurface.api import router as resurface_router
 from app.maintenance.api import router as maintenance_router
 from app.netwatch.api import router as netwatch_router
 from app.power.api import router as power_router
+from app.standby.api import router as standby_router
 from app.training.api import public_router as training_public_router
 from app.training.api import router as training_router
 from app.setup.api import router as setup_router
@@ -75,6 +76,7 @@ for router in (
     maintenance_router,
     netwatch_router,
     power_router,
+    standby_router,
     training_router,
     training_public_router,
     setup_router,

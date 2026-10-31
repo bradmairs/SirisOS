@@ -25,6 +25,23 @@ export interface Energy {
   /** No hourly data (Health Auto Export aggregated by day): worked out from the day's totals. */
   estimated: boolean;
 }
+/** Strain 0-21 (6.4, SirisAI 4.03): today against a target from readiness. */
+export interface Strain {
+  today: number; target: [number, number]; status: "under" | "in range" | "over"; advice: string; max_hr: number;
+  workouts: { name: string | null; start: string | null; minutes: number | null; strain: number }[];
+  week: { date: string; strain: number }[];
+}
+/** The week's sleep in one report (6.4). */
+export interface SleepWeek {
+  nights: number; average: number | null; need: number; debt: number; bedtime_spread_min: number | null; short_nights: number;
+  best: { date: string; hours: number }; worst: { date: string; hours: number }; factors: string[]; tip: string;
+}
+/** Is Health Auto Export set up right (6.4)? Each problem names the setting to change. */
+export interface HealthSetup {
+  connected: boolean; problems: string[];
+  metrics?: { at: string; aggregation?: string; days_covered?: number } | null;
+  workouts?: { at: string; days_covered?: number } | null;
+}
 export interface Trend { key: string; label: string; unit: string; week: number; baseline: number; change_pct: number; direction: "up" | "down" | "steady"; good: boolean | null }
 export interface Night { date: string; hours: number | null; deep: number | null; rem: number | null; core: number | null; awake: number | null; in_bed: number | null; start: string | null; end: string | null }
 export interface Point { date: string; value: number | null }
@@ -46,6 +63,9 @@ export interface Health {
   sources: { sirisai: boolean; health_auto_export: boolean; days: number; imports?: Record<string, { at: string; days?: number }> };
   readiness: Readiness | null;
   energy?: Energy | null;
+  strain?: Strain | null;
+  sleep_week?: SleepWeek | null;
+  setup?: HealthSetup | null;
   sleep: { need: number; last_night: Night | null; score: number | null; debt_7d: number; bedtime_spread_min: number | null; average_7d: number | null; nights: Night[] };
   activity: {
     steps: number | null; active_energy_kcal: number | null; exercise_minutes: number | null; stand_hours: number | null;

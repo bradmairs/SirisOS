@@ -126,8 +126,19 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
             "deadlines": deadlines[:6],
         },
         "chartership": _chartership(),
+        "sleep": await _sleep_week(hub),
         "saved": saved(monday),
     }
+
+
+async def _sleep_week(hub: Hub) -> dict[str, Any] | None:
+    """The week's sleep report from SirisAI 4.03 (6.4); None without one."""
+    from app.health import service as health
+
+    try:
+        return (await health.overview(hub)).get("sleep_week")
+    except Exception:  # noqa: BLE001 - the review stands without it
+        return None
 
 
 def _chartership() -> dict[str, Any] | None:

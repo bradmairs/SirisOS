@@ -11,6 +11,7 @@
     DELETE /api/v1/maintenance/appliances/{id}
     POST   /api/v1/maintenance/appliances/{id}/manual   upload (PDF or photo)
     GET    /api/v1/maintenance/appliances/{id}/manual
+    POST   /api/v1/maintenance/manuals/ask           {question, appliance?}: answered from the uploaded manuals (6.4)
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 
 from app.auth import require_user
+from app.hub.service import Hub, get_hub
 from app.maintenance import service
 from app.tasks import service as tasks
 
@@ -189,6 +191,19 @@ def delete_appliance(appliance_id: str) -> dict[str, Any]:
     except LookupError:
         raise _missing("appliance") from None
     return _view()
+
+
+class Ask(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    appliance: str | None = Field(default=None, max_length=40)
+
+
+@router.post("/manuals/ask")
+async def ask_manuals(body: Ask, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Ask the uploaded manuals (6.4): {answer, sources: [{appliance, page, snippet}], note?}."""
+    from app.maintenance import manuals
+
+    return await manuals.ask(hub, body.question, body.appliance)
 
 
 @router.post("/appliances/{appliance_id}/manual")
