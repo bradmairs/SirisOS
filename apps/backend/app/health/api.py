@@ -1,7 +1,7 @@
 """The Health section. See service.py; the data and scores are SirisAI's (5.8).
 
     GET    /api/v1/health                   readiness, sleep, activity, vitals, weight, insights, bedtime
-    GET    /api/v1/health/today             just today's readiness (Home, the brief)
+    GET    /api/v1/health/today             today's readiness and energy (Home, the brief)
     POST   /api/v1/health/log               {"kind": "water", "amount": 250} or {"kind": "symptom", "text": "..."}
     POST   /api/v1/health/meal              a meal photo, for a rough estimate
     GET    /api/v1/health/goals             goals tied to a health number, with progress
@@ -53,7 +53,7 @@ async def get_health(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
 
 @router.get("/today")
 async def get_today(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
-    return {"readiness": await service.readiness(hub)}
+    return await service.today(hub)
 
 
 @router.post("/log")

@@ -213,7 +213,7 @@ function HealthImportCard({ health }: { health: boolean }) {
       <ol className="training__steps">
         <li>Install <strong>Health Auto Export</strong> on your iPhone and allow it to read Health.</li>
         <li>In it: Automations → New → <strong>REST API</strong>. URL: <code>{url}</code> <button type="button" className="icon-link" aria-label="Copy the address" onClick={() => copy(url)}><Copy size={13} aria-hidden="true" /></button></li>
-        <li>Add a header <code>Authorization</code> with <code>Bearer</code> and your key (below). Format: JSON. Aggregate: Day. Period: since the last sync. Pick steps, active energy, exercise time, resting heart rate, HRV, sleep analysis, weight, and workouts.</li>
+        <li>Add a header <code>Authorization</code> with <code>Bearer</code> and your key (below). Format: JSON. Aggregate: Hours (so readiness can use the HRV taken while you slept, and energy follows your day hour by hour). Period: Previous 7 Days (a sync that only sent the last few hours would undercount the day). Pick steps, active energy, exercise time, heart rate, resting heart rate, HRV, respiratory rate, sleep analysis, mindful minutes, weight, and workouts.</li>
         <li>Turn on <strong>Sync automatically</strong>. Health is locked while the phone is locked, so it sends the next time you unlock it.</li>
       </ol>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>Rather use Shortcuts? A daily personal automation of "Find Health Samples" then "Get Contents of URL" (POST, JSON <code>{'{"date": "YYYY-MM-DD", "metrics": {"steps": …, "sleep_hours": …}}'}</code>) to the same address, with the same header, works too.</p>

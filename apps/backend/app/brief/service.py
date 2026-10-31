@@ -364,6 +364,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "email": {"unread": unread, "important": important} if isinstance(email, list) else None,
         "health": health_lines,
         "readiness": parts.get("readiness"),
+        "energy": parts.get("energy"),
         "home": home,
         "apps_attention": attention,
         "brain": brain,
@@ -437,7 +438,8 @@ class BriefService:
             from app.health import service as health_service
 
             if not parts.get("guest_mode"):  # personal, like the rest of health
-                parts["readiness"] = await _safe("readiness", health_service.readiness(hub), failed)
+                now_health = await _safe("readiness", health_service.today(hub), failed) or {}
+                parts["readiness"], parts["energy"] = now_health.get("readiness"), now_health.get("energy")
             parts["news"] = await _safe(
                 "news",
                 news_service.stories(shared_client(), ai.note_body if ai else no_note, hot, fresh=fresh),

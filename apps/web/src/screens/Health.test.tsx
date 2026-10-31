@@ -21,6 +21,9 @@ describe("<HealthScreen />", () => {
     expect(ring).toBeInTheDocument();
     expect(screen.getByText(data.readiness!.advice)).toBeInTheDocument();
     expect(screen.getAllByText(/HRV 71 ms/)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Kept from this morning/)).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "Energy 58 out of 100" })).toBeInTheDocument();
+    expect(screen.getByText(/started at 84/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Sleep" }));
     const last = await screen.findByRole("region", { name: "Last night" });
