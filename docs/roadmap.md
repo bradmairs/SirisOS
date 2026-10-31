@@ -149,6 +149,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Training: a race plan from your recent running, today's run adjusted for sleep and recovery, a subscribed calendar; Apple Health arriving on its own through Health Auto Export (5.5)
 - [x] Setup checklist on System status: every integration tested live, on, off or needing a look, with the fix and the setting names (5.6)
 - [x] Health: readiness from HRV, resting heart rate, sleep and vitals against your own normal; sleep, training load and vitals; readiness leads the morning brief (5.7)
+5.81: phone fixes: server rings sized again, dock kept at the bottom, iPhone push accepted (VAPID subject)
 
 ## Terminal (ADR 113)
 

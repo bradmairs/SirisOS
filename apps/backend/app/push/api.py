@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -104,6 +105,10 @@ async def test(body: Endpoint) -> dict[str, Any]:
     except webpush.Gone:
         store.remove(sub.endpoint)
         raise HTTPException(status_code=410, detail="The push service no longer knows this device. Turn notifications on again.")
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code
+        reason = "the push service turned down SirisOS's signature" if code in (401, 403) else f"the push service answered {code}"
+        raise HTTPException(status_code=502, detail=f"Couldn't send: {reason}. Turn notifications off and on again on this device.") from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Couldn't send: {exc}") from exc
     return {"sent": True}

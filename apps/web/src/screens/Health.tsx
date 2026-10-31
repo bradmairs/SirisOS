@@ -22,13 +22,13 @@ const clock = (stamp: string | null) => {
 export function ReadinessRing({ r, size = 132 }: { r: Readiness; size?: number }) {
   const stroke = size / 11, radius = (size - stroke) / 2, length = 2 * Math.PI * radius;
   return (
-    <div className="ring" style={{ width: size, height: size }} role="img" aria-label={`Readiness ${r.score} out of 100, ${r.band}`}>
+    <div className="rring" style={{ width: size, height: size }} role="img" aria-label={`Readiness ${r.score} out of 100, ${r.band}`}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={radius} className="ring__track" strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={radius} className={`ring__arc ${BAND_TONE[r.band]}`} strokeWidth={stroke}
+        <circle cx={size / 2} cy={size / 2} r={radius} className="rring__track" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={radius} className={`rring__arc ${BAND_TONE[r.band]}`} strokeWidth={stroke}
           strokeDasharray={`${(r.score / 100) * length} ${length}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
-      <div className="ring__label"><span className="ring__score">{r.score}</span><span className={`ring__band ${BAND_TONE[r.band]}`}>{r.band}</span></div>
+      <div className="rring__label"><span className="rring__score">{r.score}</span><span className={`rring__band ${BAND_TONE[r.band]}`}>{r.band}</span></div>
     </div>
   );
 }
