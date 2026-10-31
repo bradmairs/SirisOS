@@ -6,7 +6,8 @@ import { tasks } from "./tasks";
  * waits on this device and goes as soon as it can (back online, the app
  * opened again, or brought to the front). Kept in localStorage, so it
  * survives closing the app; photos over about 1.5 MB aren't kept. */
-export type Item = { kind: "task"; text: string } | { kind: "capture"; body: Parameters<typeof brain.capture>[0] };
+export type Item = { kind: "task"; text: string } | { kind: "capture"; body: Parameters<typeof brain.capture>[0] }
+  | { kind: "gym"; session: import("./gym").Session };
 export type Pending = Item & { at: string };
 
 const KEY = "sirisos.outbox";
@@ -65,6 +66,7 @@ export function flush(): Promise<number> {
       if (!next) break;
       try {
         if (next.kind === "task") await tasks.add({ text: next.text });
+        else if (next.kind === "gym") await (await import("./gym")).gym.finish(next.session);
         else await brain.capture(next.body);
       } catch (e) {
         if (unreachable(e)) break;

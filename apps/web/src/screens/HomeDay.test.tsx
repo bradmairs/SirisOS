@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -14,6 +14,15 @@ function local(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00${off >= 0 ? "+" : "-"}${pad(Math.floor(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`;
 }
 const inMinutes = (m: number) => new Date(Date.now() + m * 60_000);
+
+// The clock is fixed at 10am: "a meeting in 25 minutes" run at 11:50pm would land tomorrow (only Date is faked, so timers still run).
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const ten = new Date();
+  ten.setHours(10, 0, 0, 0);
+  vi.setSystemTime(ten);
+});
+afterEach(() => vi.useRealTimers());
 const tomorrowAt = (h: number) => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d; };
 
 const TASKS = {
