@@ -15,6 +15,7 @@ import {
   Search,
   Sparkles,
   type LucideIcon,
+  House,
 } from "lucide-react";
 import { search, type SearchGroup, type SearchHit } from "../api/search";
 import { CALCULATORS } from "../engineering/calculators";
@@ -35,6 +36,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   calculator: Calculator,
   goto: CornerDownLeft,
   award: Award,
+  house: House,
 };
 
 const SCREENS: { title: string; subtitle: string; url: string; words?: string }[] = [

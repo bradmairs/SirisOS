@@ -1,3 +1,4 @@
+import { keep, unreachable } from "../api/outbox";
 import { dueLabel, isTaskText, tasks } from "../api/tasks";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Check, Mic, Square, X } from "lucide-react";
@@ -116,7 +117,17 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
       setNote({ ok: true, text: `Saved to Siris' inbox as “${result.title}”.` });
       window.setTimeout(onClose, 900);
     } catch (e) {
-      setNote({ ok: false, text: e instanceof Error ? e.message : "Couldn't save." });
+      const isUrl = /^https?:\/\/\S+$/.test(value);
+      const kept = unreachable(e) && (!photo && isTaskText(value)
+        ? keep({ kind: "task", text: value })
+        : keep({ kind: "capture", body: { ...(isUrl ? { url: value } : value ? { text: value } : {}), ...(photo ? { image: photo } : {}) } }));
+      if (kept) {
+        setSaved(true);
+        setNote({ ok: true, text: "Kept on this phone: it goes to SirisOS as soon as it can reach it." });
+        window.setTimeout(onClose, 1200);
+      } else {
+        setNote({ ok: false, text: e instanceof Error ? e.message : "Couldn't save." });
+      }
     } finally {
       setBusy(null);
     }

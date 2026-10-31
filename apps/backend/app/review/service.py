@@ -125,8 +125,22 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
             "tasks": due_next[:10],
             "deadlines": deadlines[:6],
         },
+        "chartership": _chartership(),
         "saved": saved(monday),
     }
+
+
+def _chartership() -> dict[str, Any] | None:
+    """The three weakest competency elements and what to do next (6.3); None before any are set up."""
+    from app.career import application
+
+    doc = career_store.load()
+    if not doc.elements:
+        return None
+    strengths = application.element_strength(doc)
+    counts = {k: sum(e["strength"] == k for e in strengths) for k in ("solid", "thin", "none")}
+    return {"counts": counts, "next": [{"id": e["id"], "title": e["title"], "strength": e["strength"], "next": e["next"]}
+                                       for e in strengths if e["strength"] != "solid"][:3]}
 
 
 async def save(hub: Hub, today: date, focus: str) -> dict[str, Any]:

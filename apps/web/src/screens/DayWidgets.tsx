@@ -1,3 +1,4 @@
+import { keep, unreachable } from "../api/outbox";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Brain, History, PenLine } from "lucide-react";
@@ -82,7 +83,12 @@ export function CaptureWidget() {
       }
       setText("");
     } catch (err) {
-      setNote({ ok: false, text: err instanceof Error ? err.message : "Couldn't save." });
+      if (unreachable(err) && keep(isTaskText(value) ? { kind: "task", text: value } : { kind: "capture", body: { text: value } })) {
+        setNote({ ok: true, text: "Kept on this phone: it goes to SirisOS as soon as it can reach it." });
+        setText("");
+      } else {
+        setNote({ ok: false, text: err instanceof Error ? err.message : "Couldn't save." });
+      }
     } finally {
       setBusy(false);
     }

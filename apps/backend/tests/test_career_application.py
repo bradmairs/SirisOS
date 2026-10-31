@@ -113,3 +113,23 @@ def test_upload_and_download_a_filled_in_form(career_file, client):
                        files={"file": ("x.pdf", b"%PDF", "application/pdf")}).status_code == 404
     assert client.delete("/api/v1/career/application/reflection/file", headers=AUTH).json()["application"]["files"] == {}
     assert client.get("/api/v1/career/application/reflection/file", headers=AUTH).status_code == 404
+
+
+def test_each_element_says_how_well_it_is_evidenced(career_file):
+    """6.3: none, thin or solid, with the next step, weakest first."""
+    doc = store.load()
+    first, second = doc.elements[0].id, doc.elements[1].id
+    doc.evidence = [
+        store.Evidence(title="Werribee drainage design", elements=[first], links=[store.EvidenceLink(label="Project", url="/engineering/projects/werribee")]),
+        store.Evidence(title="Pump station review", elements=[first]),
+        store.Evidence(title="Site inspection", elements=[second]),
+    ]
+    doc.application.part3[first] = " ".join(["word"] * 70)
+    by = {e["id"]: e for e in application.element_strength(doc)}
+    assert by[first]["strength"] == "solid" and by[first]["next"] is None
+    assert by[second]["strength"] == "thin" and by[second]["next"].startswith("Add a second piece of evidence")
+    rest = [e for e in application.element_strength(doc) if e["id"] not in (first, second)]
+    assert rest and all(e["strength"] == "none" for e in rest)
+    assert application.element_strength(doc)[0]["strength"] == "none"  # weakest first
+    ready = application.readiness(doc)
+    assert ready["strength"]["solid"] == 1 and ready["strength"]["thin"] == 1

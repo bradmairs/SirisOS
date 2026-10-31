@@ -208,6 +208,37 @@ def element_draft(doc: CareerDocument, element_id: str) -> str:
 
 # ---- readiness ----------------------------------------------------------
 
+SOLID_WORDS = 60
+
+
+def element_strength(doc: CareerDocument) -> list[dict[str, Any]]:
+    """How well each competency element is evidenced (6.3): **none**, **thin**
+    or **solid**. Solid is two pieces of evidence, at least one linked to a
+    note or project, and a Part 3 comment of SOLID_WORDS (60) words or more.
+    Each comes with the next thing to do, weakest first."""
+    app = doc.application
+    out = []
+    for el in doc.elements:
+        ev = [e for e in doc.evidence if el.id in e.elements]
+        linked = sum(1 for e in ev if e.links)
+        words = _words(app.part3.get(el.id, ""))
+        if len(ev) >= 2 and linked and words >= SOLID_WORDS:
+            strength, step = "solid", None
+        elif ev or words >= 15:
+            strength = "thin"
+            if len(ev) < 2:
+                step = "Add a second piece of evidence: a project or task where you did this"
+            elif not linked:
+                step = "Link the evidence to its note or project, so it's there at interview"
+            else:
+                step = f"Write more for Part 3 ({words} of {SOLID_WORDS} words): what you did, and how it shows this"
+        else:
+            strength, step = "none", "Pick a piece of work where you did this, and add it as evidence"
+        out.append({"id": el.id, "unit": el.unit, "title": el.title, "strength": strength, "evidence": [e.title for e in ev],
+                    "linked": linked, "words": words, "next": step})
+    order = {"none": 0, "thin": 1, "solid": 2}
+    return sorted(out, key=lambda x: (order[x["strength"]], len(x["evidence"]), x["id"]))
+
 def readiness(doc: CareerDocument) -> dict[str, Any]:
     """What's left before the interview, as a checklist, and a percentage for goals."""
     app = doc.application
@@ -251,7 +282,10 @@ def readiness(doc: CareerDocument) -> dict[str, Any]:
         {"id": "signed", "label": "Statement signed (Part 4)", "done": app.signed, "detail": "It's your own reflection"},
     ]
     done = sum(i["done"] for i in items)
+    strengths = element_strength(doc)
     return {
+        "elements": strengths,
+        "strength": {k: sum(e["strength"] == k for e in strengths) for k in ("solid", "thin", "none")},
         "percent": round(done / len(items) * 100),
         "done": done,
         "total": len(items),

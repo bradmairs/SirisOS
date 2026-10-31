@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Check, Circle, ClipboardCheck, Download, FileUp, Sparkles, Trash2 } from "lucide-react";
-import { application as appApi, type ApplicationAnswers, type ApplicationView, type BiaState, type FormId } from "../api/career";
+import { application as appApi, type ApplicationAnswers, type ApplicationView, type ElementStrength, type BiaState, type FormId } from "../api/career";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 
@@ -139,7 +139,30 @@ function Readiness({ view }: { view: ApplicationView }) {
         </>
       )}
       <p className="muted career-app__note">Track it on <Link to="/year" className="brief-link">Your year</Link> with a "Chartered application ready" goal.</p>
+      {r.elements && r.elements.length > 0 && <EvidenceStrength elements={r.elements} counts={r.strength} />}
     </Glass>
+  );
+}
+
+const STRENGTH_TONE = { solid: "tone-good", thin: "tone-warning", none: "tone-critical" } as const;
+
+/** Each element's evidence (6.3): none, thin or solid, and what would make it solid. */
+function EvidenceStrength({ elements, counts }: { elements: ElementStrength[]; counts?: { solid: number; thin: number; none: number } }) {
+  return (
+    <section aria-label="Evidence by element" style={{ marginTop: 12 }}>
+      <h3 className="maint__h">Evidence by element{counts ? `: ${counts.solid} solid, ${counts.thin} thin, ${counts.none} none` : ""}</h3>
+      <ul className="items">
+        {elements.map((e) => (
+          <li key={e.id} className="item">
+            <span className={`chip ${STRENGTH_TONE[e.strength]}`} style={{ minWidth: 52, justifyContent: "center" }}>{e.strength}</span>
+            <span className="item__text">
+              <span className="item__title career-wrap">E{e.id} {e.title}</span>
+              <span className="item__subtitle career-wrap">{e.next ?? `${e.evidence.length} pieces of evidence, ${e.words} words`}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
