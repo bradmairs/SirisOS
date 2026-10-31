@@ -61,7 +61,15 @@ export async function request(path: string, init: RequestInit = {}): Promise<Res
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(path, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(path, { ...init, headers });
+  } catch (e) {
+    // Safari says only "Load failed": the connection dropped, or the phone
+    // stopped waiting (about a minute), before any answer came back.
+    if (e instanceof Error && e.name === "AbortError") throw e;
+    throw new ApiError(0, "Lost the connection before SirisOS answered. If that started something long, it may still be running: check back in a minute.");
+  }
   if (response.status === 401 && token) {
     session.clear();
     unauthorisedListeners.forEach((fn) => fn());

@@ -20,7 +20,7 @@ from typing import Any, Awaitable, Callable
 from app.hub import sirisai_api
 from app.hub.service import Hub
 
-NEEDS_SIRISAI = "3.11"
+NEEDS_SIRISAI = "3.72"
 
 
 def _item(id_: str, title: str, area: str, state: str, detail: str, fix: str = "", settings: list[str] | None = None,
@@ -57,8 +57,8 @@ async def sirisai(hub: Hub) -> list[dict[str, Any]]:
         return [_item("sirisai", "SirisAI", "SirisAI", "problem", f"SirisAI didn't answer at {c.base_url}.",
                       "Check SirisAI is running, the address is right, and SIRISAI_API_KEY matches SirisAI's own key.", ["SIRISAI_URL", "SIRISAI_API_KEY"])]
     if version and not _version_at_least(version, NEEDS_SIRISAI):
-        return [_item("sirisai", "SirisAI", "SirisAI", "problem", f"Connected, but it's {version}: network alerts, power use and Apple Health need {NEEDS_SIRISAI} or later.",
-                      "Update SirisAI (on the server: git pull && make up in SirisAI).")]
+        return [_item("sirisai", "SirisAI", "SirisAI", "problem", f"Connected, but it's {version}: this SirisOS expects {NEEDS_SIRISAI} or later (background container updates, overnight readiness, energy).",
+                      "Update SirisAI: on the server, in SirisAI's deploy folder, run make update (it pulls both apps and rebuilds; make up alone rebuilds the old code).")]
     return [_item("sirisai", "SirisAI", "SirisAI", "on", f"Connected{f', version {version}' if version else ''}{', guest mode on' if info.get('guest_mode') else ''}.")]
 
 

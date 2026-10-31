@@ -152,6 +152,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 5.81: phone fixes: server rings sized again, dock kept at the bottom, iPhone push accepted (VAPID subject)
 5.9: readiness kept from the morning (overnight HRV), and an energy score (Body Battery) through the day
 6.0: visual checks in CI (phone and desktop), and notification health (last delivered, failing devices, weekly check)
+6.01: slow Inbox actions say 'still working' (SirisAI 3.72), dropped connections explained, Setup flags an out-of-date SirisAI
 
 ## Terminal (ADR 113)
 

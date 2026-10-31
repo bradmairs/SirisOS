@@ -108,11 +108,18 @@ export function useInbox() {
    * stay on screen with its error, not vanish and come back. */
   async function act(item: InboxItem, action: string, pin?: string) {
     const result = action === "dismiss" ? await inbox.dismiss(item.id) : await inbox.act(item.id, action, pin);
+    // A slow one (SirisAI 3.72) is still running: the item stays until it's done.
+    if (pending(result)) return result;
     const items = state.items.filter((i) => i.id !== item.id);
     set({ items, counts: countsOf(items) });
     return result;
   }
   return { ...snapshot, act };
+}
+
+function pending(result: unknown): string | null {
+  const r = (result as { result?: { pending?: boolean; message?: string } } | undefined)?.result;
+  return r?.pending ? r.message ?? "Still working on it." : null;
 }
 
 const KIND_ICON = { alert: AlertTriangle, confirm: ShieldAlert, suggestion: Lightbulb, review: InboxIcon, waiting: Clock, notice: Bell } as const;
@@ -128,6 +135,7 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
   const [asking, setAsking] = useState<InboxAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   // SirisAI wants its approval PIN for this action (2.46): ask, then send it with the action.
   const [needsPin, setNeedsPin] = useState<string | null>(null);
   const [pin, setPin] = useState("");
@@ -138,7 +146,13 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
     setBusy(true);
     setError(null);
     try {
-      await onAct(item, action, withPin);
+      const still = pending(await onAct(item, action, withPin));
+      if (still) {
+        setNote(still);
+        setBusy(false);
+        setAsking(null);
+        setNeedsPin(null);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (message.includes("pin_required")) {
@@ -173,6 +187,7 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
           {link.to && <Link to={link.to} className="inbox-row__open">Open</Link>}
         </div>
         {error && <div className="inbox-row__error" role="alert">{error}</div>}
+        {note && !error && <div className="inbox-row__meta" role="status">{note}</div>}
         {needsPin ? (
           <form className="inbox-row__actions" aria-label="Approval PIN" onSubmit={(e) => { e.preventDefault(); if (pin) go(needsPin, pin); }}>
             <span className="inbox-row__ask">This needs your SirisAI approval PIN.</span>
