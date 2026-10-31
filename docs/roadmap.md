@@ -151,6 +151,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 - [x] Health: readiness from HRV, resting heart rate, sleep and vitals against your own normal; sleep, training load and vitals; readiness leads the morning brief (5.7)
 5.81: phone fixes: server rings sized again, dock kept at the bottom, iPhone push accepted (VAPID subject)
 5.9: readiness kept from the morning (overnight HRV), and an energy score (Body Battery) through the day
+6.0: visual checks in CI (phone and desktop), and notification health (last delivered, failing devices, weekly check)
 
 ## Terminal (ADR 113)
 

@@ -5,7 +5,13 @@ import { Glass } from "./Glass";
 
 const ALL: Topic[] = ["apps", "inbox", "brief", "career", "home"];
 
-type State = { kind: "checking" } | { kind: "unsupported" } | { kind: "off" } | { kind: "on"; endpoint: string; topics: Topic[] };
+type Delivery = { last_ok?: string | null; last_error?: string | null; failing?: boolean };
+type State = { kind: "checking" } | { kind: "unsupported" } | { kind: "off" } | { kind: "on"; endpoint: string; topics: Topic[]; delivery?: Delivery };
+
+const ago = (iso: string) => {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  return mins < 60 ? `${Math.max(mins, 1)} min ago` : mins < 48 * 60 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} days ago`;
+};
 
 /** "Notifications on this device": turn phone notifications on or off and
  * pick what they're for. Each device (phone, Mac...) is set up on its own. */
@@ -23,7 +29,7 @@ export function NotificationSettings() {
       if (!sub) return live && setState({ kind: "off" });
       const known = await push.list().catch(() => null);
       const mine = known?.subscriptions.find((s) => s.endpoint === sub.endpoint);
-      if (live) setState(mine ? { kind: "on", endpoint: sub.endpoint, topics: mine.topics } : { kind: "off" });
+      if (live) setState(mine ? { kind: "on", endpoint: sub.endpoint, topics: mine.topics, delivery: mine } : { kind: "off" });
     })();
     return () => {
       live = false;
@@ -111,6 +117,14 @@ export function NotificationSettings() {
             )}
           </div>
         </>
+      )}
+      {state.kind === "on" && state.delivery?.failing && (
+        <p role="alert" className="tone-critical" style={{ margin: 0, fontSize: 14 }}>
+          Notifications aren't reaching this device: {state.delivery.last_error}. Turn them off and on again.
+        </p>
+      )}
+      {state.kind === "on" && !state.delivery?.failing && state.delivery?.last_ok && (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>Last one went out {ago(state.delivery.last_ok)}.</p>
       )}
       {message && <p className="muted" role="status" style={{ margin: 0 }}>{message}</p>}
     </Glass>

@@ -239,10 +239,32 @@ def backup_items() -> list[dict[str, Any]]:
     }]
 
 
+def push_items() -> list[dict[str, Any]]:
+    """A device notifications stopped reaching (6.0), so the silence is noticed."""
+    from app.push import store
+
+    health = store.health()
+    out = []
+    for sub in store.subscriptions():
+        h = health.get(sub.endpoint) or {}
+        if store.failing(sub, h):
+            out.append({
+                "key": f"push:failing:{sub.endpoint[-24:]}:{(h.get('last_error_at') or '')[:10]}",
+                "kind": "alert",
+                "severity": "attention",
+                "title": f"Notifications aren't reaching {sub.label or 'a device'}",
+                "body": f"{h.get('last_error') or 'The push service refused them'}. On that device: Inbox → Notifications → Turn off, then turn on again.",
+                "source": "push",
+                "app": "SirisOS",
+                "url": "/inbox",
+            })
+    return out
+
+
 async def os_items(hub: Hub) -> list[dict[str, Any]]:
     dismissed = set(_dismissed())
     apps = await hub.apps(with_widgets=True)
-    return [from_os(i) for i in own_items(apps) + backup_items() if f"os:{i['key']}" not in dismissed]
+    return [from_os(i) for i in own_items(apps) + backup_items() + push_items() if f"os:{i['key']}" not in dismissed]
 
 
 async def inbox(hub: Hub) -> dict[str, Any]:

@@ -47,6 +47,37 @@ def _sent_path():
     return json_store.data_path("SIRISOS_PUSH_SENT_PATH", "push-sent.json")
 
 
+def _health_path():
+    return json_store.data_path("SIRISOS_PUSH_HEALTH_PATH", "push-health.json")
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def health() -> dict[str, dict]:
+    """Per device (endpoint): last_ok, last_error, last_error_at, failures in a row (6.0)."""
+    return dict(json_store.read(_health_path(), {}))
+
+
+def record(endpoint: str, error: str | None = None) -> None:
+    """One delivery's outcome: a success clears the run of failures."""
+    kept = health()
+    h = dict(kept.get(endpoint) or {})
+    if error is None:
+        h.update(last_ok=_now(), failures=0)
+    else:
+        h.update(last_error=error[:300], last_error_at=_now(), failures=int(h.get("failures") or 0) + 1)
+    kept[endpoint] = h
+    json_store.write(_health_path(), kept)
+
+
+def failing(sub: "Subscription", h: dict | None = None) -> bool:
+    """Its last delivery failed (and nothing has got through since)."""
+    h = h if h is not None else health().get(sub.endpoint) or {}
+    return bool(h.get("failures")) and (h.get("last_error_at") or "") > (h.get("last_ok") or "")
+
+
 def _upgrade(raw: dict) -> dict:
     if "v" not in raw:
         topics = list(raw.get("topics") or TOPICS)
@@ -76,6 +107,9 @@ def remove(endpoint: str) -> bool:
     subs = subscriptions()
     kept = [s for s in subs if s.endpoint != endpoint]
     _save(kept)
+    h = health()
+    if h.pop(endpoint, None) is not None:
+        json_store.write(_health_path(), h)
     return len(kept) != len(subs)
 
 

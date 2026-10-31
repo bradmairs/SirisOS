@@ -39,6 +39,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # Visual checks (6.0): main screens at phone and desktop widths, no
+      # sideways scrolling, nothing past the screen edge, the dock at the bottom.
+      - run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
+      - run: npm run visual
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-check
+          path: apps/web/visual-check/
+          if-no-files-found: ignore
 
   production-container:
     runs-on: ubuntu-latest

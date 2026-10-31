@@ -139,6 +139,12 @@ def push() -> list[dict[str, Any]]:
         return [_item("push", "Phone notifications", "You", "off", "No device gets notifications: no network alerts, home jobs or approvals on the phone.",
                       "On your iPhone: add SirisOS to the Home Screen, open it from there, then Inbox → Notifications → turn on.", link="/inbox")]
     without_home = [s.label or "a device" for s in subs if "home" not in s.topics]
+    health = store.health()
+    broken = [(s.label or "a device", (health.get(s.endpoint) or {}).get("last_error") or "") for s in subs if store.failing(s, health.get(s.endpoint) or {})]
+    if broken:
+        return [_item("push", "Phone notifications", "You", "problem",
+                      "Not reaching " + "; ".join(f"{label} ({why})" for label, why in broken) + ".",
+                      "On that device: Inbox → Notifications → Turn off, then turn on again.", link="/inbox")]
     return [_item("push", "Phone notifications", "You", "on",
                   f"{len(subs)} device{'s' if len(subs) != 1 else ''}." + (f" {', '.join(without_home)} skips home alerts (network, jobs, power)." if without_home else ""),
                   link="/inbox")]

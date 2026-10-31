@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from app.attention import service as attention
@@ -157,15 +157,57 @@ async def deliver(messages: list[dict[str, Any]]) -> int:
         for sub in targets:
             try:
                 await webpush.send(client, sub.model_dump(), payload, urgency=msg["urgency"])
+                store.record(sub.endpoint)
                 count += 1
             except webpush.Gone:
                 store.remove(sub.endpoint)
                 logger.info("Push: dropped a gone subscription (%s)", sub.label or "unnamed")
             except Exception as exc:  # noqa: BLE001 - one device never blocks the rest
+                store.record(sub.endpoint, describe(exc))
                 logger.warning("Push to %s failed: %s", sub.label or "a device", exc)
         sent_keys.append(msg["key"])
     store.mark_sent(sent_keys)
     return count
+
+
+def describe(exc: Exception) -> str:
+    """A push failure in a line: the push service's status, not its long URL."""
+    response = getattr(exc, "response", None)
+    if response is not None and getattr(response, "status_code", None):
+        code = response.status_code
+        why = {401: "the push service turned down SirisOS's signature", 403: "the push service turned down SirisOS's signature",
+               413: "the message was too big", 429: "the push service says too many messages"}.get(code, "the push service refused it")
+        return f"{why} ({code})"
+    return f"{type(exc).__name__}: {str(exc)[:200]}"
+
+
+QUIET_DAYS = 7
+
+
+async def check_in(now: datetime) -> int:
+    """Once a week, a device nothing has reached for QUIET_DAYS gets a
+    'still working' note, so a phone that stopped receiving (a changed key,
+    iOS dropping the subscription) shows up as failing instead of silent.
+    Web Push on iPhone can't be silent, so it's a real, low-urgency one."""
+    cutoff = (now.astimezone(timezone.utc) - timedelta(days=QUIET_DAYS)).isoformat(timespec="seconds")
+    health = store.health()
+    due = [s for s in store.subscriptions()
+           if max((health.get(s.endpoint) or {}).get("last_ok") or "", (health.get(s.endpoint) or {}).get("last_error_at") or "", s.created_at or "") < cutoff]
+    if not due:
+        return 0
+    week = now.strftime("%G-W%V")
+    msg = message(f"push-check:{week}", "apps", "SirisOS notifications are working", "A weekly check that this device still gets them.", "/inbox", "very-low")
+    sent = 0
+    for sub in due:
+        try:
+            await webpush.send(shared_client(), sub.model_dump(), payload_for(msg), urgency="very-low")
+            store.record(sub.endpoint)
+            sent += 1
+        except webpush.Gone:
+            store.remove(sub.endpoint)
+        except Exception as exc:  # noqa: BLE001
+            store.record(sub.endpoint, describe(exc))
+    return sent
 
 
 async def run_once(hub: Hub, now: datetime | None = None) -> int:
@@ -174,7 +216,12 @@ async def run_once(hub: Hub, now: datetime | None = None) -> int:
     now = now or datetime.now(zone())
     already = store.sent()
     fresh = [m for m in await collect(hub, now) if m["key"] not in already]
-    return await deliver(fresh)
+    sent = await deliver(fresh)
+    try:
+        await check_in(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Push check-in failed: %s", exc)
+    return sent
 
 
 async def loop() -> None:
