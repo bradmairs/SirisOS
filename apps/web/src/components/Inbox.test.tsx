@@ -87,6 +87,37 @@ describe("<InboxPanel />", () => {
   });
 });
 
+describe("slow and dropped actions (6.01)", () => {
+  it("keeps the item and says it's still working when SirisAI answers pending", async () => {
+    signIn();
+    mockFetch({
+      "/api/v1/attention/stream": () => sseResponse([{ type: "snapshot", items: [APPROVAL], counts: { open: 1, urgent: 0 } }]),
+      "/api/v1/attention/ai%3A8/act": () => jsonResponse({ item: APPROVAL, result: { pending: true, message: "Still working on it; a notice will say how it went." } }),
+      "/api/v1/attention": () => jsonResponse({ items: [APPROVAL], counts: { open: 1, urgent: 0 } }),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><InboxPanel /></MemoryRouter>);
+    const row = await screen.findByRole("listitem", { name: "Approve: turn on switch.heater" });
+    await user.click(within(row).getByRole("button", { name: "Approve" }));
+    expect(await within(row).findByRole("status")).toHaveTextContent("Still working on it");
+    expect(screen.getByRole("listitem", { name: "Approve: turn on switch.heater" })).toBeInTheDocument();
+  });
+
+  it("explains a dropped connection instead of 'Load failed'", async () => {
+    signIn();
+    mockFetch({
+      "/api/v1/attention/stream": () => sseResponse([{ type: "snapshot", items: [APPROVAL], counts: { open: 1, urgent: 0 } }]),
+      "/api/v1/attention/ai%3A8/act": () => { throw new TypeError("Load failed"); },
+      "/api/v1/attention": () => jsonResponse({ items: [APPROVAL], counts: { open: 1, urgent: 0 } }),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><InboxPanel /></MemoryRouter>);
+    const row = await screen.findByRole("listitem", { name: "Approve: turn on switch.heater" });
+    await user.click(within(row).getByRole("button", { name: "Approve" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Lost the connection before SirisOS answered");
+  });
+});
+
 describe("<InboxScreen />", () => {
   it("says so when nothing needs you", async () => {
     signIn();
