@@ -25,6 +25,7 @@ export interface Energy {
   /** No hourly data (Health Auto Export aggregated by day): worked out from the day's totals. */
   estimated: boolean;
 }
+export interface Trend { key: string; label: string; unit: string; week: number; baseline: number; change_pct: number; direction: "up" | "down" | "steady"; good: boolean | null }
 export interface Night { date: string; hours: number | null; deep: number | null; rem: number | null; core: number | null; awake: number | null; in_bed: number | null; start: string | null; end: string | null }
 export interface Point { date: string; value: number | null }
 export interface Vital { key: string; label: string; unit: string; value: number; date: string; baseline: number | null; spread: number | null; state: "normal" | "high" | "low"; series: Point[] }
@@ -54,7 +55,10 @@ export interface Health {
   vitals: Vital[];
   /** 5.8, from SirisAI 3.51 */
   weight?: WeightTrend | null;
-  getting_sick?: { date: string; today: string[]; yesterday: string[] } | null;
+  /** `early` (6.1, SirisAI 3.82): two signs today alone; `likely`: two days running. */
+  getting_sick?: { date: string; today: string[]; yesterday: string[]; level?: "early" | "likely" } | null;
+  /** This week against your last 30 days (6.1). */
+  trends?: Trend[];
   logged?: { water_ml: number | null; caffeine_mg: number | null; alcohol_drinks: number | null; mood: number | null; notes: HealthNote[] } | null;
   insights?: Insight[];
   bedtime?: Bedtime | null;

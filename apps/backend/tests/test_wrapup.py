@@ -40,6 +40,10 @@ class FakeSirisAI:
             return httpx.Response(200, json={"saved": True, "title": f"Day {today}"})
         if path == "/siris/brain/tasks":
             return httpx.Response(200, json={"tasks": []})
+        if path == "/siris/hub/v1/health/overview":
+            return httpx.Response(200, json={"guest_mode": False, "available": True, "sources": {"days": 30, "imports": {}},
+                                             "readiness": {"score": 72}, "energy": {"start": 79, "now": 31, "spent": {"awake": 20, "activity": 22, "stress": 6}},
+                                             "bedtime": {"bedtime": "22:15", "text": "Bed by 10:15 pm for your 6:30 am site visit."}})
         if path == "/siris/hub/v1/reminders":
             return httpx.Response(200, json={"guest_mode": False, "reminders": []})
         return httpx.Response(404, json={"detail": "Not Found"})
@@ -75,6 +79,8 @@ def test_overview_has_todays_tasks_and_cpd_looking_meetings(client, ai):
     webinar, review = body["meetings"]
     assert webinar["cpd"]["hours"] == 1.5 and review["cpd"] is None
     assert body["saved"] is None
+    # The day's body (6.1): energy spent against readiness, and tonight's bedtime.
+    assert body["health"]["lines"] == ["Energy 79 → 31: a moderate day, against readiness 72.", "Bed by 10:15 pm for your 6:30 am site visit."]
 
 
 def test_logging_a_meeting_as_cpd_adds_a_task_and_stops_suggesting_it(client, ai):

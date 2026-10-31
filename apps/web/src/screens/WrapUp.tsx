@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Award, CalendarCheck, Check, CheckCircle2, MoonStar, PenLine, Target } from "lucide-react";
+import { Award, BatteryMedium, CalendarCheck, Check, CheckCircle2, MoonStar, PenLine, Target } from "lucide-react";
 import { useResource } from "../api/resource";
 import { tasks } from "../api/tasks";
 import { wrapup, type WrapMeeting, type WrapUpOverview } from "../api/wrapup";
@@ -148,6 +148,13 @@ export function WrapUpScreen() {
                 </>
               )}
             </Glass>
+
+            {data.health && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your body today">
+                <header className="widget__head"><BatteryMedium aria-hidden="true" /><span>Your body today</span><Link to="/health" className="widget__source">Health</Link></header>
+                {data.health.lines.map((l) => <p key={l} style={{ margin: 0, fontSize: 14 }}>{l}</p>)}
+              </Glass>
+            )}
 
             <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Meetings">
               <header className="widget__head"><CalendarCheck aria-hidden="true" /><span>2 · Today's meetings</span></header>

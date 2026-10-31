@@ -20,7 +20,7 @@ from typing import Any, Awaitable, Callable
 from app.hub import sirisai_api
 from app.hub.service import Hub
 
-NEEDS_SIRISAI = "3.72"
+NEEDS_SIRISAI = "3.82"
 
 
 def _item(id_: str, title: str, area: str, state: str, detail: str, fix: str = "", settings: list[str] | None = None,

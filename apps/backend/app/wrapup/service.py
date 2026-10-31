@@ -94,7 +94,33 @@ async def overview(hub: Hub, day: date | None = None) -> dict[str, Any]:
         "calendar_unavailable": cal["events"] is None,
         "suggested_top3": suggested_top3,
         "saved": saved(day),
+        "health": await _health(hub),
     }
+
+
+async def _health(hub: Hub) -> dict[str, Any] | None:
+    """The day's body in a line or two (6.1): energy spent against how ready
+    you were, and tonight's bedtime for tomorrow's first event. None when
+    there's no health data or guest mode is on."""
+    from app.health import service as health
+
+    try:
+        h = await health.overview(hub)
+    except Exception:  # noqa: BLE001 - the wrap-up stands without it
+        return None
+    if not h.get("available"):
+        return None
+    r, e, bed = h.get("readiness") or {}, h.get("energy") or {}, h.get("bedtime") or {}
+    lines = []
+    if e:
+        spent = e.get("spent") or {}
+        strain = "a big day" if (spent.get("activity", 0) + spent.get("stress", 0)) >= 40 else "a moderate day" if (spent.get("activity", 0) + spent.get("stress", 0)) >= 15 else "an easy day"
+        lines.append(f"Energy {e.get('start')} → {e.get('now')}: {strain}" + (f", against readiness {r.get('score')}" if r.get("score") is not None else "") + ".")
+    if bed.get("text"):
+        lines.append(bed["text"])
+    if not lines:
+        return None
+    return {"readiness": r.get("score"), "energy": e or None, "bedtime": bed.get("bedtime"), "lines": lines}
 
 
 async def save(hub: Hub, day: date, top3: list[str], journal: str) -> dict[str, Any]:

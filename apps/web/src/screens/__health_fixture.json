@@ -1253,5 +1253,37 @@
     "regained": 6,
     "summary": "Pace yourself: keep the rest of the day steady. Training took the most today.",
     "estimated": false
-  }
+  },
+  "trends": [
+    {
+      "key": "hrv_overnight",
+      "label": "Overnight HRV",
+      "unit": "ms",
+      "week": 64.2,
+      "baseline": 71.0,
+      "change_pct": -9.6,
+      "direction": "down",
+      "good": false
+    },
+    {
+      "key": "sleep_hours",
+      "label": "Sleep",
+      "unit": "h",
+      "week": 7.9,
+      "baseline": 7.4,
+      "change_pct": 6.8,
+      "direction": "up",
+      "good": true
+    },
+    {
+      "key": "resting_heart_rate",
+      "label": "Resting heart rate",
+      "unit": "bpm",
+      "week": 54.8,
+      "baseline": 55.1,
+      "change_pct": -0.5,
+      "direction": "steady",
+      "good": null
+    }
+  ]
 }

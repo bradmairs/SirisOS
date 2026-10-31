@@ -74,6 +74,21 @@ def test_recovery_turns_hard_days_easy_or_rest():
     assert worse["level"] == "rest" and len(worse["notes"]) == 3
 
 
+def test_recovery_reads_overnight_hrv_energy_and_an_early_warning():
+    # The day's HRV fell after a workout, but the night's was normal: not a reason to ease off (6.1).
+    hist = days()
+    for d in hist[:-1]:
+        d["metrics"]["hrv_overnight"] = 70
+    hist[-1]["metrics"] = {"sleep_hours": 7.4, "heart_rate_variability": 30, "hrv_overnight": 71}
+    assert service.recovery(hist, TODAY)["level"] == "good"
+    hist[-1]["metrics"]["hrv_overnight"] = 50
+    assert service.recovery(hist, TODAY)["notes"][0].startswith("HRV is 50 ms")
+    tired = service.recovery(days(), TODAY, energy={"now": 18})
+    assert tired["level"] == "easy" and tired["notes"] == ["Energy is down to 18 today"]
+    early = service.recovery(days(), TODAY, sick={"level": "early", "today": ["HRV 20% down", "resting heart rate +5 bpm"]})
+    assert early["level"] == "easy" and early["notes"][0].startswith("Early signs")
+
+
 def test_overview_today_and_the_fitness_goal(client):
     r = client.put("/api/v1/training/race", headers=AUTH, json={"name": "Run Melbourne 10 km", "date": "2027-01-24", "distance_km": 10})
     body = r.json()

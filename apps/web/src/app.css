@@ -876,6 +876,7 @@ h3.note__heading { font-size: 17px; }
 .rring__score { font-size: 34px; font-weight: 700; line-height: 1; color: var(--text, inherit); }
 .rring__band { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .readiness-row { gap: 16px; align-items: center; flex-wrap: wrap; }
+.trend { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .energy { display: grid; gap: 8px; min-width: 0; }
 .energy__head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .energy__of { font-size: 13px; }
