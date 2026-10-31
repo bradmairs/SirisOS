@@ -157,6 +157,20 @@ class SirisAISource:
         return note.get("body") if isinstance(note, dict) else None
 
 
+async def _training_today(hub: Any) -> dict[str, Any] | None:
+    """Today's session from the training plan, and why it changed (6.1); None without a plan."""
+    from app.training import service as training
+
+    if training.race() is None:
+        return None
+    o = await training.overview(hub)
+    s = o.get("session")
+    if not s:
+        return None
+    return {"title": s.get("title"), "kind": s.get("kind"), "km": s.get("km"), "changed": bool(s.get("changed")),
+            "why": s.get("why"), "level": (o.get("recovery") or {}).get("level")}
+
+
 async def _safe(name: str, work: Awaitable[Any], failed: list[str]) -> Any:
     try:
         return await asyncio.wait_for(work, SOURCE_TIMEOUT + 2)
@@ -365,6 +379,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "health": health_lines,
         "readiness": parts.get("readiness"),
         "energy": parts.get("energy"),
+        "training": parts.get("training"),
         "home": home,
         "apps_attention": attention,
         "brain": brain,
@@ -440,6 +455,7 @@ class BriefService:
             if not parts.get("guest_mode"):  # personal, like the rest of health
                 now_health = await _safe("readiness", health_service.today(hub), failed) or {}
                 parts["readiness"], parts["energy"] = now_health.get("readiness"), now_health.get("energy")
+                parts["training"] = await _safe("training", _training_today(hub), failed)
             parts["news"] = await _safe(
                 "news",
                 news_service.stories(shared_client(), ai.note_body if ai else no_note, hot, fresh=fresh),

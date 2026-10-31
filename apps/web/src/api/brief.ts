@@ -41,6 +41,8 @@ export interface Brief {
   readiness?: import("./health").Readiness | null;
   /** The day's energy so far (5.9). */
   energy?: import("./health").Energy | null;
+  /** Today's training session, and why it changed (6.1). */
+  training?: { title: string; kind: string; km: number | null; changed: boolean; why: string | null; level: string | null } | null;
   home: string[];
   apps_attention: { name: string; state: string; detail: string }[];
   brain: { inbox: number; auto_linked: number; pending_links: number; unsure_links: number; highlights: string[] };

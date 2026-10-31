@@ -17,6 +17,8 @@ export interface WrapUpOverview {
   calendar_unavailable: boolean;
   suggested_top3: string[];
   saved: { top3: string[]; journal: string; journal_saved_as: string | null; at: string } | null;
+  /** The day's body (6.1): energy against readiness, and tonight's bedtime. */
+  health?: { readiness: number | null; energy: import("./health").Energy | null; bedtime: string | null; lines: string[] } | null;
 }
 
 export const wrapup = {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Scale, Target, ThermometerSun } from "lucide-react";
-import { BAND_TONE, health, type Energy, type Goal, type Health, type LogKind, type Point, type Readiness, type Vital } from "../api/health";
+import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Scale, Target, ThermometerSun, TrendingUp } from "lucide-react";
+import { BAND_TONE, health, type Energy, type Goal, type Health, type LogKind, type Point, type Readiness, type Trend, type Vital } from "../api/health";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
@@ -129,7 +129,9 @@ function TodayView({ h }: { h: Health }) {
       {h.getting_sick && (
         <div className="error-banner" role="alert" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <ThermometerSun aria-hidden="true" />
-          <span>Your body may be fighting something off: {h.getting_sick.today.join(", ")}. Go easy today; the training plan rests.</span>
+          <span>{h.getting_sick.level === "early"
+            ? <>Early signs you may be getting run down: {h.getting_sick.today.join(", ")}. An easy day and an early night help; training eases off today.</>
+            : <>Your body may be fighting something off: {h.getting_sick.today.join(", ")}. Go easy today; the training plan rests.</>}</span>
         </div>
       )}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Readiness today">
@@ -166,6 +168,7 @@ function TodayView({ h }: { h: Health }) {
           <EnergyMeter e={h.energy} />
         </Glass>
       )}
+      {h.trends && h.trends.length > 0 && <TrendsCard trends={h.trends} />}
       <div className="widget-grid">
         <Tile title="Sleep" Icon={BedDouble} to="/health?view=sleep" big={hm(h.sleep.last_night?.hours)} sub={h.sleep.score != null ? `Sleep score ${h.sleep.score} · need ${hm(h.sleep.need)}` : `You need about ${hm(h.sleep.need)}`} />
         <Tile title="Training load" Icon={Dumbbell} to="/health?view=fitness" big={h.activity.load.ratio != null ? h.activity.load.ratio.toFixed(2) : "–"} sub={h.activity.load.zone ? `This week against the last four: ${h.activity.load.zone}` : "Needs a few weeks of exercise data"} />
@@ -181,6 +184,28 @@ function TodayView({ h }: { h: Health }) {
         </Glass>
       )}
     </>
+  );
+}
+
+/** This week against your last 30 days (6.1): what's moving, and whether that's good. */
+function TrendsCard({ trends }: { trends: Trend[] }) {
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="This week">
+      <header className="widget__head"><TrendingUp aria-hidden="true" /><span>This week against your month</span></header>
+      <ul className="items">
+        {trends.map((t) => (
+          <li key={t.key} className="item">
+            <span className="item__text">
+              <span className="item__title">{t.label}</span>
+              <span className="item__subtitle">{t.week}{t.unit ? ` ${t.unit}` : ""} a day, usually {t.baseline}{t.unit ? ` ${t.unit}` : ""}</span>
+            </span>
+            <span className={`trend ${t.good === true ? "tone-good" : t.good === false ? "tone-warning" : "muted"}`}>
+              {t.direction === "steady" ? "steady" : `${t.direction === "up" ? "▲" : "▼"} ${Math.abs(t.change_pct)}%`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Glass>
   );
 }
 

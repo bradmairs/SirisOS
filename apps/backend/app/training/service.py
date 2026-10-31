@@ -102,7 +102,8 @@ def recent_weekly_km(days: list[dict[str, Any]], today: date) -> float:
     return round(total / 4, 1)
 
 
-def recovery(days: list[dict[str, Any]], today: date, ready: dict[str, Any] | None = None, sick: dict[str, Any] | None = None) -> dict[str, Any]:
+def recovery(days: list[dict[str, Any]], today: date, ready: dict[str, Any] | None = None, sick: dict[str, Any] | None = None,
+             energy: dict[str, Any] | None = None) -> dict[str, Any]:
     by = {str(d.get("date")): d.get("metrics") or {} for d in days}
     latest = by.get(today.isoformat()) or by.get((today - timedelta(days=1)).isoformat()) or {}
     since = (today - timedelta(days=31)).isoformat()
@@ -113,10 +114,13 @@ def recovery(days: list[dict[str, Any]], today: date, ready: dict[str, Any] | No
         vals = [float(m[key]) for m in history if m.get(key)]
         return mean(vals) if len(vals) >= 5 else None
 
-    sleep, hrv, rhr = latest.get("sleep_hours"), latest.get("heart_rate_variability"), latest.get("resting_heart_rate")
+    # The HRV taken while asleep when there is one (SirisAI 3.62): the day's
+    # average falls with every workout, so it can't judge the day's training.
+    hrv_key = "hrv_overnight" if latest.get("hrv_overnight") and base("hrv_overnight") else "heart_rate_variability"
+    sleep, hrv, rhr = latest.get("sleep_hours"), latest.get(hrv_key), latest.get("resting_heart_rate")
     if sleep and (b := base("sleep_hours")) and sleep <= b - 1:
         notes.append(f"You slept {sleep:.1f} h, {b - sleep:.1f} h under your usual")
-    if hrv and (b := base("heart_rate_variability")) and hrv <= b * 0.8:
+    if hrv and (b := base(hrv_key)) and hrv <= b * 0.8:
         notes.append(f"HRV is {hrv:.0f} ms, well under your usual {b:.0f}")
     if rhr and (b := base("resting_heart_rate")) and rhr >= b + 5:
         notes.append(f"Resting heart rate is {rhr:.0f}, up from your usual {b:.0f}")
@@ -128,9 +132,15 @@ def recovery(days: list[dict[str, Any]], today: date, ready: dict[str, Any] | No
         if order.index(by_score) > order.index(level):
             level = by_score
             notes.append(f"Readiness {ready['score']}: {ready['summary']}")
+    # Energy already spent today (6.1): a session still to come shouldn't be a hard one on an empty tank.
+    if energy and energy.get("now") is not None and energy["now"] < 25 and level == "good":
+        level = "easy"
+        notes.append(f"Energy is down to {energy['now']} today")
     if sick:
-        level = "rest"
-        notes.append("Signs you may be getting sick: " + ", ".join(sick.get("today") or []))
+        early = sick.get("level") == "early"
+        if not early or level == "good":
+            level = "easy" if early else "rest"
+        notes.append(("Early signs you may be getting run down: " if early else "Signs you may be getting sick: ") + ", ".join(sick.get("today") or []))
     return {"level": level, "notes": notes, "known": bool(latest), "readiness": ready["score"] if ready else None}
 
 
@@ -226,6 +236,8 @@ def today_session(built: dict[str, Any], rec: dict[str, Any], today: date) -> di
     s = todays or other
     if s is None:
         return None
+    if rec.get("notes"):
+        s["why"] = "; ".join(rec["notes"])
     if s["kind"] in ("quality", "long") and rec["level"] == "easy":
         s.update(changed=True, title=f"Easy run, {max(3, round(s['km'] * 0.6)):g} km instead (recovery's down)")
     elif s["kind"] == "strength" and rec["level"] != "good":
@@ -243,7 +255,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
     days = await health_days(hub)
     workouts = await health.workouts(hub, 180)
     h = await health.overview(hub)
-    rec = recovery(days or [], today, h.get("readiness"), h.get("getting_sick"))
+    rec = recovery(days or [], today, h.get("readiness"), h.get("getting_sick"), h.get("energy"))
     built = build(r, days, today, workouts) if r else None
     if built and days is not None and r and r.start_km is None:
         doc = _load()

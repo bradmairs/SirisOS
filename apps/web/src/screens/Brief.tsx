@@ -8,6 +8,7 @@ import {
   Brain,
   CalendarDays,
   CloudSun,
+  Footprints,
   Gauge,
   HeartPulse,
   History,
@@ -188,6 +189,13 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
                   {brief.readiness.contributors.slice(0, 3).map((c) => <Row key={c.key} title={c.text} tone={c.score >= 60 ? "good" : c.score >= 40 ? "warning" : "critical"} />)}
                 </ul>
                 <Link to="/health" className="brief-link">Health</Link>
+              </Card>
+            )}
+            {brief.training && (
+              <Card title="Training" Icon={Footprints}>
+                <p style={{ margin: 0, fontSize: 15 }}>{brief.training.title}</p>
+                {brief.training.why && <p className={brief.training.changed ? "tone-warning" : "muted"} style={{ margin: 0, fontSize: 13 }}>{brief.training.changed ? "Changed because: " : ""}{brief.training.why}</p>}
+                <Link to="/training" className="brief-link">Training</Link>
               </Card>
             )}
             {(wx?.today || wx?.now) && (
