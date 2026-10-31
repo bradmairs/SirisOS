@@ -31,4 +31,6 @@ async def get_power(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "meters": (u or {}).get("meters") or [],
         "today_kwh": day.get("kwh"),
         "method": day.get("method"),
+        "by_device": service.top_devices(day),
+        "always_on": service.always_on(service.load()["days"], today, service.tariff()),
     }

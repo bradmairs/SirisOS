@@ -14,6 +14,13 @@ A day's kWh, sampled every 10 minutes, comes from the best source there is:
    power sensors added up, times the time between samples.
 A meter that goes backwards (replaced or reset) starts the day again from
 its new reading rather than counting negative energy.
+
+**By device** (6.2): each meter's kWh for the day (house meter aside), and
+each power sensor's watts added up over time, so the day's biggest users
+can be listed. **Always on**: between 1am and 5am, the lowest the house
+drew (its power, or the sensors added up) and each sensor still drawing
+over ALWAYS_ON_WATTS (15 W), so what's never off shows, with its cost over
+a year.
 """
 
 from __future__ import annotations
@@ -33,6 +40,8 @@ logger = logging.getLogger(__name__)
 SAMPLE_SECONDS = 600
 MAX_GAP_SECONDS = 1800  # longer than this between samples: don't guess the power in between
 KEEP_DAYS = 800
+ALWAYS_ON_WATTS = 15.0
+NIGHT_HOURS = range(1, 5)
 
 
 def _path():
@@ -72,8 +81,43 @@ def _meter_kwh(day: dict[str, Any], readings: dict[str, float]) -> float:
     return sum(used.get(e, 0.0) + last[e] - first[e] for e in last)
 
 
-def record(doc: dict[str, Any], u: dict[str, Any], today: date, now: float) -> dict[str, Any]:
-    """Fold one sample into the day's figure. Pure apart from `doc`, for testing."""
+def _by_device(day: dict[str, Any], u: dict[str, Any], now: float, hour: int | None) -> None:
+    names = day.setdefault("names", {})
+    devices = day.setdefault("devices", {})
+    house = u.get("house_meter")
+    meters = {m["entity_id"]: float(m["kwh"]) for m in u.get("meters") or [] if m.get("entity_id") and m["entity_id"] != house}
+    track = day.setdefault("meter_devices", {})
+    _meter_kwh(track, meters)
+    for m in u.get("meters") or []:
+        eid = m.get("entity_id")
+        if eid in meters:
+            names[eid] = m.get("name") or eid
+            devices[eid] = round(track["used"].get(eid, 0.0) + track["last"][eid] - track["first"][eid], 3)
+    metered = {m.get("name") for m in u.get("meters") or []}
+    prev_at, prev = day.get("device_at"), day.get("device_watts") or {}
+    watts = {p["entity_id"]: float(p.get("watts") or 0) for p in u.get("power") or [] if p.get("entity_id")}
+    for p in u.get("power") or []:
+        eid = p.get("entity_id")
+        if not eid or p.get("name") in metered:
+            continue  # its meter already counts it
+        names[eid] = p.get("name") or eid
+        if prev_at is not None and 0 < now - prev_at <= MAX_GAP_SECONDS and eid in prev:
+            devices[eid] = round(float(devices.get(eid, 0.0)) + (prev[eid] + watts[eid]) / 2 * (now - prev_at) / 3_600_000, 3)
+    day["device_at"], day["device_watts"] = now, watts
+    if hour is not None and hour in NIGHT_HOURS:
+        total = u.get("house_watts")
+        if total is None and watts:
+            total = sum(watts.values())
+        if total is not None:
+            day["night_min"] = round(min(float(day.get("night_min", total)), float(total)), 1)
+        night = day.setdefault("night_devices", {})
+        for eid, w in watts.items():
+            night[eid] = round(min(float(night.get(eid, w)), w), 1)
+
+
+def record(doc: dict[str, Any], u: dict[str, Any], today: date, now: float, hour: int | None = None) -> dict[str, Any]:
+    """Fold one sample into the day's figure. Pure apart from `doc`, for testing.
+    `hour` is the local hour, for the overnight always-on figures."""
     day = doc["days"].setdefault(today.isoformat(), {})
     meters = {m["entity_id"]: float(m["kwh"]) for m in u.get("meters") or [] if m.get("entity_id")}
     house = u.get("house_meter")
@@ -94,8 +138,40 @@ def record(doc: dict[str, Any], u: dict[str, Any], today: date, now: float) -> d
         day.setdefault("kwh", 0.0)
         day["method"] = "power"
         day["watts"] = watts
+    _by_device(day, u, now, hour)
     day["at"] = now
     return day
+
+
+def top_devices(day: dict[str, Any], n: int = 8) -> list[dict[str, Any]]:
+    """The day's biggest users, with their share of what's counted."""
+    devices = {e: k for e, k in (day.get("devices") or {}).items() if k > 0}
+    total = float(day.get("kwh") or 0) or sum(devices.values())
+    names = day.get("names") or {}
+    return [{"entity_id": e, "name": names.get(e, e), "kwh": round(k, 2), "share": round(k / total * 100) if total else None}
+            for e, k in sorted(devices.items(), key=lambda x: -x[1])[:n]]
+
+
+def always_on(days: dict[str, dict[str, Any]], today: date, tariff: float | None = None) -> dict[str, Any] | None:
+    """The overnight floor, from the last night measured (today's, else yesterday's)."""
+    for iso in (today.isoformat(), date.fromordinal(today.toordinal() - 1).isoformat()):
+        d = days.get(iso) or {}
+        if d.get("night_min") is None:
+            continue
+        watts = float(d["night_min"])
+        kwh_year = round(watts * 24 * 365 / 1000)
+        names = d.get("names") or {}
+        devices = sorted(({"entity_id": e, "name": names.get(e, e), "watts": w} for e, w in (d.get("night_devices") or {}).items()
+                          if w >= ALWAYS_ON_WATTS), key=lambda x: -x["watts"])
+        return {"date": iso, "watts": watts, "kwh_year": kwh_year, "cost_year": round(kwh_year * tariff) if tariff else None, "devices": devices[:8]}
+    return None
+
+
+def tariff() -> float | None:
+    try:
+        return float(os.getenv("SIRISOS_POWER_TARIFF", "") or 0) or None
+    except ValueError:
+        return None
 
 
 def by_month() -> dict[str, float]:
@@ -123,8 +199,15 @@ async def loop(get_hub) -> None:
             u = await usage(get_hub())
             if u and u.get("configured") and (u.get("meters") or u.get("power") or u.get("house_watts") is not None):
                 doc = load()
-                record(doc, u, tasks.today(), time.time())
+                from datetime import datetime
+
+                from app.brief.service import zone
+
+                record(doc, u, tasks.today(), time.time(), datetime.now(zone()).hour)
                 save(doc)
+                from app.maintenance import service as maintenance
+
+                maintenance.sample_usage(u, time.time())  # jobs that come due by use (6.2)
         except Exception as exc:  # noqa: BLE001 - keep sampling
             logger.info("Power sample failed: %s", exc)
         await asyncio.sleep(SAMPLE_SECONDS)

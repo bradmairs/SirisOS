@@ -7,8 +7,14 @@ export interface HomeJob {
   title: string;
   room: string;
   appliance: string | null;
-  every_days: number;
+  every_days: number | null;
   last_done: string | null;
+  /** Due by use (6.2): a Home Assistant meter (kWh) or power sensor (hours running). */
+  usage_entity?: string | null;
+  usage_unit?: "h" | "kWh" | null;
+  usage_every?: number | null;
+  used?: number | null;
+  used_share?: number | null;
   snoozed_until: string | null;
   notes: string;
   due_on: string | null;
@@ -38,7 +44,7 @@ export interface Maintenance {
   summary: { overdue: number; due: number; soon: number; unset: number; rooms: string[]; warranties_ending: string[] };
 }
 
-export type NewJob = Pick<HomeJob, "title" | "room" | "every_days"> & Partial<Pick<HomeJob, "last_done" | "appliance" | "notes">>;
+export type NewJob = Pick<HomeJob, "title" | "room" | "every_days"> & Partial<Pick<HomeJob, "last_done" | "appliance" | "notes" | "usage_entity" | "usage_unit" | "usage_every">>;
 export type ApplianceFields = Pick<Appliance, "name" | "room"> & Partial<Omit<Appliance, "id" | "manual" | "warranty_days">>;
 
 const M = "/api/v1/maintenance";
@@ -68,6 +74,8 @@ export const maintenance = {
 
 /** "Overdue by 9 days", "Due today", "In 5 days", "When did you last do it?" */
 export function dueText(j: HomeJob): string {
+  const use = j.used != null && j.usage_every ? `${Math.round(j.used)} of ${j.usage_every} ${j.usage_unit === "h" ? "hours" : "kWh"} used` : null;
+  if (use && (j.days == null || (j.used_share ?? 0) >= 85)) return use;
   if (j.state === "unset" || j.days == null) return "When did you last do it?";
   if (j.days < 0) return `Overdue by ${-j.days} day${j.days === -1 ? "" : "s"}`;
   if (j.days === 0) return "Due today";
@@ -75,7 +83,13 @@ export function dueText(j: HomeJob): string {
   return j.days < 60 ? `In ${j.days} days` : `In ${Math.round(j.days / 30)} months`;
 }
 
-export function everyText(days: number): string {
+export function everyText(days: number | null | undefined, j?: Pick<HomeJob, "usage_every" | "usage_unit">): string {
+  const use = j?.usage_every ? `every ${j.usage_every} ${j.usage_unit === "h" ? "hours of use" : "kWh"}` : "";
+  if (!days) return use ? use[0].toUpperCase() + use.slice(1) : "";
+  return everyDays(days) + (use ? ` or ${use}` : "");
+}
+
+function everyDays(days: number): string {
   if (days % 365 === 0) return days === 365 ? "Every year" : `Every ${days / 365} years`;
   if (days % 30 === 0 && days >= 60) return `Every ${days / 30} months`;
   if (days === 30) return "Every month";

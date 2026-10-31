@@ -14,6 +14,7 @@ import { ProtocolsManager } from "./ProtocolEditor";
 import { AppliancesCard, MaintenanceCard, RoomUpkeep, useMaintenance } from "./Maintenance";
 import { NetworkWatchCard } from "./NetworkWatch";
 import { PowerCard } from "./PowerCard";
+import { netwatch } from "../api/netwatch";
 import { power, powerGlow, roomWatts } from "../api/power";
 import { Zap } from "lucide-react";
 import { roomGlow } from "../api/maintenance";
@@ -52,10 +53,13 @@ export function HouseScreen() {
   const [powerOn, setPowerOn] = useState(false);
   const [params] = useSearchParams();
 
+  // Your own names for devices (6.2) label them in the house too.
+  const labels = useResource("netwatch", () => netwatch.get(), { refreshMs: 60_000, staleMs: 30_000 });
   const nodes = useMemo(() => {
-    const base = net.data?.nodes ?? [];
+    const named = new Map((labels.data?.devices ?? []).map((d) => [d.id, d.name]));
+    const base = (net.data?.nodes ?? []).map((n) => (named.get(n.id) ? { ...n, name: named.get(n.id)! } : n));
     return [...base, ...controlNodes(controls.data, base)];
-  }, [net.data, controls.data]);
+  }, [net.data, controls.data, labels.data]);
   const where = useMemo(() => spots(nodes, placements), [nodes, placements]);
   // The device being looked at is drawn on its own, so it can be dragged out of its group.
   const apart = picked?.type === "device" ? picked.id : null;

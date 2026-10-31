@@ -91,3 +91,28 @@ def test_notification_buttons(client):
     r = client.post("/api/v1/push/act", json={"token": t, "action": "block"})
     assert r.status_code == 200 and r.json()["message"].startswith("Blocked.")
     assert blocked[-1] == ("/siris/hub/v1/network/cc:09/block", {"blocked": True})
+
+
+def test_inventory_names_alerts_and_known_devices_stay_quiet(client, monkeypatch, tmp_path):
+    """6.2: a label and room in the alerts; nothing new for a device UniFi already knows, or that SirisAI watches."""
+    monkeypatch.setenv("SIRISOS_HOUSE_PATH", str(tmp_path / "house.json"))
+    (tmp_path / "house.json").write_text(json.dumps({"placements": {"bb:01": {"room": "Study"}}}))
+    doc = service.load()
+    service.observe(doc, NODES, 1000)
+    service.save(doc)
+    r = client.patch("/api/v1/netwatch/bb:01", headers=AUTH, json={"label": "NAS", "owner": "Brad", "type": "server"})
+    nas = next(d for d in r.json()["devices"] if d["id"] == "bb:01")
+    assert (nas["name"], nas["owner"], nas["type"], nas["room"], nas["unifi_name"]) == ("NAS", "Brad", "server", "Study", "Synology NAS")
+    doc = service.load()
+    late = service.observe(doc, [NODES[0], NODES[2]], 2000, rooms={"bb:01": "Study"})
+    late = service.observe(doc, [NODES[0], NODES[2]], 2700, rooms={"bb:01": "Study"})
+    assert late[0]["title"] == "NAS (Study) is offline"
+    # UniFi has a name for it, or has known it for days: not new.
+    named = {"id": "cc:01", "name": "Lounge TV", "kind": "client", "named": True}
+    old = {"id": "cc:02", "name": "tv-box", "kind": "client", "first_seen": 0}
+    assert service.observe(doc, [*NODES, named, old], 200000) == []
+    # SirisAI says it alerts on new devices itself: no second alert.
+    fresh = {"id": "cc:03", "name": "espressif", "kind": "client", "first_seen": 199990}
+    assert service.observe(doc, [*NODES, fresh], 200010, sirisai_alerts=True) == []
+    another = {"id": "cc:04", "name": "esp", "kind": "client", "first_seen": 199990}
+    assert [a["key"] for a in service.observe(doc, [*NODES, another], 200020)] == ["net:new:cc:04"]

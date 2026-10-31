@@ -1,7 +1,7 @@
 """Home maintenance (5.2). See service.py.
 
     GET    /api/v1/maintenance                      jobs (with due state), appliances, summary
-    POST   /api/v1/maintenance/jobs                 {title, room, every_days, last_done?, appliance?, notes?}
+    POST   /api/v1/maintenance/jobs                 {title, room, every_days?, last_done?, appliance?, notes?, usage_entity?, usage_unit?, usage_every?}
     PATCH  /api/v1/maintenance/jobs/{id}            any of those
     POST   /api/v1/maintenance/jobs/{id}/done       {on?: YYYY-MM-DD}  (default today)
     POST   /api/v1/maintenance/jobs/{id}/snooze     a week on
@@ -16,11 +16,11 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.auth import require_user
 from app.maintenance import service
@@ -31,16 +31,29 @@ router = APIRouter(prefix="/api/v1/maintenance", tags=["maintenance"], dependenc
 DateStr = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
-class NewJob(BaseModel):
+class Usage(BaseModel):
+    """Due by use (6.2): a Home Assistant meter (kWh) or power sensor (hours running)."""
+    usage_entity: str | None = Field(default=None, max_length=120, pattern=r"^(sensor\.[a-z0-9_]+)?$")
+    usage_unit: Literal["h", "kWh"] | None = None
+    usage_every: float | None = Field(default=None, gt=0, le=1_000_000)
+
+
+class NewJob(Usage):
     title: str = Field(min_length=1, max_length=160)
     room: str = Field(min_length=1, max_length=40)
-    every_days: int = Field(ge=1, le=3650)
+    every_days: int | None = Field(default=None, ge=1, le=3650)
     last_done: str | None = DateStr
     appliance: str | None = Field(default=None, max_length=40)
     notes: str = Field(default="", max_length=2000)
 
+    @model_validator(mode="after")
+    def _some_schedule(self) -> "NewJob":
+        if not self.every_days and not (self.usage_entity and self.usage_unit and self.usage_every):
+            raise ValueError("Say how often: every so many days, or by use (an entity, a unit and an amount).")
+        return self
 
-class JobChange(BaseModel):
+
+class JobChange(Usage):
     title: str | None = Field(default=None, min_length=1, max_length=160)
     room: str | None = Field(default=None, min_length=1, max_length=40)
     every_days: int | None = Field(default=None, ge=1, le=3650)
@@ -111,6 +124,8 @@ def change_job(job_id: str, body: JobChange) -> dict[str, Any]:
         raise _missing("job") from None
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(job, k, v)
+    if {"usage_entity", "usage_unit"} & body.model_fields_set:
+        job.usage_now = job.usage_at_done = job.usage_sampled_at = None  # count afresh from the next sample
     if "last_done" in body.model_fields_set:
         job.snoozed_until = None
     service.save(doc)

@@ -49,7 +49,7 @@ function JobRow({ job, run, onEdit, showRoom = true }: { job: HomeJob; run: (p: 
       <span className={`item__dot ${DOT[job.state]}`} aria-hidden="true" />
       <button type="button" className="item__text house__pick" onClick={onEdit}>
         <div className="item__title career-wrap">{job.title}</div>
-        <div className="item__subtitle career-wrap">{[showRoom && roomName(job.room), everyText(job.every_days), dueText(job)].filter(Boolean).join(" · ")}</div>
+        <div className="item__subtitle career-wrap">{[showRoom && roomName(job.room), everyText(job.every_days, job), dueText(job)].filter(Boolean).join(" · ")}</div>
       </button>
       {job.state === "unset" ? (
         <form className="row maint__when" onSubmit={(e) => { e.preventDefault(); if (when) run(api.changeJob(job.id, { last_done: when })); }}>
@@ -123,12 +123,15 @@ export function MaintenanceCard() {
 function JobSheet({ job, appliances, onClose, onSave, onDelete }: {
   job: HomeJob | null; appliances: Appliance[]; onClose: () => void; onSave: (j: NewJob) => void; onDelete?: () => void;
 }) {
-  const [f, setF] = useState<NewJob>({ title: job?.title ?? "", room: job?.room ?? "office", every_days: job?.every_days ?? 90,
-    last_done: job?.last_done ?? null, appliance: job?.appliance ?? null, notes: job?.notes ?? "" });
-  const custom = !EVERY_CHOICES.some(([d]) => d === f.every_days);
+  const [f, setF] = useState<NewJob>({ title: job?.title ?? "", room: job?.room ?? "office", every_days: job ? job.every_days : 90,
+    last_done: job?.last_done ?? null, appliance: job?.appliance ?? null, notes: job?.notes ?? "",
+    usage_entity: job?.usage_entity ?? null, usage_unit: job?.usage_unit ?? null, usage_every: job?.usage_every ?? null });
+  const [byUse, setByUse] = useState(Boolean(job?.usage_entity));
+  const custom = f.every_days != null && !EVERY_CHOICES.some(([d]) => d === f.every_days);
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (f.title.trim()) onSave({ ...f, title: f.title.trim() });
+    const use = byUse && f.usage_entity && f.usage_unit && f.usage_every ? {} : { usage_entity: null, usage_unit: null, usage_every: null };
+    if (f.title.trim()) onSave({ ...f, ...use, title: f.title.trim() });
   }
   return (
     <Sheet label={job ? "Edit job" : "Add a job"} onClose={onClose}>
@@ -136,10 +139,28 @@ function JobSheet({ job, appliances, onClose, onSave, onDelete }: {
         <h2 className="app-sheet__name">{job ? "Edit job" : "Add a job"}</h2>
         <input className="field" value={f.title} placeholder="e.g. Clean the AC filters" aria-label="Job" onChange={(e) => setF({ ...f, title: e.target.value })} />
         <RoomSelect value={f.room} label="Room" onChange={(room) => setF({ ...f, room })} />
-        <select className="field" aria-label="How often" value={custom ? "custom" : f.every_days} onChange={(e) => e.target.value !== "custom" && setF({ ...f, every_days: Number(e.target.value) })}>
+        <select className="field" aria-label="How often" value={f.every_days == null ? "" : custom ? "custom" : f.every_days}
+          onChange={(e) => e.target.value !== "custom" && setF({ ...f, every_days: e.target.value ? Number(e.target.value) : null })}>
+          <option value="">Only by use</option>
           {EVERY_CHOICES.map(([d, label]) => <option key={d} value={d}>{label}</option>)}
           {custom && <option value="custom">{everyText(f.every_days)}</option>}
         </select>
+        <label className="row" style={{ gap: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={byUse} onChange={(e) => setByUse(e.target.checked)} /> Also due by use (Home Assistant)
+        </label>
+        {byUse && (
+          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+            <input className="field" placeholder="sensor.dryer_power" aria-label="Home Assistant sensor" value={f.usage_entity ?? ""}
+              onChange={(e) => setF({ ...f, usage_entity: e.target.value.trim() || null })} />
+            <input className="field" type="number" min={0.1} step="any" placeholder="40" aria-label="Every" style={{ maxWidth: 100 }}
+              value={f.usage_every ?? ""} onChange={(e) => setF({ ...f, usage_every: e.target.value ? Number(e.target.value) : null })} />
+            <select className="field" aria-label="Unit" value={f.usage_unit ?? ""} onChange={(e) => setF({ ...f, usage_unit: (e.target.value || null) as NewJob["usage_unit"] })}>
+              <option value="">Unit</option>
+              <option value="h">hours running (a power sensor)</option>
+              <option value="kWh">kWh used (an energy meter)</option>
+            </select>
+          </div>
+        )}
         <label className="career-app__field"><span className="career-app__label">Last done</span>
           <input className="field" type="date" value={f.last_done ?? ""} onChange={(e) => setF({ ...f, last_done: e.target.value || null })} /></label>
         {appliances.length > 0 && (
@@ -150,7 +171,7 @@ function JobSheet({ job, appliances, onClose, onSave, onDelete }: {
         )}
         <textarea className="field" rows={2} value={f.notes} placeholder="Notes (filter size, where the tap is…)" aria-label="Notes" onChange={(e) => setF({ ...f, notes: e.target.value })} />
         <div className="row" style={{ gap: 8 }}>
-          <button type="submit" className="button button--primary" disabled={!f.title.trim()}>Save</button>
+          <button type="submit" className="button button--primary" disabled={!f.title.trim() || (!f.every_days && !(byUse && f.usage_entity && f.usage_unit && f.usage_every))}>Save</button>
           <button type="button" className="button" onClick={onClose}>Cancel</button>
           {onDelete && <button type="button" className="icon-link" style={{ marginLeft: "auto" }} aria-label="Delete the job" onClick={onDelete}><Trash2 size={16} aria-hidden="true" /></button>}
         </div>
