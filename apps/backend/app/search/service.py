@@ -303,6 +303,28 @@ def career_source(query: str) -> list[dict[str, Any]]:
     return out
 
 
+def home_source(query: str) -> list[dict[str, Any]]:
+    """Home jobs (when last done, when next due) and appliances (6.3), so
+    "heat pump" answers "when did we last service it?"."""
+    from app.maintenance import service as maintenance
+    from app.tasks import service as tasks
+
+    view = maintenance.overview(tasks.today())
+    out = []
+    for j in view["jobs"]:
+        if matches(query, j["title"], j.get("notes")):
+            last = f"last done {j['last_done']}" if j.get("last_done") else "never marked done"
+            nxt = f"next due {j['due_on']}" if j.get("due_on") else ""
+            out.append(hit(query, j["title"], " · ".join(x for x in ("Home job", last, nxt) if x), url="/house?view=maintenance", kind="job", extra=(j.get("notes"),)))
+    for a in view["appliances"]:
+        if matches(query, a["name"], a.get("make"), a.get("model"), a.get("notes")):
+            bits = [" ".join(x for x in (a.get("make"), a.get("model")) if x), f"bought {a['bought_on']}" if a.get("bought_on") else "",
+                    f"warranty until {a['warranty_until']}" if a.get("warranty_until") else ""]
+            out.append(hit(query, a["name"], " · ".join(["Appliance", *[b for b in bits if b]]), url="/house?view=maintenance", kind="appliance",
+                           extra=(a.get("notes"),)))
+    return out
+
+
 # -- the search ----------------------------------------------------------------
 
 GROUPS: list[tuple[str, str, str]] = [
@@ -314,6 +336,7 @@ GROUPS: list[tuple[str, str, str]] = [
     ("widgets", "On your home screen", "gauge"),
     ("links", "Links", "link"),
     ("career", "Career", "award"),
+    ("home", "Home", "house"),
     ("engineering", "Engineering", "ruler"),
 ]
 
@@ -345,6 +368,7 @@ async def search(hub: Hub, query: str) -> dict[str, Any]:
         "links": _run("Links", lambda: links_source(query), failed, blocking=True),
         "engineering": _run("Engineering", lambda: engineering_source(query), failed, blocking=True),
         "career": _run("Career", lambda: career_source(query), failed, blocking=True),
+        "home": _run("Home", lambda: home_source(query), failed, blocking=True),
     }
     connector = hub.get("sirisai")
     if isinstance(connector, SirisAIConnector) and connector.configured:

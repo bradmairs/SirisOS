@@ -168,3 +168,18 @@ def test_sirislearn_courses_and_lessons_are_searchable(client, apps) -> None:
         ("Refrigerants", "lesson", "https://learn.local/lesson/l2"),
     ]
     assert learn["hits"][0]["external"]
+
+
+def test_home_jobs_and_appliances_answer_when_it_was_last_done(monkeypatch, tmp_path) -> None:
+    """6.3: "heat pump" finds the job, when it was last done, and the appliance."""
+    from app.maintenance import service as maintenance
+    from app.search import service as search
+
+    monkeypatch.setenv("SIRISOS_MAINTENANCE_PATH", str(tmp_path / "m.json"))
+    doc = maintenance.load()
+    doc.jobs.append(maintenance.Job(title="Service the heat pump", room="living", every_days=365, last_done="2026-03-02"))
+    doc.appliances.append(maintenance.Appliance(name="Heat pump", room="living", make="Daikin", model="FTXM"))
+    maintenance.save(doc)
+    hits = {h["kind"]: h for h in search.home_source("heat pump")}
+    assert hits["job"]["subtitle"] == "Home job · last done 2026-03-02 · next due 2027-03-02"
+    assert hits["appliance"]["subtitle"].startswith("Appliance · Daikin FTXM")

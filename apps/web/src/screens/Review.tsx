@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarRange, Check, Compass, Hourglass, TrendingUp } from "lucide-react";
+import { Award, CalendarRange, Check, Compass, Hourglass, TrendingUp } from "lucide-react";
 import { useResource } from "../api/resource";
 import { review, type WeeklyReview } from "../api/review";
 import { Glass } from "../components/Glass";
@@ -82,6 +82,19 @@ export function ReviewScreen() {
                         <div className="item__subtitle">Untouched for {p.days_idle} days</div>
                       </span>
                     </li>
+                  ))}
+                </ul>
+              </Glass>
+            )}
+
+            {data.chartership && data.chartership.next.length > 0 && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Chartership">
+                <header className="widget__head"><Award aria-hidden="true" /><span>Chartership: next steps</span><Link to="/career" className="widget__source">Career</Link></header>
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>{data.chartership.counts.solid} elements solid, {data.chartership.counts.thin} thin, {data.chartership.counts.none} with nothing yet.</p>
+                <ul className="items">
+                  {data.chartership.next.map((n) => (
+                    <li key={n.id} className="item"><span className="item__text"><span className="item__title career-wrap">E{n.id} {n.title}</span>
+                      <span className="item__subtitle career-wrap">{n.next}</span></span></li>
                   ))}
                 </ul>
               </Glass>

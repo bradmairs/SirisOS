@@ -55,7 +55,7 @@ describe("<NotificationSettings />", () => {
     expect(await screen.findByRole("button", { name: /Send a test/ })).toBeInTheDocument();
     expect(pushManager.subscribe).toHaveBeenCalledWith(expect.objectContaining({ userVisibleOnly: true }));
     const sent = JSON.parse(String(calls.find((c) => c.url.endsWith("/subscribe"))!.init.body));
-    expect(sent.topics).toEqual(["apps", "inbox", "career", "home"]);
+    expect(sent.topics).toEqual(["apps", "inbox", "career", "home", "nudges"]);
     expect(sent.keys.auth).toBe("a".repeat(12));
 
     await user.click(screen.getByRole("button", { name: /Send a test/ }));

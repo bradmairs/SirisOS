@@ -155,8 +155,13 @@ export interface ApplicationView {
     percent: number; done: number; total: number;
     items: { id: string; label: string; done: boolean; detail: string }[];
     prepare: { id: string; q: string; elements: string[] }[];
+    /** How well each element is evidenced (6.3), weakest first. */
+    elements?: ElementStrength[];
+    strength?: { solid: number; thin: number; none: number };
   };
 }
+
+export interface ElementStrength { id: string; unit: string; title: string; strength: "none" | "thin" | "solid"; evidence: string[]; linked: number; words: number; next: string | null }
 
 const A = "/api/v1/career/application";
 

@@ -6,6 +6,7 @@ Each subscription picks its topics:
 - brief:  the daily brief is ready (once a morning)
 - career: a career goal is due within a week, CPD hours about to drop out
 - home:   a home job comes due, a warranty is ending, the network or power needs you (5.2)
+- nudges: a free stretch when something's due, and winding down for bed (6.3)
 """
 
 from __future__ import annotations
@@ -17,8 +18,8 @@ from pydantic import BaseModel, Field
 
 from app.services import json_store
 
-Topic = Literal["apps", "inbox", "brief", "career", "home"]
-TOPICS: tuple[str, ...] = ("apps", "inbox", "brief", "career", "home")
+Topic = Literal["apps", "inbox", "brief", "career", "home", "nudges"]
+TOPICS: tuple[str, ...] = ("apps", "inbox", "brief", "career", "home", "nudges")
 # The topics before "home" (5.2): a device that had all of them gets it too.
 _BEFORE_HOME = {"apps", "inbox", "brief", "career"}
 MAX_SENT = 2000
@@ -35,8 +36,8 @@ class Subscription(BaseModel):
     label: str = Field(default="", max_length=80)
     topics: list[Topic] = Field(default_factory=lambda: list(TOPICS))
     created_at: str = ""
-    # 2 from 5.2; a stored subscription without it predates the "home" topic.
-    v: int = 2
+    # 2 from 5.2 ("home"), 3 from 6.3 ("nudges"); older ones are upgraded on load.
+    v: int = 3
 
 
 def _subs_path():
@@ -84,6 +85,12 @@ def _upgrade(raw: dict) -> dict:
         if _BEFORE_HOME <= set(topics) and "home" not in topics:
             topics.append("home")
         raw = {**raw, "topics": topics, "v": 2}
+    if raw.get("v") == 2:
+        # A device that had everything gets the new nudges too; one that picked gets to choose.
+        topics = list(raw.get("topics") or [])
+        if _BEFORE_HOME | {"home"} <= set(topics) and "nudges" not in topics:
+            topics.append("nudges")
+        raw = {**raw, "topics": topics, "v": 3}
     return raw
 
 

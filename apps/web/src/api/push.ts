@@ -1,6 +1,6 @@
 import { api, json } from "./client";
 
-export type Topic = "apps" | "inbox" | "brief" | "career" | "home";
+export type Topic = "apps" | "inbox" | "brief" | "career" | "home" | "nudges";
 
 export const TOPIC_LABELS: Record<Topic, string> = {
   apps: "An app goes down",
@@ -8,6 +8,7 @@ export const TOPIC_LABELS: Record<Topic, string> = {
   brief: "Your daily brief is ready",
   career: "Career goals due and CPD reminders",
   home: "Home jobs due, warranties, the network and power",
+  nudges: "Nudges: a free stretch when something's due, winding down for bed",
 };
 
 export interface DeviceSubscription {
