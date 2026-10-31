@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ReadinessRing } from "./Health";
+import { EnergyMeter, ReadinessRing } from "./Health";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Target,
@@ -183,6 +183,7 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
             {brief.readiness && (
               <Card title="Readiness" Icon={Gauge}>
                 <div className="row readiness-row"><ReadinessRing r={brief.readiness} size={96} /><p style={{ margin: 0, fontSize: 14 }}>{brief.readiness.advice}</p></div>
+                {brief.energy && <EnergyMeter e={brief.energy} compact />}
                 <ul className="items">
                   {brief.readiness.contributors.slice(0, 3).map((c) => <Row key={c.key} title={c.text} tone={c.score >= 60 ? "good" : c.score >= 40 ? "warning" : "critical"} />)}
                 </ul>

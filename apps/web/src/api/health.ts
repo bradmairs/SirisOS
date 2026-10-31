@@ -9,6 +9,21 @@ export interface Readiness {
   early: boolean;
   contributors: Contributor[];
   summary: string;
+  /** 5.9 (SirisAI 3.62): kept as it was this morning, so the day's HRV, a workout or a nap don't move it. */
+  locked?: boolean;
+  locked_at?: string;
+}
+/** The day's energy (5.9, SirisAI 3.62): a Body Battery that starts from readiness at waking. */
+export interface Energy {
+  now: number;
+  start: number;
+  wake: string;
+  timeline: { time: string; value: number }[];
+  spent: { awake: number; activity: number; stress: number };
+  regained: number;
+  summary: string;
+  /** No hourly data (Health Auto Export aggregated by day): worked out from the day's totals. */
+  estimated: boolean;
 }
 export interface Night { date: string; hours: number | null; deep: number | null; rem: number | null; core: number | null; awake: number | null; in_bed: number | null; start: string | null; end: string | null }
 export interface Point { date: string; value: number | null }
@@ -29,6 +44,7 @@ export interface Health {
   migrating?: boolean;
   sources: { sirisai: boolean; health_auto_export: boolean; days: number; imports?: Record<string, { at: string; days?: number }> };
   readiness: Readiness | null;
+  energy?: Energy | null;
   sleep: { need: number; last_night: Night | null; score: number | null; debt_7d: number; bedtime_spread_min: number | null; average_7d: number | null; nights: Night[] };
   activity: {
     steps: number | null; active_energy_kcal: number | null; exercise_minutes: number | null; stand_hours: number | null;
@@ -55,7 +71,7 @@ async function upload<T>(path: string, file: File): Promise<T> {
 
 export const health = {
   get: () => api<Health>("/api/v1/health"),
-  today: () => api<{ readiness: Readiness | null }>("/api/v1/health/today"),
+  today: () => api<{ readiness: Readiness | null; energy?: Energy | null }>("/api/v1/health/today"),
   log: (kind: LogKind, amount?: number, text?: string) => api<{ logged: unknown }>("/api/v1/health/log", json({ kind, amount, text: text ?? "" })),
   meal: (file: File) => upload<{ kcal: number; protein_g: number | null; note: HealthNote }>("/api/v1/health/meal", file),
   goals: () => api<{ goals: Goal[] }>("/api/v1/health/goals"),

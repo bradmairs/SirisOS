@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Activity, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Scale, Target, ThermometerSun } from "lucide-react";
-import { BAND_TONE, health, type Goal, type Health, type LogKind, type Point, type Readiness, type Vital } from "../api/health";
+import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Scale, Target, ThermometerSun } from "lucide-react";
+import { BAND_TONE, health, type Energy, type Goal, type Health, type LogKind, type Point, type Readiness, type Vital } from "../api/health";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
@@ -33,16 +33,53 @@ export function ReadinessRing({ r, size = 132 }: { r: Readiness; size?: number }
   );
 }
 
+const energyTone = (v: number) => (v >= 60 ? "tone-good" : v >= 30 ? "tone-warning" : "tone-critical");
+const lockedNote = (r: Readiness) => (r.locked ? "Kept from this morning" : "Settles once last night's data is in");
+
+/** The day's energy (5.9): where it is now, and the line since waking. */
+export function EnergyMeter({ e, compact = false }: { e: Energy; compact?: boolean }) {
+  const W = 240, H = 44;
+  const pts = e.timeline;
+  const x = (i: number) => (pts.length > 1 ? (i / (pts.length - 1)) * W : W);
+  const y = (v: number) => H - (v / 100) * H;
+  return (
+    <div className="energy">
+      <div className="energy__head">
+        <span className={`hud-big ${energyTone(e.now)}`}>{e.now}</span>
+        <span className="muted energy__of">/ 100 · started at {e.start} ({e.wake})</span>
+      </div>
+      <div className="energy__bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={e.now} aria-label={`Energy ${e.now} out of 100`}>
+        <span className={`energy__fill ${energyTone(e.now)}`} style={{ width: `${e.now}%` }} />
+      </div>
+      {!compact && pts.length > 1 && (
+        <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Energy since waking">
+          <polyline points={pts.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")} className="spark__line" />
+          <circle cx={x(pts.length - 1)} cy={y(pts[pts.length - 1].value)} r={3} className="spark__dot" />
+        </svg>
+      )}
+      <p style={{ margin: 0, fontSize: 14 }}>{e.summary}</p>
+      {!compact && (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          Spent {e.spent.activity} on activity, {e.spent.stress} on stress and {e.spent.awake} just being awake; got {e.regained} back resting.
+          {e.estimated ? " Estimated from the day's totals: set Health Auto Export to aggregate by hour for a live line." : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Home and the brief (5.7): today's readiness. Hidden until there's a score. */
 export function ReadinessWidget() {
   const res = useResource("health:today", () => health.today(), { staleMs: 15 * 60_000, persist: true });
   const r = res.data?.readiness;
+  const e = res.data?.energy;
   if (!r) return null;
   return (
     <Glass as="section" className="widget" aria-label="Readiness">
       <header className="widget__head"><Gauge aria-hidden="true" /><span>Readiness</span><Link to="/health" className="widget__source">Health</Link></header>
       <div className="row readiness-row"><ReadinessRing r={r} size={96} /><p style={{ margin: 0, fontSize: 14 }}>{r.advice}</p></div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>{r.summary}{r.early ? " · Early days: it sharpens after a week of data." : ""}</p>
+      {e && <><div className="widget__head energy__label"><BatteryMedium aria-hidden="true" /><span>Energy now</span></div><EnergyMeter e={e} compact /></>}
     </Glass>
   );
 }
@@ -104,6 +141,7 @@ function TodayView({ h }: { h: Health }) {
               <div style={{ display: "grid", gap: 6 }}>
                 <p style={{ margin: 0, fontSize: 16 }}>{r.advice}</p>
                 {r.early && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Early days: SirisOS needs a week of your data to know your usual, so this sharpens soon.</p>}
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>From last night's sleep, overnight HRV and vitals. {lockedNote(r)}.</p>
               </div>
             </div>
             <ul className="items">
@@ -122,6 +160,12 @@ function TodayView({ h }: { h: Health }) {
           <p className="muted" style={{ margin: 0 }}>No score yet: it needs last night's sleep or HRV, and a few days of history.</p>
         )}
       </Glass>
+      {h.energy && (
+        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Energy">
+          <header className="widget__head"><BatteryMedium aria-hidden="true" /><span>Energy</span></header>
+          <EnergyMeter e={h.energy} />
+        </Glass>
+      )}
       <div className="widget-grid">
         <Tile title="Sleep" Icon={BedDouble} to="/health?view=sleep" big={hm(h.sleep.last_night?.hours)} sub={h.sleep.score != null ? `Sleep score ${h.sleep.score} · need ${hm(h.sleep.need)}` : `You need about ${hm(h.sleep.need)}`} />
         <Tile title="Training load" Icon={Dumbbell} to="/health?view=fitness" big={h.activity.load.ratio != null ? h.activity.load.ratio.toFixed(2) : "–"} sub={h.activity.load.zone ? `This week against the last four: ${h.activity.load.zone}` : "Needs a few weeks of exercise data"} />

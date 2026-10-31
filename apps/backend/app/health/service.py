@@ -41,6 +41,12 @@ async def readiness(hub: Hub, on: date | None = None) -> dict[str, Any] | None:
     return (await overview(hub)).get("readiness")
 
 
+async def today(hub: Hub) -> dict[str, Any]:
+    """Readiness (kept from the morning) and the day's energy so far (5.9)."""
+    body = await overview(hub)
+    return {"readiness": body.get("readiness"), "energy": body.get("energy")}
+
+
 async def workouts(hub: Hub, days: int = 42) -> list[dict[str, Any]]:
     body = await sirisai_api.get(hub, "/siris/hub/v1/health/workouts", params={"days": days})
     return list((body or {}).get("workouts") or [])

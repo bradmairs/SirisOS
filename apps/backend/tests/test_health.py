@@ -23,6 +23,7 @@ OVERVIEW = {
     "guest_mode": False, "today": "2026-10-30", "available": True,
     "sources": {"days": 42, "imports": {"health_auto_export": {"at": "2026-10-30T06:00:00+00:00", "days": 1}}},
     "readiness": {"date": "2026-10-30", "score": 78, "band": "Primed", "advice": "A good day to push.", "early": False, "contributors": [], "summary": "HRV 64 ms"},
+    "energy": {"now": 61, "start": 83, "wake": "06:40", "timeline": [], "spent": {"awake": 8, "activity": 12, "stress": 2}, "regained": 0, "summary": "Plenty in the tank.", "estimated": False},
     "sleep": {"need": 7.5, "last_night": {"hours": 7.6}, "score": 88, "debt_7d": 0.5, "bedtime_spread_min": 20, "average_7d": 7.4, "nights": []},
     "activity": {"steps": 9000, "load": {"ratio": 1.1, "zone": "sweet spot", "acute_min_per_day": 40, "chronic_min_per_day": 36}, "workouts": []},
     "vitals": [], "weight": {"latest": 79.5, "trend": 79.8, "per_week": -0.2}, "getting_sick": None,
@@ -75,7 +76,8 @@ def test_the_health_section_is_sirisai_s(client):
     assert body["readiness"]["score"] == 78 and body["sleep"]["need"] == 7.5
     assert body["sources"] == {"sirisai": True, "health_auto_export": True, "days": 42, "imports": OVERVIEW["sources"]["imports"]}
     assert body["insights"][0]["minutes"] == -38 and body["bedtime"]["bedtime"] == "22:30" and body["migrating"] is False
-    assert client.get("/api/v1/health/today", headers=AUTH).json()["readiness"]["score"] == 78
+    today = client.get("/api/v1/health/today", headers=AUTH).json()
+    assert today["readiness"]["score"] == 78 and today["energy"]["now"] == 61
 
 
 def test_the_old_store_moves_to_sirisai_once(client, seen, tmp_path):

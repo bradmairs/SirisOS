@@ -876,6 +876,12 @@ h3.note__heading { font-size: 17px; }
 .rring__score { font-size: 34px; font-weight: 700; line-height: 1; color: var(--text, inherit); }
 .rring__band { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .readiness-row { gap: 16px; align-items: center; flex-wrap: wrap; }
+.energy { display: grid; gap: 8px; min-width: 0; }
+.energy__head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.energy__of { font-size: 13px; }
+.energy__bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 25%, transparent); overflow: hidden; }
+.energy__fill { display: block; height: 100%; border-radius: inherit; background: currentColor; transition: width 0.6s ease; }
+.energy__label { margin-top: 6px; }
 .contributor .item__text { display: grid; gap: 4px; }
 .contributor__score { font-variant-numeric: tabular-nums; font-size: 13px; }
 .hbars { display: grid; gap: 6px; }
