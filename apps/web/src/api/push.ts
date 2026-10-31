@@ -15,6 +15,11 @@ export interface DeviceSubscription {
   label: string;
   topics: Topic[];
   created_at: string;
+  /** 6.0: when the last notification got through, and the last failure. */
+  last_ok?: string | null;
+  last_error?: string | null;
+  last_error_at?: string | null;
+  failing?: boolean;
 }
 
 export const push = {

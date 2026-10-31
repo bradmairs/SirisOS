@@ -1,7 +1,7 @@
 """Push notifications API.
 
     GET    /api/v1/push/key              the VAPID public key for pushManager.subscribe()
-    GET    /api/v1/push/subscriptions    this server's devices (labels and topics, no keys)
+    GET    /api/v1/push/subscriptions    this server's devices (labels, topics, last delivered and last error; no keys)
     POST   /api/v1/push/subscribe        add or update this device: {endpoint, keys, label, topics}
     POST   /api/v1/push/unsubscribe      {endpoint}
     POST   /api/v1/push/test             {endpoint}: send this device a test notification
@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.hub.service import Hub, get_hub, shared_client
 from app.hub.sirisai_api import SirisAIError
-from app.push import actions, store, webpush
+from app.push import actions, notifier, store, webpush
 
 router = APIRouter(prefix="/api/v1/push", tags=["push"], dependencies=[Depends(require_user)])
 act_router = APIRouter(prefix="/api/v1/push/act", tags=["push"])
@@ -69,8 +69,11 @@ class Endpoint(BaseModel):
     endpoint: str = Field(min_length=10, max_length=2000)
 
 
-def _public(sub: store.Subscription) -> dict[str, Any]:
-    return {"endpoint": sub.endpoint, "label": sub.label, "topics": sub.topics, "created_at": sub.created_at}
+def _public(sub: store.Subscription, health: dict[str, Any] | None = None) -> dict[str, Any]:
+    h = (health if health is not None else store.health()).get(sub.endpoint) or {}
+    return {"endpoint": sub.endpoint, "label": sub.label, "topics": sub.topics, "created_at": sub.created_at,
+            "last_ok": h.get("last_ok"), "last_error": h.get("last_error"), "last_error_at": h.get("last_error_at"),
+            "failing": store.failing(sub, h)}
 
 
 @router.get("/key")
@@ -80,7 +83,8 @@ def key() -> dict[str, Any]:
 
 @router.get("/subscriptions")
 def subscriptions() -> dict[str, Any]:
-    return {"subscriptions": [_public(s) for s in store.subscriptions()]}
+    health = store.health()
+    return {"subscriptions": [_public(s, health) for s in store.subscriptions()]}
 
 
 @router.post("/subscribe")
@@ -102,13 +106,16 @@ async def test(body: Endpoint) -> dict[str, Any]:
         await webpush.send(shared_client(), sub.model_dump(), {
             "title": "SirisOS notifications are on", "body": "You'll hear from SirisOS here.", "url": "/", "tag": "test",
         })
+        store.record(sub.endpoint)
     except webpush.Gone:
         store.remove(sub.endpoint)
         raise HTTPException(status_code=410, detail="The push service no longer knows this device. Turn notifications on again.")
     except httpx.HTTPStatusError as exc:
+        store.record(sub.endpoint, notifier.describe(exc))
         code = exc.response.status_code
         reason = "the push service turned down SirisOS's signature" if code in (401, 403) else f"the push service answered {code}"
         raise HTTPException(status_code=502, detail=f"Couldn't send: {reason}. Turn notifications off and on again on this device.") from exc
     except Exception as exc:  # noqa: BLE001
+        store.record(sub.endpoint, notifier.describe(exc))
         raise HTTPException(status_code=502, detail=f"Couldn't send: {exc}") from exc
     return {"sent": True}

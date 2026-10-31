@@ -110,7 +110,8 @@ def test_subscribe_list_and_unsubscribe():
     sub = browser.subscription() | {"topics": ["apps", "brief"]}
     assert client.post("/api/v1/push/subscribe", headers=_auth(), json=sub).status_code == 200
     listed = client.get("/api/v1/push/subscriptions", headers=_auth()).json()["subscriptions"]
-    assert listed == [{"endpoint": sub["endpoint"], "label": "iPhone", "topics": ["apps", "brief"], "created_at": listed[0]["created_at"]}]
+    assert listed == [{"endpoint": sub["endpoint"], "label": "iPhone", "topics": ["apps", "brief"], "created_at": listed[0]["created_at"],
+                       "last_ok": None, "last_error": None, "last_error_at": None, "failing": False}]
     assert "keys" not in listed[0]
     # Plain http endpoints are refused.
     assert client.post("/api/v1/push/subscribe", headers=_auth(), json=browser.subscription("http://evil/x")).status_code == 422
@@ -166,3 +167,50 @@ def test_each_notification_is_sent_once_and_gone_devices_are_dropped(monkeypatch
     assert [s.endpoint for s in store.subscriptions()] == ["https://push.example.com/send/abc"]
     # Already sent: nothing more.
     assert asyncio.run(notifier.run_once(hub_service.Hub({}))) == 0
+
+
+def test_a_device_notifications_stop_reaching_is_flagged_until_one_gets_through(monkeypatch):
+    from app.attention import service as attention
+    from app.setup import service as setup
+
+    browser = Browser()
+    store.upsert(store.Subscription.model_validate(browser.subscription() | {"topics": ["inbox"]}))
+    status = {"code": 403}
+
+    def push_service(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status["code"], request=request)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(push_service))
+    monkeypatch.setattr(notifier, "shared_client", lambda: client)
+
+    async def one(hub, now):
+        return [notifier.message(f"inbox:ai:{status['code']}", "inbox", "Something", "", "/inbox", "high")]
+
+    monkeypatch.setattr(notifier, "collect", one)
+    asyncio.run(notifier.run_once(hub_service.Hub({})))
+    sub = store.subscriptions()[0]
+    assert store.failing(sub) and "turned down SirisOS's signature (403)" in store.health()[sub.endpoint]["last_error"]
+    [item] = attention.push_items()
+    assert item["title"] == "Notifications aren't reaching iPhone"
+    assert setup.push()[0]["state"] == "problem"
+    status["code"] = 201
+    asyncio.run(notifier.run_once(hub_service.Hub({})))
+    assert not store.failing(store.subscriptions()[0]) and attention.push_items() == []
+
+
+def test_a_quiet_device_gets_a_weekly_check_in(monkeypatch):
+    browser = Browser()
+    store.upsert(store.Subscription.model_validate(browser.subscription()))
+    received: list[dict] = []
+
+    def push_service(request: httpx.Request) -> httpx.Response:
+        received.append(json.loads(browser.decrypt(request.content)))
+        return httpx.Response(201)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(push_service))
+    monkeypatch.setattr(notifier, "shared_client", lambda: client)
+    now = datetime.now(timezone.utc)
+    assert asyncio.run(notifier.check_in(now)) == 0  # just subscribed
+    assert asyncio.run(notifier.check_in(now + timedelta(days=8))) == 1
+    assert received[0]["title"] == "SirisOS notifications are working"
+    assert store.health()[store.subscriptions()[0].endpoint]["last_ok"]  # recorded, so it's quiet for another week

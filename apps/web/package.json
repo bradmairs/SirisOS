@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "tsc -b --noEmit"
+    "lint": "tsc -b --noEmit",
+    "visual": "node scripts/visual-check.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
