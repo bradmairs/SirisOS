@@ -876,6 +876,13 @@ h3.note__heading { font-size: 17px; }
 .rring__score { font-size: 34px; font-weight: 700; line-height: 1; color: var(--text, inherit); }
 .rring__band { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .readiness-row { gap: 16px; align-items: center; flex-wrap: wrap; }
+.strain__bar { position: relative; height: 10px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 25%, transparent); }
+.strain__band { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: color-mix(in srgb, var(--good) 35%, transparent); }
+.strain__mark { position: absolute; top: -3px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: currentColor; }
+.strain__week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 64px; align-items: end; }
+.strain__day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
+.strain__col { width: 60%; border-radius: 4px 4px 0 0; background: var(--accent); opacity: 0.75; }
+.strain__lbl { font-size: 11px; color: var(--ink-3); }
 .trend { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .energy { display: grid; gap: 8px; min-width: 0; }
 .energy__head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }

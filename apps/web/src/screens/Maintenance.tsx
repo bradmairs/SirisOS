@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Check, FileText, Plus, Refrigerator, Trash2, Wrench } from "lucide-react";
 import {
   dueText, EVERY_CHOICES, everyText, maintenance as api,
-  type Appliance, type ApplianceFields, type HomeJob, type Maintenance, type NewJob,
+  type Appliance, type ApplianceFields, type HomeJob, type Maintenance, type ManualAnswer, type NewJob,
 } from "../api/maintenance";
 import { useResource } from "../api/resource";
 import { FLOORS, roomById } from "../house/layout";
@@ -180,6 +180,55 @@ function JobSheet({ job, appliances, onClose, onSave, onDelete }: {
   );
 }
 
+/** Ask the uploaded manuals (6.4): "how do I descale the coffee machine?", answered with the page. */
+function AskManuals() {
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [a, setA] = useState<ManualAnswer | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function ask(e: FormEvent) {
+    e.preventDefault();
+    if (q.trim().length < 3) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setA(await api.ask(q.trim()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't ask.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section aria-label="Ask the manuals" className="stack" style={{ gap: 8 }}>
+      <form className="row" style={{ gap: 6 }} onSubmit={ask}>
+        <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder="Ask the manuals: how do I descale…" aria-label="Ask the manuals" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button type="submit" className="button button--small button--primary" disabled={busy || q.trim().length < 3}>{busy ? "Asking…" : "Ask"}</button>
+      </form>
+      {error && <p className="tone-critical" style={{ margin: 0, fontSize: 13 }}>{error}</p>}
+      {a && (
+        <div className="stack" style={{ gap: 6 }}>
+          {a.answer && <p style={{ margin: 0, fontSize: 14, whiteSpace: "pre-wrap" }}>{a.answer}</p>}
+          {a.note && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{a.note}</p>}
+          {a.sources.length > 0 && (
+            <ul className="items" aria-label="From the manuals">
+              {a.sources.map((s) => (
+                <li key={`${s.appliance_id}-${s.page}`} className="item">
+                  <FileText size={16} aria-hidden="true" />
+                  <span className="item__text">
+                    <button type="button" className="item__title icon-link" style={{ textAlign: "left" }} onClick={() => api.openManual(s.appliance_id)}>{s.appliance}, page {s.page}</button>
+                    <span className="item__subtitle career-wrap">{s.snippet}…</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Appliances: make, model, when bought, warranty and the manual. */
 export function AppliancesCard() {
   const { data, run } = useMaintenance();
@@ -190,6 +239,7 @@ export function AppliancesCard() {
       <header className="widget__head"><Refrigerator aria-hidden="true" /><span>Appliances</span>
         <button type="button" className="widget__source icon-link" onClick={() => setEditing("new")}><Plus size={14} aria-hidden="true" /> Add one</button></header>
       {!items.length && <p className="muted" style={{ margin: 0, fontSize: 14 }}>Add the AC units, the dishwasher, the BBQ… with their manual and warranty, so they're here when something breaks.</p>}
+      {items.some((a) => a.manual) && <AskManuals />}
       <ul className="items">
         {items.map((a) => (
           <li key={a.id} className="item">

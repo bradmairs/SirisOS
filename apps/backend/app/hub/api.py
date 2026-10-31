@@ -38,6 +38,30 @@ async def hub_upkeep(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     return await upkeep.overview(hub)
 
 
+@router.post("/hub/upkeep/update", tags=["hub"])
+async def hub_update(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Update both apps now (6.4): asks SirisAI's updater (deploy/updater.sh)
+    for the latest release; it rebuilds and restarts SirisAI and SirisOS, and
+    rolls back on its own if they don't come back healthy."""
+    from app.hub import sirisai_api
+
+    try:
+        return await sirisai_api.post(hub, "/siris/upkeep/update/apply", json={}, timeout=30.0) or {}
+    except sirisai_api.SirisAIError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
+@router.post("/hub/upkeep/check", tags=["hub"])
+async def hub_update_check(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Ask SirisAI to look for a new release now."""
+    from app.hub import sirisai_api
+
+    try:
+        return await sirisai_api.post(hub, "/siris/upkeep/update/check", json={}, timeout=30.0) or {}
+    except sirisai_api.SirisAIError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
 @router.get("/hub/status", tags=["hub"])
 async def system_status(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     """Every configured app's health now and over the last 24 hours and 7 days."""

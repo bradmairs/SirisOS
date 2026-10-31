@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Activity, HardDrive, RefreshCw } from "lucide-react";
 import { useResource } from "../api/resource";
 import { systemStatus, type AppHealth } from "../api/status";
@@ -98,7 +98,20 @@ function AppCard({ app }: { app: AppHealth }) {
 
 /** Backups, a waiting SirisAI update and certificates running out (3.6). */
 function UpkeepCard() {
-  const { data } = useResource("hub:upkeep", () => fitness.upkeep(), { staleMs: 10 * 60_000, persist: true });
+  const { data, reload } = useResource("hub:upkeep", () => fitness.upkeep(), { staleMs: 10 * 60_000, persist: true });
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  async function run(job: () => Promise<string>) {
+    setBusy(true);
+    try {
+      setNote(await job());
+      await reload?.(true);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(false);
+    }
+  }
   if (!data) return null;
   const b = data.sirisai?.backups;
   const u = data.sirisai?.update;
@@ -123,10 +136,30 @@ function UpkeepCard() {
             <span className={`item__dot ${u.available ? "dot-warning" : "dot-good"}`} aria-hidden="true" />
             <span className="item__text">
               <div className="item__title">SirisAI {u.current}</div>
-              <div className="item__subtitle">{u.available ? `${u.latest} is out: update from the Inbox` : "Up to date"}</div>
+              <div className="item__subtitle">
+                {u.waiting ? `Updating to ${u.waiting}: the updater rebuilds both apps in a minute or two`
+                  : u.available ? `${u.latest} is out` : "Up to date"}
+                {u.last?.state ? ` · last update: ${u.last.state}${u.last.version ? ` (${u.last.version})` : ""}` : ""}
+              </div>
+              {u.updater_running === false && (
+                <div className="item__subtitle tone-warning">The updater isn't running on the server, so updates can't install themselves. Once, in SirisAI's deploy folder: <code>make auto-update</code></div>
+              )}
             </span>
+            {u.available && !u.waiting ? (
+              <button type="button" className="button button--small button--primary" disabled={busy}
+                onClick={() => window.confirm(`Update to ${u.latest}? SirisAI and SirisOS rebuild and restart, and roll back on their own if they don't come back healthy.`)
+                  && run(async () => { const r = await fitness.update(); return r.requested ? `Asked for ${r.version}.` : r.detail ?? "Asked."; })}>
+                Update now
+              </button>
+            ) : !u.waiting && (
+              <button type="button" className="button button--small" disabled={busy}
+                onClick={() => run(async () => { const r = await fitness.checkUpdate(); return r.update ? `${r.latest} is out.` : `Up to date (${r.running ?? u.current}).`; })}>
+                Check
+              </button>
+            )}
           </li>
         )}
+        {note && <li className="item"><span className="item__text"><div className="item__subtitle" role="status">{note}</div></span></li>}
         <li className="item">
           <span className="item__dot dot-good" aria-hidden="true" />
           <span className="item__text"><div className="item__title">SirisOS {data.sirisos.version}</div></span>

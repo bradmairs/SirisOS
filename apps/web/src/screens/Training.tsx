@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { CalendarPlus, Copy, Footprints, HeartPulse, KeyRound, Trophy } from "lucide-react";
+import { CalendarPlus, CircleAlert, CircleCheck, Copy, Footprints, HeartPulse, KeyRound, Trophy } from "lucide-react";
 import { DISTANCES, training, type HealthImportStatus, type Race, type Training } from "../api/training";
 import { useResource } from "../api/resource";
+import { health, type Health } from "../api/health";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
@@ -209,6 +210,7 @@ function HealthImportCard({ health }: { health: boolean }) {
           </ul>
         </details>
       )}
+      <SetupCheck />
       {s && !s.attempts?.length && s.has_key && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Nothing has reached this address yet. If the app says the export failed, check SirisOS is reachable from your phone at this address (try it in Safari), and that the server is on 5.62 or later.</p>}
       <ol className="training__steps">
         <li>Install <strong>Health Auto Export</strong> on your iPhone and allow it to read Health.</li>
@@ -229,5 +231,25 @@ function HealthImportCard({ health }: { health: boolean }) {
         </button>
       )}
     </Glass>
+  );
+}
+
+/** Is Health Auto Export set up the way SirisAI needs (6.4, SirisAI 4.03)? From what the last exports looked like. */
+function SetupCheck() {
+  const res = useResource<Health>("health", () => health.get(), { staleMs: 60_000, persist: true });
+  const setup = res.data?.setup;
+  if (!setup?.connected) return null;
+  return (
+    <div className="training__check" aria-label="Setup check">
+      {setup.problems.length === 0 ? (
+        <p className="tone-good" style={{ margin: 0, fontSize: 14 }}><CircleCheck size={14} aria-hidden="true" /> Set up right: grouped by hour, whole days, and workouts arriving.</p>
+      ) : (
+        <ul className="items">
+          {setup.problems.map((p) => (
+            <li key={p} className="item"><CircleAlert size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title career-wrap">{p}</span></span></li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

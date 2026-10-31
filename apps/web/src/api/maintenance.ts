@@ -48,9 +48,13 @@ export type NewJob = Pick<HomeJob, "title" | "room" | "every_days"> & Partial<Pi
 export type ApplianceFields = Pick<Appliance, "name" | "room"> & Partial<Omit<Appliance, "id" | "manual" | "warranty_days">>;
 
 const M = "/api/v1/maintenance";
+
+/** Asking the uploaded manuals (6.4). */
+export interface ManualAnswer { answer: string | null; sources: { appliance: string; appliance_id: string; page: number; snippet: string }[]; note?: string }
 const patch = (body: unknown) => ({ ...json(body), method: "PATCH" });
 
 export const maintenance = {
+  ask: (question: string, appliance?: string) => api<ManualAnswer>(`${M}/manuals/ask`, json({ question, ...(appliance ? { appliance } : {}) })),
   get: () => api<Maintenance>(M),
   addJob: (job: NewJob) => api<Maintenance>(`${M}/jobs`, json(job)),
   changeJob: (id: string, change: Partial<NewJob>) => api<Maintenance>(`${M}/jobs/${id}`, patch(change)),
