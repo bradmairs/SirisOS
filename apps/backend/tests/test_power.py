@@ -65,3 +65,23 @@ def test_api_and_months(setup):
     assert service.by_month() == {"2026-09": 12.0, "2026-10": 19.5}
     body = TestClient(app).get("/api/v1/power", headers=AUTH).json()
     assert body["configured"] and body["house_watts"] == 1250 and body["power"][0]["name"] == "Dishwasher power"
+
+
+def test_by_device_and_what_stays_on_overnight(setup):
+    """6.2: the day's biggest users, and the overnight floor with a year's cost."""
+    doc = service.load()
+    u = {"configured": True, "house_watts": 300.0, "house_meter": "sensor.house_energy",
+         "power": [{"entity_id": "sensor.rack_power", "name": "Server rack", "watts": 120}, {"entity_id": "sensor.tv_power", "name": "TV", "watts": 4}],
+         "meters": [{"entity_id": "sensor.house_energy", "name": "House", "kwh": 100.0}, {"entity_id": "sensor.dryer_energy", "name": "Dryer", "kwh": 50.0}]}
+    service.record(doc, u, DAY, 0, hour=2)
+    u2 = {**u, "house_watts": 260.0, "power": [{"entity_id": "sensor.rack_power", "name": "Server rack", "watts": 110}, {"entity_id": "sensor.tv_power", "name": "TV", "watts": 3}],
+          "meters": [{"entity_id": "sensor.house_energy", "name": "House", "kwh": 112.0}, {"entity_id": "sensor.dryer_energy", "name": "Dryer", "kwh": 53.0}]}
+    day = service.record(doc, u2, DAY, 1800, hour=3)
+    top = service.top_devices(day)
+    assert [t["name"] for t in top] == ["Dryer", "Server rack", "TV"]
+    assert top[0]["kwh"] == 3.0 and top[0]["share"] == 25 and top[1]["kwh"] == 0.06  # 115 W for half an hour
+    # Daytime samples don't lower the overnight floor.
+    service.record(doc, {**u2, "house_watts": 90.0}, DAY, 3600, hour=14)
+    on = service.always_on(doc["days"], DAY, tariff=0.30)
+    assert on["watts"] == 260.0 and on["kwh_year"] == 2278 and on["cost_year"] == 683
+    assert [d["name"] for d in on["devices"]] == ["Server rack"]  # the TV's 3 W is under the line

@@ -3,6 +3,7 @@
     GET  /api/v1/netwatch                       every device seen: new, important, blocked, offline
     POST /api/v1/netwatch/{id}/trust            it's ours: stop asking
     POST /api/v1/netwatch/{id}/important        {important: bool}
+    PATCH /api/v1/netwatch/{id}                 {label, owner, type}: the inventory (6.2)
     POST /api/v1/netwatch/{id}/block            {blocked: bool}, through SirisAI and UniFi
 """
 
@@ -11,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.hub.service import Hub, get_hub
@@ -23,6 +24,12 @@ router = APIRouter(prefix="/api/v1/netwatch", tags=["netwatch"], dependencies=[D
 
 class Important(BaseModel):
     important: bool
+
+
+class Details(BaseModel):
+    label: str | None = Field(default=None, max_length=60)
+    owner: str | None = Field(default=None, max_length=60)
+    type: str | None = Field(default=None, max_length=40)
 
 
 class Blocked(BaseModel):
@@ -47,6 +54,16 @@ def trust(node_id: str) -> dict[str, Any]:
 def important(node_id: str, body: Important) -> dict[str, Any]:
     try:
         service.set_important(node_id, body.important)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="SirisOS hasn't seen that device.") from None
+    return service.view()
+
+
+@router.patch("/{node_id}")
+def details(node_id: str, body: Details) -> dict[str, Any]:
+    """Name it, say whose it is and what it is (6.2); its room comes from the 3D house."""
+    try:
+        service.set_details(node_id, body.model_dump(exclude_unset=True))
     except LookupError:
         raise HTTPException(status_code=404, detail="SirisOS hasn't seen that device.") from None
     return service.view()

@@ -154,6 +154,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.0: visual checks in CI (phone and desktop), and notification health (last delivered, failing devices, weekly check)
 6.01: slow Inbox actions say 'still working' (SirisAI 3.72), dropped connections explained, Setup flags an out-of-date SirisAI
 6.1: training uses overnight HRV and energy, today's session in the brief, weekly trends, early run-down heads-up, body in the wrap-up
+6.2: device inventory (name, owner, type, room) in alerts and the house, energy by device and always-on, maintenance by use
 
 ## Terminal (ADR 113)
 

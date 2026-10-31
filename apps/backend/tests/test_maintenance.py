@@ -92,3 +92,34 @@ def test_existing_devices_get_the_home_topic_once(client, tmp_path):
     # Turned off later: stays off.
     push_store.upsert(subs[0].model_copy(update={"topics": ["apps", "inbox", "brief", "career"]}))
     assert "home" not in next(s for s in push_store.subscriptions() if s.endpoint.endswith("abc")).topics
+
+
+def test_a_job_can_come_due_by_use(client):
+    """6.2: the dryer's filter after 2 hours of running; the heat pump after 100 kWh."""
+    from datetime import date
+
+    r = client.post("/api/v1/maintenance/jobs", headers=AUTH, json={"title": "Clean the dryer filter", "room": "laundry",
+                                                                     "usage_entity": "sensor.dryer_power", "usage_unit": "h", "usage_every": 2})
+    assert r.status_code == 200, r.text
+    client.post("/api/v1/maintenance/jobs", headers=AUTH, json={"title": "Service the heat pump", "room": "living", "every_days": 365,
+                                                                "last_done": date.today().isoformat(), "usage_entity": "sensor.hp_energy",
+                                                                "usage_unit": "kWh", "usage_every": 100})
+    assert client.post("/api/v1/maintenance/jobs", headers=AUTH, json={"title": "Nothing", "room": "laundry"}).status_code == 422
+
+    def sample(t, dryer_w, hp_kwh):
+        service.sample_usage({"power": [{"entity_id": "sensor.dryer_power", "watts": dryer_w}],
+                              "meters": [{"entity_id": "sensor.hp_energy", "kwh": hp_kwh}]}, t)
+
+    sample(0, 2000, 500.0)
+    for t in range(600, 600 * 13, 600):  # two hours of drying
+        sample(t, 2000, 500.0 + t / 600)
+    sample(600 * 13, 0, 590.0)  # stopped: doesn't count
+    jobs = {j["title"]: j for j in client.get("/api/v1/maintenance", headers=AUTH).json()["jobs"]}
+    dryer, hp = jobs["Clean the dryer filter"], jobs["Service the heat pump"]
+    assert dryer["state"] == "due" and dryer["used"] == 2.0 and dryer["used_share"] == 100
+    assert hp["state"] == "soon" and hp["used"] == 90.0  # 90 of 100 kWh, though the date is a year off
+    msgs = service.push_messages(__import__("datetime").datetime.now().replace(hour=10))
+    assert any("run 2 h since it was last done" in m["body"] for m in msgs)
+    client.post(f"/api/v1/maintenance/jobs/{dryer['id']}/done", headers=AUTH, json={})
+    again = {j["title"]: j for j in client.get("/api/v1/maintenance", headers=AUTH).json()["jobs"]}["Clean the dryer filter"]
+    assert again["used"] == 0.0 and again["state"] == "ok"

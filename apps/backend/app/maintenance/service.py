@@ -13,6 +13,14 @@ kept in the rooms of the 3D house.
   with Done and Snooze buttons. A warranty about to run out says so once,
   30 days before.
 
+**By use** (6.2): a job can instead (or as well) come due by how much the
+thing has run. Point it at a Home Assistant energy meter (`usage_unit`
+"kWh": due every N kWh it uses) or a power sensor ("h": the hours it
+draws over RUN_WATTS, 20 W, counted from SirisOS's 10-minute power
+samples). A dryer's lint filter after 40 hours of drying, the heat pump's
+service after 1,500 kWh: whichever of the date and the use comes first.
+Counting starts when it's set up, and starts again each time it's done.
+
 Room ids are the house's (apps/web/src/house/layout.ts).
 """
 
@@ -28,6 +36,9 @@ from pydantic import BaseModel, Field
 from app.services import json_store
 
 DUE_SOON_DAYS = 7
+DUE_SOON_SHARE = 0.85  # by use: "soon" once 85% of the way there
+RUN_WATTS = 20.0
+MAX_SAMPLE_GAP = 1800
 WARRANTY_WARN_DAYS = 30
 MAX_MANUAL_BYTES = 30 * 1024 * 1024
 
@@ -41,8 +52,14 @@ class Job(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     room: str = Field(min_length=1, max_length=40)
     appliance: str | None = Field(default=None, max_length=40)
-    every_days: int = Field(ge=1, le=3650)
+    every_days: int | None = Field(default=None, ge=1, le=3650)
     last_done: str | None = Field(default=None, max_length=10)
+    usage_entity: str | None = Field(default=None, max_length=120)
+    usage_unit: Literal["h", "kWh"] | None = None
+    usage_every: float | None = Field(default=None, gt=0, le=1_000_000)
+    usage_at_done: float | None = None
+    usage_now: float | None = None
+    usage_sampled_at: float | None = None
     snoozed_until: str | None = Field(default=None, max_length=10)
     notes: str = Field(default="", max_length=2000)
 
@@ -120,19 +137,37 @@ def _day(iso: str | None) -> date | None:
         return None
 
 
+def used(job: Job) -> float | None:
+    """How much it has run since it was last done (or since counting began)."""
+    if not job.usage_entity or job.usage_now is None or job.usage_at_done is None:
+        return None
+    return max(0.0, job.usage_now - job.usage_at_done)
+
+
+def _usage_state(job: Job) -> str | None:
+    u = used(job)
+    if u is None or not job.usage_every:
+        return None
+    if u >= job.usage_every * 1.1:
+        return "overdue"
+    if u >= job.usage_every:
+        return "due"
+    return "soon" if u >= job.usage_every * DUE_SOON_SHARE else "ok"
+
+
 def due_on(job: Job) -> date | None:
     last = _day(job.last_done)
-    if last is None:
+    if last is None or not job.every_days:
         return None
     due = last + timedelta(days=job.every_days)
     snoozed = _day(job.snoozed_until)
     return max(due, snoozed) if snoozed else due
 
 
-def state(job: Job, today: date) -> Literal["unset", "overdue", "due", "soon", "ok"]:
+def _date_state(job: Job, today: date) -> str | None:
     due = due_on(job)
     if due is None:
-        return "unset"
+        return None
     if due < today:
         return "overdue"
     if due == today:
@@ -140,10 +175,53 @@ def state(job: Job, today: date) -> Literal["unset", "overdue", "due", "soon", "
     return "soon" if (due - today).days <= DUE_SOON_DAYS else "ok"
 
 
+def state(job: Job, today: date) -> Literal["unset", "overdue", "due", "soon", "ok"]:
+    """The more pressing of the date and the use; a snooze holds both off."""
+    snoozed = _day(job.snoozed_until)
+    by_use = _usage_state(job) if not (snoozed and snoozed > today) else "ok" if _usage_state(job) else None
+    found = [x for x in (_date_state(job, today), by_use) if x]
+    if not found:
+        return "unset"
+    return min(found, key=["overdue", "due", "soon", "ok"].index)  # type: ignore[return-value]
+
+
+def sample_usage(u: dict[str, Any], now: float) -> int:
+    """Fold one power sample (SirisAI's energy usage) into the jobs counted by use."""
+    doc = load()
+    meters = {m["entity_id"]: float(m["kwh"]) for m in u.get("meters") or [] if m.get("entity_id")}
+    watts = {p["entity_id"]: float(p.get("watts") or 0) for p in u.get("power") or [] if p.get("entity_id")}
+    changed = 0
+    for j in doc.jobs:
+        if not j.usage_entity or not j.usage_unit:
+            continue
+        if j.usage_unit == "kWh" and j.usage_entity in meters:
+            reading = meters[j.usage_entity]
+            if j.usage_now is not None and reading < j.usage_now:  # meter reset: keep the count going from here
+                j.usage_at_done = (j.usage_at_done or 0) - (j.usage_now - reading)
+            j.usage_now = reading
+        elif j.usage_unit == "h" and j.usage_entity in watts:
+            hours = j.usage_now or 0.0
+            if j.usage_sampled_at is not None and 0 < now - j.usage_sampled_at <= MAX_SAMPLE_GAP and watts[j.usage_entity] > RUN_WATTS:
+                hours += (now - j.usage_sampled_at) / 3600
+            j.usage_now = round(hours, 3)
+        else:
+            continue
+        if j.usage_at_done is None:
+            j.usage_at_done = j.usage_now
+        j.usage_sampled_at = now
+        changed += 1
+    if changed:
+        save(doc)
+    return changed
+
+
 def job_view(job: Job, today: date) -> dict[str, Any]:
     due = due_on(job)
+    u = used(job)
     return {**job.model_dump(), "due_on": due.isoformat() if due else None, "state": state(job, today),
-            "days": (due - today).days if due else None}
+            "days": (due - today).days if due else None,
+            "used": round(u, 1) if u is not None else None,
+            "used_share": round(u / job.usage_every * 100) if u is not None and job.usage_every else None}
 
 
 def warranty_left(a: Appliance, today: date) -> int | None:
@@ -190,6 +268,8 @@ def done(job_id: str, on: date) -> Job:
     doc = load()
     job = find_job(doc, job_id)
     job.last_done, job.snoozed_until = on.isoformat(), None
+    if job.usage_now is not None:
+        job.usage_at_done = job.usage_now  # counting starts again
     save(doc)
     return job
 
@@ -215,8 +295,13 @@ def push_messages(now: datetime, hour: int = 9) -> list[dict[str, Any]]:
     for j in doc.jobs:
         if state(j, today) in ("due", "overdue"):
             due = due_on(j)
-            late = "" if due == today else f" · {(today - due).days} days overdue"
-            out.append(message(f"home:job:{j.id}:{due.isoformat()}", "home", j.title, f"Due{late}. {j.notes}".strip()[:200], "/house?view=maintenance",
+            if _usage_state(j) in ("due", "overdue") and (due is None or due > today):
+                unit = j.usage_unit or ""
+                why, key = f"Due: it has run {used(j):.0f} {unit} since it was last done (every {j.usage_every:g} {unit})", f"use{j.usage_at_done}"
+            else:
+                late = "" if due == today else f" · {(today - due).days} days overdue"
+                why, key = f"Due{late}", due.isoformat()
+            out.append(message(f"home:job:{j.id}:{key}", "home", j.title, f"{why}. {j.notes}".strip()[:200], "/house?view=maintenance",
                                target=f"homejob:{j.id}", actions=[{"id": "done", "title": "Done"}, {"id": "snooze", "title": "Next week"}]))
     for a in doc.appliances:
         left = warranty_left(a, today)

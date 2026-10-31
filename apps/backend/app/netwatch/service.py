@@ -15,6 +15,14 @@ there: that's the baseline, not a flood of "new device" alerts. After that:
 - **Blocked devices** are listed, with Unblock.
 
 Guest mode hides clients, so nothing is checked then.
+
+**Inventory** (6.2): each device can have a label ("Lounge TV"), an owner
+and a type, and takes its room from where it sits in the 3D house. Alerts
+use them ("Lounge TV (Lounge) is offline"), not the MAC. When SirisAI
+watches for new devices itself (3.83, `device_alerts`), with UniFi's own
+first-seen date and names, SirisOS leaves new devices to it rather than
+alert twice. Either way a device UniFi has a name for, or first saw over
+a day ago, isn't new.
 """
 
 from __future__ import annotations
@@ -55,6 +63,38 @@ def save(doc: dict[str, Any]) -> None:
     json_store.write(_path(), doc)
 
 
+def _rooms() -> dict[str, str]:
+    raw = json_store.read(json_store.data_path("SIRISOS_HOUSE_PATH", "house.json"), {})
+    return {k: v.get("room") for k, v in ((raw or {}).get("placements") or {}).items() if isinstance(v, dict) and v.get("room")}
+
+
+def label(entry: dict[str, Any], node_id: str, rooms: dict[str, str] | None = None) -> str:
+    """What to call it in an alert: your label (else UniFi's name), and its room."""
+    name = entry.get("label") or entry.get("name") or node_id
+    room = (rooms if rooms is not None else _rooms()).get(node_id)
+    return f"{name} ({room})" if room and room.lower() not in name.lower() else name
+
+
+def set_details(node_id: str, details: dict[str, Any]) -> dict[str, Any]:
+    doc = load()
+    entry = doc["known"].get(node_id)
+    if entry is None:
+        raise LookupError(node_id)
+    for key in ("label", "owner", "type"):
+        if key in details:
+            value = str(details[key] or "").strip()[:60]
+            if value:
+                entry[key] = value
+            else:
+                entry.pop(key, None)
+    entry["trusted"] = True  # described it: it's ours
+    save(doc)
+    return entry
+
+
+NEW_WITHIN_SECONDS = 24 * 3600
+
+
 def important(doc: dict[str, Any], node_id: str, entry: dict[str, Any]) -> bool:
     """Your choice if you made one, else infrastructure and the NAS/HA/cameras by name."""
     chosen = doc["important"].get(node_id)
@@ -63,11 +103,13 @@ def important(doc: dict[str, Any], node_id: str, entry: dict[str, Any]) -> bool:
     return entry.get("kind") in ("gateway", "switch", "access_point") or bool(IMPORTANT_NAMES.search(str(entry.get("name") or "")))
 
 
-def observe(doc: dict[str, Any], nodes: list[dict[str, Any]], now: float) -> list[dict[str, Any]]:
+def observe(doc: dict[str, Any], nodes: list[dict[str, Any]], now: float, sirisai_alerts: bool = False,
+            rooms: dict[str, str] | None = None) -> list[dict[str, Any]]:
     """Fold one look at the network into `doc`; returns the alerts it raises
     (as notifier messages). Pure apart from `doc`, for testing."""
     from app.push.notifier import message
 
+    rooms = rooms if rooms is not None else {}
     out: list[dict[str, Any]] = []
     seen = {str(n.get("id")): n for n in nodes if n.get("id")}
     stamp = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds")
@@ -77,7 +119,10 @@ def observe(doc: dict[str, Any], nodes: list[dict[str, Any]], now: float) -> lis
         if entry is None:
             entry = {"name": n.get("name") or nid, "kind": n.get("kind"), "first_seen": stamp, "trusted": first}
             doc["known"][nid] = entry
-            if not first and n.get("kind") == "client":
+            seen_before = n.get("first_seen") is not None and now - float(n["first_seen"]) > NEW_WITHIN_SECONDS
+            if n.get("named") or seen_before:
+                entry["trusted"] = True
+            if not first and n.get("kind") == "client" and not sirisai_alerts and not entry["trusted"]:
                 out.append(message(f"net:new:{nid}", "home", f"New on your network: {entry['name']}",
                                    f"{nid}{' · wired' if n.get('wired') else ''}. Is it yours?", "/house?view=network",
                                    "high", f"netdev:{nid}", [{"id": "trust", "title": "It's mine"}, {"id": "block", "title": "Block it"}]))
@@ -95,7 +140,7 @@ def observe(doc: dict[str, Any], nodes: list[dict[str, Any]], now: float) -> lis
             doc["missing_since"].pop(nid, None)
             continue
         if important(doc, nid, entry) and now - since >= OFFLINE_AFTER_SECONDS:
-            out.append(message(f"net:offline:{nid}:{int(since)}", "home", f"{entry['name']} is offline",
+            out.append(message(f"net:offline:{nid}:{int(since)}", "home", f"{label(entry, nid, rooms)} is offline",
                                f"Not on the network for {int((now - since) // 60)} minutes.", "/house?view=network", "high"))
     doc["baseline"] = True
     return out
@@ -112,18 +157,20 @@ async def check(hub: Hub, now: float | None = None) -> list[dict[str, Any]]:
     if not net or not net.get("configured") or net.get("guest_mode"):
         save(doc)
         return []
-    alerts = observe(doc, net.get("nodes") or [], now)
+    alerts = observe(doc, net.get("nodes") or [], now, bool(net.get("device_alerts")), _rooms())
     save(doc)
     return alerts
 
 
 def view() -> dict[str, Any]:
     doc = load()
+    rooms = _rooms()
     now = time.time()
     devices = []
     for nid, e in doc["known"].items():
         since = doc["missing_since"].get(nid)
-        devices.append({"id": nid, "name": e.get("name") or nid, "kind": e.get("kind"), "first_seen": e.get("first_seen"),
+        devices.append({"id": nid, "name": e.get("label") or e.get("name") or nid, "unifi_name": e.get("name"), "owner": e.get("owner"),
+                        "type": e.get("type"), "room": rooms.get(nid), "kind": e.get("kind"), "first_seen": e.get("first_seen"),
                         "last_seen": e.get("last_seen"), "trusted": bool(e.get("trusted")), "important": important(doc, nid, e),
                         "blocked": nid in doc["blocked"], "online": since is None,
                         "offline_minutes": int((now - since) // 60) if since else None})

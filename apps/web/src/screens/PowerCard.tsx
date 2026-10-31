@@ -24,6 +24,26 @@ export function PowerCard({ data, error, placements, onRoom }: {
             <div><div className="metric__value">{data.today_kwh != null ? `${data.today_kwh.toFixed(1)} kWh` : "–"}</div><div className="metric__label">Today</div></div>
             {data.solar_watts != null && <div><div className="metric__value">{watts(data.solar_watts)}</div><div className="metric__label">Solar</div></div>}
           </div>
+          {data.by_device && data.by_device.length > 0 && (
+            <>
+              <h3 className="maint__h">Today's biggest users</h3>
+              <ul className="items" aria-label="Today's biggest users">
+                {data.by_device.map((d) => (
+                  <li key={d.entity_id} className="item">
+                    <span className="item__text"><div className="item__title">{d.name}</div>
+                      <div className="item__subtitle">{d.kwh.toFixed(2)} kWh{d.share != null ? ` · ${d.share}% of today` : ""}</div></span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {data.always_on && (
+            <p style={{ margin: 0, fontSize: 14 }} aria-label="Always on">
+              <strong>Always on: {watts(data.always_on.watts)}</strong> overnight, about {data.always_on.kwh_year.toLocaleString()} kWh a year
+              {data.always_on.cost_year != null ? ` (~$${data.always_on.cost_year.toLocaleString()})` : ""}.
+              {data.always_on.devices.length > 0 && <> Never off: {data.always_on.devices.map((d) => `${d.name} ${watts(d.watts)}`).join(", ")}.</>}
+            </p>
+          )}
           {!data.power.length && <p className="muted" style={{ margin: 0, fontSize: 13 }}>No power sensors in Home Assistant yet: smart plugs and a whole-house meter show up here.</p>}
           {data.power.length > 0 && (
             <>

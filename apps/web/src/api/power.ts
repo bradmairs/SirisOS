@@ -13,6 +13,9 @@ export interface Power {
   meters: { entity_id: string; name: string; kwh: number }[];
   today_kwh: number | null;
   method: string | null;
+  /** 6.2: today's biggest users, and what the house never stops drawing. */
+  by_device?: { entity_id: string; name: string; kwh: number; share: number | null }[];
+  always_on?: { date: string; watts: number; kwh_year: number; cost_year: number | null; devices: { entity_id: string; name: string; watts: number }[] } | null;
 }
 
 export const power = { get: () => api<Power>("/api/v1/power") };

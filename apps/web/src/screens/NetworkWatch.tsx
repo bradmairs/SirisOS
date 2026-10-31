@@ -1,9 +1,39 @@
 import { useState } from "react";
-import { ShieldAlert, Star } from "lucide-react";
+import { Pencil, ShieldAlert, Star } from "lucide-react";
 import { netwatch, type NetWatch, type WatchedDevice } from "../api/netwatch";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { useShowMore } from "../components/ShowMore";
+import { roomById } from "../house/layout";
+
+const roomName = (id: string) => roomById(id)?.name ?? id;
+
+const TYPES = ["Phone", "Laptop", "TV", "Speaker", "Camera", "Light", "Plug", "Appliance", "Console", "Server", "Other"];
+
+/** Name a device, say whose it is and what it is (6.2): alerts then read "Lounge TV (Lounge) is offline". */
+function Describe({ d, busy, onSave }: { d: WatchedDevice; busy: boolean; onSave: (details: { label: string; owner: string; type: string }) => void }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ label: d.unifi_name && d.name === d.unifi_name ? "" : d.name, owner: d.owner ?? "", type: d.type ?? "" });
+  if (!open) {
+    return <button type="button" className="icon-button" aria-label={`Describe ${d.name}`} onClick={() => setOpen(true)}><Pencil size={16} aria-hidden="true" /></button>;
+  }
+  return (
+    <form className="row netwatch__describe" style={{ gap: 6, flexWrap: "wrap", flexBasis: "100%" }} aria-label={`Describe ${d.name}`}
+      onSubmit={(e) => { e.preventDefault(); onSave(f); setOpen(false); }}>
+      <input className="field" placeholder={d.unifi_name ?? "Name"} aria-label="Name" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} />
+      <input className="field" placeholder="Whose" aria-label="Whose" value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })} />
+      <select className="field" aria-label="What it is" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
+        <option value="">What it is</option>
+        {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <button type="submit" className="button button--small button--primary" disabled={busy}>Save</button>
+    </form>
+  );
+}
+
+function subtitle(d: WatchedDevice, status: string): string {
+  return [status, d.room ? roomName(d.room) : null, d.type, d.owner ? `${d.owner}'s` : null].filter(Boolean).join(" · ");
+}
 
 const ago = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
 
@@ -70,7 +100,8 @@ export function NetworkWatchCard() {
               <li key={d.id} className="item">
                 <span className={`item__dot ${d.online ? "dot-good" : "dot-critical"}`} aria-hidden="true" />
                 <span className="item__text"><div className="item__title">{d.name}</div>
-                  <div className="item__subtitle">{d.online ? "Online" : `Offline for ${d.offline_minutes ?? 0} min`}</div></span>
+                  <div className="item__subtitle">{subtitle(d, d.online ? "Online" : `Offline for ${d.offline_minutes ?? 0} min`)}</div></span>
+                <Describe d={d} busy={busy === d.id} onSave={(x) => run(d.id, netwatch.describe(d.id, x))} />
                 {star(d)}
               </li>
             ))}
@@ -100,7 +131,8 @@ export function NetworkWatchCard() {
             {more.shown.map((d) => (
               <li key={d.id} className="item">
                 <span className={`item__dot ${d.online ? "dot-good" : ""}`} aria-hidden="true" />
-                <span className="item__text"><div className="item__title">{d.name}</div><div className="item__subtitle">{d.online ? "Online" : "Not on now"}</div></span>
+                <span className="item__text"><div className="item__title">{d.name}</div><div className="item__subtitle">{subtitle(d, d.online ? "Online" : "Not on now")}</div></span>
+                <Describe d={d} busy={busy === d.id} onSave={(x) => run(d.id, netwatch.describe(d.id, x))} />
                 {star(d)}
               </li>
             ))}
