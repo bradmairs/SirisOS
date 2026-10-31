@@ -85,6 +85,23 @@ def test_vapid_key_is_kept_and_signs_for_the_push_origin(data):
     assert header.endswith(f"k={first.public_key}")
 
 
+@pytest.mark.parametrize("configured, expected", [
+    (None, webpush.DEFAULT_SUBJECT),
+    ("mailto:sirisos@localhost", webpush.DEFAULT_SUBJECT),
+    ("https://localhost:8443", webpush.DEFAULT_SUBJECT),
+    ("mailto:me@siris.local", webpush.DEFAULT_SUBJECT),
+    ("me@example.com", webpush.DEFAULT_SUBJECT),
+    ("mailto:me@example.com", "mailto:me@example.com"),
+    ("https://example.com", "https://example.com"),
+])
+def test_the_vapid_subject_is_one_apple_accepts(monkeypatch, configured, expected):
+    if configured is None:
+        monkeypatch.delenv("SIRISOS_VAPID_SUBJECT", raising=False)
+    else:
+        monkeypatch.setenv("SIRISOS_VAPID_SUBJECT", configured)
+    assert webpush.subject() == expected
+
+
 def test_subscribe_list_and_unsubscribe():
     client = TestClient(app)
     assert client.get("/api/v1/push/key").status_code == 401

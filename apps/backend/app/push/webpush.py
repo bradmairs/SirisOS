@@ -5,7 +5,9 @@ and PyJWT are needed; httpx does the sending.
 
 The VAPID key pair is made on first use and kept in the data directory, so
 subscriptions stay valid across restarts. SIRISOS_VAPID_SUBJECT (a mailto:
-or https: URL) is who push services contact about misuse.
+or https: URL) is who push services contact about misuse. Apple refuses a
+subject on localhost (403 BadJwtToken), so one like that is replaced with
+the project's page (5.81).
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import struct
 import time
@@ -30,6 +33,9 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from app.services import json_store
 
 RECORD_SIZE = 4096
+DEFAULT_SUBJECT = "https://github.com/bradmairs/SirisOS"
+
+logger = logging.getLogger(__name__)
 
 
 def b64url(data: bytes) -> str:
@@ -100,7 +106,14 @@ def vapid() -> Vapid:
 
 
 def subject() -> str:
-    return os.getenv("SIRISOS_VAPID_SUBJECT") or "mailto:sirisos@localhost"
+    configured = (os.getenv("SIRISOS_VAPID_SUBJECT") or "").strip()
+    if not configured:
+        return DEFAULT_SUBJECT
+    host = urlsplit(configured).hostname or configured.rpartition("@")[2]
+    if not configured.startswith(("mailto:", "https:")) or host in ("localhost", "") or host.endswith((".local", ".localhost")):
+        logger.warning("SIRISOS_VAPID_SUBJECT %r isn't accepted by Apple's push service; using %s", configured, DEFAULT_SUBJECT)
+        return DEFAULT_SUBJECT
+    return configured
 
 
 class Gone(Exception):
