@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=history", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "desktop", width: 1280, height: 900, mobile: false }];
 const health = JSON.parse(readFileSync("src/screens/__health_fixture.json", "utf8"));
 const hud = { system: { cpu_percent: 7, memory: { percent_used: 41, used_gb: 13.1, total_gb: 32 }, disk: { "/": { percent_used: 63, used_gb: 590, total_gb: 937 } }, temperatures_celsius: {} } };
@@ -20,14 +20,21 @@ const attention = { items: [
   { id: "2", source: "devices", kind: "alert", title: "New device: Espressif on IoT", body: "MAC: aa:bb:cc:dd:ee:ff", severity: "attention", actions: [{ id: "name", label: "Name it", style: "primary" }], created_at: "2026-10-31T05:00:00Z", updated_at: "2026-10-31T05:00:00Z", app: "sirisai", origin: "sirisai", url: null, link: null },
 ], counts: { open: 2, urgent: 0 } };
 const gymFixture = {
-  settings: { unit: "kg", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90 },
+  settings: { unit: "kg", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90, current_gym: "home", warmups: true,
+    warmup_steps: [{ percent: 0.4, reps: 5 }, { percent: 0.6, reps: 3 }, { percent: 0.8, reps: 2 }],
+    gyms: [{ id: "home", name: "Home", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], dumbbells: [], stack_step: null },
+      { id: "work", name: "Work gym", bar: 15, plates: [20, 10, 5, 2.5], dumbbells: [10, 12.5, 15, 17.5, 20], stack_step: 5 }] },
   exercises: [{ id: "bench-press", name: "Bench Press", primary: "chest", secondary: ["triceps", "shoulders"], equipment: "barbell", kind: "weight", custom: false },
     { id: "plank", name: "Plank", primary: "abs", secondary: [], equipment: "bodyweight", kind: "time", custom: false }],
   routines: [{ id: "r1", name: "Push, pull, legs", days: [{ name: "Push", exercises: [{ exercise: "bench-press", sets: 4, reps: "5-8", rest_s: 150 }] }], active: true }],
   active: { routine: "r1", next_day: 0 }, recent: [{ id: "s1", title: "Push, pull, legs: Push", date: "2026-11-02", started_at: "2026-11-02T07:00:00Z", minutes: 64, sets: 18, exercises: 5, volume: 9420, names: [] }],
   week: { week_of: "2026-11-02", sessions: 2, sets_by_muscle: { chest: 8, shoulders: 6, triceps: 5.5, back: 4 }, volume: 15200 }, streak_weeks: 6, total_sessions: 41,
 };
+const heat = { days: Array.from({ length: 120 }, (_, i) => { const d = new Date(Date.now() - i * 3 * 86400000); return { date: d.toISOString().slice(0, 10), volume: 4000 + (i % 5) * 1500, sets: 18, muscles: ["chest"] }; }) };
 const FIXTURES = [
+  ["/api/v1/gym/heatmap", heat],
+  ["/api/v1/gym/sessions", { sessions: gymFixture.recent }],
+  ["/api/v1/gym/templates", { templates: [] }],
   ["/api/v1/gym", gymFixture],
   ["/api/v1/health/today", { readiness: health.readiness, energy: health.energy }],
   ["/api/v1/health", health],
@@ -48,11 +55,11 @@ try {
     await ctx.addInitScript(() => {
       localStorage.setItem("sirisos.token", "t"); localStorage.setItem("sirisos.user", "brad");
       localStorage.setItem("sirisos.gym.active", JSON.stringify({ id: "w1", title: "Push, pull, legs: Push", started_at: new Date(Date.now() - 1500000).toISOString(), entries: [
-        { exercise: "bench-press", sets: [{ weight: 20, reps: 10, done: true, type: "warmup" }, { weight: 82.5, reps: 8, done: true, type: "normal" }, { weight: 82.5, reps: null, done: false, type: "normal" }] },
-        { exercise: "plank", sets: [{ seconds: 60, done: false, type: "normal" }] }] }));
+        { exercise: "bench-press", group: "A", note: "Elbows in", sets: [{ weight: 20, reps: 10, done: true, type: "warmup" }, { weight: 82.5, reps: 8, done: true, type: "normal", rpe: 8 }, { weight: 82.5, reps: null, done: false, type: "normal" }] },
+        { exercise: "plank", group: "A", sets: [{ seconds: 60, done: false, type: "normal" }] }] }));
     });
     await ctx.route("**/api/**", (route) => {
-      const path = new URL(route.request().url()).pathname;
+      const path = new URL(route.request().url()).pathname;  // query strings aside
       const hit = FIXTURES.find(([p]) => path === p);
       return hit ? route.fulfill({ json: hit[1] }) : route.fulfill({ status: 404, json: { detail: "Not in the visual-check fixtures" } });
     });
@@ -88,7 +95,7 @@ try {
       for (const w of layout.wide) failures.push(`${where}: pokes out of the screen: ${w}`);
       if (layout.dockBottom != null && (layout.dockBottom < 0 || layout.dockBottom > 60)) failures.push(`${where}: the dock is ${layout.dockBottom}px off the bottom`);
       for (const e of errors) failures.push(`${where}: threw ${e}`);
-      await page.screenshot({ path: `${OUT}/${size.name}${screen === "/" ? "-home" : screen.replaceAll("/", "-")}.png`, fullPage: true });
+      await page.screenshot({ path: `${OUT}/${size.name}${screen === "/" ? "-home" : screen.replace(/[/?=]/g, "-")}.png`, fullPage: true });
       await page.close();
     }
     await ctx.close();

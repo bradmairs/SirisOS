@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronRight, Dumbbell, Flame, ListPlus, Medal, Play, Plus, Search, Trash2, Trophy, Upload } from "lucide-react";
+import { CalendarDays, ChevronRight, Dumbbell, Flame, ListPlus, Medal, Play, Plus, Search, Settings2, Trash2, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type ImportPreview, type ImportUnit, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type GymProfile, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 
 /** SirisGYM (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
-const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "exercises", label: "Exercises" }] as const;
+const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "exercises", label: "Exercises" },
+  { id: "settings", label: "Settings" }] as const;
 type View = (typeof VIEWS)[number]["id"];
 const MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "abs", "quads", "hamstrings", "glutes", "calves", "full body", "cardio"];
 const EQUIPMENT = ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell", "band", "smith", "ez bar", "trap bar", "other"];
@@ -19,15 +20,19 @@ export function useGym() {
   return useResource<Gym>("gym", () => gym.get(), { staleMs: 30_000, persist: true });
 }
 
-/** Start a workout: from a routine day (with last time and what to lift), or empty. */
-export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number) {
+/** Start a workout: from a routine day (with last time, what to lift and warm-ups), or empty. */
+export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string) {
   const now = new Date().toISOString();
-  let s: Session = { id: newId(), title: "Workout", started_at: now, entries: [] };
+  let s: Session = { id: newId(), title: "Workout", started_at: now, entries: [], gym: gymId ?? null };
   if (routine) {
-    const p = await gym.plan(routine.id, day);
+    const p = await gym.plan(routine.id, day, gymId);
     s = { ...s, title: p.title, routine_id: routine.id, day: p.day, entries: p.exercises.map((e) => ({
       exercise: e.exercise,
-      sets: Array.from({ length: e.sets }, (_, i) => ({ weight: e.suggest.weight ?? e.last[i]?.weight ?? null, reps: null, done: false, type: "normal" as const })),
+      group: e.group ?? null,
+      sets: [
+        ...(e.warmups ?? []).map((w) => ({ weight: w.weight, reps: w.reps, done: false, type: "warmup" as const })),
+        ...Array.from({ length: e.sets }, (_, i) => ({ weight: e.suggest.per_set?.[i] ?? e.suggest.weight ?? e.last[i]?.weight ?? null, reps: null, done: false, type: "normal" as const })),
+      ],
     })) };
     try { window.sessionStorage.setItem(`sirisos.gym.plan.${s.id}`, JSON.stringify(p)); } catch { /* fine */ }
   }
@@ -58,6 +63,7 @@ export function GymScreen() {
           {view === "routines" && <RoutinesView g={g} onChange={() => res.reload?.(true)} />}
           {view === "history" && <HistoryView g={g} onChange={() => res.reload?.(true)} />}
           {view === "exercises" && <ExercisesView g={g} onChange={() => res.reload?.(true)} />}
+          {view === "settings" && <SettingsView g={g} onChange={() => res.reload?.(true)} />}
         </div>
       )}
     </>
@@ -70,7 +76,8 @@ function TodayView({ g }: { g: Gym }) {
   const routine = g.routines.find((r) => r.id === g.active?.routine);
   const next = routine?.days[g.active?.next_day ?? 0];
   const [busy, setBusy] = useState(false);
-  const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d); } finally { setBusy(false); } };
+  const [gymId, setGymId] = useState(g.settings.current_gym);
+  const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId); } finally { setBusy(false); } };
   const muscles = Object.entries(g.week.sets_by_muscle);
   const most = Math.max(1, ...muscles.map(([, n]) => n));
   return (
@@ -84,6 +91,14 @@ function TodayView({ g }: { g: Gym }) {
       )}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">
         <header className="widget__head"><Play aria-hidden="true" /><span>Today's workout</span></header>
+        {g.settings.gyms.length > 1 && (
+          <div className="row" role="radiogroup" aria-label="Which gym" style={{ gap: 6, flexWrap: "wrap" }}>
+            {g.settings.gyms.map((x) => (
+              <button key={x.id} type="button" role="radio" aria-checked={gymId === x.id} className={`chip chip--button ${gymId === x.id ? "chip--active" : ""}`}
+                onClick={() => { setGymId(x.id); void gym.settings({ ...g.settings, current_gym: x.id }); }}>{x.name}</button>
+            ))}
+          </div>
+        )}
         {routine && next ? (
           <>
             <p style={{ margin: 0, fontSize: 16 }}><strong>{routine.name}: {next.name}</strong></p>
@@ -191,8 +206,36 @@ function HistoryView({ g, onChange }: { g: Gym; onChange: () => void }) {
         </div>
       </Glass>
       <RecentList g={g} items={res.data?.sessions ?? []} />
+      <HeatmapCard />
       <ImportCard g={g} onDone={() => { onChange(); res.reload?.(true); }} />
     </>
+  );
+}
+
+/** The last year of training, a square a day, darker for more volume (6.7). */
+function HeatmapCard() {
+  const res = useResource("gym:heatmap", () => gym.heatmap(), { staleMs: 60_000 });
+  const days = res.data?.days ?? [];
+  const by = new Map(days.map((d) => [d.date, d] as const));
+  const max = Math.max(1, ...days.map((d) => d.volume));
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364 - ((today.getDay() + 6) % 7));
+  const cells: { iso: string; level: number; title: string }[] = [];
+  for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const x = by.get(iso);
+    const level = x ? Math.min(4, 1 + Math.floor((x.volume / max) * 4)) : 0;
+    cells.push({ iso, level, title: x ? `${iso}: ${x.sets} sets, ${Math.round(x.volume).toLocaleString()} kg${x.muscles.length ? ` (${x.muscles.join(", ")})` : ""}` : iso });
+  }
+  const weeks = new Set(days.filter((d) => d.date >= cells[0]?.iso).map((d) => d.date)).size;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="The last year">
+      <header className="widget__head"><Flame aria-hidden="true" /><span>The last year</span><span className="widget__source">{weeks} workouts</span></header>
+      <div className="gym-heat" role="img" aria-label={`${weeks} workouts in the last year`}>
+        {cells.map((c) => <span key={c.iso} className={`gym-heat__day gym-heat__day--${c.level}`} title={c.title} />)}
+      </div>
+    </Glass>
   );
 }
 
@@ -332,6 +375,20 @@ function RoutineEditor({ g, start, onClose, onSaved }: { g: Gym; start: Routine;
                 <span className="muted">×</span>
                 <input className="field" aria-label="Reps" value={e.reps} onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, reps: ev.target.value } : x)) })} />
                 <button type="button" className="icon-link" aria-label="Remove" onClick={() => setDay(i, { ...d, exercises: d.exercises.filter((_, j) => j !== k) })}><Trash2 size={14} aria-hidden="true" /></button>
+                <div className="row gym-plan-row__more">
+                  <select className="field" aria-label={`How ${g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise} progresses`} value={e.progression ?? "double"}
+                    onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, progression: ev.target.value as Progression } : x)) })}>
+                    <option value="double">Top of range, then add</option><option value="linear">Add every session</option><option value="percent">% of training max</option>
+                  </select>
+                  {e.progression === "percent" && (
+                    <input className="field" aria-label="Percent per set" placeholder="75, 80, 85" defaultValue={(e.percents ?? []).map((p) => Math.round(p * 100)).join(", ")}
+                      onBlur={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, percents: ev.target.value.split(/[ ,]+/).map(Number).filter((n) => n > 0 && n <= 100).map((n) => n / 100) } : x)) })} />
+                  )}
+                  <select className="field" aria-label="Superset" value={e.group ?? ""}
+                    onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, group: ev.target.value || null } : x)) })}>
+                    <option value="">On its own</option>{["A", "B", "C", "D"].map((l) => <option key={l} value={l}>Superset {l}</option>)}
+                  </select>
+                </div>
               </div>
             ))}
             <button type="button" className="chip chip--button" onClick={() => setPicking(i)}><Plus size={12} aria-hidden="true" /> Exercise</button>
@@ -470,5 +527,51 @@ function E1rmChart({ series }: { series: ExerciseDetail["series"] }) {
       <polyline points={pts.map((p) => `${x(p.i)},${y(p.y)}`).join(" ")} className="spark__line" />
       {pts.map((p) => <circle key={p.i} cx={x(p.i)} cy={y(p.y)} r={2.5} className="spark__dot" />)}
     </svg>
+  );
+}
+
+const list = (v: string) => v.split(/[ ,]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+
+/** SirisGYM's settings (6.7): rest, the weight step, warm-ups, and each gym with its bar, plates, dumbbells and machines. */
+function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
+  const [s, setS] = useState<GymSettings>(g.settings);
+  const [saved, setSaved] = useState(false);
+  const setGym = (id: string, patch: Partial<GymProfile>) => setS({ ...s, gyms: s.gyms.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  const save = async () => { setSaved(false); setS(await gym.settings(s)); setSaved(true); onChange(); };
+  return (
+    <>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Training settings">
+        <header className="widget__head"><Settings2 aria-hidden="true" /><span>Training</span></header>
+        <label className="gym-setting">Rest between sets (s)<input className="field" type="number" min={0} max={900} value={s.rest_s} onChange={(e) => setS({ ...s, rest_s: Number(e.target.value) || 0 })} /></label>
+        <label className="gym-setting">Weight step (kg)<input className="field" type="number" step={0.25} min={0.25} max={20} value={s.increment} onChange={(e) => setS({ ...s, increment: Number(e.target.value) || 2.5 })} /></label>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
+        {s.warmups && (
+          <label className="gym-setting">Warm-ups (% of the working weight × reps)
+            <input className="field" aria-label="Warm-up steps" defaultValue={s.warmup_steps.map((w) => `${Math.round(w.percent * 100)}x${w.reps}`).join(", ")}
+              onBlur={(e) => setS({ ...s, warmup_steps: e.target.value.split(/[ ,]+/).map((t) => t.split(/x|×/)).filter((p) => p.length === 2 && Number(p[0]) > 0 && Number(p[1]) > 0)
+                .map(([p, r]) => ({ percent: Math.min(1, Number(p) / 100), reps: Number(r) })) })} />
+          </label>
+        )}
+      </Glass>
+      {s.gyms.map((x) => (
+        <Glass key={x.id} as="section" className="widget" style={{ minHeight: 0 }} aria-label={`Gym: ${x.name}`}>
+          <header className="widget__head"><Dumbbell aria-hidden="true" /><span>{x.name}{x.id === s.current_gym ? " · current" : ""}</span>
+            {s.gyms.length > 1 && <button type="button" className="widget__source icon-link" aria-label={`Remove ${x.name}`}
+              onClick={() => setS({ ...s, gyms: s.gyms.filter((y) => y.id !== x.id), current_gym: s.current_gym === x.id ? s.gyms.find((y) => y.id !== x.id)!.id : s.current_gym })}><Trash2 size={14} aria-hidden="true" /></button>}</header>
+          <label className="gym-setting">Name<input className="field" value={x.name} onChange={(e) => setGym(x.id, { name: e.target.value })} /></label>
+          <label className="gym-setting">Bar (kg)<input className="field" type="number" step={0.5} value={x.bar} onChange={(e) => setGym(x.id, { bar: Number(e.target.value) || 0 })} /></label>
+          <label className="gym-setting">Plates (kg, one of each pair)<input className="field" defaultValue={x.plates.join(", ")} onBlur={(e) => setGym(x.id, { plates: list(e.target.value) })} /></label>
+          <label className="gym-setting">Dumbbells on the rack (kg; empty for any)<input className="field" defaultValue={x.dumbbells.join(", ")} placeholder="2.5, 5, 7.5, 10 …" onBlur={(e) => setGym(x.id, { dumbbells: list(e.target.value) })} /></label>
+          <label className="gym-setting">Machine stack step (kg)<input className="field" type="number" step={0.5} value={x.stack_step ?? ""} placeholder="any" onChange={(e) => setGym(x.id, { stack_step: Number(e.target.value) || null })} /></label>
+          {x.id !== s.current_gym && <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => setS({ ...s, current_gym: x.id })}>Train here now</button>}
+        </Glass>
+      ))}
+      <div className="row" style={{ gap: 8 }}>
+        <button type="button" className="button" onClick={() => setS({ ...s, gyms: [...s.gyms, { id: newId(), name: `Gym ${s.gyms.length + 1}`, bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], dumbbells: [], stack_step: null }] })}>
+          <Plus size={14} aria-hidden="true" /> Add a gym</button>
+        <button type="button" className="button button--primary" onClick={save}>Save settings</button>
+        {saved && <span role="status" className="muted">Saved.</span>}
+      </div>
+    </>
   );
 }

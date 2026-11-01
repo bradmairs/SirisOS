@@ -147,5 +147,68 @@ def test_a_gym_kept_in_pounds_is_converted_to_kilograms(client, tmp_path):
     (tmp_path / "gym.json").write_text(json.dumps({"settings": {"unit": "lb", "bar": 45, "plates": [45, 25], "increment": 5, "rest_s": 90},
         "sessions": [session("s1", "2026-11-02", [(225, 5)])]}))
     over = client.get("/api/v1/gym", headers=AUTH).json()
-    assert over["settings"] == {"unit": "kg", "bar": 20.41, "plates": [20.41, 11.34], "increment": 2.27, "rest_s": 90}
+    assert {k: over["settings"][k] for k in ("unit", "bar", "plates", "increment", "rest_s")} == {"unit": "kg", "bar": 20.41, "plates": [20.41, 11.34], "increment": 2.27, "rest_s": 90}
     assert client.get("/api/v1/gym/exercises/bench-press", headers=AUTH).json()["records"]["heaviest"]["weight"] == 102.06
+
+
+# 6.7: gyms, warm-ups, progression rules, effort, supersets, heatmap.
+
+def _routine(client, **plan) -> str:
+    body = {"routine": {"name": "Test", "days": [{"name": "A", "exercises": [{"exercise": "bench-press", "sets": 3, "reps": "5-8", **plan}]}], "active": True}}
+    return client.post("/api/v1/gym/routines", headers=AUTH, json=body).json()["id"]
+
+
+def test_gym_profiles_round_to_what_the_gym_has_and_warm_ups_load_the_bar(client):
+    s = client.get("/api/v1/gym", headers=AUTH).json()["settings"]
+    assert s["current_gym"] == "home" and s["gyms"][0]["bar"] == 20
+    s["gyms"].append({"id": "work", "name": "Work gym", "bar": 15, "plates": [20, 10, 5, 2.5], "dumbbells": [10, 12.5, 15, 17.5, 20], "stack_step": 5})
+    s["current_gym"] = "work"
+    saved = client.put("/api/v1/gym/settings", headers=AUTH, json=s).json()
+    assert saved["bar"] == 15 and saved["plates"] == [20, 10, 5, 2.5]  # the current gym's
+    doc = store.load()
+    assert service.loadable(doc, "bench-press", 83) == 85 and service.loadable(doc, "db-curl", 14) == 15  # 5 kg steps; nearest dumbbell
+    assert service.loadable(doc, "lat-pulldown", 47) == 45
+    warm = client.get("/api/v1/gym/warmups?exercise=bench-press&weight=100&gym=home", headers=AUTH).json()["warmups"]
+    assert warm == [{"weight": 20, "reps": 10}, {"weight": 40, "reps": 5}, {"weight": 60, "reps": 3}, {"weight": 80, "reps": 2}]
+    rid = _routine(client)
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-11-02", [(100, 8), (100, 8), (100, 8)]))
+    p = client.get(f"/api/v1/gym/plan?routine={rid}&gym=home", headers=AUTH).json()["exercises"][0]
+    assert p["suggest"]["weight"] == 102.5 and p["warmups"][-1] == {"weight": 82.5, "reps": 2}
+    assert client.get("/api/v1/gym/sessions/s1", headers=AUTH).json()["gym"] == "work"
+
+
+def test_easy_sets_add_more_a_grind_holds_and_last_notes_come_back(client):
+    rid = _routine(client)
+    easy = session("s1", "2026-11-02", [(80, 8), (80, 8)])
+    easy["entries"][0]["sets"] = [{**x, "rpe": 7} for x in easy["entries"][0]["sets"]]
+    easy["entries"][0]["note"] = "Left shoulder niggle"
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=easy)
+    p = client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()["exercises"][0]["suggest"]
+    assert p["weight"] == 85 and "felt easy" in p["why"] and p["last_note"] == "Left shoulder niggle"
+    grind = session("s2", "2026-11-04", [(85, 6), (85, 5)])
+    grind["entries"][0]["sets"][-1]["rpe"] = 10
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=grind)
+    p = client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()["exercises"][0]["suggest"]
+    assert p["weight"] == 85 and "grind" in p["why"]
+
+
+def test_linear_backs_off_after_two_misses_and_percent_uses_the_training_max(client):
+    rid = _routine(client, reps="5", progression="linear")
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-10-28", [(100, 4), (100, 5)]))
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s2", "2026-11-02", [(100, 4), (100, 3)]))
+    p = client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()["exercises"][0]["suggest"]
+    assert p["weight"] == 90 and "back off" in p["why"]
+    rid2 = _routine(client, reps="5", progression="percent", percents=[0.7, 0.8, 0.9])
+    p = client.get(f"/api/v1/gym/plan?routine={rid2}", headers=AUTH).json()["exercises"][0]["suggest"]
+    # best e1RM 100×5 = 116.7; training max 105; 70/80/90% loadable in 2.5 kg steps
+    assert p["training_max"] == 105 and p["per_set"] == [72.5, 85, 95]
+
+
+def test_supersets_keep_their_group_and_the_heatmap_counts_each_day(client):
+    s = session("s1", "2026-11-02", [(80, 8)])
+    s["entries"][0]["group"] = "A"
+    s["entries"].append({"exercise": "barbell-row", "group": "A", "sets": [{"weight": 60, "reps": 10}]})
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=s)
+    assert [e["group"] for e in client.get("/api/v1/gym/sessions/s1", headers=AUTH).json()["entries"]] == ["A", "A"]
+    days = client.get("/api/v1/gym/heatmap", headers=AUTH).json()["days"]
+    assert days == [{"date": "2026-11-02", "volume": 80 * 8 + 600, "sets": 2, "muscles": ["chest", "back"]}]
