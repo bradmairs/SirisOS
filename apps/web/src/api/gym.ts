@@ -1,4 +1,4 @@
-import { api, json } from "./client";
+import { api, json, request } from "./client";
 
 export type Kind = "weight" | "bodyweight" | "time" | "cardio";
 export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean }
@@ -25,7 +25,22 @@ export interface ExerciseDetail {
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
 }
 
+export interface ImportPreview {
+  sets: number; workouts: number; from: string | null; to: string | null; replacing: number;
+  exercises: { name: string; sets: number; match: string | null; match_name: string | null; how: "exact" | "close" | "guess" | "none"; new_muscle: string }[];
+}
+export type ImportUnit = "auto" | "kg" | "lb";
+
 const G = "/api/v1/gym";
+async function importFile<T>(file: File, unit: ImportUnit, choices?: Record<string, string>): Promise<T> {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("unit", unit);
+  body.append("dry_run", choices ? "false" : "true");
+  if (choices) body.append("choices", JSON.stringify(choices));
+  const r = await request(`${G}/import`, { method: "POST", body });
+  return (await r.json()) as T;
+}
 export const gym = {
   get: () => api<Gym>(G),
   settings: (s: GymSettings) => api<GymSettings>(`${G}/settings`, { method: "PUT", body: JSON.stringify(s) }),
@@ -39,6 +54,9 @@ export const gym = {
   finish: (s: Session) => api<{ summary: Summary; records: GymRecord[] }>(`${G}/sessions`, json(s)),
   sessions: (month?: string) => api<{ sessions: Summary[] }>(`${G}/sessions${month ? `?month=${month}` : ""}`),
   session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[] }>(`${G}/sessions/${id}`),
+  importPreview: (file: File, unit: ImportUnit) => importFile<{ preview: ImportPreview }>(file, unit),
+  importCommit: (file: File, unit: ImportUnit, choices: Record<string, string>) =>
+    importFile<{ imported: { workouts: number; sets: number; new_exercises: number } }>(file, unit, choices),
   deleteSession: (id: string) => api<{ deleted: string }>(`${G}/sessions/${id}`, { method: "DELETE" }),
 };
 

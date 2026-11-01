@@ -36,6 +36,33 @@ describe("<GymScreen />", () => {
   });
 });
 
+describe("Import from JEFIT (6.6)", () => {
+  it("previews an export, lets you change a match, then imports with your choices", async () => {
+    signIn();
+    const preview = { sets: 1200, workouts: 310, from: "2021-03-05", to: "2026-10-30", replacing: 0, exercises: [
+      { name: "Barbell Bench Press", sets: 800, match: "bench-press", match_name: "Bench Press", how: "close", new_muscle: "chest" },
+      { name: "Zercher Carry", sets: 400, match: null, match_name: null, how: "none", new_muscle: "full body" }] };
+    const calls = mockFetch({
+      "/api/v1/gym/import": (_url, init) => jsonResponse((init?.body as FormData).get("dry_run") === "true"
+        ? { preview } : { imported: { workouts: 310, sets: 1200, new_exercises: 1 } }),
+      "/api/v1/gym/sessions": () => jsonResponse({ sessions: [] }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/gym?view=history"]}><GymScreen /></MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "SirisGYM" })).toBeInTheDocument();
+    await user.upload(await screen.findByLabelText("Export file"), new File(["mydate,ename,logs"], "jefit.csv", { type: "text/csv" }));
+    expect(await screen.findByText("310 workouts, 1,200 sets")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Exercises to match" });
+    expect(within(list).getByRole("combobox", { name: "Zercher Carry is" })).toHaveValue("new");
+    await user.selectOptions(within(list).getByRole("combobox", { name: "Barbell Bench Press is" }), "bench-press");
+    await user.click(screen.getByRole("button", { name: "Import 310 workouts" }));
+    expect(await screen.findByText(/Imported 310 workouts and 1,200 sets, with 1 new exercises/)).toBeInTheDocument();
+    const sent = calls.filter((c) => c.url === "/api/v1/gym/import").pop()!.init.body as FormData;
+    expect(JSON.parse(String(sent.get("choices")))).toEqual({ "Barbell Bench Press": "bench-press", "Zercher Carry": "new" });
+  });
+});
+
 describe("<GymWorkoutScreen />", () => {
   it("logs a set from last time, starts the rest timer, and finishes with the records", async () => {
     signIn();

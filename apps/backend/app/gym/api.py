@@ -15,17 +15,20 @@
     GET    /api/v1/gym/sessions/{id}
     DELETE /api/v1/gym/sessions/{id}
     GET    /api/v1/gym/plates?weight=        the plates for each side
+    POST   /api/v1/gym/import                (6.6) a JEFIT export or any CSV/zip: form `file`, `unit` (auto/kg/lb),
+                                             `dry_run` (default true: a preview), `choices` (JSON: name -> exercise id or "new")
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
-from app.gym import service, store, templates
+from app.gym import importer, service, store, templates
 from app.tasks import service as tasks
 
 router = APIRouter(prefix="/api/v1/gym", tags=["gym"], dependencies=[Depends(require_user)])
@@ -209,3 +212,25 @@ def delete_session(session_id: str) -> dict[str, Any]:
 def get_plates(weight: float = Query(ge=0, le=2000)) -> dict[str, Any]:
     s = store.load().settings
     return service.plates(weight, s.bar, s.plates)
+
+
+@router.post("/import")
+async def import_file(file: UploadFile = File(...), unit: str = Form("auto"), dry_run: bool = Form(True), choices: str = Form("{}")) -> dict[str, Any]:
+    raw = await file.read()
+    if len(raw) > 100_000_000:
+        raise HTTPException(status_code=413, detail="That file is over 100 MB.")
+    try:
+        rows = importer.read_upload(raw, file.filename or "", unit if unit in ("kg", "lb") else None)
+    except Exception as exc:  # a broken zip, a binary file
+        raise HTTPException(status_code=422, detail=f"Couldn't read that file ({exc.__class__.__name__}).") from exc
+    if not rows:
+        raise HTTPException(status_code=422, detail="No workouts found. The file needs columns for a date and an exercise, "
+                                                    "and either weight and reps, or sets written like 60x10,62.5x8.")
+    doc = store.load()
+    if dry_run:
+        return {"preview": importer.preview(doc, rows)}
+    try:
+        picked = json.loads(choices or "{}")
+    except ValueError:
+        picked = {}
+    return {"imported": importer.commit(doc, rows, {str(k): str(v) for k, v in picked.items()} if isinstance(picked, dict) else {})}
