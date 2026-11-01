@@ -158,6 +158,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.3: chartership readiness by element (weekly next steps), nudges with a daily cap and quiet hours, offline capture, house jobs and appliances in search
 6.4: strain, week of sleep, Health Auto Export check, Update now on System status, standby killer, ask the manuals, pre-push check
 6.5: Gym: exercise library, routines and starters, live logging with last time, what to lift, rest timer and plates, offline, records, history
+6.6: SirisGYM: import years of JEFIT (or any CSV) workouts with a preview and exercise matching; safe to re-run
 
 ## Terminal (ADR 113)
 

@@ -69,3 +69,74 @@ def test_the_week_by_muscle_streak_and_own_exercises(client):
     assert mine["id"].startswith("my-") and any(e["id"] == mine["id"] for e in client.get("/api/v1/gym", headers=AUTH).json()["exercises"])
     assert client.post("/api/v1/gym/exercises", headers=AUTH, json={"name": "x", "primary": "elbows"}).status_code == 422
     assert client.get("/api/v1/gym/sessions?month=2026-11", headers=AUTH).json()["sessions"][0]["id"] == "s2"
+
+
+# 6.6: bringing years of JEFIT (or any CSV) in.
+
+JEFIT = """### WORKOUT SESSIONS ###
+_id,mydate,starttime,total_time
+1,2021-03-05,1614927600,3600
+
+### EXERCISE LOGS ###
+_id,mydate,eid,ename,logs
+1,2021-03-05,1,Barbell Bench Press,"60x10,62.5x8,65x6"
+2,2021-03-05,2,Cable Lat Pulldown,40x12
+3,2021-03-08,3,Zercher Carry Thing,20x30
+"""
+
+PER_SET = """Date,Exercise,Set,Weight (lbs),Reps
+05/03/2024,Back Squat,1,135,5
+05/03/2024,Back Squat,2,185,5
+"""
+
+
+def _upload(client, body: bytes, name: str = "jefit.csv", **form):
+    data = {k: (v if isinstance(v, str) else __import__("json").dumps(v)) for k, v in form.items()}
+    return client.post("/api/v1/gym/import", headers=AUTH, files={"file": (name, body, "text/csv")}, data=data)
+
+
+def test_importer_reads_both_shapes_pounds_and_dates():
+    from app.gym import importer
+
+    rows = importer.read_rows(JEFIT)
+    assert [(r["exercise"], round(r["weight"], 1), r["reps"]) for r in rows][:3] == [("Barbell Bench Press", 60, 10), ("Barbell Bench Press", 62.5, 8), ("Barbell Bench Press", 65, 6)]
+    assert len(rows) == 5  # the sessions table has no exercise column, so it's skipped
+    squat = importer.read_rows(PER_SET)
+    assert squat[0]["date"].isoformat() == "2024-03-05T00:00:00" and round(squat[1]["weight"], 2) == 83.91
+    assert importer.parse_date("13/02/2023").month == 2 and importer.parse_date("1614927600").year == 2021
+    assert importer.match("Barbell Bench Press", service.exercises(store.GymDoc()))[1] in ("exact", "close")
+
+
+def test_import_previews_then_saves_once_however_often_its_sent(client):
+    pre = _upload(client, JEFIT.encode()).json()["preview"]
+    assert pre["sets"] == 5 and pre["workouts"] == 2 and pre["from"] == "2021-03-05" and pre["to"] == "2021-03-08"
+    by = {e["name"]: e for e in pre["exercises"]}
+    assert by["Barbell Bench Press"]["match"] == "bench-press" and by["Zercher Carry Thing"]["how"] == "none"
+    assert client.get("/api/v1/gym", headers=AUTH).json()["total_sessions"] == 0  # a preview saves nothing
+
+    choices = {"Cable Lat Pulldown": "new"}
+    done = _upload(client, JEFIT.encode(), dry_run="false", choices=choices).json()["imported"]
+    assert done == {"workouts": 2, "sets": 5, "new_exercises": 2}
+    again = _upload(client, JEFIT.encode(), dry_run="false", choices=choices).json()["imported"]
+    assert again["new_exercises"] == 0
+    over = client.get("/api/v1/gym", headers=AUTH).json()
+    assert over["total_sessions"] == 2 and _upload(client, JEFIT.encode()).json()["preview"]["replacing"] == 2
+    bench = client.get("/api/v1/gym/exercises/bench-press", headers=AUTH).json()
+    assert bench["records"]["heaviest"]["weight"] == 65 and bench["history"][0]["date"] == "2021-03-05"
+
+
+def test_import_a_zip_in_pounds_into_lb_and_says_what_it_needs(client):
+    import io
+    import zipfile
+
+    client.put("/api/v1/gym/settings", headers=AUTH, json={"unit": "lb", "bar": 45, "plates": [45, 25, 10, 5, 2.5], "increment": 5, "rest_s": 90})
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("export/logs.csv", PER_SET)
+    assert _upload(client, buf.getvalue(), "jefit.zip", dry_run="false").json()["imported"]["sets"] == 2
+    detail = client.get("/api/v1/gym/exercises/squat", headers=AUTH)
+    sid = client.get("/api/v1/gym/sessions", headers=AUTH).json()["sessions"][0]["id"]
+    s = client.get(f"/api/v1/gym/sessions/{sid}", headers=AUTH).json()
+    assert sid == "import-20240305" and [x["weight"] for x in s["entries"][0]["sets"]] == [135, 185], detail.status_code
+    bad = _upload(client, b"name,colour\nx,blue\n")
+    assert bad.status_code == 422 and "date and an exercise" in bad.json()["detail"]

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronRight, Dumbbell, Flame, ListPlus, Medal, Play, Plus, Search, Trash2, Trophy } from "lucide-react";
+import { CalendarDays, ChevronRight, Dumbbell, Flame, ListPlus, Medal, Play, Plus, Search, Trash2, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type ImportPreview, type ImportUnit, type Routine, type Session } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 
-/** The gym (6.5): start today's workout, routines, history and the exercises with your records. */
+/** SirisGYM (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
 const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "exercises", label: "Exercises" }] as const;
 type View = (typeof VIEWS)[number]["id"];
 const MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "abs", "quads", "hamstrings", "glutes", "calves", "full body", "cardio"];
@@ -39,11 +39,11 @@ export function GymScreen() {
   const res = useGym();
   const [params, setParams] = useSearchParams();
   const view = (VIEWS.find((v) => v.id === params.get("view"))?.id ?? "today") as View;
-  useEffect(() => { document.title = "Gym · SirisOS"; }, []);
+  useEffect(() => { document.title = "SirisGYM · SirisOS"; }, []);
   const g = res.data;
   return (
     <>
-      <PageHead eyebrow={g ? `${g.total_sessions} workouts · ${g.streak_weeks}-week streak` : "Gym"} title="Gym" />
+      <PageHead eyebrow={g ? `${g.total_sessions} workouts · ${g.streak_weeks}-week streak` : "Gym"} title="SirisGYM" />
       <div className="row career-views" role="tablist" aria-label="Gym views">
         {VIEWS.map((v) => (
           <button key={v.id} type="button" role="tab" aria-selected={view === v.id} className={`chip chip--button ${view === v.id ? "chip--active" : ""}`}
@@ -56,7 +56,7 @@ export function GymScreen() {
         <div className="stack" style={{ marginTop: 16 }}>
           {view === "today" && <TodayView g={g} />}
           {view === "routines" && <RoutinesView g={g} onChange={() => res.reload?.(true)} />}
-          {view === "history" && <HistoryView g={g} />}
+          {view === "history" && <HistoryView g={g} onChange={() => res.reload?.(true)} />}
           {view === "exercises" && <ExercisesView g={g} onChange={() => res.reload?.(true)} />}
         </div>
       )}
@@ -168,7 +168,7 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
   );
 }
 
-function HistoryView({ g }: { g: Gym }) {
+function HistoryView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const res = useResource(`gym:month:${month}`, () => gym.sessions(month), {});
   const days = useMemo(() => new Set((res.data?.sessions ?? []).map((s) => s.date)), [res.data]);
@@ -191,7 +191,76 @@ function HistoryView({ g }: { g: Gym }) {
         </div>
       </Glass>
       <RecentList g={g} items={res.data?.sessions ?? []} />
+      <ImportCard g={g} onDone={() => { onChange(); res.reload?.(true); }} />
     </>
+  );
+}
+
+const HOW: Record<ImportPreview["exercises"][number]["how"], string> = { exact: "same name", close: "same exercise", guess: "best guess, check it", none: "no match" };
+
+/** Bring years of JEFIT (or any app's CSV) in: preview, check what each exercise maps to, then import. Importing again replaces those days. */
+function ImportCard({ g, onDone }: { g: Gym; onDone: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [unit, setUnit] = useState<ImportUnit>("auto");
+  const [pre, setPre] = useState<ImportPreview | null>(null);
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const look = async (f: File | null, u: ImportUnit) => {
+    setFile(f); setPre(null); setDone(null); setError(null);
+    if (!f) return;
+    setBusy(true);
+    try {
+      const p = (await gym.importPreview(f, u)).preview;
+      setPre(p);
+      setChoices(Object.fromEntries(p.exercises.map((e) => [e.name, e.match ?? "new"])));
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  const go = async () => {
+    if (!file) return;
+    setBusy(true); setError(null);
+    try {
+      const r = (await gym.importCommit(file, unit, choices)).imported;
+      setDone(`Imported ${r.workouts.toLocaleString()} workouts and ${r.sets.toLocaleString()} sets${r.new_exercises ? `, with ${r.new_exercises} new exercises of yours` : ""}.`);
+      setPre(null); onDone();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Import workouts">
+      <header className="widget__head"><Upload aria-hidden="true" /><span>Import from JEFIT (or any CSV)</span></header>
+      <p className="muted" style={{ margin: 0 }}>In JEFIT, export your data as CSV, then choose the file (or a zip of them) here. You'll see what it found before anything is saved, and importing the same export again replaces those days rather than doubling them.</p>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <input type="file" accept=".csv,.txt,.zip,text/csv,application/zip" aria-label="Export file" onChange={(e) => look(e.target.files?.[0] ?? null, unit)} />
+        <label className="row" style={{ gap: 6 }}>Weights in the file
+          <select className="field" value={unit} aria-label="Weights in the file" onChange={(e) => { const u = e.target.value as ImportUnit; setUnit(u); if (file) void look(file, u); }}>
+            <option value="auto">as the file says (kg unless it says lb)</option><option value="kg">kg</option><option value="lb">lb</option>
+          </select></label>
+      </div>
+      {busy && <p className="muted" role="status" style={{ margin: 0 }}>Reading…</p>}
+      {error && <div className="error-banner" role="alert">{error}</div>}
+      {done && <p role="status" style={{ margin: 0 }}>{done}</p>}
+      {pre && (
+        <>
+          <p role="status" style={{ margin: 0 }}><strong>{pre.workouts.toLocaleString()} workouts, {pre.sets.toLocaleString()} sets</strong>{pre.from ? `, ${fmtDay(pre.from)} ${pre.from.slice(0, 4)} to ${fmtDay(pre.to ?? pre.from)} ${(pre.to ?? pre.from).slice(0, 4)}` : ""}.
+            {pre.replacing > 0 ? ` ${pre.replacing} of those days were imported before and will be replaced.` : ""}</p>
+          <ul className="items" aria-label="Exercises to match">
+            {pre.exercises.map((e) => (
+              <li key={e.name} className="item">
+                <span className="item__text"><span className="item__title">{e.name}</span>
+                  <span className="item__subtitle">{e.sets} sets · {HOW[e.how]}</span></span>
+                <select className="field" style={{ maxWidth: 220 }} aria-label={`${e.name} is`} value={choices[e.name] ?? "new"}
+                  onChange={(ev) => setChoices({ ...choices, [e.name]: ev.target.value })}>
+                  <option value="new">A new exercise of mine ({e.new_muscle})</option>
+                  {g.exercises.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+              </li>
+            ))}
+          </ul>
+          <div className="row"><button type="button" className="button button--primary" disabled={busy} onClick={go}>Import {pre.workouts.toLocaleString()} workouts</button></div>
+        </>
+      )}
+    </Glass>
   );
 }
 
