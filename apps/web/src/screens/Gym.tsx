@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronRight, Dumbbell, Flame, ListPlus, Medal, Play, Plus, Search, Settings2, Trash2, Trophy, Upload } from "lucide-react";
+import { Activity, BatteryLow, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Search, Settings2, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
 import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type GymProfile, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
 import { Glass } from "../components/Glass";
@@ -8,7 +8,7 @@ import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 
 /** SirisGYM (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
-const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "exercises", label: "Exercises" },
+const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "progress", label: "Progress" }, { id: "exercises", label: "Exercises" },
   { id: "settings", label: "Settings" }] as const;
 type View = (typeof VIEWS)[number]["id"];
 const MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "abs", "quads", "hamstrings", "glutes", "calves", "full body", "cardio"];
@@ -26,7 +26,7 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
   let s: Session = { id: newId(), title: "Workout", started_at: now, entries: [], gym: gymId ?? null };
   if (routine) {
     const p = await gym.plan(routine.id, day, gymId);
-    s = { ...s, title: p.title, routine_id: routine.id, day: p.day, entries: p.exercises.map((e) => ({
+    s = { ...s, title: p.title, routine_id: routine.id, day: p.day, deload: !!p.deload, entries: p.exercises.map((e) => ({
       exercise: e.exercise,
       group: e.group ?? null,
       sets: [
@@ -59,9 +59,10 @@ export function GymScreen() {
       {!g && !res.error && <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />}
       {g && (
         <div className="stack" style={{ marginTop: 16 }}>
-          {view === "today" && <TodayView g={g} />}
+          {view === "today" && <TodayView g={g} onChange={() => res.reload?.(true)} />}
           {view === "routines" && <RoutinesView g={g} onChange={() => res.reload?.(true)} />}
           {view === "history" && <HistoryView g={g} onChange={() => res.reload?.(true)} />}
+          {view === "progress" && <ProgressView />}
           {view === "exercises" && <ExercisesView g={g} onChange={() => res.reload?.(true)} />}
           {view === "settings" && <SettingsView g={g} onChange={() => res.reload?.(true)} />}
         </div>
@@ -70,7 +71,24 @@ export function GymScreen() {
   );
 }
 
-function TodayView({ g }: { g: Gym }) {
+function DeloadCard({ d, onChange }: { d: NonNullable<Gym["deload"]>; onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const set = async (on: boolean) => { setBusy(true); try { await gym.deload(on); onChange(); } finally { setBusy(false); } };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Deload">
+      <header className="widget__head"><BatteryLow aria-hidden="true" /><span>{d.active ? "Deload week" : "Time for a lighter week?"}</span></header>
+      {d.active ? (
+        <p style={{ margin: 0 }}>Until {fmtDay(d.until!)}: half the sets, 10% lighter, and no records. Let your body catch up.</p>
+      ) : (
+        <p style={{ margin: 0 }}>{d.why.map((w) => w[0].toUpperCase() + w.slice(1)).join(". ")}. A week at half the sets and 10% lighter usually brings the numbers back up.</p>
+      )}
+      <button type="button" className={`button ${d.active ? "" : "button--primary"}`} style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => set(!d.active)}>
+        {d.active ? "End the deload" : "Start a deload week"}</button>
+    </Glass>
+  );
+}
+
+function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const navigate = useNavigate();
   const active = loadActive();
   const routine = g.routines.find((r) => r.id === g.active?.routine);
@@ -89,6 +107,13 @@ function TodayView({ g }: { g: Gym }) {
           <Link to="/gym/workout" className="button button--primary" style={{ alignSelf: "flex-start" }}>Carry on</Link>
         </Glass>
       )}
+      {g.readiness?.band && g.readiness.band !== "Steady" && (
+        <p className={`gym-ready gym-ready--${g.readiness.band.toLowerCase()}`} role="status">
+          {g.readiness.band === "Recover" ? <BatteryLow size={14} aria-hidden="true" /> : <Activity size={14} aria-hidden="true" />}
+          {g.readiness.band === "Recover" ? ` Readiness ${g.readiness.score ?? ""}: today's plan is a set lighter and 5% easier.` : ` Readiness ${g.readiness.score ?? ""}: you're primed, a good day to push.`}
+        </p>
+      )}
+      {g.deload && (g.deload.active || g.deload.suggest) && <DeloadCard d={g.deload} onChange={onChange} />}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">
         <header className="widget__head"><Play aria-hidden="true" /><span>Today's workout</span></header>
         {g.settings.gyms.length > 1 && (
@@ -122,10 +147,38 @@ function TodayView({ g }: { g: Gym }) {
           <div><div className="metric__value">{Math.round(g.week.volume).toLocaleString()}</div><div className="metric__label">Volume ({g.settings.unit})</div></div>
           <div><div className="metric__value">{g.streak_weeks}</div><div className="metric__label">Weeks in a row</div></div>
         </div>
-        {muscles.length > 0 && (
+        {g.muscles?.length ? (
+          <>
+            <ul className="gym-muscles" aria-label="Sets by muscle this week">
+              {g.muscles.filter((m) => m.sets > 0 || g.week.sessions > 0).map((m) => {
+                const top = Math.max(m.target[1] * 1.25, m.sets);
+                return (
+                  <li key={m.muscle} className={`gym-muscles--${m.status.replace(" ", "-")}`}>
+                    <span className="gym-muscles__name">{m.muscle}</span>
+                    <span className="gym-muscles__bar">
+                      <span className="gym-muscles__band" style={{ left: `${(m.target[0] / top) * 100}%`, width: `${((m.target[1] - m.target[0]) / top) * 100}%` }} />
+                      <span className="gym-muscles__fill" style={{ width: `${(m.sets / top) * 100}%` }} />
+                    </span>
+                    <span className="muted">{m.sets}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            {(() => {
+              const under = g.muscles.filter((m) => m.status === "under" && g.week.sessions > 0).map((m) => m.muscle);
+              const over = g.muscles.filter((m) => m.status === "over").map((m) => m.muscle);
+              return (under.length || over.length) ? (
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                  {under.length ? `Under the ${g.muscles[0].target[0]}-${g.muscles[0].target[1]} sets a week: ${under.slice(0, 5).join(", ")}. ` : ""}
+                  {over.length ? `Over: ${over.join(", ")}, which can outrun recovery.` : ""}
+                </p>
+              ) : null;
+            })()}
+          </>
+        ) : muscles.length > 0 && (
           <ul className="gym-muscles" aria-label="Sets by muscle this week">
             {muscles.map(([m, n]) => (
-              <li key={m}><span className="gym-muscles__name">{m}</span><span className="gym-muscles__bar"><span style={{ width: `${(n / most) * 100}%` }} /></span><span className="muted">{n}</span></li>
+              <li key={m}><span className="gym-muscles__name">{m}</span><span className="gym-muscles__bar"><span className="gym-muscles__fill" style={{ width: `${(n / most) * 100}%` }} /></span><span className="muted">{n}</span></li>
             ))}
           </ul>
         )}
@@ -167,6 +220,12 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
         <div className="stack" style={{ gap: 10 }}>
           <h2 className="sheet__title">{s.title}</h2>
           <p className="muted" style={{ margin: 0 }}>{fmtDay(s.started_at)}{s.summary.minutes ? ` · ${s.summary.minutes} min` : ""} · {Math.round(s.summary.volume).toLocaleString()} {unit} lifted</p>
+          {s.watch && (
+            <p className="gym-watch" aria-label="From your Apple Watch"><HeartPulse size={14} aria-hidden="true" />
+              {[s.watch.avg_hr && `${Math.round(s.watch.avg_hr)} bpm average`, s.watch.max_hr && `${Math.round(s.watch.max_hr)} max`, s.watch.kj && `${s.watch.kj.toLocaleString()} kJ`, s.watch.minutes && `${s.watch.minutes} min on the Watch`].filter(Boolean).join(" · ")}
+            </p>
+          )}
+          {s.deload && <p className="muted" style={{ margin: 0 }}>A deload session.</p>}
           {s.records.length > 0 && <ul className="items">{s.records.map((r) => <li key={r.text} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r.text}</span></span></li>)}</ul>}
           {s.entries.map((e) => (
             <div key={e.exercise}>
@@ -572,6 +631,61 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         <button type="button" className="button button--primary" onClick={save}>Save settings</button>
         {saved && <span role="status" className="muted">Saved.</span>}
       </div>
+    </>
+  );
+}
+
+const LEVEL_TONE: Record<string, string> = { "starting out": "", beginner: "", novice: "tone-good", intermediate: "tone-good", advanced: "tone-warning" };
+
+/** Strength against bodyweight and the year in review (6.8). */
+function ProgressView() {
+  const st = useResource("gym:strength", () => gym.strength(), { staleMs: 60_000 });
+  const [y, setY] = useState(() => new Date().getFullYear());
+  const yr = useResource(`gym:year:${y}`, () => gym.year(y), { staleMs: 60_000 });
+  const r = yr.data;
+  const maxVol = Math.max(1, ...(r?.months ?? []).map((m) => m.volume));
+  const delta = (a: number, b: number) => (b ? `${a >= b ? "+" : ""}${Math.round(((a - b) / b) * 100)}%` : "");
+  return (
+    <>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Strength">
+        <header className="widget__head"><TrendingUp aria-hidden="true" /><span>Strength</span>{st.data?.bodyweight && <span className="widget__source">at {st.data.bodyweight} kg</span>}</header>
+        {!st.data?.lifts.length && <p className="muted" style={{ margin: 0 }}>Log a squat, bench, deadlift, overhead press, row or pull-up to see where you stand.</p>}
+        <ul className="items">
+          {(st.data?.lifts ?? []).map((l) => (
+            <li key={l.exercise} className="item">
+              <span className="item__text"><span className="item__title">{l.name}: {l.best} kg</span>
+                <span className="item__subtitle career-wrap">est. 1RM, {fmtDay(l.date)} {l.date.slice(0, 4)}{l.last_year && l.this_year ? ` · this year ${l.this_year} (${delta(l.this_year, l.last_year)} on last year)` : ""}</span></span>
+              {l.ratio != null && <span className={`gym-level ${LEVEL_TONE[l.level ?? ""] ?? ""}`}>{l.exercise === "pull-up" ? `+${l.ratio}` : l.ratio}× bw<br /><span className="muted">{l.level}</span></span>}
+            </li>
+          ))}
+        </ul>
+        {st.data && !st.data.bodyweight && <p className="muted" style={{ margin: 0, fontSize: 13 }}>No bodyweight yet: it comes from Apple Health (weight), so the ratios appear once one arrives.</p>}
+      </Glass>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Year in review">
+        <header className="widget__head"><CalendarDays aria-hidden="true" /><span>{y} in the gym</span>
+          <span className="widget__source row" style={{ gap: 6 }}><button type="button" className="chip chip--button" aria-label="The year before" onClick={() => setY(y - 1)}>‹</button>
+            <button type="button" className="chip chip--button" aria-label="The year after" disabled={y >= new Date().getFullYear()} onClick={() => setY(y + 1)}>›</button></span></header>
+        {r && (
+          <>
+            <div className="metrics">
+              <div><div className="metric__value">{r.sessions}</div><div className="metric__label">Workouts {delta(r.sessions, r.previous.sessions)}</div></div>
+              <div><div className="metric__value">{r.hours}</div><div className="metric__label">Hours</div></div>
+              <div><div className="metric__value">{(r.volume / 1000).toFixed(r.volume >= 100000 ? 0 : 1)} t</div><div className="metric__label">Lifted {delta(r.volume, r.previous.volume)}</div></div>
+            </div>
+            <div className="gym-months" role="img" aria-label="Volume by month">
+              {r.months.map((m) => (
+                <span key={m.month} className="gym-months__col" title={`${m.month}: ${m.sessions} workouts, ${Math.round(m.volume).toLocaleString()} kg, ${m.records} records`}>
+                  <span className="gym-months__bar" style={{ height: `${(m.volume / maxVol) * 100}%` }} />
+                  {m.records > 0 && <Trophy size={10} className="tone-warning" aria-hidden="true" />}
+                  <span className="gym-months__label">{new Date(`${m.month}-15T12:00:00`).toLocaleDateString(undefined, { month: "narrow" })}</span>
+                </span>
+              ))}
+            </div>
+            {r.best.length > 0 && <p style={{ margin: 0, fontSize: 14 }}>Best lifts: {r.best.map((b) => `${b.name} ${b.e1rm} kg`).join(" · ")}</p>}
+            {r.muscles.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Most trained: {r.muscles.map((m) => m.muscle).join(", ")}.</p>}
+          </>
+        )}
+      </Glass>
     </>
   );
 }

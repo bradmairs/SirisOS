@@ -162,6 +162,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.61: Health Auto Export setup says Date Range Default (Previous 7 Days left today out)
 6.62: SI units everywhere: SirisGYM kg only (lb gyms converted), energy in kJ
 6.7: SirisGYM: settings, gyms (bar, plates, dumbbells, stack), warm-ups, supersets, RPE and notes, progression rules, yearly heatmap
+6.8: SirisGYM: muscle targets, deloads, readiness-aware plans, strain and training plan, Watch heart rate, strength standards, year in review; local-day fix
 
 ## Terminal (ADR 113)
 

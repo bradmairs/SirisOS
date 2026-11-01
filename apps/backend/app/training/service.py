@@ -197,6 +197,17 @@ def _pace(minutes_per_km: float) -> str:
     return f"{m}:{s:02d}/km"
 
 
+def _gym_days() -> dict[str, str]:
+    """Each day with a SirisGYM session, and its title (6.8)."""
+    from app.gym import service as gym_service, store as gym_store
+
+    try:
+        doc = gym_store.load()
+    except Exception:  # noqa: BLE001
+        return {}
+    return {gym_service.day_of(x.started_at): x.title for x in doc.sessions}
+
+
 def build(r: Race, days: list[dict[str, Any]] | None, today: date, workouts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     race_day = date.fromisoformat(r.date)
     if r.start_km is not None:
@@ -213,7 +224,12 @@ def build(r: Race, days: list[dict[str, Any]] | None, today: date, workouts: lis
         runs = plan.sessions(w["km"], r.distance_km, wk, race_day)
         done = round(sum(float(by.get((wk + timedelta(days=i)).isoformat(), {}).get("running_km") or 0) for i in range(7)), 1)
         ran = runs_by_day(workouts or [])
+        lifted = _gym_days()
         for s in runs:
+            if s["kind"] == "strength" and s["date"] <= today.isoformat() and s["date"] in lifted:
+                s["status"], s["gym"] = "done", lifted[s["date"]]  # a SirisGYM session that day (6.8)
+            elif s["kind"] == "strength" and s["date"] < today.isoformat():
+                s["status"] = "missed"
             if s["date"] < today.isoformat() and s["kind"] in ("easy", "quality", "long"):
                 km = ran.get(s["date"]) or float(by.get(s["date"], {}).get("running_km") or 0)
                 s["status"] = "done" if km >= 0.6 * s["km"] else "partly" if km > 0 else "missed"

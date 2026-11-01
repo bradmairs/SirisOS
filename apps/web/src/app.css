@@ -933,7 +933,21 @@ h3.note__heading { font-size: 17px; }
 .gym-muscles { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .gym-muscles li { display: grid; grid-template-columns: 90px 1fr 32px; gap: 8px; align-items: center; font-size: 13px; text-transform: capitalize; }
 .gym-muscles__bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 20%, transparent); overflow: hidden; }
-.gym-muscles__bar span { display: block; height: 100%; background: var(--accent); }
+.gym-muscles__bar { position: relative; }
+.gym-muscles__fill { position: relative; display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.gym-muscles__band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--good) 28%, transparent); }
+.gym-muscles--under .gym-muscles__fill { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.gym-muscles--over .gym-muscles__fill { background: var(--warning, #f5a524); }
+.gym-ready { display: flex; gap: 6px; align-items: center; margin: 0; padding: 8px 12px; border-radius: 12px; font-size: 14px; }
+.gym-ready--recover { background: color-mix(in srgb, var(--warning, #f5a524) 16%, transparent); }
+.gym-ready--primed { background: color-mix(in srgb, var(--good) 16%, transparent); }
+.gym-watch { display: flex; gap: 6px; align-items: center; margin: 0; font-size: 14px; color: var(--ink-2); }
+.gym-level { text-align: right; font-size: 14px; font-weight: 700; line-height: 1.2; }
+.gym-level .muted { font-size: 11px; font-weight: 400; }
+.gym-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; height: 110px; align-items: end; }
+.gym-months__col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; height: 100%; }
+.gym-months__bar { width: 100%; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--accent); }
+.gym-months__label { font-size: 10px; color: var(--ink-3); }
 .gym-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
 .gym-cal__head { font-size: 11px; color: var(--ink-3); }
 .gym-cal__day { padding: 8px 0; border-radius: 10px; font-size: 13px; color: var(--ink-2); }

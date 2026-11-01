@@ -130,6 +130,7 @@ class Settings(BaseModel):
     warmup_steps: list[WarmupStep] = Field(default_factory=lambda: [WarmupStep(percent=0.4, reps=5), WarmupStep(percent=0.6, reps=3),
                                                                      WarmupStep(percent=0.8, reps=2)], max_length=8)
     muscle_targets: dict[str, list[float]] = Field(default_factory=dict)  # muscle -> [low, high] sets a week (6.8)
+    deload_until: str | None = Field(default=None, max_length=10)  # a deload week runs to this day (6.8)
 
     @model_validator(mode="after")
     def _current(self) -> "Settings":
