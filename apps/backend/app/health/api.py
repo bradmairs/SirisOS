@@ -139,3 +139,13 @@ async def delete_data(start: str = Query(pattern=r"^\d{4}-\d{2}-\d{2}$"), end: s
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail="SirisAI couldn't delete that.")
     return response.json()
+
+
+
+@router.get("/sources")
+async def sources(day: str = Query(pattern=r"^\d{4}-\d{2}-\d{2}$"), hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """The data inspector (6.93): each metric that day, every source's value and which one counts (from SirisAI 4.17)."""
+    body = await sirisai_api.get(hub, "/siris/health/sources", params={"day": day})
+    if body is None:
+        raise HTTPException(status_code=502, detail="SirisAI didn't answer (it needs 4.17 or later).")
+    return body

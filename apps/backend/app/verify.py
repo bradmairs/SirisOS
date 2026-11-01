@@ -156,6 +156,44 @@ async def brief(hub) -> Result:
     return Result("Daily brief", "warn" if missing else "ok", f"{len(built.get('headline') or [])} headline lines" + (f"; couldn't reach: {', '.join(missing)}" if missing else ""))
 
 
+async def gym() -> Result:
+    """SirisGYM (6.93): the file loads and the week and records work it out."""
+    from app.gym import coach, service, store
+    from app.tasks.service import today
+
+    doc = store.load()
+    week = service.week(doc, today())
+    coach.muscles(doc, today())
+    return Result("SirisGYM", "ok", f"{len(doc.sessions)} workouts, {len(doc.routines)} routines; this week {week['sessions']} workouts")
+
+
+async def health_import(hub) -> list[Result]:
+    """Apple Health (6.93): when the phone last sent, and whether today was in it; then a dry-run export through SirisAI."""
+    from datetime import datetime as dt, timezone
+
+    from app.hub import sirisai_api
+    from app.tasks.service import today, zone
+    from app.training import health_import as hi
+
+    out = []
+    last = (hi.status() or {}).get("last_ok")
+    if not last:
+        out.append(Result("Apple Health import", "skip", "nothing has arrived yet (set up Health Auto Export: Training → Apple Health)"))
+    else:
+        age = (dt.now(timezone.utc) - dt.fromisoformat(last["at"])).total_seconds() / 3600
+        days = [d for d in last.get("days") or [] if d]
+        has_today = today().isoformat() in days
+        state = "ok" if age < 6 and has_today else "warn"
+        out.append(Result("Apple Health import", state, f"last export {age:.1f} h ago, covering {days[0] if days else '?'} to {days[-1] if days else '?'}"
+                          + ("" if has_today else "; today wasn't in it (Date Range should be Default)")))
+    stamp = dt.now(zone()).strftime("%Y-%m-%d %H:00:00 %z")
+    got = await sirisai_api.post(hub, "/siris/health/metrics?dry_run=1", timeout=20.0, headers={"X-Health-Source": "health_auto_export"},
+                                 json={"data": {"metrics": [{"name": "step_count", "units": "count", "data": [{"date": stamp, "qty": 1}]}]}})
+    out.append(Result("Health import path", "ok" if (got or {}).get("dry_run") else "fail",
+                      "a sample export reads correctly through SirisAI (nothing kept)" if (got or {}).get("dry_run") else "SirisAI didn't read a sample export (needs 4.17+)"))
+    return out
+
+
 async def ea_export(path: str) -> Result:
     from app.career import cpd, store
 
@@ -180,6 +218,8 @@ async def run(args: argparse.Namespace, api: httpx.AsyncClient) -> list[Result]:
     results += await _guard("Notifications", lambda: push(args.push))
     results += await _guard("Security", security)
     results += await _guard("Daily brief", lambda: brief(hub))
+    results += await _guard("SirisGYM", gym)
+    results += await _guard("Apple Health", lambda: health_import(hub))
     if args.ea:
         results += await _guard("Engineers Australia export", lambda: ea_export(args.ea))
     return results

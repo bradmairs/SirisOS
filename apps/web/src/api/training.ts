@@ -41,6 +41,7 @@ export const training = {
   newFeed: () => api<{ path: string }>("/api/v1/training/feed/new", { method: "POST" }),
   importStatus: () => api<HealthImportStatus>("/api/v1/health/import/status"),
   newKey: () => api<{ key: string; path: string }>("/api/v1/health/import/key", { method: "POST" }),
+  testSync: () => api<{ ok: boolean; step: string; detail: string; read?: Record<string, Record<string, number>> | null }>("/api/v1/health/import/test", { method: "POST" }),
 };
 
 export const DISTANCES: [number, string][] = [[5, "5 km"], [10, "10 km"], [21.1, "Half marathon"], [42.2, "Marathon"]];

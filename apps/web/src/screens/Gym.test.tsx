@@ -224,6 +224,43 @@ describe("SirisGYM 6.92: Shortcuts", () => {
   });
 });
 
+describe("SirisGYM 6.93", () => {
+  it("swaps an exercise mid-workout for the same movement", async () => {
+    signIn();
+    saveActive({ id: "w5", title: "Push", started_at: new Date().toISOString(), entries: [{ exercise: "bench-press", sets: [{ weight: 80, reps: null, done: false, type: "normal" }] }] });
+    mockFetch({
+      "/api/v1/gym/swap": () => jsonResponse({ options: [{ id: "db-bench-press", name: "Dumbbell Bench Press", equipment: "dumbbell", same_pattern: true, last: [{ weight: 32, reps: 8, done: true, type: "normal" }], weight: 34 }] }),
+      "/api/v1/gym": () => jsonResponse({ ...GYM, exercises: [...GYM.exercises, { id: "db-bench-press", name: "Dumbbell Bench Press", primary: "chest", secondary: [], equipment: "dumbbell", kind: "weight", custom: false }] }),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Swap Bench Press" }));
+    await user.click(await screen.findByRole("button", { name: /Dumbbell Bench Press/ }));
+    const kept = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
+    expect(kept.entries[0]).toMatchObject({ exercise: "db-bench-press", sets: [{ weight: 34, reps: null, done: false }] });
+  });
+
+  it("shows protein against the target and books gym time", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/gym/protein": () => jsonResponse({ target_g: 160, eaten_g: 120, per_kg: 2, bodyweight: 80, training_day: true, left_g: 40 }),
+      "/api/v1/gym/schedule": (_u, init) => jsonResponse(JSON.parse(String(init?.body)).dry_run
+        ? { slot: { start: "2026-11-04T17:00:00+11:00", end: "2026-11-04T18:00:00+11:00" }, title: "Gym: Push" }
+        : { slot: { start: "2026-11-04T17:00:00+11:00", end: "2026-11-04T18:00:00+11:00" }, title: "Gym: Push", added: true }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    const card = await screen.findByRole("region", { name: "Protein and gym time" });
+    expect(await within(card).findByText("120 / 160 g")).toBeInTheDocument();
+    expect(card).toHaveTextContent("40 g to go");
+    await user.click(within(card).getByRole("button", { name: "Find gym time today" }));
+    await user.click(await within(card).findByRole("button", { name: "Add to calendar" }));
+    expect(await within(card).findByText(/Added: Gym: Push/)).toBeInTheDocument();
+    expect(calls.filter((c) => c.url === "/api/v1/gym/schedule").map((c) => JSON.parse(String(c.init.body)).dry_run)).toEqual([true, false]);
+  });
+});
+
 describe("Import from JEFIT (6.6)", () => {
   it("previews an export, lets you change a match, then imports with your choices", async () => {
     signIn();

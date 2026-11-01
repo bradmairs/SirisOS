@@ -267,3 +267,87 @@ def as_workouts(doc: GymDoc, day: str) -> dict[str, Any]:
         items.append({"name": f"SirisGYM: {s.title}"[:60], "start": t.strftime("%Y-%m-%d %H:%M:%S %z"), "minutes": summ["minutes"] or 45,
                       "km": None, "kcal": None, "avg_hr": None, "max_hr": None})
     return {"metrics": {day: {}}, "workouts": {day: items}}
+
+
+
+def swaps(doc: GymDoc, exercise: str, gym_id: str | None = None) -> list[dict[str, Any]]:
+    """Other exercises for the same job (6.93), for when the rack is taken: the
+    same movement pattern first (as the programme builder groups them), then the
+    same main muscle; ones this gym can't load (no dumbbells on its rack) are
+    left out. Each with last time and what to lift."""
+    from app.gym import builder
+    from app.gym.store import PlanExercise
+
+    names = service.exercises(doc)
+    ex = names.get(exercise) or {}
+    same = [e for pat in builder.PATTERNS.values() if exercise in pat for e in pat]
+    muscle = [k for k, v in names.items() if v.get("primary") == ex.get("primary") and v.get("kind") == ex.get("kind")]
+    out, seen = [], {exercise}
+    for k in same + muscle:
+        v = names.get(k)
+        if k in seen or not v:
+            continue
+        seen.add(k)
+        sug = service.suggest(doc, PlanExercise(exercise=k), gym_id)
+        out.append({"id": k, "name": v["name"], "equipment": v.get("equipment"), "same_pattern": k in same,
+                    "last": service.last(doc, k)[:3], "weight": sug.get("weight")})
+        if len(out) >= 8:
+            break
+    return out
+
+
+def protein(doc: GymDoc, today: date, bodyweight: float | None, eaten: float | None) -> dict[str, Any]:
+    """Today's protein target (6.93): bodyweight × 1.6 g/kg, or 2.0 on a training day (both in settings)."""
+    trained = any(service.day_of(s.started_at) == today.isoformat() for s in doc.sessions)
+    planned = any(r.active for r in doc.routines)
+    per_kg = doc.settings.protein_training if trained else doc.settings.protein_rest
+    target = round(bodyweight * per_kg) if bodyweight else None
+    return {"target_g": target, "eaten_g": round(eaten) if eaten is not None else None, "per_kg": per_kg, "bodyweight": bodyweight,
+            "training_day": trained, "has_routine": planned,
+            "left_g": max(0, round(target - (eaten or 0))) if target else None}
+
+
+def free_slot(events: list[dict[str, Any]], day: date, minutes: int, now: datetime | None = None,
+              prefer: tuple[tuple[int, int], ...] = ((6, 8), (12, 14), (17, 19), (8, 21))) -> tuple[datetime, datetime] | None:
+    """The first gap of `minutes` on `day` (6.93), trying early morning, lunch, after work, then any time 8am-9pm; past times skipped."""
+    from app.tasks.service import zone
+
+    tz = zone()
+    busy = []
+    for e in events:
+        a, b = _aware(e.get("start")), _aware(e.get("end"))
+        if a and b and len(str(e.get("start") or "")) > 10:
+            busy.append((a.astimezone(tz), b.astimezone(tz)))
+    floor = (now or datetime.now(tz)).astimezone(tz) + timedelta(minutes=15)
+    for lo, hi in prefer:
+        t = datetime.combine(day, datetime.min.time(), tz).replace(hour=lo)
+        end_window = t.replace(hour=hi)
+        while t + timedelta(minutes=minutes) <= end_window:
+            if t >= floor and not any(a < t + timedelta(minutes=minutes) and t < b for a, b in busy):
+                return t, t + timedelta(minutes=minutes)
+            t += timedelta(minutes=15)
+    return None
+
+
+def today_for_brief(doc: GymDoc, today: date, readiness: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The morning brief's gym line (6.93): the next routine day and what to lift, adjusted for readiness or a deload."""
+    active = next((r for r in doc.routines if r.active), None)
+    if not active or not active.days:
+        return None
+    if any(service.day_of(s.started_at) == today.isoformat() for s in doc.sessions):
+        return {"done": True, "title": f"{active.name}: done today"}
+    i = service.next_day(doc, active.id)
+    d = active.days[i]
+    names = service.exercises(doc)
+    deloading = deload(doc, today)["active"]
+    lifts = []
+    for p in d.exercises[:4]:
+        sets, sug = adjust(p, service.suggest(doc, p), doc, readiness, deloading)
+        lifts.append({"name": names.get(p.exercise, {}).get("name", p.exercise), "sets": sets, "reps": p.reps, "weight": sug.get("weight")})
+    band = (readiness or {}).get("band")
+    note = ("Deload week: half the sets, 10% lighter." if deloading else
+            "Readiness is low: a set lighter and 5% easier today." if band == "Recover" else
+            "You're primed: a good day to push." if band == "Primed" else None)
+    last = max((service.day_of(s.started_at) for s in doc.sessions), default=None)
+    return {"done": False, "title": f"{active.name}: {d.name}", "lifts": lifts, "more": max(0, len(d.exercises) - 4), "note": note,
+            "days_since": (today - date.fromisoformat(last)).days if last else None}

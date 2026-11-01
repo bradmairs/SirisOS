@@ -95,7 +95,15 @@ async function upload<T>(path: string, file: File): Promise<T> {
   return (await r.json()) as T;
 }
 
+export interface Sources {
+  day: string; priority: string[];
+  metrics: { metric: string; value: number; trusted: string; sources: { source: string; value: number; updated_at: string | null }[] }[];
+  workouts: { name: string; start: string; minutes: number | null; source: string }[];
+  sleep: { start: string; end: string } | null;
+}
+
 export const health = {
+  sources: (day: string) => api<Sources>(`/api/v1/health/sources?day=${day}`),
   get: () => api<Health>("/api/v1/health"),
   today: () => api<{ readiness: Readiness | null; energy?: Energy | null }>("/api/v1/health/today"),
   log: (kind: LogKind, amount?: number, text?: string) => api<{ logged: unknown }>("/api/v1/health/log", json({ kind, amount, text: text ?? "" })),

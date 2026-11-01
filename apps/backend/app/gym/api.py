@@ -25,6 +25,9 @@
     POST   /api/v1/gym/measurements, DELETE /api/v1/gym/measurements/{id}
     POST   /api/v1/gym/photos (file, date, pose, note); GET/DELETE /api/v1/gym/photos/{id}
     POST   /api/v1/gym/rest {seconds, next}; DELETE /api/v1/gym/rest   (6.9) a push when the rest is over
+    GET    /api/v1/gym/swap?exercise=&gym=   (6.93) other exercises for the same job
+    GET    /api/v1/gym/protein               (6.93) today's protein against a target from bodyweight
+    POST   /api/v1/gym/schedule {day, minutes, dry_run}   (6.93) a free slot for the gym, then into the calendar
   6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
   /plan adjusts for readiness and a deload week; a saved session goes to SirisAI for strain; a session
   shows the Apple Watch workout that overlaps it.
@@ -458,3 +461,62 @@ async def stop_rest() -> dict[str, Any]:
         old.cancel()
         return {"stopped": True}
     return {"stopped": False}
+
+
+
+# -- 6.93: swap an exercise, protein, a gym slot in the calendar --
+
+@router.get("/swap")
+def swap(exercise: str = Query(max_length=60), gym: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
+    return {"options": coach.swaps(store.load(), exercise, gym)}
+
+
+@router.get("/protein")
+async def protein(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Today's protein against a target from your bodyweight (Apple Health, via SirisAI) and whether you trained."""
+    h = await _health(hub)
+    eaten = None
+    try:
+        body = await asyncio.wait_for(sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": 1}), timeout=6)
+        today = tasks.today().isoformat()
+        for d in (body or {}).get("days") or []:
+            if str(d.get("date")) == today:
+                m = d.get("metrics") or {}
+                vals = [m.get("protein_g"), m.get("meal_protein_g_estimate")]
+                eaten = max((float(v) for v in vals if v is not None), default=None)
+    except Exception:  # noqa: BLE001
+        pass
+    return coach.protein(store.load(), tasks.today(), h.get("weight_kg"), eaten)
+
+
+class ScheduleRequest(BaseModel):
+    day: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    minutes: int = Field(default=60, ge=15, le=180)
+    title: str = Field(default="", max_length=80)
+    dry_run: bool = True
+
+
+@router.post("/schedule")
+async def schedule(body: ScheduleRequest, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """A gym slot in the calendar (6.93): the first free gap that day (early, lunch, after work, then any time),
+    shown first (dry_run) and added on a second tap, through SirisAI's calendar."""
+    from datetime import date as date_type, timedelta as td
+
+    from app.calendar import service as calendar
+    from app.health import service as health
+
+    doc = store.load()
+    day = date_type.fromisoformat(body.day) if body.day else tasks.today()
+    got = await calendar.events(hub, day, day + td(days=1))
+    if got.get("events") is None:
+        raise HTTPException(status_code=502, detail="Couldn't read the calendar from SirisAI.")
+    slot = coach.free_slot(got["events"], day, body.minutes)
+    if slot is None:
+        return {"slot": None, "detail": f"No free {body.minutes} minutes on {day.isoformat()} between 6am and 9pm."}
+    active = next((r for r in doc.routines if r.active), None)
+    title = body.title or (f"Gym: {active.days[service.next_day(doc, active.id)].name}" if active and active.days else "Gym")
+    out = {"slot": {"start": slot[0].isoformat(timespec="minutes"), "end": slot[1].isoformat(timespec="minutes")}, "title": title}
+    if body.dry_run:
+        return out
+    result = await health.tool(hub, "calendar_create_event", {"summary": title, "start": slot[0].isoformat(), "end": slot[1].isoformat()})
+    return {**out, "added": True, "result": result}

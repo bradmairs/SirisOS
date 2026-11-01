@@ -134,6 +134,9 @@ class Settings(BaseModel):
     # iPhone Shortcuts to run when a workout starts and finishes (6.92), e.g. one that starts the Watch workout.
     shortcut_start: str = Field(default="", max_length=80)
     shortcut_finish: str = Field(default="", max_length=80)
+    # Protein (6.93): grams per kg of bodyweight, on rest days and training days.
+    protein_rest: float = Field(default=1.6, ge=0.5, le=3.5)
+    protein_training: float = Field(default=2.0, ge=0.5, le=3.5)
 
     @model_validator(mode="after")
     def _current(self) -> "Settings":

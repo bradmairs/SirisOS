@@ -89,6 +89,46 @@ function DeloadCard({ d, onChange }: { d: NonNullable<Gym["deload"]>; onChange: 
   );
 }
 
+/** Protein for the day and a gym slot in the calendar (6.93). */
+function FuelAndTimeCard() {
+  const p = useResource("gym:protein", () => gym.protein(), { staleMs: 10 * 60_000 });
+  const [slot, setSlot] = useState<{ start: string; end: string; title?: string } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const find = async () => {
+    setBusy(true); setMsg(null);
+    try { const r = await gym.schedule(true); if (r.slot) setSlot({ ...r.slot, title: r.title }); else setMsg(r.detail ?? "No free time today."); }
+    catch (e) { setMsg(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  const add = async () => {
+    setBusy(true);
+    try { await gym.schedule(false); setMsg(`Added: ${slot?.title} at ${fmt(slot!.start)}.`); setSlot(null); }
+    catch (e) { setMsg(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  const d = p.data;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Protein and gym time">
+      <header className="widget__head"><Activity aria-hidden="true" /><span>Protein and gym time</span></header>
+      {d?.target_g ? (
+        <div className="gym-protein">
+          <span><strong>{d.eaten_g ?? 0} / {d.target_g} g</strong> protein <span className="muted">({d.per_kg} g/kg at {d.bodyweight} kg{d.training_day ? ", a training day" : ""})</span></span>
+          <span className="gym-muscles__bar"><span className="gym-muscles__fill" style={{ width: `${Math.min(100, ((d.eaten_g ?? 0) / d.target_g) * 100)}%` }} /></span>
+          {d.left_g ? <span className="muted" style={{ fontSize: 13 }}>{d.left_g} g to go. Meal photos and Apple Health's protein count towards it.</span> : <span className="tone-good" style={{ fontSize: 13 }}>Target reached.</span>}
+        </div>
+      ) : d && <p className="muted" style={{ margin: 0, fontSize: 13 }}>The protein target needs your weight from Apple Health.</p>}
+      {slot ? (
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span>{slot.title}, {fmt(slot.start)}–{fmt(slot.end)}</span>
+          <button type="button" className="button button--primary" disabled={busy} onClick={add}>Add to calendar</button>
+          <button type="button" className="chip chip--button" onClick={() => setSlot(null)}>Not now</button>
+        </div>
+      ) : <button type="button" className="button" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={find}><CalendarDays size={14} aria-hidden="true" /> Find gym time today</button>}
+      {msg && <p role="status" className="muted" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
+    </Glass>
+  );
+}
+
 function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const navigate = useNavigate();
   const active = loadActive();
@@ -184,6 +224,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
           </ul>
         )}
       </Glass>
+      <FuelAndTimeCard />
       {g.recent.length > 0 && <RecentList g={g} />}
     </>
   );

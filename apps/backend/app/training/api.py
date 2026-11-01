@@ -63,6 +63,31 @@ def import_status() -> dict[str, Any]:
     return {**health_import.status(), "path": "/api/v1/health/import"}
 
 
+@router.post("/health/import/test")
+async def import_test(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Test the sync (6.93): a small Health Auto Export-shaped sample for this hour goes the same way a phone's
+    export would, to SirisAI as a dry run (nothing is kept), and comes back with what it read."""
+    from datetime import datetime as dt
+
+    from app.tasks.service import zone
+
+    now = dt.now(zone())
+    stamp = now.strftime("%Y-%m-%d %H:00:00 %z")
+    sample = {"data": {"metrics": [{"name": "step_count", "units": "count", "data": [{"date": stamp, "qty": 1}]}]}}
+    status = health_import.status()
+    try:
+        got = await sirisai_api.post(hub, "/siris/health/metrics?dry_run=1", json=sample, timeout=20.0,
+                                     headers={"X-Health-Source": "health_auto_export"}) or {}
+    except sirisai_api.SirisAIError as exc:
+        return {"ok": False, "step": "SirisAI", "detail": str(exc), "last": status.get("last_ok")}
+    if not got:
+        return {"ok": False, "step": "SirisAI", "detail": "SirisAI didn't answer: check it's running and SirisOS can reach it.", "last": status.get("last_ok")}
+    ok = got.get("dry_run") and (got.get("meta") or {}).get("last_day") == now.date().isoformat()
+    return {"ok": bool(ok), "step": "done", "detail": "SirisOS and SirisAI read an export for this hour correctly. If today is still empty, "
+            "the phone isn't sending it: check Date Range (Default) and that Health Auto Export can run." if ok else "SirisAI answered but didn't read today.",
+            "read": got.get("days"), "last": status.get("last_ok"), "key_set": status.get("has_key")}
+
+
 @router.post("/health/import/key")
 def import_key() -> dict[str, Any]:
     return {"key": health_import.new_key(), "path": "/api/v1/health/import"}
@@ -105,8 +130,10 @@ async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, 
         health_import.note(None, str(exc))
         raise fail(exc.status if 400 <= exc.status < 500 else 502, str(exc)) from None
     health_import.note(result)
-    n = len(result.get("days") or {}) if isinstance(result.get("days"), dict) else 1
-    health_import.attempt(200, f"Saved {n} day{'s' if n != 1 else ''}" if n else "Nothing SirisOS uses in it (that's fine)", len(raw))
+    days = sorted(result.get("days") or {}) if isinstance(result.get("days"), dict) else []
+    n = len(days) if days else (1 if result.get("date") else 0)
+    span = f" ({days[0]} to {days[-1]})" if len(days) > 1 else f" ({days[0]})" if days else ""
+    health_import.attempt(200, f"Saved {n} day{'s' if n != 1 else ''}{span}" if n else "Nothing SirisOS uses in it (that's fine)", len(raw))
     return {"ok": True, **{k: v for k, v in result.items() if k in ("date", "days", "format", "ignored", "stored")}}
 
 

@@ -982,3 +982,7 @@ h3.note__heading { font-size: 17px; }
 .gym-photo-one { max-width: 240px; }
 .gym-voice { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .health-import { margin: 12px 0 0; padding: 10px 14px; border-radius: 14px; font-size: 14px; background: color-mix(in srgb, var(--warning, #fbbf24) 14%, transparent); }
+.gym-protein { display: grid; gap: 4px; font-size: 14px; }
+.health-sources { width: 100%; border-collapse: collapse; font-size: 13px; }
+.health-sources th, .health-sources td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink-3) 20%, transparent); white-space: nowrap; }
+.health-sources th { color: var(--ink-3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }

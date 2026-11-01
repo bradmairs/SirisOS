@@ -359,3 +359,92 @@ def test_the_summary_for_sirisai_has_the_lifts_and_whats_next(client, health):
     assert s["lifts"]["Bench Press"]["best"] == 107.7 and len(s["lifts"]["Bench Press"]["last"]) == 2
     assert s["next"]["exercises"][0] == {"name": "Bench Press", "sets": 3, "reps": "5-8", "weight": 87.5, "why": "Last time every set at 85 reached 8: add 2.5."}
     assert any("Bench Press" in r for r in s["records_30d"]) and s["streak_weeks"] == 2
+
+
+# 6.93: swap, protein, a gym slot, the brief, test sync, the inspector.
+
+def test_swap_offers_the_same_movement_first(client):
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-11-02", [(30, 10)], exercise="db-bench-press"))
+    opts = client.get("/api/v1/gym/swap?exercise=bench-press", headers=AUTH).json()["options"]
+    assert opts[0]["id"] == "db-bench-press" and opts[0]["same_pattern"] and opts[0]["last"][0]["weight"] == 30
+    assert all(o["id"] != "bench-press" for o in opts) and any(not o["same_pattern"] for o in opts)
+
+
+def test_protein_target_from_bodyweight_and_training(client, health, monkeypatch):
+    from app.hub import sirisai_api
+
+    async def get(hub, path, params=None, timeout=20.0):
+        return {"days": [{"date": TODAY.isoformat(), "metrics": {"protein_g": 95, "meal_protein_g_estimate": 120}}]}
+
+    monkeypatch.setattr(sirisai_api, "get", get)
+    health["weight_kg"] = 80
+    p = client.get("/api/v1/gym/protein", headers=AUTH).json()
+    assert p == {"target_g": 128, "eaten_g": 120, "per_kg": 1.6, "bodyweight": 80, "training_day": False, "has_routine": False, "left_g": 8}
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("t", TODAY.isoformat(), [(80, 5)]))
+    assert client.get("/api/v1/gym/protein", headers=AUTH).json()["target_g"] == 160
+
+
+def test_a_free_slot_for_the_gym_and_adding_it(client, monkeypatch):
+    from datetime import datetime as dt
+
+    from app.calendar import service as calendar
+    from app.gym import coach
+    from app.health import service as health_service
+    from app.tasks.service import zone
+
+    tz = zone()
+    day = TODAY
+    busy = [{"start": dt(day.year, day.month, day.day, 6, 0, tzinfo=tz).isoformat(), "end": dt(day.year, day.month, day.day, 9, 0, tzinfo=tz).isoformat()},
+            {"start": dt(day.year, day.month, day.day, 12, 0, tzinfo=tz).isoformat(), "end": dt(day.year, day.month, day.day, 13, 30, tzinfo=tz).isoformat()}]
+    early = dt(day.year, day.month, day.day, 5, 0, tzinfo=tz)
+    a, b = coach.free_slot(busy, day, 60, now=early)
+    assert (a.hour, a.minute, b.hour, b.minute) == (17, 0, 18, 0)  # 6-8 taken, lunch only has 30 min, so after work
+
+    async def events(hub, start, end):
+        return {"events": busy}
+
+    added = []
+
+    async def tool(hub, name, arguments=None):
+        added.append((name, arguments))
+        return {"created": True}
+
+    monkeypatch.setattr(calendar, "events", events)
+    monkeypatch.setattr(health_service, "tool", tool)
+    monkeypatch.setattr(coach, "free_slot", lambda ev, d, m, now=None: (dt(d.year, d.month, d.day, 17, tzinfo=tz), dt(d.year, d.month, d.day, 18, tzinfo=tz)))
+    rid = _routine(client)
+    preview = client.post("/api/v1/gym/schedule", headers=AUTH, json={"minutes": 60}).json()
+    assert preview["title"] == "Gym: A" and preview["slot"]["start"].endswith("17:00+11:00") and not added
+    done = client.post("/api/v1/gym/schedule", headers=AUTH, json={"minutes": 60, "dry_run": False}).json()
+    assert done["added"] and added[0][0] == "calendar_create_event" and added[0][1]["summary"] == "Gym: A"
+    assert rid
+
+
+def test_the_brief_has_todays_gym_day(client):
+    from app.brief.service import _gym_today
+
+    assert _gym_today(TODAY, None) is None
+    rid = _routine(client)
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-11-02", [(80, 8), (80, 8), (80, 8)], routine=rid, d=0))
+    g = _gym_today(TODAY, {"band": "Recover", "score": 40})
+    assert g["title"] == "Test: A" and g["lifts"][0] == {"name": "Bench Press", "sets": 2, "reps": "5-8", "weight": 77.5}  # 82.5 next, 5% off, to 2.5 kg and "low" in g["note"]
+    assert g["days_since"] == 2
+
+
+def test_test_sync_and_the_inspector(client, monkeypatch):
+    from app.hub import sirisai_api
+    from app.tasks.service import today
+
+    async def post(hub, path, json=None, headers=None, timeout=20.0, **kw):
+        assert path.endswith("dry_run=1")
+        day = json["data"]["metrics"][0]["data"][0]["date"][:10]
+        return {"dry_run": True, "meta": {"last_day": day}, "days": {day: {"steps": 1.0}}}
+
+    async def get(hub, path, params=None, timeout=20.0):
+        return {"day": params["day"], "metrics": [{"metric": "steps", "trusted": "health_auto_export", "value": 50, "sources": []}]}
+
+    monkeypatch.setattr(sirisai_api, "post", post)
+    monkeypatch.setattr(sirisai_api, "get", get)
+    r = client.post("/api/v1/health/import/test", headers=AUTH).json()
+    assert r["ok"] and "read an export for this hour correctly" in r["detail"]
+    assert client.get("/api/v1/health/sources?day=2026-11-01", headers=AUTH).json()["metrics"][0]["trusted"] == "health_auto_export"
