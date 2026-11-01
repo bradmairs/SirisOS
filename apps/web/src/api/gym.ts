@@ -8,7 +8,7 @@ export interface Session { id: string; title: string; started_at: string; ended_
 export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string }
 export interface RoutineDay { name: string; exercises: PlanExercise[] }
 export interface Routine { id: string; name: string; days: RoutineDay[]; note?: string; active: boolean }
-export interface GymSettings { unit: "kg" | "lb"; bar: number; plates: number[]; increment: number; rest_s: number }
+export interface GymSettings { unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number }
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[] }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number } | null;
@@ -29,6 +29,7 @@ export interface ImportPreview {
   sets: number; workouts: number; from: string | null; to: string | null; replacing: number;
   exercises: { name: string; sets: number; match: string | null; match_name: string | null; how: "exact" | "close" | "guess" | "none"; new_muscle: string }[];
 }
+/** What the weights in an import file are in; SirisGYM saves kilograms either way. */
 export type ImportUnit = "auto" | "kg" | "lb";
 
 const G = "/api/v1/gym";

@@ -46,6 +46,8 @@ export interface Trend { key: string; label: string; unit: string; week: number;
 export interface Night { date: string; hours: number | null; deep: number | null; rem: number | null; core: number | null; awake: number | null; in_bed: number | null; start: string | null; end: string | null }
 export interface Point { date: string; value: number | null }
 export interface Vital { key: string; label: string; unit: string; value: number; date: string; baseline: number | null; spread: number | null; state: "normal" | "high" | "low"; series: Point[] }
+/** Energy is kept in kcal (as Apple Health sends it) and shown in kJ: SI only (6.62). */
+export const kJ = (kcal: number | null | undefined) => Math.round((kcal ?? 0) * 4.184);
 export interface Workout { date: string; name: string; start: string; minutes: number | null; km: number | null; kcal: number | null; avg_hr: number | null; max_hr: number | null }
 
 export interface WeightTrend { latest: number; latest_date: string; trend: number; per_week: number; goal_kg?: number; to_go_kg?: number; weeks_to_goal?: number | null; series: { date: string; weight: number; trend: number }[] }

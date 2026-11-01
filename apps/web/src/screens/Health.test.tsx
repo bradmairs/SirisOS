@@ -22,6 +22,7 @@ describe("<HealthScreen />", () => {
     expect(screen.getByText(data.readiness!.advice)).toBeInTheDocument();
     expect(screen.getAllByText(/HRV 71 ms/)[0]).toBeInTheDocument();
     expect(screen.getByText(/Kept from this morning/)).toBeInTheDocument();
+    expect(screen.getByText(/48 min exercise · 2,561 kJ/)).toBeInTheDocument();  // SI: kJ, not kcal (6.62)
     expect(screen.getByRole("meter", { name: "Energy 58 out of 100" })).toBeInTheDocument();
     expect(screen.getByText(/started at 84/)).toBeInTheDocument();
     const week = screen.getByRole("region", { name: "This week" });

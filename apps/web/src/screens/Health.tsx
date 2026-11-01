@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Flame, Scale, Target, ThermometerSun, TrendingUp } from "lucide-react";
-import { BAND_TONE, health, type Energy, type Goal, type SleepWeek, type Strain, type Health, type LogKind, type Point, type Readiness, type Trend, type Vital } from "../api/health";
+import { BAND_TONE, health, kJ, type Energy, type Goal, type SleepWeek, type Strain, type Health, type LogKind, type Point, type Readiness, type Trend, type Vital } from "../api/health";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
@@ -173,7 +173,7 @@ function TodayView({ h }: { h: Health }) {
       <div className="widget-grid">
         <Tile title="Sleep" Icon={BedDouble} to="/health?view=sleep" big={hm(h.sleep.last_night?.hours)} sub={h.sleep.score != null ? `Sleep score ${h.sleep.score} · need ${hm(h.sleep.need)}` : `You need about ${hm(h.sleep.need)}`} />
         <Tile title="Training load" Icon={Dumbbell} to="/health?view=fitness" big={h.activity.load.ratio != null ? h.activity.load.ratio.toFixed(2) : "–"} sub={h.activity.load.zone ? `This week against the last four: ${h.activity.load.zone}` : "Needs a few weeks of exercise data"} />
-        <Tile title="Today" Icon={Activity} to="/health?view=fitness" big={h.activity.steps != null ? Math.round(h.activity.steps).toLocaleString() : "–"} sub={`steps · ${Math.round(h.activity.exercise_minutes ?? 0)} min exercise · ${Math.round(h.activity.active_energy_kcal ?? 0)} kcal`} />
+        <Tile title="Today" Icon={Activity} to="/health?view=fitness" big={h.activity.steps != null ? Math.round(h.activity.steps).toLocaleString() : "–"} sub={`steps · ${Math.round(h.activity.exercise_minutes ?? 0)} min exercise · ${kJ(h.activity.active_energy_kcal).toLocaleString()} kJ`} />
         {h.bedtime && <Tile title="Tonight" Icon={Moon} to="/health?view=sleep" big={h.bedtime.bedtime} sub={h.bedtime.text} />}
         {h.weight && <Tile title="Weight" Icon={Scale} to="/health?view=vitals" big={`${h.weight.trend.toFixed(1)} kg`}
           sub={`Trend, ${h.weight.per_week >= 0 ? "+" : ""}${h.weight.per_week.toFixed(2)} kg a week${h.weight.to_go_kg != null ? ` · ${h.weight.to_go_kg} kg to go${h.weight.weeks_to_goal ? `, about ${h.weight.weeks_to_goal} weeks` : ""}` : ""}`} />}
@@ -358,7 +358,7 @@ function FitnessView({ h }: { h: Health }) {
               <li key={w.date + w.start + w.name} className="item">
                 <span className="item__dot dot-good" aria-hidden="true" />
                 <span className="item__text"><span className="item__title">{w.name}</span>
-                  <span className="item__subtitle">{[day(w.date), w.minutes && `${w.minutes} min`, w.km && `${w.km} km`, w.kcal && `${w.kcal} kcal`, w.avg_hr && `${Math.round(w.avg_hr)} bpm avg`].filter(Boolean).join(" · ")}</span></span>
+                  <span className="item__subtitle">{[day(w.date), w.minutes && `${w.minutes} min`, w.km && `${w.km} km`, w.kcal && `${kJ(w.kcal).toLocaleString()} kJ`, w.avg_hr && `${Math.round(w.avg_hr)} bpm avg`].filter(Boolean).join(" · ")}</span></span>
               </li>
             ))}
           </ul>
