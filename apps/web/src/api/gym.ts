@@ -104,6 +104,12 @@ export const gym = {
   deletePhoto: (id: string) => api<{ deleted: string }>(`${G}/photos/${id}`, { method: "DELETE" }),
   rest: (seconds: number, next: string) => api<{ ringing_in: number }>(`${G}/rest`, json({ seconds, next })),
   stopRest: () => api<{ stopped: boolean }>(`${G}/rest`, { method: "DELETE" }),
+  swap: (exercise: string, gymId?: string | null) =>
+    api<{ options: { id: string; name: string; equipment: string; same_pattern: boolean; last: SetLog[]; weight: number | null }[] }>(
+      `${G}/swap?exercise=${encodeURIComponent(exercise)}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
+  protein: () => api<{ target_g: number | null; eaten_g: number | null; per_kg: number; bodyweight: number | null; training_day: boolean; left_g: number | null }>(`${G}/protein`),
+  schedule: (dryRun: boolean, minutes = 60) =>
+    api<{ slot: { start: string; end: string } | null; title?: string; detail?: string; added?: boolean }>(`${G}/schedule`, json({ minutes, dry_run: dryRun })),
   deload: (on: boolean, days = 7) => api<Deload>(`${G}/deload`, json({ on, days })),
   strength: () => api<Strength>(`${G}/strength`),
   year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),

@@ -8,6 +8,7 @@ import {
   Brain,
   CalendarDays,
   CloudSun,
+  Dumbbell,
   Footprints,
   Gauge,
   HeartPulse,
@@ -190,6 +191,15 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
                 </ul>
                 <Link to="/health" className="brief-link">Health</Link>
               </Card>
+            )}
+            {brief.gym && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="The gym today">
+                <header className="widget__head"><Dumbbell aria-hidden="true" /><span>The gym today</span></header>
+                <p style={{ margin: 0, fontSize: 15 }}>{brief.gym.title}{brief.gym.days_since != null && !brief.gym.done ? <span className="muted"> · last workout {brief.gym.days_since === 0 ? "today" : `${brief.gym.days_since} day${brief.gym.days_since === 1 ? "" : "s"} ago`}</span> : null}</p>
+                {brief.gym.lifts && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{brief.gym.lifts.map((l) => `${l.name} ${l.sets}×${l.reps}${l.weight ? ` at ${l.weight} kg` : ""}`).join(" · ")}{brief.gym.more ? ` and ${brief.gym.more} more` : ""}</p>}
+                {brief.gym.note && <p className="tone-warning" style={{ margin: 0, fontSize: 13 }}>{brief.gym.note}</p>}
+                <Link to="/gym" className="brief-link">SirisGYM</Link>
+              </Glass>
             )}
             {brief.training && (
               <Card title="Training" Icon={Footprints}>

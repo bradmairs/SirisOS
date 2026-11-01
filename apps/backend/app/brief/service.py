@@ -171,6 +171,16 @@ async def _training_today(hub: Any) -> dict[str, Any] | None:
             "why": s.get("why"), "level": (o.get("recovery") or {}).get("level")}
 
 
+def _gym_today(day: date, readiness: dict[str, Any] | None) -> dict[str, Any] | None:
+    """SirisGYM's day (6.93): the next routine day with what to lift, adjusted for readiness or a deload."""
+    from app.gym import coach, store as gym_store
+
+    try:
+        return coach.today_for_brief(gym_store.load(), day, readiness)
+    except Exception:  # noqa: BLE001 - the brief stands without it
+        return None
+
+
 async def _safe(name: str, work: Awaitable[Any], failed: list[str]) -> Any:
     try:
         return await asyncio.wait_for(work, SOURCE_TIMEOUT + 2)
@@ -380,6 +390,7 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         "readiness": parts.get("readiness"),
         "energy": parts.get("energy"),
         "training": parts.get("training"),
+        "gym": parts.get("gym"),
         "home": home,
         "apps_attention": attention,
         "brain": brain,
@@ -456,6 +467,7 @@ class BriefService:
                 now_health = await _safe("readiness", health_service.today(hub), failed) or {}
                 parts["readiness"], parts["energy"] = now_health.get("readiness"), now_health.get("energy")
                 parts["training"] = await _safe("training", _training_today(hub), failed)
+                parts["gym"] = _gym_today(at.date(), parts.get("readiness"))
             parts["news"] = await _safe(
                 "news",
                 news_service.stories(shared_client(), ai.note_body if ai else no_note, hot, fresh=fresh),

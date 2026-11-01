@@ -133,7 +133,7 @@ export function HealthScreen() {
       )}
       {h?.available && view === "today" && <ImportStatus h={h} />}
       {h?.migrating && <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>Moving your earlier health history into SirisAI…</p>}
-      {h && view === "data" && <div className="stack" style={{ marginTop: 16 }}><DataView onChange={() => res.reload?.()} /></div>}
+      {h && view === "data" && <div className="stack" style={{ marginTop: 16 }}><SourcesCard today={h.today} /><DataView onChange={() => res.reload?.()} /></div>}
       {h?.available && view !== "data" && (
         <div className="stack" style={{ marginTop: 16 }}>
           {view === "today" && <TodayView h={h} />}
@@ -528,6 +528,44 @@ function LogView({ h, onChange }: { h: Health; onChange: () => void }) {
 }
 
 /** Your data (5.8): years of history from the Health app, export, a summary for a doctor, and deleting a range. */
+const SOURCE_NAME: Record<string, string> = { health_auto_export: "Health Auto Export", apple_export: "Apple Health export", shortcut: "Shortcut",
+  sirisos: "SirisOS (before 5.8)", manual: "typed in", sirisgym: "SirisGYM" };
+
+/** Where the numbers come from (6.93): each metric on a day, every source's value, and which one counts. */
+function SourcesCard({ today }: { today: string }) {
+  const [day, setDay] = useState(today);
+  const res = useResource(`health:sources:${day}`, () => health.sources(day), {});
+  const d = res.data && Array.isArray(res.data.metrics) ? { ...res.data, workouts: res.data.workouts ?? [], priority: res.data.priority ?? [] } : null;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Where the numbers come from">
+      <header className="widget__head"><span>Where the numbers come from</span>
+        <input className="field widget__source" type="date" aria-label="Day" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value)} style={{ width: "auto" }} /></header>
+      {res.error && <p className="muted" style={{ margin: 0 }}>{res.error}</p>}
+      {d && !d.metrics.length && <p className="muted" style={{ margin: 0 }}>Nothing for {day}.</p>}
+      {d && d.metrics.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table className="health-sources">
+            <thead><tr><th>Metric</th><th>Counts</th><th>From</th><th>Also</th></tr></thead>
+            <tbody>
+              {d.metrics.map((m) => (
+                <tr key={m.metric}><td>{m.metric.replace(/_/g, " ")}</td><td>{Math.round(m.value * 10) / 10}</td><td>{SOURCE_NAME[m.trusted] ?? m.trusted}</td>
+                  <td className="muted">{m.sources.slice(1).map((x) => `${SOURCE_NAME[x.source] ?? x.source} ${Math.round(x.value * 10) / 10}`).join(", ")}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {d && (d.workouts.length > 0 || d.sleep) && (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          {d.sleep ? `Sleep ${d.sleep.start.slice(11, 16)} to ${d.sleep.end.slice(11, 16)}. ` : ""}
+          {d.workouts.map((w) => `${w.name} ${w.start.slice(11, 16)} (${SOURCE_NAME[w.source] ?? w.source})`).join(" · ")}
+        </p>
+      )}
+      {d && <p className="muted" style={{ margin: 0, fontSize: 12 }}>When two sources have the same number, the first in this order counts: {d.priority.map((p) => SOURCE_NAME[p] ?? p).join(", ")}.</p>}
+    </Glass>
+  );
+}
+
 function DataView({ onChange }: { onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);

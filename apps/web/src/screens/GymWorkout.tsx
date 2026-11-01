@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Check, Link2, Mic, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
+import { ArrowLeftRight, Check, Link2, Mic, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
 import { e1rm, gym, loadActive, parseSpoken, plates, saveActive, shortcuts, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { brain } from "../api/hub";
 import { micUnavailableReason, startRecording } from "../api/voice";
 import { Glass } from "../components/Glass";
 import { ExercisePicker, ExerciseSheet, kg, useGym } from "./Gym";
+import { Sheet } from "../components/Sheet";
+import { useResource } from "../api/resource";
 
 /** The workout in progress (6.5): log each set against last time, a rest timer after each one,
  * plates for the bar, and finish (it waits on the phone if there's no signal). */
@@ -21,6 +23,7 @@ export function GymWorkoutScreen() {
   const [done, setDone] = useState<{ summary?: Summary; records?: GymRecord[]; offline?: boolean } | null>(null);
   const [, tick] = useState(0);
   const [listening, setListening] = useState(false);
+  const [swapping, setSwapping] = useState<number | null>(null);
   const plan = useMemo<Plan | null>(() => { try { return s ? JSON.parse(window.sessionStorage.getItem(`sirisos.gym.plan.${s.id}`) ?? "null") : null; } catch { return null; } }, [s?.id]);
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
   useEffect(() => { document.title = "Workout · SirisOS"; }, []);
@@ -143,6 +146,7 @@ export function GymWorkoutScreen() {
               {entry.group && <span className="gym-group">SUPERSET {entry.group}<button type="button" className="icon-link" aria-label={`Take ${ex?.name} out of the superset`} onClick={() => unlink(ei)}><X size={10} aria-hidden="true" /></button></span>}
               <header className="widget__head">
                 <button type="button" className="icon-link gym-entry__name" onClick={() => setOpenEx(entry.exercise)}>{ex?.name ?? entry.exercise}</button>
+                <button type="button" className="icon-link" aria-label={`Swap ${ex?.name ?? entry.exercise}`} title="Swap for another exercise" onClick={() => setSwapping(ei)}><ArrowLeftRight size={14} aria-hidden="true" /></button>
                 <button type="button" className="widget__source icon-link" aria-label={`Remove ${ex?.name}`} onClick={() => update({ ...s, entries: s.entries.filter((_, i) => i !== ei) })}><X size={14} aria-hidden="true" /></button>
               </header>
               {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
@@ -186,6 +190,13 @@ export function GymWorkoutScreen() {
       {picking && g && (
         <ExercisePicker exercises={g.exercises} onClose={() => setPicking(false)}
           onPick={(ex) => { update({ ...s, entries: [...s.entries, { exercise: ex.id, sets: [{ weight: null, reps: null, done: false, type: "normal" }] }] }); setPicking(false); }} />
+      )}
+      {swapping != null && s.entries[swapping] && (
+        <SwapSheet exercise={s.entries[swapping].exercise} gymId={s.gym ?? null} onClose={() => setSwapping(null)}
+          onPick={(id, weight) => {
+            update({ ...s, entries: s.entries.map((e, i) => (i === swapping ? { ...e, exercise: id, sets: e.sets.map((x) => (x.done ? x : { ...x, weight: x.type === "warmup" ? null : weight, reps: null })) } : e)) });
+            setSwapping(null);
+          }} />
       )}
       {openEx && <ExerciseSheet id={openEx} unit={unit} onClose={() => setOpenEx(null)} />}
     </>
@@ -279,5 +290,29 @@ function Finished({ done, unit }: { done: { summary?: Summary; records?: GymReco
       )}
       <Link to="/gym" className="button button--primary" style={{ alignSelf: "flex-start" }}>Back to the gym</Link>
     </Glass>
+  );
+}
+
+
+/** Swap an exercise mid-workout (6.93): the same movement first, then the same muscle, with last time and what to lift. */
+function SwapSheet({ exercise, gymId, onPick, onClose }: { exercise: string; gymId: string | null; onPick: (id: string, weight: number | null) => void; onClose: () => void }) {
+  const res = useResource(`gym:swap:${exercise}:${gymId ?? ""}`, () => gym.swap(exercise, gymId), {});
+  return (
+    <Sheet label="Swap the exercise" onClose={onClose}>
+      <div className="stack" style={{ gap: 8 }}>
+        <h2 className="sheet__title">Swap for</h2>
+        {!res.data && <div className="skeleton" style={{ height: 120 }} />}
+        <ul className="items">
+          {(res.data?.options ?? []).map((o) => (
+            <li key={o.id} className="item">
+              <button type="button" className="item__text house__pick" onClick={() => onPick(o.id, o.weight)}>
+                <span className="item__title">{o.name}</span>
+                <span className="item__subtitle">{o.same_pattern ? "same movement" : "same muscle"} · {o.equipment}{o.last.length ? ` · last ${o.last.map((x) => `${x.weight ?? "bw"}×${x.reps ?? "–"}`).join(", ")}` : ""}{o.weight ? ` · try ${o.weight} kg` : ""}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Sheet>
   );
 }

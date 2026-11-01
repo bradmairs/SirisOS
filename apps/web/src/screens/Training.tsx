@@ -194,6 +194,7 @@ function HealthImportCard({ health }: { health: boolean }) {
           : health ? "SirisAI has health data, but none has come through here yet." : "No health data yet."}
         {s?.last?.error ? ` The last try failed: ${s.last.error}` : ""}
       </p>
+      <TestSync />
       {(s?.attempts?.length ?? 0) > 0 && (
         <details className="training__attempts" open={s!.attempts![0].status >= 400}>
           <summary>What the phone sent lately</summary>
@@ -250,6 +251,23 @@ function SetupCheck() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+
+/** Test the sync (6.93): a sample export for this hour through SirisOS and SirisAI, nothing kept, so a failure is either here or on the phone. */
+function TestSync() {
+  const [r, setR] = useState<{ ok: boolean; detail: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try { setR(await training.testSync()); } catch (e) { setR({ ok: false, detail: e instanceof Error ? e.message : String(e) }); } finally { setBusy(false); }
+  };
+  return (
+    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <button type="button" className="button" disabled={busy} onClick={run}>{busy ? "Testing…" : "Test the sync"}</button>
+      {r && <span role="status" className={r.ok ? "tone-good" : "tone-warning"} style={{ fontSize: 13 }}>{r.ok ? "✓ " : "✗ "}{r.detail}</span>}
     </div>
   );
 }
