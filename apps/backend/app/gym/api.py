@@ -17,6 +17,12 @@
     GET    /api/v1/gym/plates?weight=        the plates for each side
     GET    /api/v1/gym/warmups?exercise=&weight=&gym=   (6.7) warm-up sets up to a working weight
     GET    /api/v1/gym/heatmap?days=         (6.7) each day with a workout: volume, sets, main muscles
+    POST   /api/v1/gym/deload                (6.8) {on, days}: a deload week (half the sets, 10% lighter, no records)
+    GET    /api/v1/gym/strength              (6.8) main lifts' best estimated 1RM against bodyweight
+    GET    /api/v1/gym/year?year=            (6.8) the year in review
+  6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
+  /plan adjusts for readiness and a deload week; a saved session goes to SirisAI for strain; a session
+  shows the Apple Watch workout that overlaps it.
     POST   /api/v1/gym/import                (6.6) a JEFIT export or any CSV/zip: form `file`, `unit` (auto/kg/lb),
                                              `dry_run` (default true: a preview), `choices` (JSON: name -> exercise id or "new")
 """
@@ -29,9 +35,16 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
+import asyncio
+import logging
+
 from app.auth import require_user
-from app.gym import importer, service, store, templates
+from app.gym import coach, importer, service, store, templates
+from app.hub import sirisai_api
+from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/gym", tags=["gym"], dependencies=[Depends(require_user)])
 
@@ -40,10 +53,28 @@ def _missing(what: str) -> HTTPException:
     return HTTPException(status_code=404, detail=f"No such {what}.")
 
 
+async def _health(hub: Hub) -> dict[str, Any]:
+    """Today's readiness, the last few mornings and the latest weight, from SirisAI (6.8); nothing when it can't be reached."""
+    from app.health import service as health
+
+    try:
+        body = await asyncio.wait_for(health.overview(hub), timeout=6)
+    except Exception:  # noqa: BLE001 - the gym works without it
+        return {}
+    weight = (body.get("weight") or {}) if isinstance(body.get("weight"), dict) else {}
+    return {"readiness": body.get("readiness"), "recent": body.get("readiness_recent") or [],
+            "weight_kg": weight.get("latest") or weight.get("current") or weight.get("kg")}
+
+
+def _low(h: dict[str, Any]) -> int:
+    return sum(1 for r in (h.get("recent") or [])[-5:] if (r or {}).get("band") == "Recover")
+
+
 @router.get("")
-def overview() -> dict[str, Any]:
+async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     doc = store.load()
     today = tasks.today()
+    h = await _health(hub)
     active = next((r for r in doc.routines if r.active), None)
     return {
         "settings": doc.settings.model_dump(),
@@ -54,7 +85,37 @@ def overview() -> dict[str, Any]:
         "week": service.week(doc, today),
         "streak_weeks": service.streak(doc, today),
         "total_sessions": len(doc.sessions),
+        "muscles": coach.muscles(doc, today),
+        "deload": coach.deload(doc, today, _low(h)),
+        "readiness": {k: (h.get("readiness") or {}).get(k) for k in ("score", "band")} if h.get("readiness") else None,
     }
+
+
+class DeloadRequest(BaseModel):
+    on: bool = True
+    days: int = Field(default=7, ge=1, le=14)
+
+
+@router.post("/deload")
+def set_deload(body: DeloadRequest) -> dict[str, Any]:
+    """Start (or end) a deload week: half the sets, 10% lighter, no records."""
+    from datetime import timedelta
+
+    doc = store.load()
+    doc.settings.deload_until = (tasks.today() + timedelta(days=body.days - 1)).isoformat() if body.on else None
+    store.save(doc)
+    return coach.deload(doc, tasks.today())
+
+
+@router.get("/strength")
+async def strength(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    h = await _health(hub)
+    return coach.standards(store.load(), tasks.today(), h.get("weight_kg"))
+
+
+@router.get("/year")
+def year_review(year: int | None = Query(default=None, ge=2000, le=2100)) -> dict[str, Any]:
+    return coach.year(store.load(), year or tasks.today().year)
 
 
 @router.put("/settings")
@@ -157,8 +218,11 @@ def delete_routine(routine_id: str) -> dict[str, Any]:
 
 
 @router.get("/plan")
-def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13), gym: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
+async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13), gym: str | None = Query(default=None, max_length=40),
+               hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     doc = store.load()
+    h = await _health(hub)
+    deloading = coach.deload(doc, tasks.today())["active"]
     r = next((x for x in doc.routines if x.id == routine), None)
     if r is None or not r.days:
         raise _missing("routine")
@@ -168,15 +232,17 @@ def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13), gym: 
     out = []
     warmed: set[str] = set()
     for p in d.exercises:
-        sug = service.suggest(doc, p, gym)
+        sets, sug = coach.adjust(p, service.suggest(doc, p, gym), doc, h.get("readiness"), deloading)
         ex = names.get(p.exercise, {})
         # Warm up for the first exercise that works each main muscle (6.7).
         warm = service.warmups(doc, p.exercise, sug.get("weight"), gym) if ex.get("primary") not in warmed else []
         if warm:
             warmed.add(ex.get("primary", ""))
-        out.append({**p.model_dump(), "name": ex.get("name", p.exercise), "kind": ex.get("kind", "weight"), "equipment": ex.get("equipment"),
+        out.append({**p.model_dump(), "sets": sets, "name": ex.get("name", p.exercise), "kind": ex.get("kind", "weight"), "equipment": ex.get("equipment"),
                     "last": service.last(doc, p.exercise), "suggest": sug, "warmups": warm})
-    return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out}
+    band = (h.get("readiness") or {}).get("band")
+    return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out, "deload": deloading,
+            "readiness": {"score": (h.get("readiness") or {}).get("score"), "band": band} if band else None}
 
 
 @router.get("/warmups")
@@ -189,8 +255,16 @@ def get_heatmap(days: int = Query(default=371, ge=7, le=3700)) -> dict[str, Any]
     return {"days": service.heatmap(store.load(), tasks.today(), days)}
 
 
+async def _send_day(hub: Hub, doc: store.GymDoc, day: str) -> None:
+    """The day's gym sessions go to SirisAI as workouts (6.8), so strain and the training load count them."""
+    try:
+        await sirisai_api.post(hub, "/siris/health/metrics", json=coach.as_workouts(doc, day), headers={"X-Health-Source": "sirisgym"}, timeout=8.0)
+    except Exception as exc:  # noqa: BLE001 - the workout is saved either way
+        log.info("Couldn't send the gym day to SirisAI: %s", exc)
+
+
 @router.post("/sessions")
-def save_session(body: store.Session) -> dict[str, Any]:
+async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     doc = store.load()
     doc.sessions = [s for s in doc.sessions if s.id != body.id]
     if not body.ended_at:
@@ -198,24 +272,31 @@ def save_session(body: store.Session) -> dict[str, Any]:
     body.gym = body.gym or doc.settings.current_gym
     doc.sessions.append(body)
     store.save(doc)
+    await _send_day(hub, doc, service.day_of(body.started_at))
     return {"summary": service.summary(doc, body), "records": service.new_records(doc, body)}
 
 
 @router.get("/sessions")
 def sessions(month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$")) -> dict[str, Any]:
     doc = store.load()
-    picked = [s for s in doc.sessions if not month or s.started_at.startswith(month)]
+    picked = [s for s in doc.sessions if not month or service.day_of(s.started_at).startswith(month)]
     return {"sessions": [service.summary(doc, s) for s in reversed(picked)]}
 
 
 @router.get("/sessions/{session_id}")
-def session(session_id: str) -> dict[str, Any]:
+async def session(session_id: str, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    from app.health import service as health
+
     doc = store.load()
     s = next((x for x in doc.sessions if x.id == session_id), None)
     if s is None:
         raise _missing("session")
     names = service.exercises(doc)
-    return {**s.model_dump(), "summary": service.summary(doc, s), "records": service.new_records(doc, s),
+    try:
+        watch = coach.watch_for(s, await asyncio.wait_for(health.workouts(hub, 400), timeout=6))
+    except Exception:  # noqa: BLE001
+        watch = None
+    return {**s.model_dump(), "summary": service.summary(doc, s), "records": service.new_records(doc, s), "watch": watch,
             "entries": [{**e.model_dump(), "name": names.get(e.exercise, {}).get("name", e.exercise)} for e in s.entries]}
 
 

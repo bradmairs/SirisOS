@@ -96,6 +96,42 @@ describe("SirisGYM 6.7", () => {
   });
 });
 
+describe("SirisGYM 6.8", () => {
+  it("shows today's readiness, offers a deload, and the week's sets against targets", async () => {
+    signIn();
+    const g = { ...GYM, readiness: { score: 38, band: "Recover" }, deload: { active: false, until: null, suggest: true, why: ["bench Press has stalled for three sessions"] },
+      muscles: [{ muscle: "chest", sets: 12, target: [10, 20], status: "in range" }, { muscle: "back", sets: 4, target: [10, 20], status: "under" }] };
+    const calls = mockFetch({ "/api/v1/gym/deload": () => jsonResponse({ active: true, until: "2026-11-10", suggest: false, why: [] }), "/api/v1/gym": () => jsonResponse(g) });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    expect(await screen.findByText(/Readiness 38: today's plan is a set lighter/)).toBeInTheDocument();
+    expect(screen.getByText(/Under the 10-20 sets a week: back/)).toBeInTheDocument();
+    const card = screen.getByRole("region", { name: "Deload" });
+    expect(card).toHaveTextContent("Bench Press has stalled for three sessions");
+    await user.click(within(card).getByRole("button", { name: "Start a deload week" }));
+    expect(JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/deload")!.init.body))).toEqual({ on: true, days: 7 });
+  });
+
+  it("shows strength against bodyweight and the year in review", async () => {
+    signIn();
+    mockFetch({
+      "/api/v1/gym/strength": () => jsonResponse({ bodyweight: 80, lifts: [{ exercise: "bench-press", name: "Bench Press", best: 116.7, date: "2026-03-01", this_year: 116.7, last_year: 105, ratio: 1.46, level: "intermediate" }] }),
+      "/api/v1/gym/year": () => jsonResponse({ year: 2026, sessions: 120, hours: 130, sets: 2400, volume: 480000, previous: { sessions: 100, hours: 110, sets: 2000, volume: 400000 },
+        months: Array.from({ length: 12 }, (_, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, sessions: 10, volume: 40000, records: i === 2 ? 2 : 0 })),
+        muscles: [{ muscle: "chest", sets: 500 }], best: [{ exercise: "bench-press", name: "Bench Press", e1rm: 116.7, date: "2026-03-01" }] }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    render(<MemoryRouter initialEntries={["/gym?view=progress"]}><GymScreen /></MemoryRouter>);
+    const strength = await screen.findByRole("region", { name: "Strength" });
+    expect(await within(strength).findByText("Bench Press: 116.7 kg")).toBeInTheDocument();
+    expect(strength).toHaveTextContent("1.46× bw");
+    expect(strength).toHaveTextContent("this year 116.7 (+11% on last year)");
+    const year = screen.getByRole("region", { name: "Year in review" });
+    expect(await within(year).findByText("480 t")).toBeInTheDocument();
+    expect(year).toHaveTextContent("Workouts +20%");
+  });
+});
+
 describe("Import from JEFIT (6.6)", () => {
   it("previews an export, lets you change a match, then imports with your choices", async () => {
     signIn();

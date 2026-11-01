@@ -15,15 +15,25 @@ export interface GymSettings {
   unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number;
   gyms: GymProfile[]; current_gym: string; warmups: boolean; warmup_steps: WarmupStep[]; muscle_targets?: Record<string, number[]>;
 }
-export interface Suggest { weight: number | null; reps: number; why: string; per_set?: number[]; training_max?: number; last_note?: string | null }
+export interface Suggest { weight: number | null; reps: number; why: string; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null }
 export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[] }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number } | null;
   recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number };
   streak_weeks: number; total_sessions: number;
+  muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
 }
-export interface Plan { routine: string; day: number; title: string; gym?: string; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[] })[] }
+export interface MuscleWeek { muscle: string; sets: number; target: [number, number]; status: "under" | "in range" | "over" }
+export interface Deload { active: boolean; until: string | null; suggest: boolean; why: string[] }
+export interface Watch { name: string; start: string; minutes: number | null; avg_hr: number | null; max_hr: number | null; kj: number | null }
+export interface Strength { bodyweight: number | null; lifts: { exercise: string; name: string; best: number; date: string; this_year: number | null; last_year: number | null; ratio: number | null; level: string | null }[] }
+export interface YearStats { sessions: number; hours: number; sets: number; volume: number }
+export interface YearReview extends YearStats {
+  year: number; previous: YearStats; months: { month: string; sessions: number; volume: number; records: number }[];
+  muscles: { muscle: string; sets: number }[]; best: { exercise: string; name: string; e1rm: number; date: string }[];
+}
+export interface Plan { routine: string; day: number; title: string; gym?: string; deload?: boolean; readiness?: { score: number | null; band: string } | null; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[] })[] }
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
 export interface ExerciseDetail {
   exercise: Exercise;
@@ -66,7 +76,10 @@ export const gym = {
   heatmap: (days = 371) => api<{ days: HeatDay[] }>(`${G}/heatmap?days=${days}`),
   finish: (s: Session) => api<{ summary: Summary; records: GymRecord[] }>(`${G}/sessions`, json(s)),
   sessions: (month?: string) => api<{ sessions: Summary[] }>(`${G}/sessions${month ? `?month=${month}` : ""}`),
-  session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[] }>(`${G}/sessions/${id}`),
+  session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[]; watch?: Watch | null }>(`${G}/sessions/${id}`),
+  deload: (on: boolean, days = 7) => api<Deload>(`${G}/deload`, json({ on, days })),
+  strength: () => api<Strength>(`${G}/strength`),
+  year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),
   importPreview: (file: File, unit: ImportUnit) => importFile<{ preview: ImportPreview }>(file, unit),
   importCommit: (file: File, unit: ImportUnit, choices: Record<string, string>) =>
     importFile<{ imported: { workouts: number; sets: number; new_exercises: number } }>(file, unit, choices),

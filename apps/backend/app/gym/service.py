@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Any
 
 from app.gym import library
@@ -59,8 +60,18 @@ def volume(sets: list[SetLog]) -> float:
     return round(sum((s.weight or 0) * (s.reps or 0) for s in working(sets)), 1)
 
 
+@lru_cache(maxsize=8192)
 def _day(stamp: str) -> str:
-    return stamp[:10]
+    """The local date a session was on (6.8): the phone sends UTC, so a 7am
+    workout in Melbourne used to be filed under the day before."""
+    from app.gym.coach import local
+
+    t = local(stamp) if ("Z" in stamp or "+" in stamp[10:] or stamp[19:20] == "-") else None
+    return t.date().isoformat() if t else stamp[:10]
+
+
+def day_of(stamp: str) -> str:
+    return _day(stamp)
 
 
 def history(doc: GymDoc, exercise: str) -> list[dict[str, Any]]:
@@ -107,7 +118,9 @@ def records(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def new_records(doc: GymDoc, session: Session) -> list[dict[str, Any]]:
-    """The records this session set, against every session before it."""
+    """The records this session set, against every session before it. A deload session sets none (6.8)."""
+    if session.deload:
+        return []
     before = GymDoc(sessions=[s for s in doc.sessions if s.started_at < session.started_at and s.id != session.id])
     names = exercises(doc)
     found = []

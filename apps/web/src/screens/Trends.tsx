@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Award, BookOpen, Footprints, Inbox, ListChecks, Table2, Zap } from "lucide-react";
+import { Award, BookOpen, Dumbbell, Footprints, Inbox, ListChecks, Table2, Zap } from "lucide-react";
 import { useResource } from "../api/resource";
 import { trends, type TrendMonth, type Trends } from "../api/trends";
+import { gym } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { GoalsCard } from "./Goals";
 
@@ -32,8 +33,23 @@ export function TrendsScreen() {
       {error && !data && <div className="error-banner" role="alert">{error}</div>}
       {!data && loading && <div className="skeleton" style={{ height: 300, marginTop: 16 }} />}
       <div style={{ marginTop: 16 }}><GoalsCard thisYear={Number((data?.today ?? new Date().toISOString()).slice(0, 4))} /></div>
+      <GymYear />
       {data && (table ? <TrendsTable data={data} /> : <TrendsCharts data={data} />)}
     </>
+  );
+}
+
+/** SirisGYM's year (6.8), with a link to the full review. Nothing until there's a workout. */
+function GymYear() {
+  const { data } = useResource("gym:year:now", () => gym.year(), { staleMs: 10 * 60_000 });
+  if (!data?.sessions) return null;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0, marginTop: 16 }} aria-label="The gym this year">
+      <header className="widget__head"><Dumbbell aria-hidden="true" /><span>The gym in {data.year}</span><Link to="/gym?view=progress" className="widget__source">Review</Link></header>
+      <p style={{ margin: 0 }}>{data.sessions} workouts, {data.hours} hours and {(data.volume / 1000).toFixed(1)} t lifted
+        {data.previous.sessions ? ` (${data.sessions >= data.previous.sessions ? "+" : ""}${data.sessions - data.previous.sessions} workouts on last year)` : ""}.
+        {data.best.length ? ` Best: ${data.best.slice(0, 3).map((b) => `${b.name} ${b.e1rm} kg`).join(", ")}.` : ""}</p>
+    </Glass>
   );
 }
 

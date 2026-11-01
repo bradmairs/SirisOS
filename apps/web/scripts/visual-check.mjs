@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=history", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "desktop", width: 1280, height: 900, mobile: false }];
 const health = JSON.parse(readFileSync("src/screens/__health_fixture.json", "utf8"));
 const hud = { system: { cpu_percent: 7, memory: { percent_used: 41, used_gb: 13.1, total_gb: 32 }, disk: { "/": { percent_used: 63, used_gb: 590, total_gb: 937 } }, temperatures_celsius: {} } };
@@ -29,10 +29,22 @@ const gymFixture = {
   routines: [{ id: "r1", name: "Push, pull, legs", days: [{ name: "Push", exercises: [{ exercise: "bench-press", sets: 4, reps: "5-8", rest_s: 150 }] }], active: true }],
   active: { routine: "r1", next_day: 0 }, recent: [{ id: "s1", title: "Push, pull, legs: Push", date: "2026-11-02", started_at: "2026-11-02T07:00:00Z", minutes: 64, sets: 18, exercises: 5, volume: 9420, names: [] }],
   week: { week_of: "2026-11-02", sessions: 2, sets_by_muscle: { chest: 8, shoulders: 6, triceps: 5.5, back: 4 }, volume: 15200 }, streak_weeks: 6, total_sessions: 41,
+  readiness: { score: 41, band: "Recover" }, deload: { active: false, until: null, suggest: true, why: ["bench Press has stalled for three sessions", "7 weeks of training in a row without a lighter week"] },
+  muscles: [["chest", 12, "in range"], ["back", 4, "under"], ["shoulders", 9, "under"], ["quads", 22, "over"], ["triceps", 6, "under"]].map(([m, n, st]) => ({ muscle: m, sets: n, target: [10, 20], status: st })),
 };
+const strength = { bodyweight: 82, lifts: [
+  { exercise: "back-squat", name: "Back Squat", best: 152.5, date: "2026-09-20", this_year: 152.5, last_year: 140, ratio: 1.86, level: "intermediate" },
+  { exercise: "bench-press", name: "Bench Press", best: 116.7, date: "2026-10-02", this_year: 116.7, last_year: 105, ratio: 1.42, level: "intermediate" },
+  { exercise: "pull-up", name: "Pull-up", best: 20, date: "2026-08-02", this_year: 20, last_year: null, ratio: 0.24, level: "novice" }] };
+const yearReview = { year: 2026, sessions: 132, hours: 141.5, sets: 2650, volume: 512340, previous: { sessions: 110, hours: 118, sets: 2200, volume: 430000 },
+  months: Array.from({ length: 12 }, (_, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, sessions: i < 10 ? 12 : 0, volume: i < 10 ? 38000 + (i % 4) * 6000 : 0, records: i % 3 === 0 ? 1 : 0 })),
+  muscles: [{ muscle: "chest", sets: 520 }, { muscle: "back", sets: 480 }, { muscle: "quads", sets: 400 }],
+  best: [{ exercise: "back-squat", name: "Back Squat", e1rm: 152.5, date: "2026-09-20" }, { exercise: "bench-press", name: "Bench Press", e1rm: 116.7, date: "2026-10-02" }] };
 const heat = { days: Array.from({ length: 120 }, (_, i) => { const d = new Date(Date.now() - i * 3 * 86400000); return { date: d.toISOString().slice(0, 10), volume: 4000 + (i % 5) * 1500, sets: 18, muscles: ["chest"] }; }) };
 const FIXTURES = [
   ["/api/v1/gym/heatmap", heat],
+  ["/api/v1/gym/strength", strength],
+  ["/api/v1/gym/year", yearReview],
   ["/api/v1/gym/sessions", { sessions: gymFixture.recent }],
   ["/api/v1/gym/templates", { templates: [] }],
   ["/api/v1/gym", gymFixture],

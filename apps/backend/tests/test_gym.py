@@ -212,3 +212,86 @@ def test_supersets_keep_their_group_and_the_heatmap_counts_each_day(client):
     assert [e["group"] for e in client.get("/api/v1/gym/sessions/s1", headers=AUTH).json()["entries"]] == ["A", "A"]
     days = client.get("/api/v1/gym/heatmap", headers=AUTH).json()["days"]
     assert days == [{"date": "2026-11-02", "volume": 80 * 8 + 600, "sets": 2, "muscles": ["chest", "back"]}]
+
+
+# 6.8: muscle targets, deloads, readiness, strength, the year, the Watch, strain.
+
+@pytest.fixture
+def health(monkeypatch):
+    from app.gym import api as gym_api
+
+    state = {"readiness": None, "recent": [], "weight_kg": None, "sent": [], "workouts": []}
+
+    async def fake_health(hub):
+        return {k: state[k] for k in ("readiness", "recent", "weight_kg")}
+
+    async def fake_send(hub, doc, day):
+        from app.gym import coach
+        state["sent"].append(coach.as_workouts(doc, day))
+
+    async def fake_workouts(hub, days=42):
+        return state["workouts"]
+
+    from app.health import service as health_service
+    monkeypatch.setattr(gym_api, "_health", fake_health)
+    monkeypatch.setattr(gym_api, "_send_day", fake_send)
+    monkeypatch.setattr(health_service, "workouts", fake_workouts)
+    return state
+
+
+def test_sets_per_muscle_against_targets_and_a_deload_when_lifts_stall(client, health):
+    for i, d in enumerate(["2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02"]):
+        client.post("/api/v1/gym/sessions", headers=AUTH, json=session(f"s{i}", d, [(100, 5)] * (12 if i == 3 else 1)))
+    over = client.get("/api/v1/gym", headers=AUTH).json()
+    chest = next(m for m in over["muscles"] if m["muscle"] == "chest")
+    assert chest == {"muscle": "chest", "sets": 12, "target": [10, 20], "status": "in range"}
+    assert next(m for m in over["muscles"] if m["muscle"] == "back")["status"] == "under"
+    assert over["deload"]["suggest"] and "Bench Press has stalled" in over["deload"]["why"][0]
+    on = client.post("/api/v1/gym/deload", headers=AUTH, json={"on": True}).json()
+    assert on["active"] and on["until"] == "2026-11-10"
+    rid = _routine(client)
+    p = client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()
+    assert p["deload"] and p["exercises"][0]["sets"] == 2 and p["exercises"][0]["suggest"]["weight"] == 90
+    dl = session("d1", "2026-11-04", [(150, 5)])
+    dl["deload"] = True
+    assert client.post("/api/v1/gym/sessions", headers=AUTH, json=dl).json()["records"] == []  # no records in a deload
+
+
+def test_readiness_shapes_the_plan_and_low_mornings_suggest_a_deload(client, health):
+    rid = _routine(client)
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-11-02", [(100, 6), (100, 6), (100, 6)]))
+    health["readiness"] = {"score": 38, "band": "Recover"}
+    p = client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()
+    assert p["readiness"] == {"score": 38, "band": "Recover"}
+    assert p["exercises"][0]["sets"] == 2 and p["exercises"][0]["suggest"]["weight"] == 95 and "Readiness is low today (38)" in p["exercises"][0]["suggest"]["why"]
+    health["readiness"] = {"score": 88, "band": "Primed"}
+    assert client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()["exercises"][0]["suggest"]["push"] is True
+    health["recent"] = [{"band": "Recover"}, {"band": "Steady"}, {"band": "Recover"}, {"band": "Recover"}]
+    assert "readiness has been low on 3" in client.get("/api/v1/gym", headers=AUTH).json()["deload"]["why"][-1]
+
+
+def test_strength_against_bodyweight_and_the_year_in_review(client, health):
+    health["weight_kg"] = 80
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("a", "2025-06-01", [(90, 5)]))
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("b", "2026-03-01", [(100, 5)]))
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("c", "2026-03-15", [(105, 3)]))
+    st = client.get("/api/v1/gym/strength", headers=AUTH).json()
+    bench = st["lifts"][0]
+    assert st["bodyweight"] == 80 and bench["best"] == 116.7 and bench["ratio"] == 1.46 and bench["level"] == "intermediate"
+    assert bench["this_year"] == 116.7 and bench["last_year"] == 105
+    y = client.get("/api/v1/gym/year?year=2026", headers=AUTH).json()
+    assert y["sessions"] == 2 and y["previous"]["sessions"] == 1 and y["months"][2]["sessions"] == 2
+    assert y["months"][2]["records"] >= 1 and y["best"][0]["e1rm"] == 116.7 and y["muscles"][0]["muscle"] == "chest"
+
+
+def test_a_session_goes_to_sirisai_and_shows_the_watch_workout(client, health):
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-11-02", [(80, 8)]))
+    sent = health["sent"][-1]
+    assert list(sent["workouts"]) == ["2026-11-02"] and sent["workouts"]["2026-11-02"][0]["minutes"] == 65
+    assert sent["workouts"]["2026-11-02"][0]["name"] == "SirisGYM: Push"
+    # 07:00 UTC is 18:00 in Melbourne; the Watch workout started at 18:03 local.
+    health["workouts"] = [{"date": "2026-11-02", "name": "Traditional Strength Training", "start": "2026-11-02 18:03:00 +1100", "minutes": 61,
+                           "kcal": 420, "avg_hr": 118, "max_hr": 161, "source": "health_auto_export"},
+                          {"date": "2026-11-02", "name": "SirisGYM: Push", "start": "2026-11-02 18:00:00 +1100", "minutes": 65, "source": "sirisgym"}]
+    w = client.get("/api/v1/gym/sessions/s1", headers=AUTH).json()["watch"]
+    assert w == {"name": "Traditional Strength Training", "start": "2026-11-02 18:03:00 +1100", "minutes": 61, "avg_hr": 118, "max_hr": 161, "kj": 1757}
