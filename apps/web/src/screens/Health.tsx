@@ -84,6 +84,30 @@ export function ReadinessWidget() {
   );
 }
 
+const ago = (iso: string) => {
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  return m < 2 ? "just now" : m < 90 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} hours ago` : `${Math.round(m / 1440)} days ago`;
+};
+
+/** Why today is empty (6.91): the last export from the phone, and what to change. Quiet when today's data is in. */
+export function ImportStatus({ h }: { h: Health }) {
+  const today = h.today;
+  const hasToday = h.activity?.steps != null || !!h.sleep?.last_night;
+  const imp = h.sources.imports?.health_auto_export;
+  if (hasToday) return null;
+  let msg: string;
+  if (!imp) msg = "Nothing has arrived from Health Auto Export yet, so today is empty.";
+  else if (imp.last_day && imp.last_day < today) msg = `The last export (${ago(imp.at)}) only went up to ${imp.last_day}, so today isn't in it. In Health Auto Export, set Date Range to Default on both automations.`;
+  else if (Date.now() - new Date(imp.at).getTime() > 2 * 3600_000) msg = `Nothing from Health Auto Export since ${ago(imp.at)}. iPhone only lets it send while the phone is unlocked: open the app and run the automation by hand to catch up.`;
+  else msg = `The last export arrived ${ago(imp.at)} but had nothing for today yet.`;
+  const problem = (h.setup?.problems ?? [])[0];
+  return (
+    <p className="health-import" role="status">
+      {msg}{problem && !msg.includes("Date Range") ? ` ${problem}` : ""} <Link to="/training#health" className="brief-link">See what arrived</Link>
+    </p>
+  );
+}
+
 export function HealthScreen() {
   const res = useResource<Health>("health", () => health.get(), { refreshMs: 10 * 60_000, staleMs: 60_000, persist: true });
   const [params, setParams] = useSearchParams();
@@ -107,6 +131,7 @@ export function HealthScreen() {
             : <>No health data yet. Set up Apple Health on the <Link to="/training#health" className="brief-link">Training page</Link>, or bring in your history from the Data tab.</>}</p>
         </Glass>
       )}
+      {h?.available && view === "today" && <ImportStatus h={h} />}
       {h?.migrating && <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>Moving your earlier health history into SirisAI…</p>}
       {h && view === "data" && <div className="stack" style={{ marginTop: 16 }}><DataView onChange={() => res.reload?.()} /></div>}
       {h?.available && view !== "data" && (

@@ -164,6 +164,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.7: SirisGYM: settings, gyms (bar, plates, dumbbells, stack), warm-ups, supersets, RPE and notes, progression rules, yearly heatmap
 6.8: SirisGYM: muscle targets, deloads, readiness-aware plans, strain and training plan, Watch heart rate, strength standards, year in review; local-day fix
 6.9: SirisGYM: programme builder, body measurements and progress photos, rest-over push, voice logging, SirisAI coaching, gym in the weekly review
+6.91: Health says why today is empty (export stopped at yesterday, or nothing for hours)
 
 ## Terminal (ADR 113)
 
