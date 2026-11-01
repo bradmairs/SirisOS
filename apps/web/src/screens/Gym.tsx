@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, newId, saveActive, type Exercise, type BuildEquipment, type BuildGoal, type Built, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, newId, saveActive, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
@@ -21,7 +21,7 @@ export function useGym() {
 }
 
 /** Start a workout: from a routine day (with last time, what to lift and warm-ups), or empty. */
-export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string) {
+export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string, shortcut?: string) {
   const now = new Date().toISOString();
   let s: Session = { id: newId(), title: "Workout", started_at: now, entries: [], gym: gymId ?? null };
   if (routine) {
@@ -37,7 +37,8 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
     try { window.sessionStorage.setItem(`sirisos.gym.plan.${s.id}`, JSON.stringify(p)); } catch { /* fine */ }
   }
   saveActive(s);
-  navigate("/gym/workout");
+  // A Shortcut first (e.g. start the Watch's strength workout), which comes back to the workout (6.92).
+  if (!shortcuts.run(shortcut, "/gym/workout")) navigate("/gym/workout");
 }
 
 export function GymScreen() {
@@ -95,7 +96,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const next = routine?.days[g.active?.next_day ?? 0];
   const [busy, setBusy] = useState(false);
   const [gymId, setGymId] = useState(g.settings.current_gym);
-  const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId); } finally { setBusy(false); } };
+  const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId, g.settings.shortcut_start); } finally { setBusy(false); } };
   const muscles = Object.entries(g.week.sets_by_muscle);
   const most = Math.max(1, ...muscles.map(([, n]) => n));
   return (
@@ -649,6 +650,11 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         <header className="widget__head"><Settings2 aria-hidden="true" /><span>Training</span></header>
         <label className="gym-setting">Rest between sets (s)<input className="field" type="number" min={0} max={900} value={s.rest_s} onChange={(e) => setS({ ...s, rest_s: Number(e.target.value) || 0 })} /></label>
         <label className="gym-setting">Weight step (kg)<input className="field" type="number" step={0.25} min={0.25} max={20} value={s.increment} onChange={(e) => setS({ ...s, increment: Number(e.target.value) || 2.5 })} /></label>
+        <label className="gym-setting">iPhone Shortcut to run when a workout starts
+          <input className="field" placeholder="e.g. SirisGYM Start (empty: none)" value={s.shortcut_start ?? ""} onChange={(e) => setS({ ...s, shortcut_start: e.target.value })} /></label>
+        <label className="gym-setting">…and when it finishes
+          <input className="field" placeholder="e.g. SirisGYM Finish (empty: none)" value={s.shortcut_finish ?? ""} onChange={(e) => setS({ ...s, shortcut_finish: e.target.value })} /></label>
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. It runs on iPhone, then comes straight back here.</p>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (
           <label className="gym-setting">Warm-ups (% of the working weight × reps)

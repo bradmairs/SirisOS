@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, Link2, Mic, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
-import { e1rm, gym, loadActive, parseSpoken, plates, saveActive, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
+import { e1rm, gym, loadActive, parseSpoken, plates, saveActive, shortcuts, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { brain } from "../api/hub";
 import { micUnavailableReason, startRecording } from "../api/voice";
@@ -109,10 +109,12 @@ export function GymWorkoutScreen() {
       const r = await gym.finish(final);
       saveActive(null);
       setDone(r);
+      shortcuts.run(g?.settings.shortcut_finish, "/gym");
     } catch (e) {
       if (unreachable(e) && keep({ kind: "gym", session: final })) {
         saveActive(null);
         setDone({ offline: true });
+        shortcuts.run(g?.settings.shortcut_finish, "/gym");
       } else {
         setInfo(e instanceof Error ? e.message : "Couldn't save it.");
       }

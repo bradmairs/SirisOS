@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { clearResources } from "../api/resource";
-import { e1rm, plates, saveActive, type Gym } from "../api/gym";
+import { e1rm, plates, saveActive, shortcuts, type Gym } from "../api/gym";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { GymWorkoutScreen } from "./GymWorkout";
 import { GymScreen } from "./Gym";
@@ -195,6 +195,32 @@ describe("SirisGYM 6.9", () => {
     const photos = screen.getByRole("region", { name: "Progress photos" });
     expect(await within(photos).findByRole("img", { name: "front, 2026-08-01" })).toHaveAttribute("src", "blob:photo");
     expect(within(photos).getByRole("img", { name: "front, 2026-11-01" })).toBeInTheDocument();
+  });
+});
+
+describe("SirisGYM 6.92: Shortcuts", () => {
+  it("runs the start Shortcut on iPhone and comes back to the workout", async () => {
+    signIn();
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
+    const opened: string[] = [];
+    const open = vi.spyOn(shortcuts, "open").mockImplementation((u: string) => { opened.push(u); });
+    const plan = { routine: "r1", day: 0, title: "Push", exercises: [] };
+    mockFetch({ "/api/v1/gym/plan": () => jsonResponse(plan), "/api/v1/gym": () => jsonResponse({ ...GYM, settings: { ...GYM.settings, shortcut_start: "SirisGYM Start" } }) });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Start Push" }));
+    expect(opened[0]).toBe(`shortcuts://x-callback-url/run-shortcut?name=SirisGYM%20Start&x-success=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`
+      + `&x-cancel=${encodeURIComponent(`${window.location.origin}/gym/workout`)}&x-error=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`);
+    expect(window.localStorage.getItem("sirisos.gym.active")).not.toBeNull();
+    open.mockRestore(); ua.mockRestore();
+  });
+
+  it("does nothing off iPhone or without a name", () => {
+    const open = vi.spyOn(shortcuts, "open").mockImplementation(() => {});
+    expect(shortcuts.run("SirisGYM Start", "/gym/workout")).toBe(false);  // jsdom isn't an iPhone
+    expect(shortcuts.run("", "/gym/workout")).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
   });
 });
 
