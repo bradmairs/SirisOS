@@ -9,7 +9,10 @@ import { GymWorkoutScreen } from "./GymWorkout";
 import { GymScreen } from "./Gym";
 
 const GYM: Gym = {
-  settings: { unit: "kg", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90 },
+  settings: { unit: "kg", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90, current_gym: "home", warmups: true,
+    warmup_steps: [{ percent: 0.4, reps: 5 }, { percent: 0.6, reps: 3 }, { percent: 0.8, reps: 2 }],
+    gyms: [{ id: "home", name: "Home", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], dumbbells: [], stack_step: null },
+           { id: "work", name: "Work gym", bar: 15, plates: [20, 10, 5, 2.5], dumbbells: [10, 12.5, 15], stack_step: 5 }] },
   exercises: [{ id: "bench-press", name: "Bench Press", primary: "chest", secondary: ["triceps"], equipment: "barbell", kind: "weight", custom: false }],
   routines: [{ id: "r1", name: "Push, pull, legs", days: [{ name: "Push", exercises: [{ exercise: "bench-press", sets: 3, reps: "5-8", rest_s: 120 }] }], active: true }],
   active: { routine: "r1", next_day: 0 }, recent: [], week: { week_of: "2026-11-02", sessions: 1, sets_by_muscle: { chest: 3, triceps: 1.5 }, volume: 2400 },
@@ -33,6 +36,63 @@ describe("<GymScreen />", () => {
     expect(await screen.findByRole("button", { name: "Start Push" })).toBeInTheDocument();
     expect(within(screen.getByRole("list", { name: "Sets by muscle this week" })).getByText("chest")).toBeInTheDocument();
     expect(screen.getByText("12 workouts · 4-week streak")).toBeInTheDocument();
+  });
+});
+
+describe("SirisGYM 6.7", () => {
+  it("starts at the chosen gym with warm-ups and per-set weights, and keeps supersets", async () => {
+    signIn();
+    const plan = { routine: "r1", day: 0, title: "Push", gym: "work", exercises: [
+      { exercise: "bench-press", sets: 2, reps: "5", rest_s: 120, group: "A", progression: "percent", name: "Bench Press", kind: "weight", equipment: "barbell", last: [],
+        suggest: { weight: 72.5, reps: 5, per_set: [72.5, 85], training_max: 105, why: "70%, 80% of your training max", last_note: "Elbows in" },
+        warmups: [{ weight: 15, reps: 10 }, { weight: 30, reps: 5 }] }] };
+    const calls = mockFetch({ "/api/v1/gym/plan": () => jsonResponse(plan), "/api/v1/gym/settings": () => jsonResponse(GYM.settings), "/api/v1/gym": () => jsonResponse(GYM) });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("radio", { name: "Work gym" }));
+    await user.click(screen.getByRole("button", { name: "Start Push" }));
+    expect(calls.some((c) => c.url.includes("/api/v1/gym/plan?routine=r1&gym=work"))).toBe(true);
+    const s = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
+    expect(s.gym).toBe("work");
+    expect(s.entries[0].group).toBe("A");
+    expect(s.entries[0].sets.map((x: { type: string; weight: number }) => `${x.type}:${x.weight}`)).toEqual(["warmup:15", "warmup:30", "normal:72.5", "normal:85"]);
+  });
+
+  it("rests after the superset's last exercise, and records effort and a note", async () => {
+    signIn();
+    saveActive({ id: "w2", title: "Push", started_at: new Date().toISOString(), entries: [
+      { exercise: "bench-press", group: "A", sets: [{ weight: 80, reps: 8, done: false, type: "normal" }] },
+      { exercise: "barbell-row", group: "A", sets: [{ weight: 60, reps: 10, done: false, type: "normal" }] }] });
+    mockFetch({ "/api/v1/gym": () => jsonResponse({ ...GYM, exercises: [...GYM.exercises,
+      { id: "barbell-row", name: "Barbell Row", primary: "back", secondary: [], equipment: "barbell", kind: "weight", custom: false }] }) });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
+    const bench = await screen.findByRole("region", { name: "Bench Press" });
+    await user.click(within(bench).getByRole("button", { name: "Set 1 done" }));
+    expect(screen.queryByRole("timer", { name: "Rest" })).not.toBeInTheDocument();  // straight to the row
+    await user.click(within(bench).getByRole("button", { name: "Set 1 effort (RPE)" }));
+    await user.click(within(bench).getByRole("button", { name: "Set 1 effort (RPE)" }));
+    await user.type(within(bench).getByRole("textbox", { name: "Note for Bench Press" }), "Elbows in");
+    await user.click(within(screen.getByRole("region", { name: "Barbell Row" })).getByRole("button", { name: "Set 1 done" }));
+    expect(screen.getByRole("timer", { name: "Rest" })).toBeInTheDocument();
+    const kept = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
+    expect(kept.entries[0].sets[0].rpe).toBe(8);
+    expect(kept.entries[0].note).toBe("Elbows in");
+  });
+
+  it("edits a gym's dumbbells in Settings and saves", async () => {
+    signIn();
+    const calls = mockFetch({ "/api/v1/gym/settings": (_u, init) => jsonResponse(JSON.parse(String(init?.body))), "/api/v1/gym": () => jsonResponse(GYM) });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/gym?view=settings"]}><GymScreen /></MemoryRouter>);
+    const home = await screen.findByRole("region", { name: "Gym: Home" });
+    const dbs = within(home).getByLabelText(/Dumbbells on the rack/);
+    await user.type(dbs, "5, 7.5, 10");
+    await user.tab();
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/settings")!.init.body));
+    expect(sent.gyms[0].dumbbells).toEqual([5, 7.5, 10]);
   });
 });
 

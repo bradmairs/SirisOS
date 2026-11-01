@@ -15,6 +15,8 @@
     GET    /api/v1/gym/sessions/{id}
     DELETE /api/v1/gym/sessions/{id}
     GET    /api/v1/gym/plates?weight=        the plates for each side
+    GET    /api/v1/gym/warmups?exercise=&weight=&gym=   (6.7) warm-up sets up to a working weight
+    GET    /api/v1/gym/heatmap?days=         (6.7) each day with a workout: volume, sets, main muscles
     POST   /api/v1/gym/import                (6.6) a JEFIT export or any CSV/zip: form `file`, `unit` (auto/kg/lb),
                                              `dry_run` (default true: a preview), `choices` (JSON: name -> exercise id or "new")
 """
@@ -155,7 +157,7 @@ def delete_routine(routine_id: str) -> dict[str, Any]:
 
 
 @router.get("/plan")
-def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13)) -> dict[str, Any]:
+def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13), gym: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
     doc = store.load()
     r = next((x for x in doc.routines if x.id == routine), None)
     if r is None or not r.days:
@@ -163,9 +165,28 @@ def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13)) -> di
     i = service.next_day(doc, r.id) if day is None else min(day, len(r.days) - 1)
     d = r.days[i]
     names = service.exercises(doc)
-    return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "exercises": [
-        {**p.model_dump(), "name": names.get(p.exercise, {}).get("name", p.exercise), "kind": names.get(p.exercise, {}).get("kind", "weight"),
-         "last": service.last(doc, p.exercise), "suggest": service.suggest(doc, p)} for p in d.exercises]}
+    out = []
+    warmed: set[str] = set()
+    for p in d.exercises:
+        sug = service.suggest(doc, p, gym)
+        ex = names.get(p.exercise, {})
+        # Warm up for the first exercise that works each main muscle (6.7).
+        warm = service.warmups(doc, p.exercise, sug.get("weight"), gym) if ex.get("primary") not in warmed else []
+        if warm:
+            warmed.add(ex.get("primary", ""))
+        out.append({**p.model_dump(), "name": ex.get("name", p.exercise), "kind": ex.get("kind", "weight"), "equipment": ex.get("equipment"),
+                    "last": service.last(doc, p.exercise), "suggest": sug, "warmups": warm})
+    return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out}
+
+
+@router.get("/warmups")
+def get_warmups(exercise: str = Query(max_length=60), weight: float = Query(gt=0, le=2000), gym: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
+    return {"warmups": service.warmups(store.load(), exercise, weight, gym)}
+
+
+@router.get("/heatmap")
+def get_heatmap(days: int = Query(default=371, ge=7, le=3700)) -> dict[str, Any]:
+    return {"days": service.heatmap(store.load(), tasks.today(), days)}
 
 
 @router.post("/sessions")
@@ -174,6 +195,7 @@ def save_session(body: store.Session) -> dict[str, Any]:
     doc.sessions = [s for s in doc.sessions if s.id != body.id]
     if not body.ended_at:
         body.ended_at = store.now()
+    body.gym = body.gym or doc.settings.current_gym
     doc.sessions.append(body)
     store.save(doc)
     return {"summary": service.summary(doc, body), "records": service.new_records(doc, body)}

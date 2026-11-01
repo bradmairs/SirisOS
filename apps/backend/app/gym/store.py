@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.services import json_store
 
@@ -51,6 +51,7 @@ class EntryLog(BaseModel):
     exercise: str = Field(max_length=60)
     sets: list[SetLog] = Field(default_factory=list, max_length=40)
     note: str = Field(default="", max_length=500)
+    group: str | None = Field(default=None, max_length=2)  # superset letter (6.7): rest comes after the group
 
 
 class Session(BaseModel):
@@ -63,6 +64,11 @@ class Session(BaseModel):
     entries: list[EntryLog] = Field(default_factory=list, max_length=40)
     note: str = Field(default="", max_length=2000)
     bodyweight: float | None = Field(default=None, ge=0, le=500)
+    gym: str | None = Field(default=None, max_length=40)  # which gym profile (6.7)
+    deload: bool = False  # a lighter session on purpose (6.8): no records, not a stall
+
+
+Progression = Literal["double", "linear", "percent"]
 
 
 class PlanExercise(BaseModel):
@@ -71,6 +77,12 @@ class PlanExercise(BaseModel):
     reps: str = Field(default="8-12", max_length=12, pattern=r"^\d{1,3}(-\d{1,3})?$")
     rest_s: int = Field(default=90, ge=0, le=900)
     note: str = Field(default="", max_length=200)
+    group: str | None = Field(default=None, max_length=2)  # superset or circuit letter (6.7)
+    # 6.7: double = reach the top of the range, then add; linear = add every
+    # session you hit the reps (two misses: back off 10%); percent = a share of
+    # your training max (90% of your best recent estimated 1RM), one per set.
+    progression: Progression = "double"
+    percents: list[float] = Field(default_factory=list, max_length=20)
 
 
 class RoutineDay(BaseModel):
@@ -86,12 +98,49 @@ class Routine(BaseModel):
     active: bool = False
 
 
+PLATES = [25, 20, 15, 10, 5, 2.5, 1.25]
+
+
+class GymProfile(BaseModel):
+    """A gym and what it has (6.7): the bar, the plates (pairs), the dumbbells
+    on the rack (empty: any weight), and the machine stack step."""
+    id: str = Field(default_factory=new_id, max_length=40)
+    name: str = Field(default="Home", min_length=1, max_length=40)
+    bar: float = Field(default=20, ge=0, le=60)
+    plates: list[float] = Field(default_factory=lambda: list(PLATES), max_length=16)
+    dumbbells: list[float] = Field(default_factory=list, max_length=80)
+    stack_step: float | None = Field(default=None, gt=0, le=20)
+
+
+class WarmupStep(BaseModel):
+    percent: float = Field(ge=0, le=1)
+    reps: int = Field(ge=1, le=20)
+
+
 class Settings(BaseModel):
+    """`bar` and `plates` are the current gym's (kept for everything that reads them)."""
     unit: Literal["kg"] = "kg"  # SI only (6.62): a gym.json kept in lb is converted on load
     bar: float = Field(default=20, ge=0, le=60)
-    plates: list[float] = Field(default_factory=lambda: [25, 20, 15, 10, 5, 2.5, 1.25], max_length=12)
+    plates: list[float] = Field(default_factory=lambda: list(PLATES), max_length=16)
     increment: float = Field(default=2.5, gt=0, le=20)
     rest_s: int = Field(default=90, ge=0, le=900)
+    gyms: list[GymProfile] = Field(default_factory=list, max_length=10)
+    current_gym: str | None = Field(default=None, max_length=40)
+    warmups: bool = True
+    warmup_steps: list[WarmupStep] = Field(default_factory=lambda: [WarmupStep(percent=0.4, reps=5), WarmupStep(percent=0.6, reps=3),
+                                                                     WarmupStep(percent=0.8, reps=2)], max_length=8)
+    muscle_targets: dict[str, list[float]] = Field(default_factory=dict)  # muscle -> [low, high] sets a week (6.8)
+
+    @model_validator(mode="after")
+    def _current(self) -> "Settings":
+        if not self.gyms:  # before 6.7: one gym, from the bar and plates
+            self.gyms = [GymProfile(id="home", name="Home", bar=self.bar, plates=list(self.plates))]
+        gym = next((g for g in self.gyms if g.id == self.current_gym), None) or self.gyms[0]
+        self.current_gym, self.bar, self.plates = gym.id, gym.bar, list(gym.plates)
+        return self
+
+    def gym(self, gym_id: str | None = None) -> GymProfile:
+        return next((g for g in self.gyms if g.id == (gym_id or self.current_gym)), self.gyms[0])
 
 
 class GymDoc(BaseModel):

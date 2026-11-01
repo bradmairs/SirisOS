@@ -3,19 +3,27 @@ import { api, json, request } from "./client";
 export type Kind = "weight" | "bodyweight" | "time" | "cardio";
 export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean }
 export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure"; rpe?: number | null }
-export interface EntryLog { exercise: string; sets: SetLog[]; note?: string }
-export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null }
-export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string }
+export interface EntryLog { exercise: string; sets: SetLog[]; note?: string; group?: string | null }
+export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean }
+export type Progression = "double" | "linear" | "percent";
+export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string; group?: string | null; progression?: Progression; percents?: number[] }
 export interface RoutineDay { name: string; exercises: PlanExercise[] }
 export interface Routine { id: string; name: string; days: RoutineDay[]; note?: string; active: boolean }
-export interface GymSettings { unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number }
+export interface GymProfile { id: string; name: string; bar: number; plates: number[]; dumbbells: number[]; stack_step?: number | null }
+export interface WarmupStep { percent: number; reps: number }
+export interface GymSettings {
+  unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number;
+  gyms: GymProfile[]; current_gym: string; warmups: boolean; warmup_steps: WarmupStep[]; muscle_targets?: Record<string, number[]>;
+}
+export interface Suggest { weight: number | null; reps: number; why: string; per_set?: number[]; training_max?: number; last_note?: string | null }
+export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[] }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number } | null;
   recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number };
   streak_weeks: number; total_sessions: number;
 }
-export interface Plan { routine: string; day: number; title: string; exercises: (PlanExercise & { name: string; kind: Kind; last: SetLog[]; suggest: { weight: number | null; reps: number; why: string } })[] }
+export interface Plan { routine: string; day: number; title: string; gym?: string; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[] })[] }
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
 export interface ExerciseDetail {
   exercise: Exercise;
@@ -51,7 +59,11 @@ export const gym = {
   addRoutine: (body: { template?: string; routine?: Omit<Routine, "id"> & { id?: string } }) => api<Routine>(`${G}/routines`, json(body)),
   saveRoutine: (r: Routine) => api<Routine>(`${G}/routines/${r.id}`, { method: "PUT", body: JSON.stringify(r) }),
   deleteRoutine: (id: string) => api<{ deleted: string }>(`${G}/routines/${id}`, { method: "DELETE" }),
-  plan: (routine: string, day?: number) => api<Plan>(`${G}/plan?routine=${encodeURIComponent(routine)}${day != null ? `&day=${day}` : ""}`),
+  plan: (routine: string, day?: number, gymId?: string) =>
+    api<Plan>(`${G}/plan?routine=${encodeURIComponent(routine)}${day != null ? `&day=${day}` : ""}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
+  warmups: (exercise: string, weight: number, gymId?: string) =>
+    api<{ warmups: { weight: number; reps: number }[] }>(`${G}/warmups?exercise=${encodeURIComponent(exercise)}&weight=${weight}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
+  heatmap: (days = 371) => api<{ days: HeatDay[] }>(`${G}/heatmap?days=${days}`),
   finish: (s: Session) => api<{ summary: Summary; records: GymRecord[] }>(`${G}/sessions`, json(s)),
   sessions: (month?: string) => api<{ sessions: Summary[] }>(`${G}/sessions${month ? `?month=${month}` : ""}`),
   session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[] }>(`${G}/sessions/${id}`),

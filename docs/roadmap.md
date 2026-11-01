@@ -161,6 +161,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.6: SirisGYM: import years of JEFIT (or any CSV) workouts with a preview and exercise matching; safe to re-run
 6.61: Health Auto Export setup says Date Range Default (Previous 7 Days left today out)
 6.62: SI units everywhere: SirisGYM kg only (lb gyms converted), energy in kJ
+6.7: SirisGYM: settings, gyms (bar, plates, dumbbells, stack), warm-ups, supersets, RPE and notes, progression rules, yearly heatmap
 
 ## Terminal (ADR 113)
 

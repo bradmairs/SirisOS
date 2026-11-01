@@ -11,6 +11,20 @@ what to lift next, plates, and the week's volume by muscle.
   if every one reached the top of the rep range, add the increment (2.5 kg),
   otherwise the same weight again.
 - **Plates**: per side, largest first, from the plates you have.
+
+6.7:
+- **Progression** per routine exercise: double (above), linear (add the
+  increment every session you hit the reps; two misses in a row, back off
+  10%), or percent (a share of your training max, 90% of your best estimated
+  1RM in the last 90 days, one share per set).
+- **Effort**: when every set hit the top and felt easy (average RPE 7 or
+  less), add twice the increment; a miss that was a grind (RPE 9.5+) says so.
+  Last time's note for the exercise comes back with the suggestion.
+- **What the gym has**: a suggested weight is rounded to what the current
+  gym can load: plates on the bar, the dumbbells on its rack, its machine
+  stack step.
+- **Warm-ups**: the empty bar for 10, then steps of the working weight
+  (40% × 5, 60% × 3, 80% × 2 by default), each loadable.
 - **Volume by muscle**: working sets this week, a set counting fully for the
   exercise's main muscle and half for each helper.
 """
@@ -127,19 +141,122 @@ def rep_range(reps: str) -> tuple[int, int]:
     return int(lo), int(hi or lo)
 
 
-def suggest(doc: GymDoc, plan: PlanExercise) -> dict[str, Any]:
+def loadable(doc: GymDoc, exercise: str, weight: float, gym_id: str | None = None) -> float:
+    """The nearest weight the gym can actually give you for this exercise."""
+    gym = doc.settings.gym(gym_id)
+    equipment = (exercises(doc).get(exercise) or {}).get("equipment", "")
+    if equipment in ("barbell", "ez bar", "trap bar", "smith") and gym.plates:
+        smallest = min(gym.plates) * 2
+        return max(gym.bar, round(gym.bar + round((weight - gym.bar) / smallest) * smallest, 2))
+    if equipment == "dumbbell" and gym.dumbbells:
+        return min(gym.dumbbells, key=lambda d: (abs(d - weight), d))
+    if equipment in ("machine", "cable") and gym.stack_step:
+        return round(round(weight / gym.stack_step) * gym.stack_step, 2)
+    return round(weight * 4) / 4
+
+
+def training_max(doc: GymDoc, exercise: str, today: date | None = None) -> float | None:
+    rows = history(doc, exercise)
+    since = ((today or utcnow().date()) - timedelta(days=90)).isoformat()
+    est = [r["e1rm"] for r in rows if r["e1rm"] and r["date"] >= since] or [r["e1rm"] for r in rows[-3:] if r["e1rm"]]
+    return round(max(est) * 0.9, 1) if est else None
+
+
+def _rpe(sets: list[dict[str, Any]]) -> float | None:
+    vals = [x["rpe"] for x in sets if x.get("rpe")]
+    return sum(vals) / len(vals) if vals else None
+
+
+def suggest(doc: GymDoc, plan: PlanExercise, gym_id: str | None = None) -> dict[str, Any]:
     """What to lift for a routine's exercise today."""
-    prev = last(doc, plan.exercise)
+    rows = history(doc, plan.exercise)
+    prev = rows[-1]["sets"] if rows else []
+    note = next((n for n in reversed([_note(doc, r["session"], plan.exercise) for r in rows[-3:]]) if n), None)
     lo, hi = rep_range(plan.reps)
+    step = doc.settings.increment
+    fit = lambda w: loadable(doc, plan.exercise, w, gym_id)  # noqa: E731
+    out: dict[str, Any]
+    if plan.progression == "percent":
+        tm = training_max(doc, plan.exercise)
+        shares = plan.percents or [0.75, 0.8, 0.85]
+        if not tm:
+            out = {"weight": None, "reps": hi, "why": "No estimated 1RM yet: do a session at a weight you could lift for the top of the range."}
+        else:
+            per_set = [fit(tm * p) for p in (shares * plan.sets)[:plan.sets]]
+            out = {"weight": per_set[0], "reps": hi, "per_set": per_set, "training_max": tm,
+                   "why": f"{', '.join(f'{p:.0%}' for p in shares[:plan.sets])} of your training max ({tm:g}, 90% of your best estimated 1RM)."}
+        return {**out, "last_note": note}
     weights = [x["weight"] for x in prev if x.get("weight")]
     if not weights:
-        return {"weight": None, "reps": hi, "why": "No history yet: pick a weight you could lift for the top of the range."}
+        return {"weight": None, "reps": hi, "why": "No history yet: pick a weight you could lift for the top of the range.", "last_note": note}
     top = max(weights)
-    hit = all((x.get("reps") or 0) >= hi for x in prev if x.get("weight") == top)
-    step = doc.settings.increment
-    if hit:
-        return {"weight": round(top + step, 2), "reps": lo, "why": f"Last time every set at {top:g} reached {hi}: add {step:g}."}
-    return {"weight": top, "reps": hi, "why": f"Same as last time ({top:g}) until every set reaches {hi}."}
+    at_top = [x for x in prev if x.get("weight") == top]
+    effort = _rpe(at_top)
+    if plan.progression == "linear":
+        hit = all((x.get("reps") or 0) >= lo for x in at_top)
+        before = rows[-2]["sets"] if len(rows) > 1 else []
+        missed_before = bool(before) and not all((x.get("reps") or 0) >= lo for x in before if x.get("weight") == max(
+            (y.get("weight") or 0 for y in before), default=0))
+        if hit:
+            out = {"weight": fit(top + step), "reps": lo, "why": f"Every set at {top:g} reached {lo}: add {step:g}."}
+        elif missed_before:
+            out = {"weight": fit(top * 0.9), "reps": lo, "why": f"Missed {lo} at {top:g} twice: back off 10% and build again."}
+        else:
+            out = {"weight": top, "reps": lo, "why": f"Same as last time ({top:g}) until every set reaches {lo}."}
+        return {**out, "last_note": note}
+    hit = all((x.get("reps") or 0) >= hi for x in at_top)
+    if hit and effort is not None and effort <= 7:
+        out = {"weight": fit(top + 2 * step), "reps": lo, "why": f"Every set at {top:g} reached {hi} and felt easy (RPE {effort:.1f}): add {2 * step:g}."}
+    elif hit:
+        out = {"weight": fit(top + step), "reps": lo, "why": f"Last time every set at {top:g} reached {hi}: add {step:g}."}
+    elif effort is not None and effort >= 9.5:
+        out = {"weight": top, "reps": hi, "why": f"Same as last time ({top:g}): it was a grind (RPE {effort:.1f}), so own it before adding."}
+    else:
+        out = {"weight": top, "reps": hi, "why": f"Same as last time ({top:g}) until every set reaches {hi}."}
+    return {**out, "last_note": note}
+
+
+def _note(doc: GymDoc, session_id: str, exercise: str) -> str | None:
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    e = next((e for e in (s.entries if s else []) if e.exercise == exercise), None)
+    return (e.note or None) if e else None
+
+
+def warmups(doc: GymDoc, exercise: str, target: float | None, gym_id: str | None = None) -> list[dict[str, Any]]:
+    """Warm-up sets up to a working weight: the empty bar, then the settings' steps; ones too close to the bar or the work are left out."""
+    st = doc.settings
+    ex = exercises(doc).get(exercise) or {}
+    if not st.warmups or not target or ex.get("kind", "weight") != "weight":
+        return []
+    gym = st.gym(gym_id)
+    barbell = ex.get("equipment") in ("barbell", "ez bar", "trap bar", "smith")
+    out: list[dict[str, Any]] = [{"weight": gym.bar, "reps": 10}] if barbell and target > gym.bar * 1.5 else []
+    for step in st.warmup_steps:
+        w = loadable(doc, exercise, target * step.percent, gym_id)
+        if (barbell and w <= gym.bar) or w <= 0 or w >= target or any(abs(o["weight"] - w) < 1e-6 for o in out):
+            continue
+        out.append({"weight": w, "reps": step.reps})
+    return out
+
+
+def heatmap(doc: GymDoc, today: date, days: int = 371) -> list[dict[str, Any]]:
+    """Each day with a workout in the last `days`: its volume, sets and the main muscles."""
+    since = (today - timedelta(days=days)).isoformat()
+    names = exercises(doc)
+    out: dict[str, dict[str, Any]] = {}
+    for s in doc.sessions:
+        d = _day(s.started_at)
+        if d < since:
+            continue
+        cell = out.setdefault(d, {"date": d, "volume": 0.0, "sets": 0, "muscles": defaultdict(int)})
+        for e in s.entries:
+            n = len(working(e.sets))
+            cell["volume"] += volume(e.sets)
+            cell["sets"] += n
+            if (m := (names.get(e.exercise) or {}).get("primary")) and n:
+                cell["muscles"][m] += n
+    return [{**c, "volume": round(c["volume"], 1), "muscles": [m for m, _ in sorted(c["muscles"].items(), key=lambda t: -t[1])][:3]}
+            for c in sorted(out.values(), key=lambda c: c["date"])]
 
 
 def plates(target: float, bar: float, available: list[float]) -> dict[str, Any]:

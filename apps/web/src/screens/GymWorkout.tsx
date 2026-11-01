@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Check, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
+import { Check, Link2, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
 import { e1rm, gym, loadActive, plates, saveActive, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { Glass } from "../components/Glass";
@@ -42,6 +42,15 @@ export function GymWorkoutScreen() {
   const setSet = (ei: number, si: number, patch: Partial<SetLog>) =>
     update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) } : e)) });
   const restFor = (exercise: string) => plan?.exercises.find((p) => p.exercise === exercise)?.rest_s ?? g?.settings.rest_s ?? 90;
+  const here = g?.settings.gyms?.find((x) => x.id === s.gym) ?? (g ? { bar: g.settings.bar, plates: g.settings.plates } : undefined);
+  /** In a superset, rest comes after the last exercise of the group (6.7). */
+  const lastInGroup = (ei: number) => { const grp = s.entries[ei].group; return !grp || s.entries.map((e) => e.group).lastIndexOf(grp) === ei; };
+  const link = (ei: number) => {
+    const used = new Set(s.entries.map((e) => e.group).filter(Boolean));
+    const letter = s.entries[ei].group ?? s.entries[ei + 1]?.group ?? ["A", "B", "C", "D", "E", "F"].find((l) => !used.has(l)) ?? "A";
+    update({ ...s, entries: s.entries.map((e, i) => (i === ei || i === ei + 1 ? { ...e, group: letter } : e)) });
+  };
+  const unlink = (ei: number) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, group: null } : e)) });
   const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
   const doneSets = s.entries.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0);
 
@@ -78,22 +87,32 @@ export function GymWorkoutScreen() {
           const ex = byId.get(entry.exercise);
           const p = plan?.exercises.find((x) => x.exercise === entry.exercise);
           return (
-            <Glass key={`${entry.exercise}-${ei}`} as="section" className="widget gym-entry" style={{ minHeight: 0 }} aria-label={ex?.name ?? entry.exercise}>
+            <Glass key={`${entry.exercise}-${ei}`} as="section" className={`widget gym-entry ${entry.group ? "gym-entry--grouped" : ""}`} style={{ minHeight: 0 }} aria-label={ex?.name ?? entry.exercise}>
+              {entry.group && <span className="gym-group">SUPERSET {entry.group}<button type="button" className="icon-link" aria-label={`Take ${ex?.name} out of the superset`} onClick={() => unlink(ei)}><X size={10} aria-hidden="true" /></button></span>}
               <header className="widget__head">
                 <button type="button" className="icon-link gym-entry__name" onClick={() => setOpenEx(entry.exercise)}>{ex?.name ?? entry.exercise}</button>
                 <button type="button" className="widget__source icon-link" aria-label={`Remove ${ex?.name}`} onClick={() => update({ ...s, entries: s.entries.filter((_, i) => i !== ei) })}><X size={14} aria-hidden="true" /></button>
               </header>
               {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
-              <SetTable ex={ex} sets={entry.sets} last={p?.last ?? []} unit={unit} settings={g?.settings}
+              {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
+              <SetTable ex={ex} sets={entry.sets} last={(p?.last ?? []).length ? p!.last : []} unit={unit} settings={here}
                 onChange={(si, patch) => {
                   setSet(ei, si, patch);
-                  if (patch.done) { const t = restFor(entry.exercise); setRest(t ? { until: Date.now() + t * 1000, total: t } : null); }
+                  if (patch.done) {
+                    const t = lastInGroup(ei) ? restFor(entry.exercise) : 0;
+                    setRest(t ? { until: Date.now() + t * 1000, total: t } : null);
+                  }
                 }}
                 onRemove={(si) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) })} />
               <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }}
                 onClick={() => { const prev = entry.sets.at(-1); update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets, { weight: prev?.weight ?? null, reps: null, done: false, type: "normal" }] } : e)) }); }}>
                 <Plus size={12} aria-hidden="true" /> Set
               </button>
+              <input className="field" style={{ fontSize: 13 }} placeholder="Note for this exercise (a niggle, the setup, the seat height)" aria-label={`Note for ${ex?.name ?? entry.exercise}`}
+                value={entry.note ?? ""} onChange={(e) => update({ ...s, entries: s.entries.map((x, i) => (i === ei ? { ...x, note: e.target.value } : x)) })} />
+              {ei < s.entries.length - 1 && !(entry.group && entry.group === s.entries[ei + 1].group) && (
+                <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => link(ei)}><Link2 size={12} aria-hidden="true" /> Superset with the next</button>
+              )}
             </Glass>
           );
         })}
@@ -166,6 +185,10 @@ function SetTable({ ex, sets, last, unit, settings, onChange, onRemove }: {
                 if (!x.done && x.reps == null && prev?.reps) fill.reps = prev.reps;
                 onChange(i, fill);
               }}><Check size={16} aria-hidden="true" /></button>
+            {x.done && x.type !== "warmup" && (
+              <button type="button" className="chip chip--button gym-rpe" aria-label={`Set ${label} effort (RPE)`} title="How hard: RPE 6 (easy) to 10 (nothing left)"
+                onClick={() => onChange(i, { rpe: x.rpe == null ? 7 : x.rpe >= 10 ? null : x.rpe + 1 })}>{x.rpe != null ? `RPE ${x.rpe}` : "RPE"}</button>
+            )}
             {platesFor === i && x.weight && settings && (
               <span className="gym-sets__plates muted">
                 {(() => { const p = plates(x.weight, settings.bar, settings.plates); return p.perSide.length ? `Each side: ${p.perSide.join(" + ")}${p.left ? ` (${p.left} short)` : ""}` : `The bar is ${settings.bar}`; })()}
