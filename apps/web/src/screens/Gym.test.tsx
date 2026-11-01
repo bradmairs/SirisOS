@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -7,6 +7,7 @@ import { e1rm, plates, saveActive, type Gym } from "../api/gym";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { GymWorkoutScreen } from "./GymWorkout";
 import { GymScreen } from "./Gym";
+import * as voice from "../api/voice";
 
 const GYM: Gym = {
   settings: { unit: "kg", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90, current_gym: "home", warmups: true,
@@ -129,6 +130,71 @@ describe("SirisGYM 6.8", () => {
     const year = screen.getByRole("region", { name: "Year in review" });
     expect(await within(year).findByText("480 t")).toBeInTheDocument();
     expect(year).toHaveTextContent("Workouts +20%");
+  });
+});
+
+describe("SirisGYM 6.9", () => {
+  it("drafts a programme from a goal into the routine editor", async () => {
+    signIn();
+    const routine = { id: "", name: "Muscle, 4 days", active: false, note: "", days: [{ name: "Upper 1", exercises: [{ exercise: "bench-press", sets: 3, reps: "6-10", rest_s: 120 }] }] };
+    const calls = mockFetch({
+      "/api/v1/gym/builder": () => jsonResponse({ routine, chosen: { days: 4, goal: "muscle", minutes: 60, equipment: "gym", avoid: ["shoulder"] }, read: {},
+        note: "4 days a week for muscle, about 60 minutes, in a gym. Spares the shoulder." }),
+      "/api/v1/gym/templates": () => jsonResponse({ templates: [] }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/gym?view=routines"]}><GymScreen /></MemoryRouter>);
+    await user.type(await screen.findByRole("textbox", { name: "Your goal" }), "4 days, hypertrophy, bad left shoulder");
+    await user.click(screen.getByRole("button", { name: "knee" }));
+    await user.click(screen.getByRole("button", { name: "Draft it" }));
+    expect(await screen.findByRole("textbox", { name: "Routine name" })).toHaveValue("Muscle, 4 days");
+    const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/builder")!.init.body));
+    expect(sent).toMatchObject({ text: "4 days, hypertrophy, bad left shoulder", avoid: ["knee"] });
+  });
+
+  it("logs a set by voice and rings when the rest is over", async () => {
+    signIn();
+    saveActive({ id: "w3", title: "Push", started_at: new Date().toISOString(), entries: [
+      { exercise: "bench-press", sets: [{ weight: 80, reps: null, done: false, type: "normal" }, { weight: 80, reps: null, done: false, type: "normal" }] }] });
+    vi.spyOn(voice, "micUnavailableReason").mockReturnValue(null);
+    vi.spyOn(voice, "startRecording").mockResolvedValue({ done: Promise.resolve(new Blob(["x"])), stop: () => {}, heard: () => true } as unknown as voice.Recording);
+    const calls = mockFetch({
+      "/api/v1/assistant/voice/transcribe": () => jsonResponse({ text: "Bench eighty two point five by eight RPE 8" }),
+      "/api/v1/gym/rest": () => jsonResponse({ ringing_in: 90 }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Log a set by voice" }));
+    expect(await screen.findByText("Logged Bench Press: 82.5 × 8 at RPE 8.")).toBeInTheDocument();
+    const kept = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
+    expect(kept.entries[0].sets[0]).toMatchObject({ weight: 82.5, reps: 8, rpe: 8, done: true });
+    const rest = calls.find((c) => c.url === "/api/v1/gym/rest" && c.init.method === "POST")!;
+    expect(JSON.parse(String(rest.init.body))).toEqual({ seconds: 90, next: "Bench Press, set 2: 80 kg" });
+    vi.restoreAllMocks();
+  });
+
+  it("shows measurements against the weight trend, and compares two photos", async () => {
+    signIn();
+    window.URL.createObjectURL = vi.fn(() => "blob:photo");
+    mockFetch({
+      "/api/v1/gym/body": () => jsonResponse({ measurements: [{ id: "a", date: "2026-08-01", waist: 88 }, { id: "b", date: "2026-11-01", waist: 84.5, arm: 38 }],
+        photos: [{ id: "p1", date: "2026-08-01", pose: "front", note: "" }, { id: "p2", date: "2026-11-01", pose: "front", note: "" }],
+        weight: [{ date: "2026-10-01", kg: 83, trend: 83.2 }, { date: "2026-11-01", kg: 81.2, trend: 81.5 }] }),
+      "/api/v1/gym/photos/": () => new Response(new Blob(["img"], { type: "image/jpeg" })),
+      "/api/v1/gym/strength": () => jsonResponse({ bodyweight: null, lifts: [] }),
+      "/api/v1/gym/year": () => jsonResponse({ year: 2026, sessions: 0, hours: 0, sets: 0, volume: 0, previous: { sessions: 0, hours: 0, sets: 0, volume: 0 }, months: [], muscles: [], best: [] }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    render(<MemoryRouter initialEntries={["/gym?view=progress"]}><GymScreen /></MemoryRouter>);
+    const body = await screen.findByRole("region", { name: "Body" });
+    expect(await within(body).findByText("Waist: 84.5 cm")).toBeInTheDocument();
+    expect(body).toHaveTextContent("-3.5 cm since");
+    expect(body).toHaveTextContent("81.2 kg");
+    const photos = screen.getByRole("region", { name: "Progress photos" });
+    expect(await within(photos).findByRole("img", { name: "front, 2026-08-01" })).toHaveAttribute("src", "blob:photo");
+    expect(within(photos).getByRole("img", { name: "front, 2026-11-01" })).toBeInTheDocument();
   });
 });
 

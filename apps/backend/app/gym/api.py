@@ -20,6 +20,11 @@
     POST   /api/v1/gym/deload                (6.8) {on, days}: a deload week (half the sets, 10% lighter, no records)
     GET    /api/v1/gym/strength              (6.8) main lifts' best estimated 1RM against bodyweight
     GET    /api/v1/gym/year?year=            (6.8) the year in review
+    POST   /api/v1/gym/builder               (6.9) a routine drafted from a goal ({text, days, goal, minutes, equipment, avoid})
+    GET    /api/v1/gym/body                  (6.9) measurements, photos and the weight series (from SirisAI)
+    POST   /api/v1/gym/measurements, DELETE /api/v1/gym/measurements/{id}
+    POST   /api/v1/gym/photos (file, date, pose, note); GET/DELETE /api/v1/gym/photos/{id}
+    POST   /api/v1/gym/rest {seconds, next}; DELETE /api/v1/gym/rest   (6.9) a push when the rest is over
   6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
   /plan adjusts for readiness and a deload week; a saved session goes to SirisAI for strain; a session
   shows the Apple Watch workout that overlaps it.
@@ -33,13 +38,14 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 import asyncio
 import logging
 
 from app.auth import require_user
-from app.gym import coach, importer, service, store, templates
+from app.gym import builder, coach, importer, service, store, templates
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
@@ -63,7 +69,7 @@ async def _health(hub: Hub) -> dict[str, Any]:
         return {}
     weight = (body.get("weight") or {}) if isinstance(body.get("weight"), dict) else {}
     return {"readiness": body.get("readiness"), "recent": body.get("readiness_recent") or [],
-            "weight_kg": weight.get("latest") or weight.get("current") or weight.get("kg")}
+            "weight_kg": weight.get("latest") or weight.get("current") or weight.get("kg"), "weight_series": weight.get("series") or []}
 
 
 def _low(h: dict[str, Any]) -> int:
@@ -256,9 +262,11 @@ def get_heatmap(days: int = Query(default=371, ge=7, le=3700)) -> dict[str, Any]
 
 
 async def _send_day(hub: Hub, doc: store.GymDoc, day: str) -> None:
-    """The day's gym sessions go to SirisAI as workouts (6.8), so strain and the training load count them."""
+    """The day's gym sessions go to SirisAI as workouts (6.8), so strain and the training load count them,
+    and a training summary (6.9) so chat and voice can answer about it."""
     try:
         await sirisai_api.post(hub, "/siris/health/metrics", json=coach.as_workouts(doc, day), headers={"X-Health-Source": "sirisgym"}, timeout=8.0)
+        await sirisai_api.post(hub, "/siris/health/gym", json=coach.for_sirisai(doc, tasks.today()), timeout=8.0)
     except Exception as exc:  # noqa: BLE001 - the workout is saved either way
         log.info("Couldn't send the gym day to SirisAI: %s", exc)
 
@@ -337,3 +345,116 @@ async def import_file(file: UploadFile = File(...), unit: str = Form("auto"), dr
     except ValueError:
         picked = {}
     return {"imported": importer.commit(doc, rows, {str(k): str(v) for k, v in picked.items()} if isinstance(picked, dict) else {})}
+
+
+
+# -- 6.9: the programme builder, body measurements, progress photos, the rest timer on the lock screen --
+
+@router.post("/builder")
+def build_programme(body: builder.BuildRequest) -> dict[str, Any]:
+    """A routine drafted from a goal, to edit and save (it isn't saved here)."""
+    return builder.build(body)
+
+
+@router.get("/body")
+async def body(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    doc = store.load()
+    h = await _health(hub)
+    return {"measurements": [m.model_dump() for m in sorted(doc.measurements, key=lambda m: m.date)],
+            "photos": [p.model_dump(exclude={"file"}) for p in sorted(doc.photos, key=lambda p: p.date)],
+            "weight": [{"date": w.get("date"), "kg": w.get("weight"), "trend": w.get("trend")} for w in h.get("weight_series") or []]}
+
+
+@router.post("/measurements")
+def add_measurement(m: store.Measurement) -> dict[str, Any]:
+    doc = store.load()
+    doc.measurements = [x for x in doc.measurements if x.id != m.id]
+    doc.measurements.append(m)
+    store.save(doc)
+    return m.model_dump()
+
+
+@router.delete("/measurements/{measurement_id}")
+def delete_measurement(measurement_id: str) -> dict[str, Any]:
+    doc = store.load()
+    kept = [x for x in doc.measurements if x.id != measurement_id]
+    if len(kept) == len(doc.measurements):
+        raise _missing("measurement")
+    doc.measurements = kept
+    store.save(doc)
+    return {"deleted": measurement_id}
+
+
+PHOTO_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heic"}
+MAX_PHOTO = 20 * 1024 * 1024
+
+
+@router.post("/photos")
+async def add_photo(file: UploadFile = File(...), date: str = Form(..., pattern=r"^\d{4}-\d{2}-\d{2}$"), pose: str = Form("front"),
+                    note: str = Form("", max_length=200)) -> dict[str, Any]:
+    ext = PHOTO_TYPES.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(status_code=415, detail="Send a JPEG, PNG, WebP or HEIC photo.")
+    raw = await file.read(MAX_PHOTO + 1)
+    if len(raw) > MAX_PHOTO:
+        raise HTTPException(status_code=413, detail="That photo is over 20 MB.")
+    photo = store.Photo(date=date, pose=pose if pose in ("front", "side", "back") else "other", note=note, file="")
+    photo.file = f"{photo.id}.{ext}"
+    (store.photo_dir() / photo.file).write_bytes(raw)
+    doc = store.load()
+    doc.photos.append(photo)
+    store.save(doc)
+    return photo.model_dump(exclude={"file"})
+
+
+@router.get("/photos/{photo_id}")
+def get_photo(photo_id: str) -> FileResponse:
+    p = next((x for x in store.load().photos if x.id == photo_id), None)
+    path = store.photo_dir() / p.file if p else None
+    if p is None or path is None or not path.is_file():
+        raise _missing("photo")
+    return FileResponse(path, headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.delete("/photos/{photo_id}")
+def delete_photo(photo_id: str) -> dict[str, Any]:
+    doc = store.load()
+    p = next((x for x in doc.photos if x.id == photo_id), None)
+    if p is None:
+        raise _missing("photo")
+    (store.photo_dir() / p.file).unlink(missing_ok=True)
+    doc.photos = [x for x in doc.photos if x.id != photo_id]
+    store.save(doc)
+    return {"deleted": photo_id}
+
+
+class RestRequest(BaseModel):
+    seconds: int = Field(ge=5, le=900)
+    next: str = Field(default="", max_length=120)
+
+
+_rest: dict[str, asyncio.Task] = {}
+
+
+async def _ring(seconds: int, text: str) -> None:
+    from app.push import notifier
+
+    await asyncio.sleep(seconds)
+    await notifier.deliver([notifier.message(f"gym-rest-{store.new_id()}", "gym", "Rest's over", text or "Next set.", url="/gym/workout", urgency="high")])
+
+
+@router.post("/rest")
+async def start_rest(body: RestRequest) -> dict[str, Any]:
+    """A push when the rest is over (6.9), so the phone can be locked between sets. A new rest replaces the last."""
+    if (old := _rest.pop("current", None)) is not None:
+        old.cancel()
+    _rest["current"] = asyncio.create_task(_ring(body.seconds, body.next))
+    return {"ringing_in": body.seconds}
+
+
+@router.delete("/rest")
+async def stop_rest() -> dict[str, Any]:
+    if (old := _rest.pop("current", None)) is not None:
+        old.cancel()
+        return {"stopped": True}
+    return {"stopped": False}

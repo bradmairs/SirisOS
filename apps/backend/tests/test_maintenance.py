@@ -88,7 +88,7 @@ def test_existing_devices_get_the_home_topic_once(client, tmp_path):
     path.write_text(json.dumps({"subscriptions": [{**sub, "topics": ["apps", "inbox", "brief", "career"]},
                                                   {**sub, "endpoint": "https://push.example/def", "topics": ["apps"]}]}))
     subs = push_store.subscriptions()
-    assert subs[0].topics[-2:] == ["home", "nudges"] and subs[1].topics == ["apps"]  # and nudges after them (6.3)
+    assert subs[0].topics[-3:] == ["home", "nudges", "gym"] and subs[1].topics == ["apps"]  # then nudges (6.3) and gym (6.9)
     # Turned off later: stays off.
     push_store.upsert(subs[0].model_copy(update={"topics": ["apps", "inbox", "brief", "career"]}))
     assert "home" not in next(s for s in push_store.subscriptions() if s.endpoint.endswith("abc")).topics

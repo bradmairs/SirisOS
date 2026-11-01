@@ -45,5 +45,5 @@ def test_winding_down_half_an_hour_before_bed():
 def test_old_subscriptions_with_everything_get_nudges():
     full = store._upgrade({"endpoint": "https://x", "topics": ["apps", "inbox", "brief", "career", "home"], "v": 2})
     picked = store._upgrade({"endpoint": "https://x", "topics": ["inbox"], "v": 2})
-    assert "nudges" in full["topics"] and full["v"] == 3
-    assert picked["topics"] == ["inbox"] and picked["v"] == 3
+    assert "nudges" in full["topics"] and "gym" in full["topics"] and full["v"] == 4  # and the rest timer (6.9)
+    assert picked["topics"] == ["inbox"] and picked["v"] == 4

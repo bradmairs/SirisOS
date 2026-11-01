@@ -126,6 +126,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
             "deadlines": deadlines[:6],
         },
         "chartership": _chartership(),
+        "gym": _gym_week(monday, today),
         "sleep": await _sleep_week(hub),
         "saved": saved(monday),
     }
@@ -139,6 +140,25 @@ async def _sleep_week(hub: Hub) -> dict[str, Any] | None:
         return (await health.overview(hub)).get("sleep_week")
     except Exception:  # noqa: BLE001 - the review stands without it
         return None
+
+
+def _gym_week(monday: date, today: date) -> dict[str, Any] | None:
+    """SirisGYM's week (6.9): workouts, sets, volume, records, and the muscles under their target."""
+    from app.gym import coach, service as gym, store as gym_store
+
+    try:
+        doc = gym_store.load()
+    except Exception:  # noqa: BLE001
+        return None
+    end = (monday + timedelta(days=6)).isoformat()
+    week = [s for s in doc.sessions if monday.isoformat() <= gym.day_of(s.started_at) <= end]
+    if not week and not doc.sessions:
+        return None
+    records = [r["text"] for s in week for r in gym.new_records(doc, s)]
+    return {"sessions": len(week), "sets": sum(gym.summary(doc, s)["sets"] for s in week),
+            "volume": round(sum(gym.summary(doc, s)["volume"] for s in week)), "records": records[:6],
+            "under": [m["muscle"] for m in coach.muscles(doc, today) if m["status"] == "under"][:5] if week else [],
+            "deload": coach.deload(doc, today)["suggest"]}
 
 
 def _chartership() -> dict[str, Any] | None:

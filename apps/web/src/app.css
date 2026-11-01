@@ -970,3 +970,14 @@ h3.note__heading { font-size: 17px; }
 .gym-group { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
 .gym-rpe { grid-column: 2 / span 2; justify-self: start; min-width: 34px; font-size: 11px; padding: 2px 8px; }
 .gym-picker { max-height: 55vh; overflow-y: auto; }
+
+/* SirisGYM 6.9 */
+.gym-chips { gap: 6px; flex-wrap: wrap; align-items: center; }
+.gym-weight { display: grid; gap: 4px; font-size: 14px; }
+.gym-weight__line { width: 100%; height: 40px; color: var(--accent); }
+.gym-measure { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; align-items: end; }
+.gym-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gym-compare figure { margin: 0; display: grid; gap: 6px; }
+.gym-compare img, .gym-photo-one { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; }
+.gym-photo-one { max-width: 240px; }
+.gym-voice { display: flex; gap: 8px; align-items: center; font-size: 13px; }

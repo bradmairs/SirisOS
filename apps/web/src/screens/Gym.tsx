@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Activity, BatteryLow, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Search, Settings2, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
+import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type GymProfile, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, newId, saveActive, type Exercise, type BuildEquipment, type BuildGoal, type Built, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
@@ -389,6 +389,7 @@ function RoutinesView({ g, onChange }: { g: Gym; onChange: () => void }) {
           ))}
         </ul>
       </Glass>
+      <BuilderCard onDraft={(r) => setEditing(r)} />
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Starter routines">
         <header className="widget__head"><Medal aria-hidden="true" /><span>Starter routines</span></header>
         <ul className="items">
@@ -403,6 +404,51 @@ function RoutinesView({ g, onChange }: { g: Gym; onChange: () => void }) {
       </Glass>
       {editing && <RoutineEditor g={g} start={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onChange(); }} />}
     </>
+  );
+}
+
+const AREAS = ["shoulder", "elbow", "wrist", "lower back", "knee"];
+
+/** Build me a programme (6.9): a goal in words or picked, drafted into the routine editor to change and save. */
+function BuilderCard({ onDraft }: { onDraft: (r: Routine) => void }) {
+  const [text, setText] = useState("");
+  const [days, setDays] = useState<number | null>(null);
+  const [goal, setGoal] = useState<BuildGoal | null>(null);
+  const [minutes, setMinutes] = useState<number | null>(null);
+  const [equipment, setEquipment] = useState<BuildEquipment | null>(null);
+  const [avoid, setAvoid] = useState<string[]>([]);
+  const [built, setBuilt] = useState<Built | null>(null);
+  const [busy, setBusy] = useState(false);
+  const draft = async () => {
+    setBusy(true);
+    try {
+      const b = await gym.build({ text, days, goal, minutes, equipment, avoid });
+      setBuilt(b);
+      onDraft(b.routine);
+    } finally { setBusy(false); }
+  };
+  const chip = <T,>(value: T, current: T | null, set: (v: T | null) => void, label: string) => (
+    <button key={label} type="button" role="radio" aria-checked={current === value} className={`chip chip--button ${current === value ? "chip--active" : ""}`}
+      onClick={() => set(current === value ? null : value)}>{label}</button>
+  );
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Build me a programme">
+      <header className="widget__head"><Sparkles aria-hidden="true" /><span>Build me a programme</span></header>
+      <textarea className="field" rows={2} aria-label="Your goal" placeholder="e.g. 4 days, hypertrophy, bad left shoulder, an hour in the gym" value={text} onChange={(e) => setText(e.target.value)} />
+      <div className="row gym-chips" role="radiogroup" aria-label="Days a week">{[2, 3, 4, 5, 6].map((d) => chip(d, days, setDays, `${d} days`))}</div>
+      <div className="row gym-chips" role="radiogroup" aria-label="Goal">{chip<BuildGoal>("strength", goal, setGoal, "Strength")}{chip<BuildGoal>("muscle", goal, setGoal, "Muscle")}{chip<BuildGoal>("general", goal, setGoal, "General fitness")}</div>
+      <div className="row gym-chips" role="radiogroup" aria-label="Equipment">{chip<BuildEquipment>("gym", equipment, setEquipment, "A gym")}{chip<BuildEquipment>("dumbbells", equipment, setEquipment, "Dumbbells")}{chip<BuildEquipment>("bodyweight", equipment, setEquipment, "Bodyweight")}</div>
+      <div className="row gym-chips" role="radiogroup" aria-label="Minutes a session">{[30, 45, 60, 75, 90].map((m) => chip(m, minutes, setMinutes, `${m} min`))}</div>
+      <div className="row gym-chips" role="group" aria-label="Go easy on">
+        <span className="muted" style={{ fontSize: 13 }}>Go easy on:</span>
+        {AREAS.map((a) => (
+          <button key={a} type="button" aria-pressed={avoid.includes(a)} className={`chip chip--button ${avoid.includes(a) ? "chip--active" : ""}`}
+            onClick={() => setAvoid(avoid.includes(a) ? avoid.filter((x) => x !== a) : [...avoid, a])}>{a}</button>
+        ))}
+      </div>
+      <button type="button" className="button button--primary" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={draft}>Draft it</button>
+      {built && <p className="muted" role="status" style={{ margin: 0, fontSize: 13 }}>{built.note} Change anything in the editor, then save.</p>}
+    </Glass>
   );
 }
 
@@ -638,6 +684,112 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
 const LEVEL_TONE: Record<string, string> = { "starting out": "", beginner: "", novice: "tone-good", intermediate: "tone-good", advanced: "tone-warning" };
 
 /** Strength against bodyweight and the year in review (6.8). */
+/** Body measurements against your weight (6.9). */
+function BodyCard() {
+  const res = useResource("gym:body", () => gym.body(), { staleMs: 60_000 });
+  const today = new Date().toISOString().slice(0, 10);
+  const [m, setM] = useState<Measurement>({ date: today });
+  const [adding, setAdding] = useState(false);
+  const b = res.data;
+  const keys: [keyof Measurement, string][] = [["waist", "Waist"], ["chest", "Chest"], ["hips", "Hips"], ["arm", "Arm"], ["thigh", "Thigh"], ["calf", "Calf"], ["neck", "Neck"]];
+  const ms = b?.measurements ?? [];
+  const first = ms[0], last = ms[ms.length - 1];
+  const w = b?.weight ?? [];
+  const spark = (() => {
+    if (w.length < 2) return null;
+    const vals = w.map((x) => x.trend ?? x.kg), lo = Math.min(...vals), hi = Math.max(...vals), span = Math.max(0.5, hi - lo);
+    return vals.map((v, i) => `${(i / (vals.length - 1)) * 100},${30 - ((v - lo) / span) * 28}`).join(" ");
+  })();
+  const save = async () => { await gym.addMeasurement(m); setAdding(false); setM({ date: today }); res.reload?.(true); };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Body">
+      <header className="widget__head"><Ruler aria-hidden="true" /><span>Body</span>
+        <button type="button" className="widget__source icon-link" onClick={() => setAdding(!adding)}><Plus size={14} aria-hidden="true" /> Measure</button></header>
+      {w.length > 0 && (
+        <div className="gym-weight">
+          <span><strong>{w[w.length - 1].kg.toFixed(1)} kg</strong> <span className="muted">from Apple Health{w.length > 1 && w[w.length - 1].trend ? `, trend ${w[w.length - 1].trend.toFixed(1)} kg` : ""}</span></span>
+          {spark && <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="gym-weight__line" role="img" aria-label="Weight trend"><polyline points={spark} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg>}
+        </div>
+      )}
+      {adding && (
+        <div className="gym-measure">
+          <label className="gym-setting">Date<input className="field" type="date" value={m.date} onChange={(e) => setM({ ...m, date: e.target.value })} /></label>
+          {keys.map(([k, label]) => (
+            <label key={k} className="gym-setting">{label} (cm)<input className="field" inputMode="decimal" aria-label={`${label} (cm)`} value={(m[k] as number | undefined) ?? ""}
+              onChange={(e) => setM({ ...m, [k]: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+          ))}
+          <button type="button" className="button button--primary" onClick={save}>Save measurements</button>
+        </div>
+      )}
+      {last ? (
+        <ul className="items" aria-label="Measurements">
+          {keys.filter(([k]) => last[k] != null).map(([k, label]) => {
+            const from = ms.find((x) => x[k] != null)?.[k] as number | undefined;
+            const d = from != null && first !== last ? Math.round(((last[k] as number) - from) * 10) / 10 : null;
+            return <li key={k} className="item"><span className="item__text"><span className="item__title">{label}: {last[k] as number} cm</span>
+              {d ? <span className="item__subtitle">{d > 0 ? "+" : ""}{d} cm since {fmtDay(ms.find((x) => x[k] != null)!.date)}</span> : null}</span></li>;
+          })}
+        </ul>
+      ) : !adding && <p className="muted" style={{ margin: 0 }}>No measurements yet. Waist, chest and arms once a month is plenty.</p>}
+    </Glass>
+  );
+}
+
+/** Progress photos (6.9): kept on your server only; compare two dates side by side. */
+function PhotosCard() {
+  const res = useResource("gym:body", () => gym.body(), { staleMs: 60_000 });
+  const photos = res.data?.photos ?? [];
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [pose, setPose] = useState<Photo["pose"]>("front");
+  const [busy, setBusy] = useState(false);
+  const [pair, setPair] = useState<[string | null, string | null]>([null, null]);
+  useEffect(() => {
+    let alive = true;
+    for (const p of photos) if (!urls[p.id]) gym.photoUrl(p.id).then((u) => { if (alive) setUrls((x) => ({ ...x, [p.id]: u })); }).catch(() => {});
+    return () => { alive = false; };
+  }, [photos.map((p) => p.id).join()]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = photos.filter((p) => p.pose === pose);
+  const a = pair[0] ?? shown[0]?.id ?? null, b = pair[1] ?? shown[shown.length - 1]?.id ?? null;
+  const up = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try { await gym.addPhoto(f, new Date().toISOString().slice(0, 10), pose); res.reload?.(true); } finally { setBusy(false); }
+  };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Progress photos">
+      <header className="widget__head"><Camera aria-hidden="true" /><span>Progress photos</span><span className="widget__source">only on your server</span></header>
+      <div className="row gym-chips" role="radiogroup" aria-label="Pose">
+        {(["front", "side", "back"] as const).map((p) => <button key={p} type="button" role="radio" aria-checked={pose === p} className={`chip chip--button ${pose === p ? "chip--active" : ""}`} onClick={() => { setPose(p); setPair([null, null]); }}>{p}</button>)}
+      </div>
+      {shown.length >= 2 && a && b && (
+        <div className="gym-compare">
+          {[a, b].map((id, i) => {
+            const p = shown.find((x) => x.id === id)!;
+            return (
+              <figure key={i}>
+                {urls[id] ? <img src={urls[id]} alt={`${p.pose}, ${p.date}`} /> : <div className="skeleton" style={{ aspectRatio: "3/4" }} />}
+                <select className="field" aria-label={i === 0 ? "Before" : "After"} value={id} onChange={(e) => setPair(i === 0 ? [e.target.value, pair[1]] : [pair[0], e.target.value])}>
+                  {shown.map((x) => <option key={x.id} value={x.id}>{x.date}</option>)}
+                </select>
+              </figure>
+            );
+          })}
+        </div>
+      )}
+      {shown.length === 1 && urls[shown[0].id] && <img className="gym-photo-one" src={urls[shown[0].id]} alt={`${pose}, ${shown[0].date}`} />}
+      {!shown.length && <p className="muted" style={{ margin: 0 }}>No {pose} photos yet. Same spot, light and time of day each month makes them comparable.</p>}
+      <label className="button" style={{ alignSelf: "flex-start" }} aria-disabled={busy}>
+        <Camera size={14} aria-hidden="true" /> {busy ? "Saving…" : `Add a ${pose} photo`}
+        <input type="file" accept="image/*" capture="user" hidden onChange={(e) => up(e.target.files?.[0])} aria-label={`Add a ${pose} photo`} />
+      </label>
+      {shown.length > 0 && (
+        <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} onClick={async () => { if (b && window.confirm("Delete this photo?")) { await gym.deletePhoto(b); setPair([null, null]); res.reload?.(true); } }}>
+          <Trash2 size={14} aria-hidden="true" /> {shown.length >= 2 ? "Delete the right-hand photo" : "Delete the photo"}</button>
+      )}
+    </Glass>
+  );
+}
+
 function ProgressView() {
   const st = useResource("gym:strength", () => gym.strength(), { staleMs: 60_000 });
   const [y, setY] = useState(() => new Date().getFullYear());
@@ -661,6 +813,8 @@ function ProgressView() {
         </ul>
         {st.data && !st.data.bodyweight && <p className="muted" style={{ margin: 0, fontSize: 13 }}>No bodyweight yet: it comes from Apple Health (weight), so the ratios appear once one arrives.</p>}
       </Glass>
+      <BodyCard />
+      <PhotosCard />
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Year in review">
         <header className="widget__head"><CalendarDays aria-hidden="true" /><span>{y} in the gym</span>
           <span className="widget__source row" style={{ gap: 6 }}><button type="button" className="chip chip--button" aria-label="The year before" onClick={() => setY(y - 1)}>‹</button>

@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "desktop", width: 1280, height: 900, mobile: false }];
 const health = JSON.parse(readFileSync("src/screens/__health_fixture.json", "utf8"));
 const hud = { system: { cpu_percent: 7, memory: { percent_used: 41, used_gb: 13.1, total_gb: 32 }, disk: { "/": { percent_used: 63, used_gb: 590, total_gb: 937 } }, temperatures_celsius: {} } };
@@ -44,6 +44,8 @@ const heat = { days: Array.from({ length: 120 }, (_, i) => { const d = new Date(
 const FIXTURES = [
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],
+  ["/api/v1/gym/body", { measurements: [{ id: "a", date: "2026-08-01", waist: 88, chest: 104 }, { id: "b", date: "2026-11-01", waist: 84.5, chest: 106, arm: 38.5 }],
+    photos: [], weight: Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, kg: 83 - i * 0.05 + (i % 3) * 0.3, trend: 83 - i * 0.05 })) }],
   ["/api/v1/gym/year", yearReview],
   ["/api/v1/gym/sessions", { sessions: gymFixture.recent }],
   ["/api/v1/gym/templates", { templates: [] }],
