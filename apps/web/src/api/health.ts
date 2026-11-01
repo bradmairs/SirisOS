@@ -62,7 +62,7 @@ export interface Health {
   guest_mode?: boolean;
   /** SirisOS's old store is still being moved into SirisAI (5.8). */
   migrating?: boolean;
-  sources: { sirisai: boolean; health_auto_export: boolean; days: number; imports?: Record<string, { at: string; days?: number }> };
+  sources: { sirisai: boolean; health_auto_export: boolean; days: number; imports?: Record<string, { at: string; days?: number; last_day?: string; sent_on?: string; aggregation?: string }> };
   readiness: Readiness | null;
   energy?: Energy | null;
   strain?: Strain | null;
