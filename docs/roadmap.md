@@ -159,6 +159,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.4: strain, week of sleep, Health Auto Export check, Update now on System status, standby killer, ask the manuals, pre-push check
 6.5: Gym: exercise library, routines and starters, live logging with last time, what to lift, rest timer and plates, offline, records, history
 6.6: SirisGYM: import years of JEFIT (or any CSV) workouts with a preview and exercise matching; safe to re-run
+6.61: Health Auto Export setup says Date Range Default (Previous 7 Days left today out)
 
 ## Terminal (ADR 113)
 
