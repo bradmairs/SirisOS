@@ -1,0 +1,405 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { CalendarDays, ChevronRight, Dumbbell, Flame, ListPlus, Medal, Play, Plus, Search, Trash2, Trophy } from "lucide-react";
+import { useResource } from "../api/resource";
+import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseDetail, type Gym, type Routine, type Session } from "../api/gym";
+import { Glass } from "../components/Glass";
+import { PageHead } from "../components/PageHead";
+import { Sheet } from "../components/Sheet";
+
+/** The gym (6.5): start today's workout, routines, history and the exercises with your records. */
+const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "exercises", label: "Exercises" }] as const;
+type View = (typeof VIEWS)[number]["id"];
+const MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "abs", "quads", "hamstrings", "glutes", "calves", "full body", "cardio"];
+const EQUIPMENT = ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell", "band", "smith", "ez bar", "trap bar", "other"];
+export const fmtDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+export const kg = (v: number | null | undefined, unit = "kg") => (v == null ? "–" : `${Number.isInteger(v) ? v : v.toFixed(1)} ${unit}`);
+
+export function useGym() {
+  return useResource<Gym>("gym", () => gym.get(), { staleMs: 30_000, persist: true });
+}
+
+/** Start a workout: from a routine day (with last time and what to lift), or empty. */
+export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number) {
+  const now = new Date().toISOString();
+  let s: Session = { id: newId(), title: "Workout", started_at: now, entries: [] };
+  if (routine) {
+    const p = await gym.plan(routine.id, day);
+    s = { ...s, title: p.title, routine_id: routine.id, day: p.day, entries: p.exercises.map((e) => ({
+      exercise: e.exercise,
+      sets: Array.from({ length: e.sets }, (_, i) => ({ weight: e.suggest.weight ?? e.last[i]?.weight ?? null, reps: null, done: false, type: "normal" as const })),
+    })) };
+    try { window.sessionStorage.setItem(`sirisos.gym.plan.${s.id}`, JSON.stringify(p)); } catch { /* fine */ }
+  }
+  saveActive(s);
+  navigate("/gym/workout");
+}
+
+export function GymScreen() {
+  const res = useGym();
+  const [params, setParams] = useSearchParams();
+  const view = (VIEWS.find((v) => v.id === params.get("view"))?.id ?? "today") as View;
+  useEffect(() => { document.title = "Gym · SirisOS"; }, []);
+  const g = res.data;
+  return (
+    <>
+      <PageHead eyebrow={g ? `${g.total_sessions} workouts · ${g.streak_weeks}-week streak` : "Gym"} title="Gym" />
+      <div className="row career-views" role="tablist" aria-label="Gym views">
+        {VIEWS.map((v) => (
+          <button key={v.id} type="button" role="tab" aria-selected={view === v.id} className={`chip chip--button ${view === v.id ? "chip--active" : ""}`}
+            onClick={() => setParams(v.id === "today" ? {} : { view: v.id }, { replace: true })}>{v.label}</button>
+        ))}
+      </div>
+      {!g && res.error && <div className="error-banner" role="alert">{res.error}</div>}
+      {!g && !res.error && <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />}
+      {g && (
+        <div className="stack" style={{ marginTop: 16 }}>
+          {view === "today" && <TodayView g={g} />}
+          {view === "routines" && <RoutinesView g={g} onChange={() => res.reload?.(true)} />}
+          {view === "history" && <HistoryView g={g} />}
+          {view === "exercises" && <ExercisesView g={g} onChange={() => res.reload?.(true)} />}
+        </div>
+      )}
+    </>
+  );
+}
+
+function TodayView({ g }: { g: Gym }) {
+  const navigate = useNavigate();
+  const active = loadActive();
+  const routine = g.routines.find((r) => r.id === g.active?.routine);
+  const next = routine?.days[g.active?.next_day ?? 0];
+  const [busy, setBusy] = useState(false);
+  const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d); } finally { setBusy(false); } };
+  const muscles = Object.entries(g.week.sets_by_muscle);
+  const most = Math.max(1, ...muscles.map(([, n]) => n));
+  return (
+    <>
+      {active && (
+        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Workout in progress">
+          <header className="widget__head"><Dumbbell aria-hidden="true" /><span>In progress</span></header>
+          <p style={{ margin: 0 }}>{active.title}, started {new Date(active.started_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
+          <Link to="/gym/workout" className="button button--primary" style={{ alignSelf: "flex-start" }}>Carry on</Link>
+        </Glass>
+      )}
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">
+        <header className="widget__head"><Play aria-hidden="true" /><span>Today's workout</span></header>
+        {routine && next ? (
+          <>
+            <p style={{ margin: 0, fontSize: 16 }}><strong>{routine.name}: {next.name}</strong></p>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>{next.exercises.map((e) => g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise).join(" · ")}</p>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="button button--primary" disabled={busy || !!active} onClick={() => go(routine)}>Start {next.name}</button>
+              {routine.days.length > 1 && routine.days.map((d, i) => i !== g.active?.next_day && (
+                <button key={d.name} type="button" className="chip chip--button" disabled={busy || !!active} onClick={() => go(routine, i)}>{d.name}</button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>No routine yet: pick a starter one under Routines, or just start an empty workout.</p>
+        )}
+        <button type="button" className="button" style={{ alignSelf: "flex-start" }} disabled={busy || !!active} onClick={() => go()}>Empty workout</button>
+      </Glass>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="This week">
+        <header className="widget__head"><Flame aria-hidden="true" /><span>This week</span></header>
+        <div className="metrics">
+          <div><div className="metric__value">{g.week.sessions}</div><div className="metric__label">Workouts</div></div>
+          <div><div className="metric__value">{Math.round(g.week.volume).toLocaleString()}</div><div className="metric__label">Volume ({g.settings.unit})</div></div>
+          <div><div className="metric__value">{g.streak_weeks}</div><div className="metric__label">Weeks in a row</div></div>
+        </div>
+        {muscles.length > 0 && (
+          <ul className="gym-muscles" aria-label="Sets by muscle this week">
+            {muscles.map(([m, n]) => (
+              <li key={m}><span className="gym-muscles__name">{m}</span><span className="gym-muscles__bar"><span style={{ width: `${(n / most) * 100}%` }} /></span><span className="muted">{n}</span></li>
+            ))}
+          </ul>
+        )}
+      </Glass>
+      {g.recent.length > 0 && <RecentList g={g} />}
+    </>
+  );
+}
+
+function RecentList({ g, items }: { g: Gym; items?: Gym["recent"] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const list = items ?? g.recent.slice(0, 5);
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Recent workouts">
+      <header className="widget__head"><CalendarDays aria-hidden="true" /><span>{items ? "Workouts" : "Recent"}</span>{!items && <Link to="/gym?view=history" className="widget__source">All</Link>}</header>
+      {!list.length && <p className="muted" style={{ margin: 0 }}>Nothing logged yet.</p>}
+      <ul className="items">
+        {list.map((s) => (
+          <li key={s.id} className="item">
+            <button type="button" className="item__text house__pick" onClick={() => setOpen(s.id)}>
+              <span className="item__title">{s.title}</span>
+              <span className="item__subtitle">{fmtDay(s.date)}{s.minutes ? ` · ${s.minutes} min` : ""} · {s.sets} sets · {Math.round(s.volume).toLocaleString()} {g.settings.unit}</span>
+            </button>
+            <ChevronRight size={16} className="muted" aria-hidden="true" />
+          </li>
+        ))}
+      </ul>
+      {open && <SessionSheet id={open} unit={g.settings.unit} onClose={() => setOpen(null)} />}
+    </Glass>
+  );
+}
+
+function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose: () => void }) {
+  const res = useResource(`gym:session:${id}`, () => gym.session(id), {});
+  const s = res.data;
+  return (
+    <Sheet label="Workout" onClose={onClose}>
+      {!s ? <div className="skeleton" style={{ height: 160 }} /> : (
+        <div className="stack" style={{ gap: 10 }}>
+          <h2 className="sheet__title">{s.title}</h2>
+          <p className="muted" style={{ margin: 0 }}>{fmtDay(s.started_at)}{s.summary.minutes ? ` · ${s.summary.minutes} min` : ""} · {Math.round(s.summary.volume).toLocaleString()} {unit} lifted</p>
+          {s.records.length > 0 && <ul className="items">{s.records.map((r) => <li key={r.text} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r.text}</span></span></li>)}</ul>}
+          {s.entries.map((e) => (
+            <div key={e.exercise}>
+              <strong>{e.name}</strong>
+              <p className="muted" style={{ margin: 0, fontSize: 14 }}>{e.sets.filter((x) => x.done).map((x) => x.weight ? `${x.weight}×${x.reps ?? "–"}` : x.seconds ? `${x.seconds}s` : `${x.reps ?? "–"} reps`).join(", ")}</p>
+            </div>
+          ))}
+          <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} onClick={async () => { if (window.confirm("Delete this workout?")) { await gym.deleteSession(id); onClose(); window.location.reload(); } }}>
+            <Trash2 size={14} aria-hidden="true" /> Delete
+          </button>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+function HistoryView({ g }: { g: Gym }) {
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const res = useResource(`gym:month:${month}`, () => gym.sessions(month), {});
+  const days = useMemo(() => new Set((res.data?.sessions ?? []).map((s) => s.date)), [res.data]);
+  const first = new Date(`${month}-01T12:00:00`);
+  const lead = (first.getDay() + 6) % 7;
+  const count = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const shift = (n: number) => { const d = new Date(first); d.setMonth(d.getMonth() + n); setMonth(d.toISOString().slice(0, 7)); };
+  return (
+    <>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Calendar">
+        <header className="widget__head"><CalendarDays aria-hidden="true" /><span>{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+          <span className="widget__source row" style={{ gap: 6 }}><button type="button" className="chip chip--button" onClick={() => shift(-1)}>‹</button><button type="button" className="chip chip--button" onClick={() => shift(1)}>›</button></span></header>
+        <div className="gym-cal" role="grid">
+          {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <span key={`h${i}`} className="gym-cal__head">{d}</span>)}
+          {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} />)}
+          {Array.from({ length: count }, (_, i) => {
+            const iso = `${month}-${String(i + 1).padStart(2, "0")}`;
+            return <span key={iso} className={`gym-cal__day ${days.has(iso) ? "gym-cal__day--on" : ""}`} aria-label={`${iso}${days.has(iso) ? ": worked out" : ""}`}>{i + 1}</span>;
+          })}
+        </div>
+      </Glass>
+      <RecentList g={g} items={res.data?.sessions ?? []} />
+    </>
+  );
+}
+
+function RoutinesView({ g, onChange }: { g: Gym; onChange: () => void }) {
+  const tpl = useResource("gym:templates", () => gym.templates(), { staleMs: 3_600_000 });
+  const [editing, setEditing] = useState<Routine | null>(null);
+  const names = (id: string) => g.exercises.find((x) => x.id === id)?.name ?? id;
+  const copy = async (template: string) => { await gym.addRoutine({ template }); onChange(); };
+  return (
+    <>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your routines">
+        <header className="widget__head"><ListPlus aria-hidden="true" /><span>Your routines</span>
+          <button type="button" className="widget__source icon-link" onClick={() => setEditing({ id: "", name: "", days: [{ name: "Day 1", exercises: [] }], active: g.routines.length === 0 })}><Plus size={14} aria-hidden="true" /> New</button></header>
+        {!g.routines.length && <p className="muted" style={{ margin: 0 }}>None yet: copy a starter below, or make your own.</p>}
+        <ul className="items">
+          {g.routines.map((r) => (
+            <li key={r.id} className="item">
+              <button type="button" className="item__text house__pick" onClick={() => setEditing(r)}>
+                <span className="item__title">{r.name}{r.active ? " · current" : ""}</span>
+                <span className="item__subtitle">{r.days.map((d) => d.name).join(" · ")}</span>
+              </button>
+              {!r.active && <button type="button" className="chip chip--button" onClick={async () => { await gym.saveRoutine({ ...r, active: true }); onChange(); }}>Use</button>}
+            </li>
+          ))}
+        </ul>
+      </Glass>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Starter routines">
+        <header className="widget__head"><Medal aria-hidden="true" /><span>Starter routines</span></header>
+        <ul className="items">
+          {(tpl.data?.templates ?? []).map((t) => (
+            <li key={t.id} className="item">
+              <span className="item__text"><span className="item__title">{t.name}</span>
+                <span className="item__subtitle career-wrap">{t.note} {t.days.map((d) => `${d.name}: ${d.exercises.map((e) => names(e.exercise)).join(", ")}`).join(" · ")}</span></span>
+              <button type="button" className="chip chip--button" onClick={() => copy(t.id)}>Copy</button>
+            </li>
+          ))}
+        </ul>
+      </Glass>
+      {editing && <RoutineEditor g={g} start={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onChange(); }} />}
+    </>
+  );
+}
+
+function RoutineEditor({ g, start, onClose, onSaved }: { g: Gym; start: Routine; onClose: () => void; onSaved: () => void }) {
+  const [r, setR] = useState<Routine>(start);
+  const [picking, setPicking] = useState<number | null>(null);
+  const setDay = (i: number, d: Routine["days"][number]) => setR({ ...r, days: r.days.map((x, j) => (j === i ? d : x)) });
+  async function save() {
+    if (!r.name.trim()) return;
+    if (r.id) await gym.saveRoutine(r);
+    else await gym.addRoutine({ routine: { ...r, id: undefined } });
+    onSaved();
+  }
+  return (
+    <Sheet label={r.id ? "Edit routine" : "New routine"} onClose={onClose}>
+      <div className="stack" style={{ gap: 10 }}>
+        <h2 className="sheet__title">{r.id ? "Edit routine" : "New routine"}</h2>
+        <input className="field" placeholder="Name, e.g. Push pull legs" aria-label="Routine name" value={r.name} onChange={(e) => setR({ ...r, name: e.target.value })} />
+        {r.days.map((d, i) => (
+          <div key={i} className="gym-day">
+            <div className="row" style={{ gap: 6 }}>
+              <input className="field" aria-label={`Day ${i + 1} name`} value={d.name} onChange={(e) => setDay(i, { ...d, name: e.target.value })} />
+              {r.days.length > 1 && <button type="button" className="icon-link" aria-label={`Remove ${d.name}`} onClick={() => setR({ ...r, days: r.days.filter((_, j) => j !== i) })}><Trash2 size={14} aria-hidden="true" /></button>}
+            </div>
+            {d.exercises.map((e, k) => (
+              <div key={`${e.exercise}-${k}`} className="row gym-plan-row">
+                <span className="gym-plan-row__name">{g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise}</span>
+                <input className="field" type="number" min={1} max={20} aria-label="Sets" value={e.sets} onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, sets: Number(ev.target.value) || 1 } : x)) })} />
+                <span className="muted">×</span>
+                <input className="field" aria-label="Reps" value={e.reps} onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, reps: ev.target.value } : x)) })} />
+                <button type="button" className="icon-link" aria-label="Remove" onClick={() => setDay(i, { ...d, exercises: d.exercises.filter((_, j) => j !== k) })}><Trash2 size={14} aria-hidden="true" /></button>
+              </div>
+            ))}
+            <button type="button" className="chip chip--button" onClick={() => setPicking(i)}><Plus size={12} aria-hidden="true" /> Exercise</button>
+          </div>
+        ))}
+        <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => setR({ ...r, days: [...r.days, { name: `Day ${r.days.length + 1}`, exercises: [] }] })}>Add a day</button>
+        <label className="row" style={{ gap: 8, fontSize: 14 }}><input type="checkbox" checked={r.active} onChange={(e) => setR({ ...r, active: e.target.checked })} /> My current routine</label>
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="button button--primary" disabled={!r.name.trim() || !r.days.some((d) => d.exercises.length)} onClick={save}>Save</button>
+          <button type="button" className="button" onClick={onClose}>Cancel</button>
+          {r.id && <button type="button" className="icon-link" style={{ marginLeft: "auto" }} onClick={async () => { if (window.confirm(`Delete ${r.name}?`)) { await gym.deleteRoutine(r.id); onSaved(); } }}><Trash2 size={14} aria-hidden="true" /> Delete</button>}
+        </div>
+      </div>
+      {picking != null && (
+        <ExercisePicker exercises={g.exercises} onClose={() => setPicking(null)}
+          onPick={(ex) => { const d = r.days[picking]; setDay(picking, { ...d, exercises: [...d.exercises, { exercise: ex.id, sets: 3, reps: ex.kind === "time" ? "30-60" : "8-12", rest_s: g.settings.rest_s }] }); setPicking(null); }} />
+      )}
+    </Sheet>
+  );
+}
+
+export function ExercisePicker({ exercises, onPick, onClose }: { exercises: Exercise[]; onPick: (e: Exercise) => void; onClose: () => void }) {
+  const [q, setQ] = useState("");
+  const [muscle, setMuscle] = useState("");
+  const shown = exercises.filter((e) => (!muscle || e.primary === muscle) && (!q || e.name.toLowerCase().includes(q.toLowerCase())));
+  return (
+    <Sheet label="Pick an exercise" onClose={onClose}>
+      <div className="stack" style={{ gap: 8 }}>
+        <div className="row" style={{ gap: 6 }}><Search size={16} aria-hidden="true" /><input className="field" style={{ flex: 1 }} placeholder="Search exercises" aria-label="Search exercises" value={q} onChange={(e) => setQ(e.target.value)} autoFocus /></div>
+        <div className="row career-views" style={{ flexWrap: "wrap" }}>
+          {["", ...MUSCLES].map((m) => <button key={m || "all"} type="button" className={`chip chip--button ${muscle === m ? "chip--active" : ""}`} onClick={() => setMuscle(m)}>{m || "All"}</button>)}
+        </div>
+        <ul className="items gym-picker">
+          {shown.map((e) => (
+            <li key={e.id} className="item"><button type="button" className="item__text house__pick" onClick={() => onPick(e)}>
+              <span className="item__title">{e.name}</span><span className="item__subtitle">{e.primary} · {e.equipment}{e.custom ? " · yours" : ""}</span></button></li>
+          ))}
+        </ul>
+      </div>
+    </Sheet>
+  );
+}
+
+function ExercisesView({ g, onChange }: { g: Gym; onChange: () => void }) {
+  const [q, setQ] = useState("");
+  const [muscle, setMuscle] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const shown = g.exercises.filter((e) => (!muscle || e.primary === muscle) && (!q || e.name.toLowerCase().includes(q.toLowerCase())));
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Exercises">
+      <header className="widget__head"><Dumbbell aria-hidden="true" /><span>{g.exercises.length} exercises</span>
+        <button type="button" className="widget__source icon-link" onClick={() => setAdding(true)}><Plus size={14} aria-hidden="true" /> Your own</button></header>
+      <input className="field" placeholder="Search" aria-label="Search exercises" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="row career-views" style={{ flexWrap: "wrap" }}>
+        {["", ...MUSCLES].map((m) => <button key={m || "all"} type="button" className={`chip chip--button ${muscle === m ? "chip--active" : ""}`} onClick={() => setMuscle(m)}>{m || "All"}</button>)}
+      </div>
+      <ul className="items">
+        {shown.map((e) => (
+          <li key={e.id} className="item"><button type="button" className="item__text house__pick" onClick={() => setOpen(e.id)}>
+            <span className="item__title">{e.name}</span><span className="item__subtitle">{e.primary}{e.secondary.length ? ` (+ ${e.secondary.join(", ")})` : ""} · {e.equipment}</span></button></li>
+        ))}
+      </ul>
+      {open && <ExerciseSheet id={open} unit={g.settings.unit} onClose={() => setOpen(null)} />}
+      {adding && <NewExercise onClose={() => setAdding(false)} onSaved={() => { setAdding(false); onChange(); }} />}
+    </Glass>
+  );
+}
+
+function NewExercise({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({ name: "", primary: "chest", secondary: [] as string[], equipment: "barbell", kind: "weight" as Exercise["kind"] });
+  return (
+    <Sheet label="Your own exercise" onClose={onClose}>
+      <div className="stack" style={{ gap: 8 }}>
+        <h2 className="sheet__title">Your own exercise</h2>
+        <input className="field" placeholder="Name" aria-label="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <select className="field" aria-label="Main muscle" value={f.primary} onChange={(e) => setF({ ...f, primary: e.target.value })}>{MUSCLES.map((m) => <option key={m}>{m}</option>)}</select>
+        <select className="field" aria-label="Equipment" value={f.equipment} onChange={(e) => setF({ ...f, equipment: e.target.value })}>{EQUIPMENT.map((m) => <option key={m}>{m}</option>)}</select>
+        <select className="field" aria-label="Logged as" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as Exercise["kind"] })}>
+          <option value="weight">Weight × reps</option><option value="bodyweight">Reps (bodyweight)</option><option value="time">Time</option><option value="cardio">Cardio (time and distance)</option>
+        </select>
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="button button--primary" disabled={!f.name.trim()} onClick={async () => { await gym.addExercise(f); onSaved(); }}>Save</button>
+          <button type="button" className="button" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/** One exercise: records, a chart of estimated 1RM, and every time you've done it. */
+export function ExerciseSheet({ id, unit, onClose }: { id: string; unit: string; onClose: () => void }) {
+  const res = useResource<ExerciseDetail>(`gym:exercise:${id}`, () => gym.exercise(id), {});
+  const d = res.data;
+  return (
+    <Sheet label="Exercise" onClose={onClose}>
+      {!d ? <div className="skeleton" style={{ height: 160 }} /> : (
+        <div className="stack" style={{ gap: 10 }}>
+          <h2 className="sheet__title">{d.exercise.name}</h2>
+          <p className="muted" style={{ margin: 0 }}>{d.exercise.primary}{d.exercise.secondary.length ? `, with ${d.exercise.secondary.join(", ")}` : ""} · {d.exercise.equipment}</p>
+          {!d.history.length && <p className="muted" style={{ margin: 0 }}>Not done yet.</p>}
+          {d.history.length > 0 && (
+            <>
+              <div className="metrics">
+                <div><div className="metric__value">{kg(d.records.e1rm?.value, unit)}</div><div className="metric__label">Best est. 1RM</div></div>
+                <div><div className="metric__value">{kg(d.records.heaviest?.weight, unit)}</div><div className="metric__label">Heaviest</div></div>
+                <div><div className="metric__value">{d.records.best_volume ? Math.round(d.records.best_volume.volume).toLocaleString() : "–"}</div><div className="metric__label">Biggest session</div></div>
+              </div>
+              {d.records.rep_max && Object.keys(d.records.rep_max).length > 0 && (
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>Best for: {Object.entries(d.records.rep_max).map(([n, r]) => `${n} rep${n === "1" ? "" : "s"} ${kg(r.weight, unit)}`).join(" · ")}</p>
+              )}
+              <E1rmChart series={d.series} />
+              <ul className="items" aria-label="History">
+                {d.history.map((h) => (
+                  <li key={h.session} className="item"><span className="item__text"><span className="item__title">{fmtDay(h.date)}</span>
+                    <span className="item__subtitle">{h.sets.map((x) => (x.weight ? `${x.weight}×${x.reps ?? "–"}` : x.seconds ? `${x.seconds}s` : `${x.reps ?? "–"}`)).join(", ")}{h.e1rm ? ` · est. 1RM ${h.e1rm}` : ""}</span></span></li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+function E1rmChart({ series }: { series: ExerciseDetail["series"] }) {
+  const pts = series.map((p, i) => ({ i, y: p.e1rm ?? p.best })).filter((p): p is { i: number; y: number } => p.y != null);
+  if (pts.length < 2) return null;
+  const lo = Math.min(...pts.map((p) => p.y)), hi = Math.max(...pts.map((p) => p.y));
+  const W = 300, H = 80, pad = (hi - lo) * 0.15 || 1;
+  const x = (i: number) => (i / (series.length - 1)) * W;
+  const y = (v: number) => H - ((v - lo + pad) / (hi - lo + 2 * pad)) * H;
+  return (
+    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`Estimated 1RM from ${lo} to ${hi}`}>
+      <polyline points={pts.map((p) => `${x(p.i)},${y(p.y)}`).join(" ")} className="spark__line" />
+      {pts.map((p) => <circle key={p.i} cx={x(p.i)} cy={y(p.y)} r={2.5} className="spark__dot" />)}
+    </svg>
+  );
+}

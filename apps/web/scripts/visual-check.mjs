@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/status", "/assistant", "/wrapup", "/year"];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "desktop", width: 1280, height: 900, mobile: false }];
 const health = JSON.parse(readFileSync("src/screens/__health_fixture.json", "utf8"));
 const hud = { system: { cpu_percent: 7, memory: { percent_used: 41, used_gb: 13.1, total_gb: 32 }, disk: { "/": { percent_used: 63, used_gb: 590, total_gb: 937 } }, temperatures_celsius: {} } };
@@ -19,7 +19,16 @@ const attention = { items: [
   { id: "1", source: "containers", kind: "suggestion", title: "22 container updates: sonarr, radarr, prowlarr, jellyfin, homeassistant, caddy and 16 more", body: LONG, severity: "info", actions: [{ id: "update", label: "Update all", style: "primary" }], created_at: "2026-10-31T05:00:00Z", updated_at: "2026-10-31T05:00:00Z", app: "sirisai", origin: "sirisai", url: null, link: null },
   { id: "2", source: "devices", kind: "alert", title: "New device: Espressif on IoT", body: "MAC: aa:bb:cc:dd:ee:ff", severity: "attention", actions: [{ id: "name", label: "Name it", style: "primary" }], created_at: "2026-10-31T05:00:00Z", updated_at: "2026-10-31T05:00:00Z", app: "sirisai", origin: "sirisai", url: null, link: null },
 ], counts: { open: 2, urgent: 0 } };
+const gymFixture = {
+  settings: { unit: "kg", bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90 },
+  exercises: [{ id: "bench-press", name: "Bench Press", primary: "chest", secondary: ["triceps", "shoulders"], equipment: "barbell", kind: "weight", custom: false },
+    { id: "plank", name: "Plank", primary: "abs", secondary: [], equipment: "bodyweight", kind: "time", custom: false }],
+  routines: [{ id: "r1", name: "Push, pull, legs", days: [{ name: "Push", exercises: [{ exercise: "bench-press", sets: 4, reps: "5-8", rest_s: 150 }] }], active: true }],
+  active: { routine: "r1", next_day: 0 }, recent: [{ id: "s1", title: "Push, pull, legs: Push", date: "2026-11-02", started_at: "2026-11-02T07:00:00Z", minutes: 64, sets: 18, exercises: 5, volume: 9420, names: [] }],
+  week: { week_of: "2026-11-02", sessions: 2, sets_by_muscle: { chest: 8, shoulders: 6, triceps: 5.5, back: 4 }, volume: 15200 }, streak_weeks: 6, total_sessions: 41,
+};
 const FIXTURES = [
+  ["/api/v1/gym", gymFixture],
   ["/api/v1/health/today", { readiness: health.readiness, energy: health.energy }],
   ["/api/v1/health", health],
   ["/api/v1/assistant/hud", hud],
@@ -36,7 +45,12 @@ try {
   const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
   for (const size of SIZES) {
     const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height }, isMobile: size.mobile, hasTouch: size.mobile, colorScheme: "dark" });
-    await ctx.addInitScript(() => { localStorage.setItem("sirisos.token", "t"); localStorage.setItem("sirisos.user", "brad"); });
+    await ctx.addInitScript(() => {
+      localStorage.setItem("sirisos.token", "t"); localStorage.setItem("sirisos.user", "brad");
+      localStorage.setItem("sirisos.gym.active", JSON.stringify({ id: "w1", title: "Push, pull, legs: Push", started_at: new Date(Date.now() - 1500000).toISOString(), entries: [
+        { exercise: "bench-press", sets: [{ weight: 20, reps: 10, done: true, type: "warmup" }, { weight: 82.5, reps: 8, done: true, type: "normal" }, { weight: 82.5, reps: null, done: false, type: "normal" }] },
+        { exercise: "plank", sets: [{ seconds: 60, done: false, type: "normal" }] }] }));
+    });
     await ctx.route("**/api/**", (route) => {
       const path = new URL(route.request().url()).pathname;
       const hit = FIXTURES.find(([p]) => path === p);
