@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SleepWeekCard } from "./Health";
-import { Award, CalendarRange, Check, Compass, Hourglass, TrendingUp } from "lucide-react";
+import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, TrendingUp, Trophy } from "lucide-react";
 import { useResource } from "../api/resource";
 import { review, type WeeklyReview } from "../api/review";
 import { Glass } from "../components/Glass";
@@ -89,6 +89,15 @@ export function ReviewScreen() {
             )}
 
             {data.sleep && <SleepWeekCard w={data.sleep} />}
+
+            {data.gym && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="The gym this week">
+                <header className="widget__head"><Dumbbell aria-hidden="true" /><span>The gym</span><Link to="/gym" className="widget__source">SirisGYM</Link></header>
+                <p style={{ margin: 0 }}>{data.gym.sessions ? `${data.gym.sessions} workout${data.gym.sessions === 1 ? "" : "s"}, ${data.gym.sets} sets, ${(data.gym.volume / 1000).toFixed(1)} t lifted.` : "No workouts this week."}
+                  {data.gym.under.length ? ` Under target: ${data.gym.under.join(", ")}.` : ""}{data.gym.deload ? " SirisGYM suggests a lighter week next." : ""}</p>
+                {data.gym.records.length > 0 && <ul className="items">{data.gym.records.map((r) => <li key={r} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r}</span></span></li>)}</ul>}
+              </Glass>
+            )}
 
             {data.chartership && data.chartership.next.length > 0 && (
               <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Chartership">

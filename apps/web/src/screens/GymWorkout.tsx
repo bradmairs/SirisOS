@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Check, Link2, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
-import { e1rm, gym, loadActive, plates, saveActive, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
+import { Check, Link2, Mic, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
+import { e1rm, gym, loadActive, parseSpoken, plates, saveActive, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
+import { brain } from "../api/hub";
+import { micUnavailableReason, startRecording } from "../api/voice";
 import { Glass } from "../components/Glass";
 import { ExercisePicker, ExerciseSheet, kg, useGym } from "./Gym";
 
@@ -18,6 +20,7 @@ export function GymWorkoutScreen() {
   const [rest, setRest] = useState<{ until: number; total: number } | null>(null);
   const [done, setDone] = useState<{ summary?: Summary; records?: GymRecord[]; offline?: boolean } | null>(null);
   const [, tick] = useState(0);
+  const [listening, setListening] = useState(false);
   const plan = useMemo<Plan | null>(() => { try { return s ? JSON.parse(window.sessionStorage.getItem(`sirisos.gym.plan.${s.id}`) ?? "null") : null; } catch { return null; } }, [s?.id]);
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
   useEffect(() => { document.title = "Workout · SirisOS"; }, []);
@@ -50,6 +53,49 @@ export function GymWorkoutScreen() {
     const letter = s.entries[ei].group ?? s.entries[ei + 1]?.group ?? ["A", "B", "C", "D", "E", "F"].find((l) => !used.has(l)) ?? "A";
     update({ ...s, entries: s.entries.map((e, i) => (i === ei || i === ei + 1 ? { ...e, group: letter } : e)) });
   };
+  /** What comes after this set, for the rest-over notification. */
+  const nextText = (ei: number, si: number) => {
+    for (let i = ei; i < s.entries.length; i++) {
+      const sets = s.entries[i].sets;
+      const j = sets.findIndex((x, k) => !x.done && (i > ei || k > si));
+      if (j >= 0) { const x = sets[j]; return `${byId.get(s.entries[i].exercise)?.name ?? s.entries[i].exercise}, set ${j + 1}${x.weight ? `: ${x.weight} kg` : ""}`; }
+    }
+    return "That was the last set: finish when you're ready.";
+  };
+  /** Rest, with a push to the lock screen when it's over (6.9). */
+  const startRest = (t: number, next: string) => {
+    setRest(t ? { until: Date.now() + t * 1000, total: t } : null);
+    if (t) gym.rest(t, next).catch(() => {});
+  };
+  const stopRest = () => { setRest(null); gym.stopRest().catch(() => {}); };
+  /** Log the next set by voice (6.9): "100 by 5", "bench 82.5 for 8 RPE 8". */
+  async function voice() {
+    if (!s) return;
+    const why = micUnavailableReason();
+    if (why) { setInfo(why); return; }
+    setListening(true);
+    try {
+      const rec = await startRecording({ stopOnSilence: true, maxSeconds: 8, sampleRate: 16000 });
+      const { text } = await brain.transcribe(await rec.done);
+      const said = parseSpoken(text ?? "");
+      if (!said) { setInfo(`Didn't catch a set in "${text}". Try "100 by 5".`); return; }
+      const words = (said.name ?? "").split(" ").filter((w) => w.length > 2);
+      const named = words.length ? s.entries.findIndex((e) => words.some((w) => (byId.get(e.exercise)?.name ?? e.exercise).toLowerCase().includes(w))) : -1;
+      const ei = named >= 0 ? named : s.entries.findIndex((e) => e.sets.some((x) => !x.done));
+      if (ei < 0) { setInfo("Every set's done: add one first."); return; }
+      const entry = s.entries[ei];
+      let si = entry.sets.findIndex((x) => !x.done && x.type !== "warmup");
+      if (si < 0) si = entry.sets.findIndex((x) => !x.done);
+      const patch = { reps: said.reps, done: true, ...(said.weight !== undefined ? { weight: said.weight } : {}), ...(said.rpe ? { rpe: said.rpe } : {}) };
+      const sets = si >= 0 ? entry.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) : [...entry.sets, { type: "normal" as const, weight: said.weight ?? entry.sets.at(-1)?.weight ?? null, ...patch }];
+      update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets } : e)) });
+      const name = byId.get(entry.exercise)?.name ?? entry.exercise;
+      setInfo(`Logged ${name}: ${said.weight != null ? `${said.weight} × ` : ""}${said.reps}${said.rpe ? ` at RPE ${said.rpe}` : ""}.`);
+      if (lastInGroup(ei)) startRest(restFor(entry.exercise), nextText(ei, si < 0 ? entry.sets.length : si));
+    } catch (e) {
+      setInfo(e instanceof Error ? e.message : "Couldn't listen.");
+    } finally { setListening(false); }
+  }
   const unlink = (ei: number) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, group: null } : e)) });
   const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
   const doneSets = s.entries.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0);
@@ -58,6 +104,7 @@ export function GymWorkoutScreen() {
     if (!s) return;
     const final: Session = { ...s, ended_at: new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length) };
     if (!final.entries.length) { setInfo("Tick at least one set first, or discard it."); return; }
+    gym.stopRest().catch(() => {});
     try {
       const r = await gym.finish(final);
       saveActive(null);
@@ -79,7 +126,10 @@ export function GymWorkoutScreen() {
           <h1 className="gym-top__title">{s.title}</h1>
           <span className="muted">{Math.floor(elapsed / 3600) ? `${Math.floor(elapsed / 3600)}:` : ""}{String(Math.floor(elapsed / 60) % 60).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")} · {doneSets} sets</span>
         </div>
-        <button type="button" className="button button--primary" onClick={finish}>Finish</button>
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="button" aria-label="Log a set by voice" aria-pressed={listening} disabled={listening} onClick={voice}><Mic size={16} aria-hidden="true" />{listening ? " Listening…" : ""}</button>
+          <button type="button" className="button button--primary" onClick={finish}>Finish</button>
+        </div>
       </div>
       {info && <p className="tone-warning" role="status">{info}</p>}
       <div className="stack" style={{ marginTop: 12 }}>
@@ -100,7 +150,7 @@ export function GymWorkoutScreen() {
                   setSet(ei, si, patch);
                   if (patch.done) {
                     const t = lastInGroup(ei) ? restFor(entry.exercise) : 0;
-                    setRest(t ? { until: Date.now() + t * 1000, total: t } : null);
+                    if (t) startRest(t, nextText(ei, si)); else setRest(null);
                   }
                 }}
                 onRemove={(si) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) })} />
@@ -127,8 +177,8 @@ export function GymWorkoutScreen() {
           <Timer size={16} aria-hidden="true" />
           <span className="gym-rest__time">{Math.max(0, Math.ceil((rest.until - Date.now()) / 1000))} s</span>
           <span className="gym-rest__bar"><span style={{ width: `${Math.max(0, (rest.until - Date.now()) / (rest.total * 1000)) * 100}%` }} /></span>
-          <button type="button" className="chip chip--button" onClick={() => setRest({ ...rest, until: rest.until + 15_000, total: rest.total + 15 })}>+15</button>
-          <button type="button" className="chip chip--button" onClick={() => setRest(null)}>Skip</button>
+          <button type="button" className="chip chip--button" onClick={() => { const left = Math.ceil((rest.until - Date.now()) / 1000) + 15; setRest({ ...rest, until: rest.until + 15_000, total: rest.total + 15 }); gym.rest(left, "").catch(() => {}); }}>+15</button>
+          <button type="button" className="chip chip--button" onClick={stopRest}>Skip</button>
         </div>
       )}
       {picking && g && (

@@ -144,15 +144,46 @@ class Settings(BaseModel):
         return next((g for g in self.gyms if g.id == (gym_id or self.current_gym)), self.gyms[0])
 
 
+class Measurement(BaseModel):
+    """Body measurements in cm (6.9); any can be left out."""
+    id: str = Field(default_factory=new_id, max_length=40)
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    waist: float | None = Field(default=None, gt=0, le=300)
+    chest: float | None = Field(default=None, gt=0, le=300)
+    hips: float | None = Field(default=None, gt=0, le=300)
+    neck: float | None = Field(default=None, gt=0, le=100)
+    arm: float | None = Field(default=None, gt=0, le=100)
+    thigh: float | None = Field(default=None, gt=0, le=150)
+    calf: float | None = Field(default=None, gt=0, le=100)
+    note: str = Field(default="", max_length=200)
+
+
+class Photo(BaseModel):
+    """A progress photo (6.9): kept as a file next to gym.json, never sent anywhere."""
+    id: str = Field(default_factory=new_id, max_length=40)
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    pose: Literal["front", "side", "back", "other"] = "front"
+    note: str = Field(default="", max_length=200)
+    file: str = Field(max_length=80)
+
+
 class GymDoc(BaseModel):
     exercises: list[CustomExercise] = Field(default_factory=list)
     routines: list[Routine] = Field(default_factory=list)
     sessions: list[Session] = Field(default_factory=list)
     settings: Settings = Field(default_factory=Settings)
+    measurements: list[Measurement] = Field(default_factory=list)
+    photos: list[Photo] = Field(default_factory=list)
 
 
 def _path():
     return json_store.data_path("SIRISOS_GYM_PATH", "gym.json")
+
+
+def photo_dir():
+    d = _path().parent / "gym-photos"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 LB = 0.45359237

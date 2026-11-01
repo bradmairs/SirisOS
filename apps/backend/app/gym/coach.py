@@ -225,6 +225,37 @@ def watch_for(s: Session, workouts: list[dict[str, Any]]) -> dict[str, Any] | No
             "max_hr": best.get("max_hr"), "kj": round(best["kcal"] * 4.184) if best.get("kcal") else None}
 
 
+def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
+    """What SirisAI needs to answer about training (6.9): recent workouts, each
+    main lift's trend, this week by muscle, records in the last 30 days, the
+    deload state and the next routine day with what to lift."""
+    names = service.exercises(doc)
+    recent = [service.summary(doc, s) for s in doc.sessions[-8:]]
+    lifts = {}
+    for ex, label in MAIN_LIFTS.items():
+        rows = [r for r in service.history(doc, ex) if r["e1rm"]]
+        if rows:
+            lifts[names.get(ex, {}).get("name", label)] = {"best": max(r["e1rm"] for r in rows),
+                                                          "last": [{"date": r["date"], "e1rm": r["e1rm"], "top": r["best"].get("weight")} for r in rows[-6:]]}
+    since = (today - timedelta(days=30)).isoformat()
+    records = []
+    for s in doc.sessions:
+        if service.day_of(s.started_at) >= since:
+            records += [r["text"] for r in service.new_records(doc, s)]
+    active = next((r for r in doc.routines if r.active), None)
+    nxt = None
+    if active and active.days:
+        i = service.next_day(doc, active.id)
+        d = active.days[i]
+        nxt = {"routine": active.name, "day": d.name, "exercises": [
+            {"name": names.get(p.exercise, {}).get("name", p.exercise), "sets": p.sets, "reps": p.reps, **{k: v for k, v in service.suggest(doc, p).items() if k in ("weight", "why")}}
+            for p in d.exercises]}
+    return {"today": today.isoformat(), "total_sessions": len(doc.sessions), "streak_weeks": service.streak(doc, today), "recent": recent,
+            "lifts": lifts, "week": service.week(doc, today), "muscles": [m for m in muscles(doc, today) if m["status"] != "in range"],
+            "records_30d": records[-12:], "deload": deload(doc, today), "next": nxt,
+            "measurements": [m.model_dump(exclude={"id"}) for m in doc.measurements[-3:]]}
+
+
 def as_workouts(doc: GymDoc, day: str) -> dict[str, Any]:
     """A day's gym sessions in SirisAI's own shape, for strain and the training load."""
     items = []

@@ -220,10 +220,10 @@ def test_supersets_keep_their_group_and_the_heatmap_counts_each_day(client):
 def health(monkeypatch):
     from app.gym import api as gym_api
 
-    state = {"readiness": None, "recent": [], "weight_kg": None, "sent": [], "workouts": []}
+    state = {"readiness": None, "recent": [], "weight_kg": None, "weight_series": [], "sent": [], "workouts": []}
 
     async def fake_health(hub):
-        return {k: state[k] for k in ("readiness", "recent", "weight_kg")}
+        return {k: state[k] for k in ("readiness", "recent", "weight_kg", "weight_series")}
 
     async def fake_send(hub, doc, day):
         from app.gym import coach
@@ -295,3 +295,67 @@ def test_a_session_goes_to_sirisai_and_shows_the_watch_workout(client, health):
                           {"date": "2026-11-02", "name": "SirisGYM: Push", "start": "2026-11-02 18:00:00 +1100", "minutes": 65, "source": "sirisgym"}]
     w = client.get("/api/v1/gym/sessions/s1", headers=AUTH).json()["watch"]
     assert w == {"name": "Traditional Strength Training", "start": "2026-11-02 18:03:00 +1100", "minutes": 61, "avg_hr": 118, "max_hr": 161, "kj": 1757}
+
+
+# 6.9: the programme builder, measurements, photos, the rest push, the summary for SirisAI.
+
+def test_the_builder_reads_a_goal_and_spares_an_injury(client):
+    r = client.post("/api/v1/gym/builder", headers=AUTH, json={"text": "4 days, hypertrophy, bad left shoulder, 60 minutes"}).json()
+    assert r["chosen"] == {"days": 4, "goal": "muscle", "minutes": 60, "equipment": "gym", "avoid": ["shoulder"]}
+    ids = {e["exercise"] for d in r["routine"]["days"] for e in d["exercises"]}
+    assert [d["name"] for d in r["routine"]["days"]] == ["Upper 1", "Lower 1", "Upper 2", "Lower 2"]
+    assert not ids & {"overhead-press", "bench-press", "dip", "db-shoulder-press"} and "db-bench-press" in ids
+    home = client.post("/api/v1/gym/builder", headers=AUTH, json={"text": "3 days at home with dumbbells, strength, sore knee"}).json()
+    from app.gym import library
+    used = [library.BUILTIN[e["exercise"]] for d in home["routine"]["days"] for e in d["exercises"]]
+    assert {u["equipment"] for u in used} <= {"dumbbell", "bodyweight", "kettlebell", "band", "other"}
+    assert not {e["exercise"] for d in home["routine"]["days"] for e in d["exercises"]} & {"bulgarian-split-squat", "goblet-squat", "walking-lunge"}
+    # It's a draft: saving it goes through the routine editor.
+    assert client.get("/api/v1/gym", headers=AUTH).json()["routines"] == []
+
+
+def test_measurements_and_photos_are_kept_privately(client, health, tmp_path):
+    health["weight_series"] = [{"date": "2026-11-01", "weight": 81.2, "trend": 81.5}]
+    client.post("/api/v1/gym/measurements", headers=AUTH, json={"id": "m1", "date": "2026-11-01", "waist": 84.5, "arm": 38})
+    up = client.post("/api/v1/gym/photos", headers=AUTH, files={"file": ("front.jpg", b"\xff\xd8\xff fake jpeg", "image/jpeg")},
+                     data={"date": "2026-11-01", "pose": "front"}).json()
+    body = client.get("/api/v1/gym/body", headers=AUTH).json()
+    assert body["measurements"][0]["waist"] == 84.5 and body["photos"][0]["pose"] == "front" and "file" not in body["photos"][0]
+    assert body["weight"] == [{"date": "2026-11-01", "kg": 81.2, "trend": 81.5}]
+    got = client.get(f"/api/v1/gym/photos/{up['id']}", headers=AUTH)
+    assert got.status_code == 200 and got.content.startswith(b"\xff\xd8")
+    assert client.get(f"/api/v1/gym/photos/{up['id']}").status_code == 401
+    assert client.post("/api/v1/gym/photos", headers=AUTH, files={"file": ("x.txt", b"hi", "text/plain")}, data={"date": "2026-11-01"}).status_code == 415
+    client.delete(f"/api/v1/gym/photos/{up['id']}", headers=AUTH)
+    assert not list((tmp_path / "gym-photos").iterdir())
+
+
+def test_the_rest_timer_rings_on_the_lock_screen(client, monkeypatch):
+    import asyncio
+    from app.gym import api as gym_api
+    from app.push import notifier
+
+    sent = []
+
+    async def deliver(messages):
+        sent.extend(messages)
+        return len(messages)
+
+    monkeypatch.setattr(notifier, "deliver", deliver)
+    monkeypatch.setattr(gym_api.asyncio, "sleep", lambda s: asyncio.sleep(0))
+    client.post("/api/v1/gym/rest", headers=AUTH, json={"seconds": 90, "next": "Bench Press, set 3"})
+    client.post("/api/v1/gym/rest", headers=AUTH, json={"seconds": 60, "next": "Barbell Row, set 1"})
+    client.delete("/api/v1/gym/rest", headers=AUTH)
+    assert all(m["topic"] == "gym" and m["url"] == "/gym/workout" for m in sent)
+
+
+def test_the_summary_for_sirisai_has_the_lifts_and_whats_next(client, health):
+    from app.gym import coach
+
+    rid = _routine(client)
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-10-28", [(80, 8), (80, 8), (80, 8)], routine=rid, d=0))
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s2", "2026-11-03", [(85, 8), (85, 8), (85, 8)], routine=rid, d=0))
+    s = coach.for_sirisai(store.load(), TODAY)
+    assert s["lifts"]["Bench Press"]["best"] == 107.7 and len(s["lifts"]["Bench Press"]["last"]) == 2
+    assert s["next"]["exercises"][0] == {"name": "Bench Press", "sets": 3, "reps": "5-8", "weight": 87.5, "why": "Last time every set at 85 reached 8: add 2.5."}
+    assert any("Bench Press" in r for r in s["records_30d"]) and s["streak_weeks"] == 2

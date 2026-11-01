@@ -163,6 +163,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.62: SI units everywhere: SirisGYM kg only (lb gyms converted), energy in kJ
 6.7: SirisGYM: settings, gyms (bar, plates, dumbbells, stack), warm-ups, supersets, RPE and notes, progression rules, yearly heatmap
 6.8: SirisGYM: muscle targets, deloads, readiness-aware plans, strain and training plan, Watch heart rate, strength standards, year in review; local-day fix
+6.9: SirisGYM: programme builder, body measurements and progress photos, rest-over push, voice logging, SirisAI coaching, gym in the weekly review
 
 ## Terminal (ADR 113)
 

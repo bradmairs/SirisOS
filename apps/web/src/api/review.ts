@@ -20,6 +20,7 @@ export interface WeeklyReview {
   /** The weakest competency elements and what to do next (6.3). */
   /** The week's sleep report (6.4). */
   sleep?: import("./health").SleepWeek | null;
+  gym?: { sessions: number; sets: number; volume: number; records: string[]; under: string[]; deload: boolean } | null;
   chartership?: { counts: { solid: number; thin: number; none: number }; next: { id: string; title: string; strength: string; next: string }[] } | null;
   next_week: {
     busy_days: { date: string; meetings: number; clashes: string[] }[];

@@ -50,6 +50,15 @@ export interface ImportPreview {
 /** What the weights in an import file are in; SirisGYM saves kilograms either way. */
 export type ImportUnit = "auto" | "kg" | "lb";
 
+export interface Measurement { id?: string; date: string; waist?: number | null; chest?: number | null; hips?: number | null; neck?: number | null;
+  arm?: number | null; thigh?: number | null; calf?: number | null; note?: string }
+export interface Photo { id: string; date: string; pose: "front" | "side" | "back" | "other"; note: string }
+export interface Body { measurements: Measurement[]; photos: Photo[]; weight: { date: string; kg: number; trend: number }[] }
+export type BuildGoal = "strength" | "muscle" | "general";
+export type BuildEquipment = "gym" | "dumbbells" | "bodyweight";
+export interface BuildRequest { text?: string; days?: number | null; goal?: BuildGoal | null; minutes?: number | null; equipment?: BuildEquipment | null; avoid?: string[] }
+export interface Built { routine: Routine; chosen: { days: number; goal: BuildGoal; minutes: number; equipment: BuildEquipment; avoid: string[] }; read: Partial<BuildRequest>; note: string }
+
 const G = "/api/v1/gym";
 async function importFile<T>(file: File, unit: ImportUnit, choices?: Record<string, string>): Promise<T> {
   const body = new FormData();
@@ -77,6 +86,23 @@ export const gym = {
   finish: (s: Session) => api<{ summary: Summary; records: GymRecord[] }>(`${G}/sessions`, json(s)),
   sessions: (month?: string) => api<{ sessions: Summary[] }>(`${G}/sessions${month ? `?month=${month}` : ""}`),
   session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[]; watch?: Watch | null }>(`${G}/sessions/${id}`),
+  build: (b: BuildRequest) => api<Built>(`${G}/builder`, json(b)),
+  body: () => api<Body>(`${G}/body`),
+  addMeasurement: (m: Measurement) => api<Measurement>(`${G}/measurements`, json(m)),
+  deleteMeasurement: (id: string) => api<{ deleted: string }>(`${G}/measurements/${id}`, { method: "DELETE" }),
+  addPhoto: async (file: File, date: string, pose: Photo["pose"]) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("date", date);
+    body.append("pose", pose);
+    const r = await request(`${G}/photos`, { method: "POST", body });
+    return (await r.json()) as Photo;
+  },
+  /** The photo as a blob URL (it needs the sign-in, so an <img src> can't fetch it itself). */
+  photoUrl: async (id: string) => URL.createObjectURL(await (await request(`${G}/photos/${id}`)).blob()),
+  deletePhoto: (id: string) => api<{ deleted: string }>(`${G}/photos/${id}`, { method: "DELETE" }),
+  rest: (seconds: number, next: string) => api<{ ringing_in: number }>(`${G}/rest`, json({ seconds, next })),
+  stopRest: () => api<{ stopped: boolean }>(`${G}/rest`, { method: "DELETE" }),
   deload: (on: boolean, days = 7) => api<Deload>(`${G}/deload`, json({ on, days })),
   strength: () => api<Strength>(`${G}/strength`),
   year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),
@@ -113,4 +139,29 @@ export function saveActive(s: Session | null): void {
 }
 export function newId(): string {
   return Math.random().toString(16).slice(2, 14).padEnd(12, "0");
+}
+
+const WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 };
+
+/** A spoken set (6.9): "100 by 5", "100 kilos for 5", "5 reps at 82.5", "bodyweight 10", "60 x 8 RPE 8", optionally after the exercise's name. */
+export function parseSpoken(text: string): { weight?: number | null; reps?: number; rpe?: number; name?: string } | null {
+  let t = ` ${text.toLowerCase().replace(/[,!?]/g, " ")} `;
+  t = t.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/g, (w) => String(WORDS[w]));
+  t = t.replace(/\b(\d) 100\b/g, (_, d) => String(Number(d) * 100)).replace(/\b(\d00) (?:and )?(\d{1,2})\b/g, (_, h, n) => String(Number(h) + Number(n)))
+    .replace(/\b([2-9]0) ([1-9])\b/g, (_, a, b) => String(Number(a) + Number(b)))
+    .replace(/(\d)\s*point\s*(\d)/g, "$1.$2").replace(/(\d) and a half/g, "$1.5");
+  const rpeM = t.match(/\brpe\s*(\d+(?:\.\d)?)/);
+  const rpe = rpeM ? Number(rpeM[1]) : undefined;
+  if (rpeM) t = t.replace(rpeM[0], " ");
+  const unit = "(?:\\s*(?:kg|kilos?|kilograms?))?";
+  let m = t.match(new RegExp(`(\\d+(?:\\.\\d+)?)${unit}\\s*(?:by|x|times|for|×)\\s*(\\d+)(?:\\s*reps?)?`));
+  let out: { weight?: number | null; reps?: number } | null = m ? { weight: Number(m[1]), reps: Number(m[2]) } : null;
+  if (!out && (m = t.match(new RegExp(`(\\d+)\\s*reps?\\s*(?:at|with|of)\\s*(\\d+(?:\\.\\d+)?)${unit}`)))) out = { weight: Number(m[2]), reps: Number(m[1]) };
+  if (!out && (m = t.match(/(?:body ?weight|no weight)\s*(?:for\s*)?(\d+)/))) out = { weight: null, reps: Number(m[1]) };
+  if (!out && (m = t.match(/(\d+)\s*reps?\b/))) out = { reps: Number(m[1]) };
+  if (!out || !out.reps || out.reps > 100) return null;
+  const name = t.slice(0, m!.index).replace(/\b(log|logged|did|set|just)\b/g, " ").trim();
+  return { ...out, ...(rpe && rpe >= 5 && rpe <= 10 ? { rpe } : {}), ...(name.length > 2 ? { name } : {}) };
 }

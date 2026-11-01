@@ -18,8 +18,8 @@ from pydantic import BaseModel, Field
 
 from app.services import json_store
 
-Topic = Literal["apps", "inbox", "brief", "career", "home", "nudges"]
-TOPICS: tuple[str, ...] = ("apps", "inbox", "brief", "career", "home", "nudges")
+Topic = Literal["apps", "inbox", "brief", "career", "home", "nudges", "gym"]
+TOPICS: tuple[str, ...] = ("apps", "inbox", "brief", "career", "home", "nudges", "gym")
 # The topics before "home" (5.2): a device that had all of them gets it too.
 _BEFORE_HOME = {"apps", "inbox", "brief", "career"}
 MAX_SENT = 2000
@@ -36,8 +36,8 @@ class Subscription(BaseModel):
     label: str = Field(default="", max_length=80)
     topics: list[Topic] = Field(default_factory=lambda: list(TOPICS))
     created_at: str = ""
-    # 2 from 5.2 ("home"), 3 from 6.3 ("nudges"); older ones are upgraded on load.
-    v: int = 3
+    # 2 from 5.2 ("home"), 3 from 6.3 ("nudges"), 4 from 6.9 ("gym"); older ones are upgraded on load.
+    v: int = 4
 
 
 def _subs_path():
@@ -91,6 +91,12 @@ def _upgrade(raw: dict) -> dict:
         if _BEFORE_HOME | {"home"} <= set(topics) and "nudges" not in topics:
             topics.append("nudges")
         raw = {**raw, "topics": topics, "v": 3}
+    if raw.get("v") == 3:
+        # The rest timer (6.9): a device that wanted everything gets it too.
+        topics = list(raw.get("topics") or [])
+        if _BEFORE_HOME | {"home", "nudges"} <= set(topics) and "gym" not in topics:
+            topics.append("gym")
+        raw = {**raw, "topics": topics, "v": 4}
     return raw
 
 
