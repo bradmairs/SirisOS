@@ -125,18 +125,27 @@ def test_import_previews_then_saves_once_however_often_its_sent(client):
     assert bench["records"]["heaviest"]["weight"] == 65 and bench["history"][0]["date"] == "2021-03-05"
 
 
-def test_import_a_zip_in_pounds_into_lb_and_says_what_it_needs(client):
+def test_import_a_zip_in_pounds_saves_kilograms_and_says_what_it_needs(client):
     import io
     import zipfile
 
-    client.put("/api/v1/gym/settings", headers=AUTH, json={"unit": "lb", "bar": 45, "plates": [45, 25, 10, 5, 2.5], "increment": 5, "rest_s": 90})
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         z.writestr("export/logs.csv", PER_SET)
     assert _upload(client, buf.getvalue(), "jefit.zip", dry_run="false").json()["imported"]["sets"] == 2
-    detail = client.get("/api/v1/gym/exercises/squat", headers=AUTH)
     sid = client.get("/api/v1/gym/sessions", headers=AUTH).json()["sessions"][0]["id"]
     s = client.get(f"/api/v1/gym/sessions/{sid}", headers=AUTH).json()
-    assert sid == "import-20240305" and [x["weight"] for x in s["entries"][0]["sets"]] == [135, 185], detail.status_code
+    assert sid == "import-20240305" and [x["weight"] for x in s["entries"][0]["sets"]] == [61.23, 83.91]
     bad = _upload(client, b"name,colour\nx,blue\n")
     assert bad.status_code == 422 and "date and an exercise" in bad.json()["detail"]
+    assert client.put("/api/v1/gym/settings", headers=AUTH, json={"unit": "lb"}).status_code == 422  # SI only
+
+
+def test_a_gym_kept_in_pounds_is_converted_to_kilograms(client, tmp_path):
+    import json
+
+    (tmp_path / "gym.json").write_text(json.dumps({"settings": {"unit": "lb", "bar": 45, "plates": [45, 25], "increment": 5, "rest_s": 90},
+        "sessions": [session("s1", "2026-11-02", [(225, 5)])]}))
+    over = client.get("/api/v1/gym", headers=AUTH).json()
+    assert over["settings"] == {"unit": "kg", "bar": 20.41, "plates": [20.41, 11.34], "increment": 2.27, "rest_s": 90}
+    assert client.get("/api/v1/gym/exercises/bench-press", headers=AUTH).json()["records"]["heaviest"]["weight"] == 102.06

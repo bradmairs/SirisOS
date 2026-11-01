@@ -234,7 +234,7 @@ function ImportCard({ g, onDone }: { g: Gym; onDone: () => void }) {
         <input type="file" accept=".csv,.txt,.zip,text/csv,application/zip" aria-label="Export file" onChange={(e) => look(e.target.files?.[0] ?? null, unit)} />
         <label className="row" style={{ gap: 6 }}>Weights in the file
           <select className="field" value={unit} aria-label="Weights in the file" onChange={(e) => { const u = e.target.value as ImportUnit; setUnit(u); if (file) void look(file, u); }}>
-            <option value="auto">as the file says (kg unless it says lb)</option><option value="kg">kg</option><option value="lb">lb</option>
+            <option value="auto">as the file says (kg unless it says lb)</option><option value="kg">kg</option><option value="lb">lb (converted to kg)</option>
           </select></label>
       </div>
       {busy && <p className="muted" role="status" style={{ margin: 0 }}>Reading…</p>}

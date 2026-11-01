@@ -87,7 +87,7 @@ class Routine(BaseModel):
 
 
 class Settings(BaseModel):
-    unit: Literal["kg", "lb"] = "kg"
+    unit: Literal["kg"] = "kg"  # SI only (6.62): a gym.json kept in lb is converted on load
     bar: float = Field(default=20, ge=0, le=60)
     plates: list[float] = Field(default_factory=lambda: [25, 20, 15, 10, 5, 2.5, 1.25], max_length=12)
     increment: float = Field(default=2.5, gt=0, le=20)
@@ -105,9 +105,29 @@ def _path():
     return json_store.data_path("SIRISOS_GYM_PATH", "gym.json")
 
 
+LB = 0.45359237
+
+
+def to_si(raw: dict) -> dict:
+    """A gym kept in pounds (6.5-6.61 allowed it) becomes kilograms: every
+    logged weight, the bar, the plates and the increment."""
+    settings = raw.get("settings") or {}
+    if settings.get("unit") != "lb":
+        return raw
+    kg = lambda v: round(v * LB, 2) if isinstance(v, (int, float)) else v  # noqa: E731
+    settings.update(unit="kg", bar=kg(settings.get("bar", 45)), increment=kg(settings.get("increment", 5)),
+                    plates=[kg(p) for p in settings.get("plates") or []])
+    for s in raw.get("sessions") or []:
+        for e in s.get("entries") or []:
+            for x in e.get("sets") or []:
+                x["weight"] = kg(x.get("weight"))
+        s["bodyweight"] = kg(s.get("bodyweight"))
+    return raw
+
+
 def load() -> GymDoc:
     raw = json_store.read(_path(), None)
-    return GymDoc.model_validate(raw) if isinstance(raw, dict) else GymDoc()
+    return GymDoc.model_validate(to_si(raw)) if isinstance(raw, dict) else GymDoc()
 
 
 def save(doc: GymDoc) -> GymDoc:

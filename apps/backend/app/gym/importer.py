@@ -11,7 +11,7 @@ understood:
   (or "60 x 10" / "60×10"); a log column holding these is spotted by its
   content.
 Weights are in pounds when a header says lb/lbs (or you say so), and are
-saved in your SirisGYM unit. Dates can be
+saved in kilograms (SirisGYM is SI only). Dates can be
 2024-03-05, 05/03/2024 (day first; month first when the day can't be), or
 a Unix timestamp.
 
@@ -243,7 +243,6 @@ def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str
             exercises[mine.id] = mine.model_dump()
             made += 1
         target[name] = mine.id
-    to_unit = 1 / LB if doc.settings.unit == "lb" else 1.0
     by_day: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     first_time: dict[str, datetime] = {}
     for r in sorted(rows, key=lambda x: (x["date"], x["order"])):
@@ -258,7 +257,7 @@ def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str
         start = t if (t.hour or t.minute) else t.replace(hour=7)
         session = store.Session(
             id=sid, title="Imported workout", started_at=start.replace(tzinfo=None).isoformat(timespec="seconds"), ended_at=None,
-            entries=[store.EntryLog(exercise=ex, sets=[store.SetLog(weight=round(s["weight"] * to_unit, 2) if s.get("weight") else None, reps=s.get("reps") or None, seconds=s.get("seconds"),
+            entries=[store.EntryLog(exercise=ex, sets=[store.SetLog(weight=round(s["weight"], 2) if s.get("weight") else None, reps=s.get("reps") or None, seconds=s.get("seconds"),
                                                                    km=s.get("km"), done=True) for s in sets][:40]) for ex, sets in entries.items()][:40],
             note="Imported")
         doc.sessions = [x for x in doc.sessions if x.id != sid]
