@@ -14,6 +14,7 @@ export interface WarmupStep { percent: number; reps: number }
 export interface GymSettings {
   unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number;
   gyms: GymProfile[]; current_gym: string; warmups: boolean; warmup_steps: WarmupStep[]; muscle_targets?: Record<string, number[]>;
+  shortcut_start?: string; shortcut_finish?: string;
 }
 export interface Suggest { weight: number | null; reps: number; why: string; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null }
 export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
@@ -128,6 +129,18 @@ export function plates(target: number, bar: number, available: number[]): { perS
   }
   return { perSide, left: Math.round(rest * 200) / 100 };
 }
+
+/** Run an iPhone Shortcut by name, then come back to `back` (6.92). Only on iPhone/iPad; elsewhere nothing happens. */
+export const shortcuts = {
+  url: (name: string, back: string) =>
+    `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(name)}&x-success=${encodeURIComponent(back)}&x-cancel=${encodeURIComponent(back)}&x-error=${encodeURIComponent(back)}`,
+  open: (url: string) => { window.location.href = url; },
+  run(name: string | undefined, backPath: string): boolean {
+    if (!name?.trim() || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return false;
+    this.open(this.url(name.trim(), `${window.location.origin}${backPath}`));
+    return true;
+  },
+};
 
 /** The workout in progress lives on this phone until it's finished (gyms are often out of signal). */
 const ACTIVE = "sirisos.gym.active";

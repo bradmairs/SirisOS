@@ -165,6 +165,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.8: SirisGYM: muscle targets, deloads, readiness-aware plans, strain and training plan, Watch heart rate, strength standards, year in review; local-day fix
 6.9: SirisGYM: programme builder, body measurements and progress photos, rest-over push, voice logging, SirisAI coaching, gym in the weekly review
 6.91: Health says why today is empty (export stopped at yesterday, or nothing for hours)
+6.92: SirisGYM runs an iPhone Shortcut when a workout starts or finishes (e.g. start the Watch workout)
 
 ## Terminal (ADR 113)
 

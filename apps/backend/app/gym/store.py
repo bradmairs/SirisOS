@@ -131,6 +131,9 @@ class Settings(BaseModel):
                                                                      WarmupStep(percent=0.8, reps=2)], max_length=8)
     muscle_targets: dict[str, list[float]] = Field(default_factory=dict)  # muscle -> [low, high] sets a week (6.8)
     deload_until: str | None = Field(default=None, max_length=10)  # a deload week runs to this day (6.8)
+    # iPhone Shortcuts to run when a workout starts and finishes (6.92), e.g. one that starts the Watch workout.
+    shortcut_start: str = Field(default="", max_length=80)
+    shortcut_finish: str = Field(default="", max_length=80)
 
     @model_validator(mode="after")
     def _current(self) -> "Settings":
