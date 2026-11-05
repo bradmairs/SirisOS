@@ -6,7 +6,7 @@ import { gym, loadActive, newId, saveActive, type Exercise, shortcuts, type Buil
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
-import { GymCoachCard } from "./GymCards";
+import { BackupsCard, FitnessLine, GymCoachCard, NigglesCard, VideosCard } from "./GymCards";
 
 /** SirisGym (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
 const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "progress", label: "Progress" }, { id: "exercises", label: "Exercises" },
@@ -31,9 +31,9 @@ function startingReps(e: Plan["exercises"][number], i: number, weight: number | 
 }
 
 /** Start a workout: from a routine day (with last time, what to lift and warm-ups), or empty. */
-export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string, shortcut?: string) {
+export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string, shortcut?: string, title = "Workout") {
   const now = new Date().toISOString();
-  let s: Session = { id: newId(), title: "Workout", started_at: now, entries: [], gym: gymId ?? null };
+  let s: Session = { id: newId(), title, started_at: now, entries: [], gym: gymId ?? null };
   if (routine) {
     const p = await gym.plan(routine.id, day, gymId);
     s = { ...s, title: p.title, routine_id: routine.id, day: p.day, deload: !!p.deload, entries: p.exercises.map((e) => ({
@@ -59,6 +59,8 @@ export function GymScreen() {
   const [params, setParams] = useSearchParams();
   const view = (VIEWS.find((v) => v.id === params.get("view"))?.id ?? "today") as View;
   useEffect(() => { document.title = "SirisGym · SirisOS"; }, []);
+  // Recent workouts get the Watch's verdict (7.1), so what to lift and the rest timer can use it.
+  useEffect(() => { gym.refreshEffort().catch(() => {}); }, []);
   const g = res.data;
   return (
     <>
@@ -151,7 +153,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const todayIdx = (new Date().getDay() + 6) % 7;
   const [busy, setBusy] = useState(false);
   const [gymId, setGymId] = useState(g.settings.current_gym);
-  const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId, g.settings.shortcut_start); } finally { setBusy(false); } };
+  const go = async (r?: Routine, d?: number, title?: string) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId, g.settings.shortcut_start, title); } finally { setBusy(false); } };
   const muscles = Object.entries(g.week.sets_by_muscle);
   const most = Math.max(1, ...muscles.map(([, n]) => n));
   return (
@@ -170,6 +172,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
         </p>
       )}
       {g.deload && (g.deload.active || g.deload.suggest) && <DeloadCard d={g.deload} onChange={onChange} />}
+      {(g.niggles ?? []).length > 0 && <NigglesCard niggles={g.niggles!} onChange={onChange} />}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">
         <header className="widget__head"><Play aria-hidden="true" /><span>Today's workout</span></header>
         {g.settings.gyms.length > 1 && (
@@ -206,7 +209,10 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
         ) : (
           <p className="muted" style={{ margin: 0 }}>No routine yet: pick a starter one under Routines, or just start an empty workout.</p>
         )}
-        <button type="button" className="button" style={{ alignSelf: "flex-start" }} disabled={busy || !!active} onClick={() => go()}>Empty workout</button>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <button type="button" className="button" disabled={busy || !!active} onClick={() => go()}>Empty workout</button>
+          <button type="button" className="button" disabled={busy || !!active} onClick={() => go(undefined, undefined, "Cardio")}><HeartPulse size={14} aria-hidden="true" /> Cardio</button>
+        </div>
       </Glass>
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="This week">
         <header className="widget__head"><Flame aria-hidden="true" /><span>This week</span></header>
@@ -214,6 +220,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
           <div><div className="metric__value">{g.week.sessions}</div><div className="metric__label">Workouts</div></div>
           <div><div className="metric__value">{Math.round(g.week.volume).toLocaleString()}</div><div className="metric__label">Volume ({g.settings.unit})</div></div>
           <div><div className="metric__value">{g.streak_weeks}</div><div className="metric__label">Weeks in a row</div></div>
+          {(g.week.cardio_min ?? 0) > 0 && <div><div className="metric__value">{g.week.cardio_min}</div><div className="metric__label">Cardio min{g.week.cardio_km ? ` · ${g.week.cardio_km} km` : ""}</div></div>}
         </div>
         {g.muscles?.length ? (
           <>
@@ -252,6 +259,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
         )}
       </Glass>
       <GymCoachCard />
+      {!(g.niggles ?? []).length && <NigglesCard niggles={[]} onChange={onChange} />}
       <FuelAndTimeCard />
       {(g.held ?? []).length > 0 && <HeldCard g={g} onChange={onChange} />}
       {g.recent.length > 0 && <RecentList g={g} />}
@@ -768,6 +776,7 @@ export function ExerciseSheet({ id, unit, onClose }: { id: string; unit: string;
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>Best for: {Object.entries(d.records.rep_max).map(([n, r]) => `${n} rep${n === "1" ? "" : "s"} ${kg(r.weight, unit)}`).join(" · ")}</p>
               )}
               <E1rmChart series={d.series} />
+              {d.fitness && <FitnessLine f={d.fitness} />}
               <ul className="items" aria-label="History">
                 {d.history.map((h) => (
                   <li key={h.session} className="item"><span className="item__text"><span className="item__title">{fmtDay(h.date)}</span>
@@ -776,6 +785,8 @@ export function ExerciseSheet({ id, unit, onClose }: { id: string; unit: string;
               </ul>
             </>
           )}
+          <h3 style={{ margin: "8px 0 0", fontSize: 15 }}>Form videos</h3>
+          <VideosCard key={(d.videos ?? []).map((v) => v.id).join()} videos={d.videos ?? []} onChange={() => res.reload?.(true)} />
         </div>
       )}
     </Sheet>
@@ -816,6 +827,7 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         <label className="gym-setting">…and when it finishes
           <input className="field" placeholder="e.g. SirisGym Finish (empty: none)" value={s.shortcut_finish ?? ""} onChange={(e) => setS({ ...s, shortcut_finish: e.target.value })} /></label>
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. It runs on iPhone, then comes straight back here.</p>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.learn_rest ?? true} onChange={(e) => setS({ ...s, learn_rest: e.target.checked })} /> Set the rest timer from how long my heart rate takes to settle (needs the Watch)</label>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (
           <label className="gym-setting">Warm-ups (% of the working weight × reps)
@@ -839,6 +851,7 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         </Glass>
       ))}
       <TidyCard onChange={onChange} />
+      <BackupsCard onChange={onChange} />
       <div className="row" style={{ gap: 8 }}>
         <button type="button" className="button" onClick={() => setS({ ...s, gyms: [...s.gyms, { id: newId(), name: `Gym ${s.gyms.length + 1}`, bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], dumbbells: [], stack_step: null }] })}>
           <Plus size={14} aria-hidden="true" /> Add a gym</button>

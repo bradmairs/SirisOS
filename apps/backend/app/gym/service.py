@@ -218,15 +218,38 @@ def suggest(doc: GymDoc, plan: PlanExercise, gym_id: str | None = None) -> dict[
             out = {"weight": top, "reps": lo, "why": f"Same as last time ({top:g}) until every set reaches {lo}."}
         return {**out, "last_note": note}
     hit = all((x.get("reps") or 0) >= hi for x in at_top)
+    # The Watch's verdict on last time (7.1): effort 0-10 from heart rate (and RPE, where given) and the recovery between sets.
+    w = _watch(doc, rows[-1]["session"], plan.exercise)
+    hr = w.get("effort") if w else None
     if hit and effort is not None and effort <= 7:
         out = {"weight": fit(top + 2 * step), "reps": lo, "why": f"Every set at {top:g} reached {hi} and felt easy (RPE {effort:.1f}): add {2 * step:g}."}
+    elif hit and effort is None and hr is not None and hr <= WATCH_EASY:
+        out = {"weight": fit(top + 2 * step), "reps": lo,
+               "why": f"Every set at {top:g} reached {hi} and your heart rate barely rose (effort {hr:g}/10 on the Watch): add {2 * step:g}."}
+    elif hit and hr is not None and hr >= WATCH_HARD and (w.get("recovery_bpm") or 99) < 15:
+        out = {"weight": top, "reps": hi,
+               "why": f"Every set at {top:g} reached {hi}, but the Watch had you near your max (effort {hr:g}/10) and barely recovering between sets: "
+                      "one more session here before adding."}
     elif hit:
         out = {"weight": fit(top + step), "reps": lo, "why": f"Last time every set at {top:g} reached {hi}: add {step:g}."}
     elif effort is not None and effort >= 9.5:
         out = {"weight": top, "reps": hi, "why": f"Same as last time ({top:g}): it was a grind (RPE {effort:.1f}), so own it before adding."}
+    elif effort is None and hr is not None and hr >= WATCH_HARD:
+        out = {"weight": top, "reps": hi, "why": f"Same as last time ({top:g}): the Watch says it was a grind (effort {hr:g}/10), so own it before adding."}
     else:
         out = {"weight": top, "reps": hi, "why": f"Same as last time ({top:g}) until every set reaches {hi}."}
+    if hr is not None:
+        out["watch_effort"] = hr
     return {**out, "last_note": note}
+
+
+WATCH_EASY = 5.0
+WATCH_HARD = 8.5
+
+
+def _watch(doc: GymDoc, session_id: str, exercise: str) -> dict[str, Any] | None:
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    return (s.effort or {}).get(exercise) if s else None
 
 
 def _note(doc: GymDoc, session_id: str, exercise: str) -> str | None:
@@ -300,8 +323,28 @@ def week(doc: GymDoc, today: date) -> dict[str, Any]:
             by_muscle[ex["primary"]] += n
             for m in ex["secondary"]:
                 by_muscle[m] += n * 0.5
+    c = cardio(doc, sessions)
     return {"week_of": start, "sessions": len(sessions), "sets_by_muscle": {m: round(v, 1) for m, v in sorted(by_muscle.items(), key=lambda t: -t[1])},
-            "volume": round(sum(volume(e.sets) for s in sessions for e in s.entries), 1)}
+            "volume": round(sum(volume(e.sets) for s in sessions for e in s.entries), 1), **c}
+
+
+def cardio(doc: GymDoc, sessions: list[Session]) -> dict[str, Any]:
+    """Conditioning in these workouts (7.1): minutes and km of the cardio and timed
+    exercises (rower, bike, treadmill, circuits), and how many workouts had some."""
+    names = exercises(doc)
+    secs, km, n = 0, 0.0, 0
+    for s in sessions:
+        had = False
+        for e in s.entries:
+            if names.get(e.exercise, {}).get("kind") != "cardio":
+                continue
+            for x in e.sets:
+                if x.done:
+                    secs += x.seconds or 0
+                    km += x.km or 0
+                    had = had or bool(x.seconds or x.km)
+        n += had
+    return {"cardio_min": round(secs / 60), "cardio_km": round(km, 1), "cardio_sessions": n}
 
 
 def streak(doc: GymDoc, today: date) -> int:
@@ -379,3 +422,24 @@ def next_day(doc: GymDoc, routine_id: str, today: date | None = None) -> int:
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+CSV_COLUMNS = ["date", "started_at", "workout", "exercise", "exercise_id", "set", "type", "weight_kg", "reps", "seconds", "km", "rpe", "done_at", "note"]
+
+
+def to_csv(doc: GymDoc) -> str:
+    """Every set, one row each (7.1): kg, km and seconds."""
+    import csv
+    import io
+
+    names = exercises(doc)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(CSV_COLUMNS)
+    for s in doc.sessions:
+        for e in s.entries:
+            for i, x in enumerate(e.sets, 1):
+                w.writerow([day_of(s.started_at), s.started_at, s.title, names.get(e.exercise, {}).get("name", e.exercise), e.exercise, i, x.type,
+                            x.weight if x.weight is not None else "", x.reps if x.reps is not None else "", x.seconds if x.seconds is not None else "",
+                            x.km if x.km is not None else "", x.rpe if x.rpe is not None else "", x.at or "", e.note if i == 1 else ""])
+    return buf.getvalue()

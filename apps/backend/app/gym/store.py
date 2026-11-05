@@ -8,6 +8,7 @@ retry from the offline outbox never doubles it.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -69,6 +70,9 @@ class Session(BaseModel):
     deload: bool = False  # a lighter session on purpose (6.8): no records, not a stall
     # An imported day too big to be one workout (7.0): "" until you've looked, "real" counts it, "wrong" keeps it out for good.
     review: Literal["", "real", "wrong"] = ""
+    # The Watch's verdict per exercise id (7.1), kept from SirisAI's analysis: effort 0-10, peak and average heart
+    # rate, recovery between sets and how long heart rate took to settle. Read by what to lift and the rest timer.
+    effort: dict[str, dict[str, float | None]] = Field(default_factory=dict)
     _held: bool | None = PrivateAttr(default=None)
 
 
@@ -146,6 +150,7 @@ class Settings(BaseModel):
     shortcut_start: str = Field(default="", max_length=80)
     shortcut_finish: str = Field(default="", max_length=80)
     # Protein (6.93): grams per kg of bodyweight, on rest days and training days.
+    learn_rest: bool = True  # rest timer set from how long your heart rate takes to settle (7.1)
     protein_rest: float = Field(default=1.6, ge=0.5, le=3.5)
     protein_training: float = Field(default=2.0, ge=0.5, le=3.5)
 
@@ -184,6 +189,32 @@ class Photo(BaseModel):
     file: str = Field(max_length=80)
 
 
+AREAS = ["shoulder", "elbow", "wrist", "lower back", "knee"]
+
+
+class Niggle(BaseModel):
+    """A sore spot (7.1): exercises that load it are swapped out of plans until it's healed."""
+    id: str = Field(default_factory=new_id, max_length=40)
+    area: Literal["shoulder", "elbow", "wrist", "lower back", "knee"]
+    note: str = Field(default="", max_length=200)
+    started: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    healed: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class Video(BaseModel):
+    """A form-check video (7.1), kept with the set it was filmed on."""
+    id: str = Field(default_factory=new_id, max_length=40)
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    exercise: str = Field(max_length=60)
+    session: str | None = Field(default=None, max_length=40)
+    set: int | None = Field(default=None, ge=1, le=100)
+    weight: float | None = Field(default=None, ge=0, le=2000)
+    reps: int | None = Field(default=None, ge=0, le=1000)
+    note: str = Field(default="", max_length=200)
+    file: str = Field(max_length=80)
+    type: str = Field(default="video/mp4", max_length=40)
+
+
 class GymDoc(BaseModel):
     exercises: list[CustomExercise] = Field(default_factory=list)
     routines: list[Routine] = Field(default_factory=list)
@@ -191,6 +222,8 @@ class GymDoc(BaseModel):
     settings: Settings = Field(default_factory=Settings)
     measurements: list[Measurement] = Field(default_factory=list)
     photos: list[Photo] = Field(default_factory=list)
+    niggles: list[Niggle] = Field(default_factory=list)
+    videos: list[Video] = Field(default_factory=list)
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
     import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it
@@ -315,11 +348,51 @@ def local_import_times(doc: "GymDoc") -> dict[str, Any]:
     return {"moved": moved, "utc": True}
 
 
-def backup(tag: str) -> None:
+def video_dir():
+    d = _path().parent / "gym-videos"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def backup(tag: str) -> str | None:
     p = _path()
     if p.exists():
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        (p.parent / f"gym.{tag}.{stamp}.json").write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+        name = f"gym.{tag}.{stamp}.json"
+        (p.parent / name).write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+        return name
+    return None
+
+
+BACKUP_NAME = re.compile(r"^gym\.([a-z0-9-]+)\.(\d{8}-\d{6})\.json$")
+
+
+def backups() -> list[dict[str, Any]]:
+    """The copies of the gym file saved before each one-off change (7.1), newest first."""
+    out = []
+    for f in _path().parent.glob("gym.*.json"):
+        m = BACKUP_NAME.match(f.name)
+        if not m:
+            continue
+        raw = json_store.read(f, None)
+        sessions = len(raw.get("sessions") or []) if isinstance(raw, dict) else None
+        when = datetime.strptime(m.group(2), "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc).isoformat()
+        out.append({"name": f.name, "tag": m.group(1), "saved_at": when, "bytes": f.stat().st_size, "sessions": sessions})
+    return sorted(out, key=lambda b: b["saved_at"], reverse=True)
+
+
+def restore(name: str) -> dict[str, Any]:
+    """Put a saved copy back (7.1). The file as it is now is saved first, so a restore can itself be undone."""
+    if not BACKUP_NAME.match(name):
+        raise ValueError("Not a gym backup.")
+    src = _path().parent / name
+    raw = json_store.read(src, None)
+    if not isinstance(raw, dict):
+        raise ValueError("That backup can't be read.")
+    GymDoc.model_validate(to_si(raw))  # refuse one that wouldn't load
+    kept = backup("before-restore")
+    json_store.write(_path(), raw)
+    return {"restored": name, "sessions": len(raw.get("sessions") or []), "saved_current_as": kept}
 
 
 def load() -> GymDoc:

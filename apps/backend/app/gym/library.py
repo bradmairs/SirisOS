@@ -108,6 +108,11 @@ _ROWS: list[tuple[str, str, str, tuple[str, ...], str, str]] = [
     ("elliptical", "Elliptical", "cardio", (), "machine", "cardio"),
     ("stair-climber", "Stair Climber", "cardio", ("glutes", "calves"), "machine", "cardio"),
     ("jump-rope", "Jump Rope", "cardio", ("calves",), "other", "time"),
+    ("air-bike", "Air Bike", "cardio", ("full body",), "machine", "cardio"),
+    ("ski-erg", "Ski Erg", "cardio", ("back", "triceps"), "machine", "cardio"),
+    ("run", "Run", "cardio", ("quads", "calves"), "other", "cardio"),
+    ("circuit", "Circuit", "cardio", ("full body",), "other", "cardio"),
+    ("sled-push", "Sled Push", "cardio", ("quads", "glutes"), "other", "cardio"),
 ]
 
 BUILTIN: dict[str, dict[str, Any]] = {
