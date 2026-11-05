@@ -922,7 +922,7 @@ h3.note__heading { font-size: 17px; }
 .gym-sets__done { height: 34px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--ink-3) 35%, transparent); background: transparent; color: var(--ink-3); display: grid; place-items: center; }
 .gym-sets__done--on { background: var(--good); border-color: var(--good); color: #04110a; }
 .gym-sets__plates { grid-column: 1 / -1; font-size: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.gym-rest { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--dock-h, 72px) + var(--safe-bottom, 0px) + 22px); z-index: 31;
+.gym-rest { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom, 0px) + 16px); z-index: 31;
   display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 99px; width: min(420px, calc(100% - 32px));
   background: color-mix(in srgb, var(--bg, #000) 82%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
@@ -930,6 +930,7 @@ h3.note__heading { font-size: 17px; }
 .gym-rest__time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 44px; }
 .gym-rest__bar { flex: 1; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 25%, transparent); overflow: hidden; }
 .gym-rest__bar span { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
+.gym-advice { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
 .gym-muscles { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .gym-muscles li { display: grid; grid-template-columns: 90px 1fr 32px; gap: 8px; align-items: center; font-size: 13px; text-transform: capitalize; }
 .gym-muscles__bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 20%, transparent); overflow: hidden; }

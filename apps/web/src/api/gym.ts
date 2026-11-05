@@ -7,13 +7,13 @@ export interface SetLog { reps?: number | null; weight?: number | null; seconds?
   at?: string | null }
 export interface EffortExercise { exercise: string; sets: number; avg_hr: number | null; peak_hr: number | null; peak_share: number | null; effort: number | null; rpe: number | null; recovery_bpm: number | null; e1rm: number | null }
 export interface Effort {
-  linked: boolean; why?: string; text?: string; watch?: { name: string; start: string; end: string }; max_hr?: number; resolution_s?: number;
+  linked: boolean; why?: string; text?: string; advice?: string[]; watch?: { name: string; start: string; end: string }; max_hr?: number; resolution_s?: number;
   avg_hr?: number | null; peak_hr?: number | null; kj?: number | null; zones_min?: number[]; exercises?: EffortExercise[];
   sets?: { exercise: string; set: number; type: string; weight: number | null; reps: number | null; at: string; avg_hr: number | null; peak_hr: number | null; recovery_bpm: number | null }[];
   timeline?: [string, number, number][];
 }
 export interface EntryLog { exercise: string; sets: SetLog[]; note?: string; group?: string | null }
-export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean }
+export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean; review?: "" | "real" | "wrong" }
 export type Progression = "double" | "linear" | "percent";
 export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string; group?: string | null; progression?: Progression; percents?: number[] }
 /** `weekdays`: 0 = Monday … 6 = Sunday (6.94); empty: in turn. */
@@ -29,12 +29,14 @@ export interface GymSettings {
 }
 export interface Suggest { weight: number | null; reps: number; why: string; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null }
 export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
-export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[] }
+export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[];
+  /** Imported, and too big to be one workout (7.0): left out of records and stats until you say it's real. */
+  held?: boolean }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number; schedule?: WeekSchedule | null } | null;
   recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number };
   streak_weeks: number; total_sessions: number;
-  muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
+  held?: Summary[]; muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
 }
 export interface MuscleWeek { muscle: string; sets: number; target: [number, number]; status: "under" | "in range" | "over" }
 export interface Deload { active: boolean; until: string | null; suggest: boolean; why: string[] }
@@ -53,6 +55,14 @@ export interface ExerciseDetail {
     most_reps?: { reps: number; weight: number | null; date: string }; best_volume?: { volume: number; date: string } };
   series: { date: string; e1rm: number | null; best: number | null; volume: number; reps: number }[];
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
+}
+
+export interface Duplicate { from: string; from_name: string; from_sets: number; into: string; into_name: string; into_sets: number; sure: boolean }
+export interface CoachChange { area: string; title: string; why: string }
+export interface Coach { date?: string; changes: CoachChange[]; looked_at?: string[]; enough: boolean; text: string }
+export interface Morning {
+  plan: { done: boolean; rest?: boolean; title: string; lifts?: { name: string; sets: number; reps: string; weight: number | null }[]; more?: number; note?: string | null; days_since?: number | null } | null;
+  routine?: string; day?: number; gym?: string; shortcut?: string; readiness?: { score: number | null; band: string | null } | null;
 }
 
 export interface ImportPreview {
@@ -123,6 +133,11 @@ export const gym = {
     api<{ slot: { start: string; end: string } | null; title?: string; detail?: string; added?: boolean }>(`${G}/schedule`, json({ minutes, dry_run: dryRun })),
   cleanup: (dryRun = false) => api<{ entries_removed: number; exercises_removed: number; names: string[]; sessions_kept: number }>(`${G}/cleanup?dry_run=${dryRun}`, { method: "POST" }),
   effort: (id: string) => api<Effort>(`${G}/sessions/${id}/effort`),
+  review: (id: string, verdict: "" | "real" | "wrong") => api<{ id: string; review: string; left: number }>(`${G}/sessions/${id}/review`, json({ verdict })),
+  duplicates: () => api<{ duplicates: Duplicate[] }>(`${G}/duplicates`),
+  merge: (source: string, into: string) => api<{ sets_moved: number; workouts: number }>(`${G}/merge`, json({ source, into })),
+  coach: () => api<Coach>(`${G}/coach`),
+  morning: () => api<Morning>(`${G}/morning`),
   deload: (on: boolean, days = 7) => api<Deload>(`${G}/deload`, json({ on, days })),
   strength: () => api<Strength>(`${G}/strength`),
   year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),

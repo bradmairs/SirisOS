@@ -107,6 +107,8 @@ export function GymWorkoutScreen() {
     if (!s) return;
     const final: Session = { ...s, ended_at: new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length) };
     if (!final.entries.length) { setInfo("Tick at least one set first, or discard it."); return; }
+    const undone = s.entries.reduce((n, e) => n + e.sets.filter((x) => !x.done).length, 0);
+    if (undone && !window.confirm(`${undone} set${undone === 1 ? " isn't" : "s aren't"} ticked, and won't be saved. Finish anyway?`)) return;
     gym.stopRest().catch(() => {});
     try {
       const r = await gym.finish(final);
@@ -209,7 +211,8 @@ function SetTable({ ex, sets, last, unit, settings, onChange, onRemove }: {
 }) {
   const kind = ex?.kind ?? "weight";
   const [platesFor, setPlatesFor] = useState<number | null>(null);
-  let n = 0;
+  // "Last" lines up with working sets only: last time's list leaves warm-ups out, and today's has them first.
+  let n = 0, working = 0;
   return (
     <div className="gym-sets" role="table" aria-label="Sets">
       <div className="gym-sets__row gym-sets__head" role="row">
@@ -219,7 +222,7 @@ function SetTable({ ex, sets, last, unit, settings, onChange, onRemove }: {
       </div>
       {sets.map((x, i) => {
         const label = x.type === "warmup" ? "W" : x.type === "drop" ? "D" : String(++n);
-        const prev = last[i];
+        const prev = x.type === "warmup" ? undefined : last[working++];
         const est = e1rm(x.weight, x.reps);
         return (
           <div key={i} className={`gym-sets__row ${x.done ? "gym-sets__row--done" : ""}`} role="row">

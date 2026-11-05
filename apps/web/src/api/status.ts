@@ -1,6 +1,9 @@
 import { api } from "./client";
 import type { AppStatus } from "./types";
 
+export interface SelfTest { day: string; at: string; ok: number; broken: { name: string; detail: string }[]; look: { name: string; detail: string }[] }
+export const selfTest = { last: () => api<{ last: SelfTest | null }>("/api/v1/attention/selftest") };
+
 type State = "ok" | "degraded" | "down";
 
 export interface AppHealth {

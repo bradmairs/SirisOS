@@ -27,6 +27,10 @@
     POST   /api/v1/gym/rest {seconds, next}; DELETE /api/v1/gym/rest   (6.9) a push when the rest is over
     GET    /api/v1/gym/swap?exercise=&gym=   (6.93) other exercises for the same job
     GET    /api/v1/gym/sessions/{id}/effort  (6.96) the Watch's heart rate lined up with each set, from SirisAI
+    GET    /api/v1/gym/duplicates; POST /api/v1/gym/merge {source, into}   (7.0) exercises that look the same, and merging one into the other
+    POST   /api/v1/gym/sessions/{id}/review {verdict}   (7.0) an imported day too big to be one workout: real, wrong, or not looked at yet
+    GET    /api/v1/gym/morning               (7.0) today's plan for the morning card
+    GET    /api/v1/gym/coach                 (7.0) the week's one or two changes, from SirisAI
     GET    /api/v1/gym/protein               (6.93) today's protein against a target from bodyweight
     POST   /api/v1/gym/schedule {day, minutes, dry_run}   (6.93) a free slot for the gym, then into the calendar
   6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
@@ -39,7 +43,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -47,9 +51,10 @@ from pydantic import BaseModel, Field
 
 import asyncio
 import logging
+import time
 
 from app.auth import require_user
-from app.gym import builder, coach, importer, service, store, templates
+from app.gym import builder, coach, importer, service, store, templates, tidy
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
@@ -63,7 +68,32 @@ def _missing(what: str) -> HTTPException:
     return HTTPException(status_code=404, detail=f"No such {what}.")
 
 
+HEALTH_FRESH_S = 300
+_health_saved: tuple[float, dict[str, Any]] | None = None
+_health_refresh: asyncio.Task | None = None
+
+
 async def _health(hub: Hub) -> dict[str, Any]:
+    """_read_health, kept for five minutes (7.0): SirisAI works out 70 days of scores for it (about 2 s), and
+    nearly every gym page wants it. Once it's old, the saved answer is served while a new one is fetched behind it."""
+    global _health_saved, _health_refresh
+
+    async def fetch() -> dict[str, Any]:
+        global _health_saved
+        found = await _read_health(hub)
+        if found:
+            _health_saved = (time.monotonic(), found)
+        return found
+
+    if _health_saved is None:
+        return await fetch()
+    at, saved = _health_saved
+    if time.monotonic() - at > HEALTH_FRESH_S and (_health_refresh is None or _health_refresh.done()):
+        _health_refresh = asyncio.create_task(fetch())
+    return saved
+
+
+async def _read_health(hub: Hub) -> dict[str, Any]:
     """Today's readiness, the last few mornings and the latest weight, from SirisAI (6.8); nothing when it can't be reached."""
     from app.health import service as health
 
@@ -95,7 +125,8 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "recent": [service.summary(doc, s) for s in reversed(doc.sessions[-10:])],
         "week": service.week(doc, today),
         "streak_weeks": service.streak(doc, today),
-        "total_sessions": len(doc.sessions),
+        "total_sessions": len(store.counted(doc)),
+        "held": [service.summary(doc, s) for s in reversed(doc.sessions) if store.held(s) and not s.review],
         "muscles": coach.muscles(doc, today),
         "deload": coach.deload(doc, today, _low(h)),
         "readiness": {k: (h.get("readiness") or {}).get(k) for k in ("score", "band")} if h.get("readiness") else None,
@@ -322,6 +353,68 @@ async def session(session_id: str, hub: Hub = Depends(get_hub)) -> dict[str, Any
         watch = None
     return {**s.model_dump(), "summary": service.summary(doc, s), "records": service.new_records(doc, s), "watch": watch,
             "entries": [{**e.model_dump(), "name": names.get(e.exercise, {}).get("name", e.exercise)} for e in s.entries]}
+
+
+class ReviewRequest(BaseModel):
+    verdict: Literal["", "real", "wrong"]
+
+
+@router.post("/sessions/{session_id}/review")
+async def review_session(session_id: str, body: ReviewRequest, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Your call on an imported day too big to be one workout. It's never deleted: "real" counts it, "wrong" keeps it out."""
+    doc = store.load()
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    if s is None:
+        raise _missing("session")
+    s.review = body.verdict
+    store.save(doc)
+    doc = store.load()  # worked out afresh, with the new verdict
+    await _send_day(hub, doc, service.day_of(s.started_at))  # what SirisAI goes by follows your call
+    return {"id": session_id, "review": body.verdict, "left": sum(1 for x in doc.sessions if store.held(x) and not x.review)}
+
+
+@router.get("/duplicates")
+def duplicates() -> dict[str, Any]:
+    return {"duplicates": tidy.duplicates(store.load())}
+
+
+class MergeRequest(BaseModel):
+    source: str = Field(max_length=60)
+    into: str = Field(max_length=60)
+
+
+@router.post("/merge")
+def merge(body: MergeRequest) -> dict[str, Any]:
+    """Merge one of your exercises into another; a copy of the file is kept first."""
+    doc = store.load()
+    try:
+        out = tidy.merge(doc, body.source, body.into)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    store.backup("before-merge")
+    store.save(doc)
+    return out
+
+
+@router.get("/coach")
+async def weekly_coach(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """The week's one or two changes, from SirisAI (training, sleep, recovery, protein). Nothing when it isn't connected."""
+    return await sirisai_api.get(hub, "/siris/health/gym/coach", timeout=15.0) or {"changes": [], "enough": False, "text": ""}
+
+
+@router.get("/morning")
+async def morning(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """The morning card: today's workout and readiness, and what it takes to start it."""
+    doc = store.load()
+    today = tasks.today()
+    h = await _health(hub)
+    readiness = h.get("readiness")
+    plan = coach.today_for_brief(doc, today, readiness)
+    active = next((r for r in doc.routines if r.active), None)
+    if not plan or not active:
+        return {"plan": None}
+    return {"plan": plan, "routine": active.id, "day": service.next_day(doc, active.id, today), "gym": doc.settings.current_gym,
+            "shortcut": doc.settings.shortcut_start, "readiness": {k: (readiness or {}).get(k) for k in ("score", "band")} if readiness else None}
 
 
 @router.delete("/sessions/{session_id}")

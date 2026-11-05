@@ -170,6 +170,8 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.94: SirisGym: routine days on set weekdays (the week on Today, rest days), renamed from SirisGYM
 6.95: SirisGym: no duplicate workouts from JEFIT (live days skipped, repeated sets once); exercises made from workout names taken out, workouts kept
 6.96: SirisGym: set times lined up with the Watch's heart rate (effort per exercise, from SirisAI 4.28); JEFIT times in local time, old imports moved to their day
+6.97: SirisGym on the tab bar from 6 to 8 am
+7.0: Live-test batch: imports keep every set, impossible days held for checking, real workout names, merge duplicates, Last column, Finish warning, morning card, weekly coach, effort advice; lighter tab dot and saved data first; SirisAI-quiet alert, daily self-test, test mode
 
 ## Terminal (ADR 113)
 

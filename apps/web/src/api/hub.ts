@@ -12,7 +12,7 @@ export const hub = {
     hub.appsWithGuest(opts).then((r) => r.apps),
   /** The apps, and whether SirisAI's guest mode is hiding the personal widgets. */
   appsWithGuest: (opts: { widgets?: boolean; fresh?: boolean } = {}) =>
-    api<{ apps: HubApp[]; guest_mode?: boolean }>(
+    api<{ apps: HubApp[]; guest_mode?: boolean; test_mode?: boolean }>(
       `/api/v1/hub/apps?widgets=${opts.widgets ? "true" : "false"}&fresh=${opts.fresh ? "true" : "false"}`,
     ),
   app: (id: string, fresh = false) => api<HubApp>(`/api/v1/hub/apps/${encodeURIComponent(id)}?fresh=${fresh}`),
@@ -22,6 +22,7 @@ export const brain = {
   search: (q: string, limit = 12) => api<BrainHit[]>(`/api/v1/brain/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   map: () => request("/api/v1/brain/map.html").then((r) => r.text()),
   today: () => api<{ date: string; items: { title: string; action: string }[] }>("/api/v1/brain/today"),
+  inboxCount: () => api<{ count: number }>("/api/v1/brain/inbox/count"),
   insights: (days = 30) => api<BrainInsights>(`/api/v1/brain/insights?days=${days}`),
   link: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/link", json({ a, b })),
   notRelated: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/not-related", json({ a, b })),

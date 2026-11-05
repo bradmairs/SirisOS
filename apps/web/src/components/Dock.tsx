@@ -4,7 +4,7 @@ import { Sunrise } from "lucide-react";
 import { brain } from "../api/hub";
 import { adaptive, homeContext, localPhase, type DayPhase, type HomeContext } from "../api/home";
 import { useResource } from "../api/resource";
-import type { BrainInsights, InboxItem } from "../api/types";
+import type { InboxItem } from "../api/types";
 import { Glass } from "./Glass";
 import { useInbox } from "./Inbox";
 import { NAV } from "./Sidebar";
@@ -67,9 +67,9 @@ export function dockBadges(items: Pick<InboxItem, "source" | "app">[], brainInbo
 export function Dock() {
   // The same context Home reads (shared and cached), so the two agree.
   const ctx = useResource<HomeContext>("home:context", () => homeContext(), { refreshMs: 5 * 60_000, persist: true });
-  const insights = useResource<BrainInsights>("brain:insights", () => brain.insights(), { staleMs: 600_000 });
+  const brainInbox = useResource("brain:inbox:count", () => brain.inboxCount(), { staleMs: 600_000, persist: true });
   const { items } = useInbox();
-  const badges = dockBadges(items, insights.data?.inbox?.count ?? 0);
+  const badges = dockBadges(items, brainInbox.data?.count ?? 0);
   // The bar changes on the clock, not only when data does; back from the background counts too.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
