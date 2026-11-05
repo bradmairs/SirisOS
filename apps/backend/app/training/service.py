@@ -198,7 +198,7 @@ def _pace(minutes_per_km: float) -> str:
 
 
 def _gym_days() -> dict[str, str]:
-    """Each day with a SirisGYM session, and its title (6.8)."""
+    """Each day with a SirisGym session, and its title (6.8)."""
     from app.gym import service as gym_service, store as gym_store
 
     try:
@@ -227,7 +227,7 @@ def build(r: Race, days: list[dict[str, Any]] | None, today: date, workouts: lis
         lifted = _gym_days()
         for s in runs:
             if s["kind"] == "strength" and s["date"] <= today.isoformat() and s["date"] in lifted:
-                s["status"], s["gym"] = "done", lifted[s["date"]]  # a SirisGYM session that day (6.8)
+                s["status"], s["gym"] = "done", lifted[s["date"]]  # a SirisGym session that day (6.8)
             elif s["kind"] == "strength" and s["date"] < today.isoformat():
                 s["status"] = "missed"
             if s["date"] < today.isoformat() and s["kind"] in ("easy", "quality", "long"):

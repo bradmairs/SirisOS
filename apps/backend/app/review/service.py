@@ -143,7 +143,7 @@ async def _sleep_week(hub: Hub) -> dict[str, Any] | None:
 
 
 def _gym_week(monday: date, today: date) -> dict[str, Any] | None:
-    """SirisGYM's week (6.9): workouts, sets, volume, records, and the muscles under their target."""
+    """SirisGym's week (6.9): workouts, sets, volume, records, and the muscles under their target."""
     from app.gym import coach, service as gym, store as gym_store
 
     try:

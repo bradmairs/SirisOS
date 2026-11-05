@@ -11,11 +11,11 @@ understood:
   (or "60 x 10" / "60×10"); a log column holding these is spotted by its
   content.
 Weights are in pounds when a header says lb/lbs (or you say so), and are
-saved in kilograms (SirisGYM is SI only). Dates can be
+saved in kilograms (SirisGym is SI only). Dates can be
 2024-03-05, 05/03/2024 (day first; month first when the day can't be), or
 a Unix timestamp.
 
-**Matching.** Each exercise name is matched to SirisGYM's library: exact
+**Matching.** Each exercise name is matched to SirisGym's library: exact
 name first, then ignoring case, punctuation and equipment words, then the
 closest by shared words. The preview shows every name and what it maps to;
 you can change any of them, or let it become your own exercise.

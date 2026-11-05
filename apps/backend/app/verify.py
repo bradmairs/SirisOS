@@ -157,14 +157,14 @@ async def brief(hub) -> Result:
 
 
 async def gym() -> Result:
-    """SirisGYM (6.93): the file loads and the week and records work it out."""
+    """SirisGym (6.93): the file loads and the week and records work it out."""
     from app.gym import coach, service, store
     from app.tasks.service import today
 
     doc = store.load()
     week = service.week(doc, today())
     coach.muscles(doc, today())
-    return Result("SirisGYM", "ok", f"{len(doc.sessions)} workouts, {len(doc.routines)} routines; this week {week['sessions']} workouts")
+    return Result("SirisGym", "ok", f"{len(doc.sessions)} workouts, {len(doc.routines)} routines; this week {week['sessions']} workouts")
 
 
 async def health_import(hub) -> list[Result]:
@@ -218,7 +218,7 @@ async def run(args: argparse.Namespace, api: httpx.AsyncClient) -> list[Result]:
     results += await _guard("Notifications", lambda: push(args.push))
     results += await _guard("Security", security)
     results += await _guard("Daily brief", lambda: brief(hub))
-    results += await _guard("SirisGYM", gym)
+    results += await _guard("SirisGym", gym)
     results += await _guard("Apple Health", lambda: health_import(hub))
     if args.ea:
         results += await _guard("Engineers Australia export", lambda: ea_export(args.ea))

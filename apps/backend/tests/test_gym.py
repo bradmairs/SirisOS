@@ -288,11 +288,11 @@ def test_a_session_goes_to_sirisai_and_shows_the_watch_workout(client, health):
     client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s1", "2026-11-02", [(80, 8)]))
     sent = health["sent"][-1]
     assert list(sent["workouts"]) == ["2026-11-02"] and sent["workouts"]["2026-11-02"][0]["minutes"] == 65
-    assert sent["workouts"]["2026-11-02"][0]["name"] == "SirisGYM: Push"
+    assert sent["workouts"]["2026-11-02"][0]["name"] == "SirisGym: Push"
     # 07:00 UTC is 18:00 in Melbourne; the Watch workout started at 18:03 local.
     health["workouts"] = [{"date": "2026-11-02", "name": "Traditional Strength Training", "start": "2026-11-02 18:03:00 +1100", "minutes": 61,
                            "kcal": 420, "avg_hr": 118, "max_hr": 161, "source": "health_auto_export"},
-                          {"date": "2026-11-02", "name": "SirisGYM: Push", "start": "2026-11-02 18:00:00 +1100", "minutes": 65, "source": "sirisgym"}]
+                          {"date": "2026-11-02", "name": "SirisGym: Push", "start": "2026-11-02 18:00:00 +1100", "minutes": 65, "source": "sirisgym"}]
     w = client.get("/api/v1/gym/sessions/s1", headers=AUTH).json()["watch"]
     assert w == {"name": "Traditional Strength Training", "start": "2026-11-02 18:03:00 +1100", "minutes": 61, "avg_hr": 118, "max_hr": 161, "kj": 1757}
 
@@ -448,3 +448,34 @@ def test_test_sync_and_the_inspector(client, monkeypatch):
     r = client.post("/api/v1/health/import/test", headers=AUTH).json()
     assert r["ok"] and "read an export for this hour correctly" in r["detail"]
     assert client.get("/api/v1/health/sources?day=2026-11-01", headers=AUTH).json()["metrics"][0]["trusted"] == "health_auto_export"
+
+
+# 6.94: routine days on set weekdays.
+
+def test_days_on_set_weekdays_pick_todays_and_rest_days_say_whats_next(client):
+    body = {"routine": {"name": "PPL", "active": True, "days": [
+        {"name": "Push", "weekdays": [0, 3], "exercises": [{"exercise": "bench-press", "sets": 3, "reps": "5-8"}]},
+        {"name": "Pull", "weekdays": [1, 4], "exercises": [{"exercise": "barbell-row", "sets": 3, "reps": "8-10"}]},
+        {"name": "Legs", "weekdays": [2, 9, 2], "exercises": [{"exercise": "back-squat", "sets": 3, "reps": "5-8"}]}]}}
+    rid = client.post("/api/v1/gym/routines", headers=AUTH, json=body).json()["id"]
+    assert [d["weekdays"] for d in client.get("/api/v1/gym", headers=AUTH).json()["routines"][0]["days"]] == [[0, 3], [1, 4], [2]]
+    # TODAY is a Wednesday: Legs, even though nothing's been done yet.
+    over = client.get("/api/v1/gym", headers=AUTH).json()["active"]
+    assert over["next_day"] == 2 and over["schedule"]["today"] == 2 and not over["schedule"]["rest"]
+    assert [w["name"] for w in over["schedule"]["week"]] == ["Push", "Pull", "Legs", "Push", "Pull", None, None]
+    assert client.get(f"/api/v1/gym/plan?routine={rid}", headers=AUTH).json()["title"] == "PPL: Legs"
+    from datetime import date
+    sched = service.schedule(store.load(), rid, date(2026, 11, 7))  # a Saturday
+    assert sched["rest"] and sched["next"] == {"day": 0, "date": "2026-11-09", "weekday": "Monday"}
+    assert service.next_day(store.load(), rid, date(2026, 11, 7)) == 0
+    from app.gym import coach
+    assert coach.today_for_brief(store.load(), date(2026, 11, 7), None) == {"done": False, "rest": True, "title": "PPL: rest day, Push on Monday"}
+
+
+def test_routines_without_weekdays_still_go_in_turn_and_the_builder_spreads_the_week(client):
+    rid = _routine(client)
+    over = client.get("/api/v1/gym", headers=AUTH).json()["active"]
+    assert over["schedule"] is None and over["next_day"] == 0
+    r = client.post("/api/v1/gym/builder", headers=AUTH, json={"text": "3 days"}).json()
+    assert [d["weekdays"] for d in r["routine"]["days"]] == [[0], [2], [4]]
+    assert rid

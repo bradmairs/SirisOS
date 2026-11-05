@@ -7,7 +7,7 @@ import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 
-/** SirisGYM (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
+/** SirisGym (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
 const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "progress", label: "Progress" }, { id: "exercises", label: "Exercises" },
   { id: "settings", label: "Settings" }] as const;
 type View = (typeof VIEWS)[number]["id"];
@@ -45,11 +45,11 @@ export function GymScreen() {
   const res = useGym();
   const [params, setParams] = useSearchParams();
   const view = (VIEWS.find((v) => v.id === params.get("view"))?.id ?? "today") as View;
-  useEffect(() => { document.title = "SirisGYM · SirisOS"; }, []);
+  useEffect(() => { document.title = "SirisGym · SirisOS"; }, []);
   const g = res.data;
   return (
     <>
-      <PageHead eyebrow={g ? `${g.total_sessions} workouts · ${g.streak_weeks}-week streak` : "Gym"} title="SirisGYM" />
+      <PageHead eyebrow={g ? `${g.total_sessions} workouts · ${g.streak_weeks}-week streak` : "Gym"} title="SirisGym" />
       <div className="row career-views" role="tablist" aria-label="Gym views">
         {VIEWS.map((v) => (
           <button key={v.id} type="button" role="tab" aria-selected={view === v.id} className={`chip chip--button ${view === v.id ? "chip--active" : ""}`}
@@ -134,6 +134,8 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const active = loadActive();
   const routine = g.routines.find((r) => r.id === g.active?.routine);
   const next = routine?.days[g.active?.next_day ?? 0];
+  const sched = g.active?.schedule ?? null;
+  const todayIdx = (new Date().getDay() + 6) % 7;
   const [busy, setBusy] = useState(false);
   const [gymId, setGymId] = useState(g.settings.current_gym);
   const go = async (r?: Routine, d?: number) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId, g.settings.shortcut_start); } finally { setBusy(false); } };
@@ -165,12 +167,24 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
             ))}
           </div>
         )}
+        {routine && sched && (
+          <ol className="gym-week" aria-label="This week's days">
+            {sched.week.map((w, i) => (
+              <li key={w.weekday} className={`${i === todayIdx ? "gym-week--today" : ""} ${w.name ? "gym-week--on" : ""}`} title={`${w.weekday}: ${w.name ?? "rest"}`}>
+                <span className="gym-week__d">{w.weekday.slice(0, 3)}</span><span className="gym-week__n">{w.name ?? "Rest"}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {routine && next && sched?.rest && (
+          <p style={{ margin: 0 }}>Rest day{sched.next ? `: next is ${routine.days[sched.next.day].name} on ${sched.next.weekday}.` : "."} <span className="muted">You can still train below.</span></p>
+        )}
         {routine && next ? (
           <>
-            <p style={{ margin: 0, fontSize: 16 }}><strong>{routine.name}: {next.name}</strong></p>
+            <p style={{ margin: 0, fontSize: 16 }}><strong>{routine.name}: {next.name}</strong>{sched?.rest && sched.next ? <span className="muted"> ({sched.next.weekday})</span> : null}</p>
             <p className="muted" style={{ margin: 0, fontSize: 13 }}>{next.exercises.map((e) => g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise).join(" · ")}</p>
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <button type="button" className="button button--primary" disabled={busy || !!active} onClick={() => go(routine)}>Start {next.name}</button>
+              <button type="button" className={`button ${sched?.rest ? "" : "button--primary"}`} disabled={busy || !!active} onClick={() => go(routine, g.active?.next_day)}>{sched?.rest ? `Do ${next.name} today` : `Start ${next.name}`}</button>
               {routine.days.length > 1 && routine.days.map((d, i) => i !== g.active?.next_day && (
                 <button key={d.name} type="button" className="chip chip--button" disabled={busy || !!active} onClick={() => go(routine, i)}>{d.name}</button>
               ))}
@@ -515,6 +529,19 @@ function RoutineEditor({ g, start, onClose, onSaved }: { g: Gym; start: Routine;
               <input className="field" aria-label={`Day ${i + 1} name`} value={d.name} onChange={(e) => setDay(i, { ...d, name: e.target.value })} />
               {r.days.length > 1 && <button type="button" className="icon-link" aria-label={`Remove ${d.name}`} onClick={() => setR({ ...r, days: r.days.filter((_, j) => j !== i) })}><Trash2 size={14} aria-hidden="true" /></button>}
             </div>
+            <div className="row gym-chips" role="group" aria-label={`Days for ${d.name}`}>
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, wd) => {
+                const on = (d.weekdays ?? []).includes(wd);
+                const taken = r.days.find((x, j) => j !== i && (x.weekdays ?? []).includes(wd));
+                return (
+                  <button key={label} type="button" aria-pressed={on} title={taken ? `${taken.name} is on ${label}` : undefined}
+                    className={`chip chip--button gym-wd ${on ? "chip--active" : ""} ${taken ? "gym-wd--taken" : ""}`}
+                    onClick={() => setR({ ...r, days: r.days.map((x, j) => (j === i
+                      ? { ...x, weekdays: on ? (x.weekdays ?? []).filter((v) => v !== wd) : [...(x.weekdays ?? []), wd].sort() }
+                      : { ...x, weekdays: (x.weekdays ?? []).filter((v) => on || v !== wd) })) })}>{label}</button>
+                );
+              })}
+            </div>
             {d.exercises.map((e, k) => (
               <div key={`${e.exercise}-${k}`} className="row gym-plan-row">
                 <span className="gym-plan-row__name">{g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise}</span>
@@ -679,7 +706,7 @@ function E1rmChart({ series }: { series: ExerciseDetail["series"] }) {
 
 const list = (v: string) => v.split(/[ ,]+/).map(Number).filter((n) => Number.isFinite(n) && n > 0);
 
-/** SirisGYM's settings (6.7): rest, the weight step, warm-ups, and each gym with its bar, plates, dumbbells and machines. */
+/** SirisGym's settings (6.7): rest, the weight step, warm-ups, and each gym with its bar, plates, dumbbells and machines. */
 function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const [s, setS] = useState<GymSettings>(g.settings);
   const [saved, setSaved] = useState(false);
@@ -692,9 +719,9 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         <label className="gym-setting">Rest between sets (s)<input className="field" type="number" min={0} max={900} value={s.rest_s} onChange={(e) => setS({ ...s, rest_s: Number(e.target.value) || 0 })} /></label>
         <label className="gym-setting">Weight step (kg)<input className="field" type="number" step={0.25} min={0.25} max={20} value={s.increment} onChange={(e) => setS({ ...s, increment: Number(e.target.value) || 2.5 })} /></label>
         <label className="gym-setting">iPhone Shortcut to run when a workout starts
-          <input className="field" placeholder="e.g. SirisGYM Start (empty: none)" value={s.shortcut_start ?? ""} onChange={(e) => setS({ ...s, shortcut_start: e.target.value })} /></label>
+          <input className="field" placeholder="e.g. SirisGym Start (empty: none)" value={s.shortcut_start ?? ""} onChange={(e) => setS({ ...s, shortcut_start: e.target.value })} /></label>
         <label className="gym-setting">…and when it finishes
-          <input className="field" placeholder="e.g. SirisGYM Finish (empty: none)" value={s.shortcut_finish ?? ""} onChange={(e) => setS({ ...s, shortcut_finish: e.target.value })} /></label>
+          <input className="field" placeholder="e.g. SirisGym Finish (empty: none)" value={s.shortcut_finish ?? ""} onChange={(e) => setS({ ...s, shortcut_finish: e.target.value })} /></label>
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. It runs on iPhone, then comes straight back here.</p>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (

@@ -327,9 +327,37 @@ def summary(doc: GymDoc, s: Session) -> dict[str, Any]:
             "names": [exercises(doc).get(e.exercise, {}).get("name", e.exercise) for e in s.entries][:8]}
 
 
-def next_day(doc: GymDoc, routine_id: str) -> int:
-    """The routine day after the last one you did."""
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+def schedule(doc: GymDoc, routine_id: str, today: date) -> dict[str, Any] | None:
+    """When a routine's days are on set weekdays (6.94): today's day (or a rest
+    day) and the next one on. None when no day has a weekday, so the routine
+    goes in turn as before."""
     r = next((x for x in doc.routines if x.id == routine_id), None)
+    if not r or not any(d.weekdays for d in r.days):
+        return None
+    on = {wd: i for i, d in enumerate(r.days) for wd in d.weekdays}
+    todays = on.get(today.weekday())
+    nxt = None
+    for k in range(1, 8):
+        d = today + timedelta(days=k)
+        if d.weekday() in on:
+            nxt = {"day": on[d.weekday()], "date": d.isoformat(), "weekday": WEEKDAYS[d.weekday()]}
+            break
+    return {"today": todays, "rest": todays is None, "next": nxt,
+            "week": [{"weekday": WEEKDAYS[w], "day": on.get(w), "name": r.days[on[w]].name if w in on else None} for w in range(7)]}
+
+
+def next_day(doc: GymDoc, routine_id: str, today: date | None = None) -> int:
+    """The routine day to do: today's when days are on set weekdays (the next
+    one on, on a rest day), else the one after the last you did."""
+    r = next((x for x in doc.routines if x.id == routine_id), None)
+    if today is not None and (sched := schedule(doc, routine_id, today)):
+        if sched["today"] is not None:
+            return sched["today"]
+        if sched["next"]:
+            return sched["next"]["day"]
     done = [s.day for s in doc.sessions if s.routine_id == routine_id and s.day is not None]
     return 0 if not r or not r.days or not done else (done[-1] + 1) % len(r.days)
 

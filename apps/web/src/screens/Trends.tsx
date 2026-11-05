@@ -39,7 +39,7 @@ export function TrendsScreen() {
   );
 }
 
-/** SirisGYM's year (6.8), with a link to the full review. Nothing until there's a workout. */
+/** SirisGym's year (6.8), with a link to the full review. Nothing until there's a workout. */
 function GymYear() {
   const { data } = useResource("gym:year:now", () => gym.year(), { staleMs: 10 * 60_000 });
   if (!data?.sessions) return null;
