@@ -330,7 +330,8 @@ def get_plates(weight: float = Query(ge=0, le=2000)) -> dict[str, Any]:
 
 
 @router.post("/import")
-async def import_file(file: UploadFile = File(...), unit: str = Form("auto"), dry_run: bool = Form(True), choices: str = Form("{}")) -> dict[str, Any]:
+async def import_file(file: UploadFile = File(...), unit: str = Form("auto"), dry_run: bool = Form(True), choices: str = Form("{}"),
+                      skip_logged: bool = Form(True)) -> dict[str, Any]:
     raw = await file.read()
     if len(raw) > 100_000_000:
         raise HTTPException(status_code=413, detail="That file is over 100 MB.")
@@ -348,7 +349,19 @@ async def import_file(file: UploadFile = File(...), unit: str = Form("auto"), dr
         picked = json.loads(choices or "{}")
     except ValueError:
         picked = {}
-    return {"imported": importer.commit(doc, rows, {str(k): str(v) for k, v in picked.items()} if isinstance(picked, dict) else {})}
+    return {"imported": importer.commit(doc, rows, {str(k): str(v) for k, v in picked.items()} if isinstance(picked, dict) else {}, skip_logged)}
+
+
+@router.post("/cleanup")
+def cleanup(dry_run: bool = Query(default=False)) -> dict[str, Any]:
+    """Take out exercises with nothing logged (6.95): empty entries in workouts, and your own exercises with no data
+    that no routine uses. Workouts themselves are kept; a copy of gym.json is saved first."""
+    doc = store.load()
+    out = store.clean_empty(doc)
+    if not dry_run and (out["entries_removed"] or out["exercises_removed"]):
+        store.backup("before-cleanup")
+        store.save(doc)
+    return {**out, "dry_run": dry_run}
 
 
 

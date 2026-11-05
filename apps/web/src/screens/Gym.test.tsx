@@ -285,6 +285,25 @@ describe("SirisGym 6.94: weekdays", () => {
   });
 });
 
+describe("SirisGym 6.95: tidy", () => {
+  it("shows exercises with nothing logged, then takes them out", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/gym/cleanup": (u) => jsonResponse(u.includes("dry_run=true") ? { entries_removed: 12, exercises_removed: 2, names: ["Push Day", "Leg Day"], sessions_kept: 300 }
+        : { entries_removed: 12, exercises_removed: 2, names: ["Push Day", "Leg Day"], sessions_kept: 300 }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/gym?view=settings"]}><GymScreen /></MemoryRouter>);
+    const card = await screen.findByRole("region", { name: "Tidy up" });
+    await user.click(within(card).getByRole("button", { name: "Look for them" }));
+    expect(await within(card).findByText(/Push Day, Leg Day and 12 empty entries/)).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Take them out" }));
+    expect(await within(card).findByText("Took out 2 exercises and 12 empty entries; all 300 workouts kept.")).toBeInTheDocument();
+    expect(calls.filter((c) => c.url.startsWith("/api/v1/gym/cleanup")).map((c) => c.url)).toEqual(["/api/v1/gym/cleanup?dry_run=true", "/api/v1/gym/cleanup?dry_run=false"]);
+  });
+});
+
 describe("Import from JEFIT (6.6)", () => {
   it("previews an export, lets you change a match, then imports with your choices", async () => {
     signIn();

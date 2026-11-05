@@ -116,7 +116,7 @@ def test_import_previews_then_saves_once_however_often_its_sent(client):
 
     choices = {"Cable Lat Pulldown": "new"}
     done = _upload(client, JEFIT.encode(), dry_run="false", choices=choices).json()["imported"]
-    assert done == {"workouts": 2, "sets": 5, "new_exercises": 2}
+    assert done == {"workouts": 2, "sets": 5, "new_exercises": 2, "skipped_days": []}
     again = _upload(client, JEFIT.encode(), dry_run="false", choices=choices).json()["imported"]
     assert again["new_exercises"] == 0
     over = client.get("/api/v1/gym", headers=AUTH).json()
@@ -479,3 +479,55 @@ def test_routines_without_weekdays_still_go_in_turn_and_the_builder_spreads_the_
     r = client.post("/api/v1/gym/builder", headers=AUTH, json={"text": "3 days"}).json()
     assert [d["weekdays"] for d in r["routine"]["days"]] == [[0], [2], [4]]
     assert rid
+
+
+# 6.95: no duplicate workouts from JEFIT, and no exercises made from workout names.
+
+def test_a_sessions_table_isnt_exercises_and_repeated_sets_count_once(client):
+    from app.gym import importer
+
+    text = """### WORKOUT SESSIONS ###
+_id,mydate,name,total_time
+1,2021-03-05,Push Day,3600
+
+### EXERCISE LOGS ###
+_id,mydate,eid,ename,logs
+1,2021-03-05,1,Barbell Bench Press,"60x10,62.5x8"
+1,2021-03-05,1,Barbell Bench Press,"60x10,62.5x8"
+2,2021-03-05,2,Lat Pulldown,
+"""
+    rows = importer.read_rows(text)
+    assert [(r["exercise"], r["weight"], r["reps"]) for r in rows] == [("Barbell Bench Press", 60.0, 10), ("Barbell Bench Press", 62.5, 8)]
+
+
+def test_days_already_logged_in_sirisgym_arent_imported_again(client):
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("live", "2021-03-05", [(60, 10)]))
+    pre = _upload(client, JEFIT.encode()).json()["preview"]
+    assert pre["already_logged"] == ["2021-03-05"]
+    done = _upload(client, JEFIT.encode(), dry_run="false").json()["imported"]
+    assert done["skipped_days"] == ["2021-03-05"] and done["workouts"] == 1
+    days = [s["date"] for s in client.get("/api/v1/gym/sessions", headers=AUTH).json()["sessions"]]
+    assert sorted(days) == ["2021-03-05", "2021-03-08"]  # one workout on the 5th, not two
+
+
+def test_the_one_time_tidy_removes_exercises_with_no_data_and_keeps_workouts(client, tmp_path):
+    import json
+
+    raw = {"exercises": [{"id": "my-push", "name": "Push Day", "primary": "full body"}, {"id": "my-zercher", "name": "Zercher", "primary": "quads"},
+                         {"id": "my-plan", "name": "Planned", "primary": "back"}],
+           "routines": [{"id": "r", "name": "R", "days": [{"name": "A", "exercises": [{"exercise": "my-plan"}]}]}],
+           "sessions": [{"id": "import-20210305", "title": "Imported workout", "started_at": "2021-03-05T07:00:00", "entries": [
+               {"exercise": "my-push", "sets": [{"done": True}, {"done": True}]},
+               {"exercise": "bench-press", "sets": [{"weight": 60, "reps": 10}, {"done": True}]},
+               {"exercise": "my-zercher", "sets": [{"weight": 40, "reps": 8}]}]}]}
+    (tmp_path / "gym.json").write_text(json.dumps(raw))
+    over = client.get("/api/v1/gym", headers=AUTH).json()
+    names = {e["name"] for e in over["exercises"] if e["custom"]}
+    assert names == {"Zercher", "Planned"} and over["total_sessions"] == 1
+    s = client.get("/api/v1/gym/sessions/import-20210305", headers=AUTH).json()
+    assert [e["exercise"] for e in s["entries"]] == ["bench-press", "my-zercher"] and len(s["entries"][0]["sets"]) == 1
+    assert list(tmp_path.glob("gym.before-cleanup.*.json"))
+    # Once only: a new exercise of yours with nothing logged yet stays.
+    client.post("/api/v1/gym/exercises", headers=AUTH, json={"name": "Landmine Press", "primary": "shoulders"})
+    assert any(e["name"] == "Landmine Press" for e in client.get("/api/v1/gym", headers=AUTH).json()["exercises"])
+    assert client.post("/api/v1/gym/cleanup?dry_run=true", headers=AUTH).json()["names"] == ["Landmine Press"]

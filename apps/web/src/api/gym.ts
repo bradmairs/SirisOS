@@ -47,7 +47,7 @@ export interface ExerciseDetail {
 }
 
 export interface ImportPreview {
-  sets: number; workouts: number; from: string | null; to: string | null; replacing: number;
+  sets: number; workouts: number; from: string | null; to: string | null; replacing: number; already_logged?: string[];
   exercises: { name: string; sets: number; match: string | null; match_name: string | null; how: "exact" | "close" | "guess" | "none"; new_muscle: string }[];
 }
 /** What the weights in an import file are in; SirisGym saves kilograms either way. */
@@ -112,12 +112,13 @@ export const gym = {
   protein: () => api<{ target_g: number | null; eaten_g: number | null; per_kg: number; bodyweight: number | null; training_day: boolean; left_g: number | null }>(`${G}/protein`),
   schedule: (dryRun: boolean, minutes = 60) =>
     api<{ slot: { start: string; end: string } | null; title?: string; detail?: string; added?: boolean }>(`${G}/schedule`, json({ minutes, dry_run: dryRun })),
+  cleanup: (dryRun = false) => api<{ entries_removed: number; exercises_removed: number; names: string[]; sessions_kept: number }>(`${G}/cleanup?dry_run=${dryRun}`, { method: "POST" }),
   deload: (on: boolean, days = 7) => api<Deload>(`${G}/deload`, json({ on, days })),
   strength: () => api<Strength>(`${G}/strength`),
   year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),
   importPreview: (file: File, unit: ImportUnit) => importFile<{ preview: ImportPreview }>(file, unit),
   importCommit: (file: File, unit: ImportUnit, choices: Record<string, string>) =>
-    importFile<{ imported: { workouts: number; sets: number; new_exercises: number } }>(file, unit, choices),
+    importFile<{ imported: { workouts: number; sets: number; new_exercises: number; skipped_days?: string[] } }>(file, unit, choices),
   deleteSession: (id: string) => api<{ deleted: string }>(`${G}/sessions/${id}`, { method: "DELETE" }),
 };
 

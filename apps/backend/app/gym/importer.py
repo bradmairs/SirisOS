@@ -128,6 +128,9 @@ def read_rows(text: str, unit: str | None = None) -> list[dict[str, Any]]:
         cols = _columns(table[0])
         if "date" not in cols or "exercise" not in cols:
             continue
+        if not ({"weight", "reps", "logs", "seconds", "km"} & set(cols)) and not any(
+                SETS.search(c) for r in table[1:6] for c in r):
+            continue  # 6.95: a table of workout sessions (a date and a name, no sets) isn't exercises
         pounds = unit == "lb" if unit else ("weight" in cols and re.search(r"\blbs?\b", table[0][cols["weight"]].lower()) is not None)
         logs = cols.get("logs")
         if logs is None and "reps" not in cols:  # a sets column under another name: find it by what's in it
@@ -144,15 +147,43 @@ def read_rows(text: str, unit: str | None = None) -> list[dict[str, Any]]:
             factor = LB if pounds else 1.0
             if logs is not None and len(r) > logs and SETS.search(r[logs]):
                 for k, (w, reps) in enumerate(SETS.findall(r[logs])):
-                    rows.append({"date": when, "exercise": name, "weight": float(w) * factor or None, "reps": int(reps), "order": (n, k)})
+                    rows.append({"date": when, "exercise": name, "weight": float(w) * factor or None, "reps": int(reps), "order": (n, k + 1)})
                 continue
             weight = _num(r[cols["weight"]]) if "weight" in cols else None
+            reps = int(_num(r[cols["reps"]]) or 0) if "reps" in cols else 0
+            secs = int(_num(r[cols["seconds"]]) or 0) if "seconds" in cols else 0
+            dist = _num(r[cols["km"]]) if "km" in cols else None
+            if not (weight or reps or secs or dist):
+                continue  # 6.95: a row with no set in it (a session's name, a blank log) adds nothing
             rows.append({"date": when, "exercise": name, "weight": weight * factor if weight else None,
                          "reps": int(_num(r[cols["reps"]]) or 0) if "reps" in cols else None,
                          "seconds": int(_num(r[cols["seconds"]]) or 0) or None if "seconds" in cols else None,
                          "km": _num(r[cols["km"]]) if "km" in cols else None,
                          "order": (n, int(_num(r[cols["set"]]) or 0) if "set" in cols else 0)})
-    return rows
+    return dedupe(rows)
+
+
+def dedupe(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The same set twice (6.95): an export with overlapping files, or a log line
+    repeated, gives identical rows. Sets are told apart by their number in the
+    set (or in the logged line), so three real sets of 100x5 stay three; rows
+    with no set number can't be told apart and are all kept."""
+    seen: set[tuple] = set()
+    out = []
+    for r in rows:
+        order = r.get("order") or (0, 0)
+        if order[1]:
+            key = (r["date"].isoformat(), r["exercise"].strip().lower(), order[1], r.get("weight"), r.get("reps"), r.get("seconds"), r.get("km"))
+            if key in seen:
+                continue
+            seen.add(key)
+        out.append(r)
+    return out
+
+
+def logged_days(doc: store.GymDoc) -> set[str]:
+    """Days with a workout logged in SirisGym itself (not imported)."""
+    return {service.day_of(s.started_at) for s in doc.sessions if not s.id.startswith("import-")}
 
 
 def read_upload(raw: bytes, filename: str, unit: str | None = None) -> list[dict[str, Any]]:
@@ -218,12 +249,18 @@ def preview(doc: store.GymDoc, rows: list[dict[str, Any]]) -> dict[str, Any]:
                         "new_muscle": _guess_muscle(n)})
     days = sorted({r["date"].date().isoformat() for r in rows})
     existing = {s.id for s in doc.sessions}
+    live = sorted(set(days) & logged_days(doc))
     return {"sets": len(rows), "workouts": len(days), "from": days[0] if days else None, "to": days[-1] if days else None,
-            "exercises": mapping, "replacing": sum(1 for d in days if f"import-{d.replace('-', '')}" in existing)}
+            "exercises": mapping, "replacing": sum(1 for d in days if f"import-{d.replace('-', '')}" in existing),
+            "already_logged": live}
 
 
-def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str]) -> dict[str, Any]:
-    """Save it. `choices`: source name -> exercise id, or "new" to make it your own exercise; unlisted names use the match."""
+def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str], skip_logged: bool = True) -> dict[str, Any]:
+    """Save it. `choices`: source name -> exercise id, or "new" to make it your own exercise; unlisted names use the match.
+    6.95: days already logged in SirisGym itself are left out (skip_logged), so a workout you logged live
+    and in JEFIT isn't there twice."""
+    skipped = sorted({r["date"].date().isoformat() for r in rows} & logged_days(doc)) if skip_logged else []
+    rows = [r for r in rows if r["date"].date().isoformat() not in skipped]
     exercises = service.exercises(doc)
     target: dict[str, str] = {}
     made = 0
@@ -264,4 +301,4 @@ def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str
         doc.sessions.append(session)
     doc.sessions.sort(key=lambda x: x.started_at)
     store.save(doc)
-    return {"workouts": len(ids), "sets": len(rows), "new_exercises": made}
+    return {"workouts": len(ids), "sets": len(rows), "new_exercises": made, "skipped_days": skipped}

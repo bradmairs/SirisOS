@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -187,6 +187,7 @@ class GymDoc(BaseModel):
     settings: Settings = Field(default_factory=Settings)
     measurements: list[Measurement] = Field(default_factory=list)
     photos: list[Photo] = Field(default_factory=list)
+    cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
 
 
 def _path():
@@ -219,9 +220,53 @@ def to_si(raw: dict) -> dict:
     return raw
 
 
+def _has_data(x: "SetLog") -> bool:
+    return bool(x.weight or x.reps or x.seconds or x.km)
+
+
+def clean_empty(doc: "GymDoc") -> dict[str, Any]:
+    """Exercises with nothing logged (6.95). An early JEFIT import read the
+    export's table of workout sessions as exercises: each session's name
+    became an exercise of yours with empty sets. This takes out sets with no
+    data, entries left with none, and your own exercises that have no data
+    anywhere and aren't in a routine. Workouts are never removed."""
+    entries = 0
+    for s in doc.sessions:
+        kept = []
+        for e in s.entries:
+            e.sets = [x for x in e.sets if _has_data(x)]
+            if e.sets:
+                kept.append(e)
+            else:
+                entries += 1
+        s.entries = kept
+    used = {e.exercise for s in doc.sessions for e in s.entries}
+    in_routines = {p.exercise for r in doc.routines for d in r.days for p in d.exercises}
+    gone = [e for e in doc.exercises if e.id not in used and e.id not in in_routines]
+    doc.exercises = [e for e in doc.exercises if e not in gone]
+    return {"entries_removed": entries, "exercises_removed": len(gone), "names": [e.name for e in gone][:50], "sessions_kept": len(doc.sessions)}
+
+
+def backup(tag: str) -> None:
+    p = _path()
+    if p.exists():
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        (p.parent / f"gym.{tag}.{stamp}.json").write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def load() -> GymDoc:
     raw = json_store.read(_path(), None)
-    return GymDoc.model_validate(to_si(raw)) if isinstance(raw, dict) else GymDoc()
+    if not isinstance(raw, dict):
+        return GymDoc()
+    doc = GymDoc.model_validate({"cleaned_empty": False, **to_si(raw)})
+    if not doc.cleaned_empty:
+        # Once (6.95): take out the exercises an early import made from workout names. A copy is kept first.
+        out = clean_empty(doc)
+        doc.cleaned_empty = True
+        if out["entries_removed"] or out["exercises_removed"]:
+            backup("before-cleanup")
+        save(doc)
+    return doc
 
 
 def save(doc: GymDoc) -> GymDoc:
