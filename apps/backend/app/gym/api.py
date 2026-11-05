@@ -26,6 +26,7 @@
     POST   /api/v1/gym/photos (file, date, pose, note); GET/DELETE /api/v1/gym/photos/{id}
     POST   /api/v1/gym/rest {seconds, next}; DELETE /api/v1/gym/rest   (6.9) a push when the rest is over
     GET    /api/v1/gym/swap?exercise=&gym=   (6.93) other exercises for the same job
+    GET    /api/v1/gym/sessions/{id}/effort  (6.96) the Watch's heart rate lined up with each set, from SirisAI
     GET    /api/v1/gym/protein               (6.93) today's protein against a target from bodyweight
     POST   /api/v1/gym/schedule {day, minutes, dry_run}   (6.93) a free slot for the gym, then into the calendar
   6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
@@ -265,6 +266,16 @@ def get_heatmap(days: int = Query(default=371, ge=7, le=3700)) -> dict[str, Any]
     return {"days": service.heatmap(store.load(), tasks.today(), days)}
 
 
+async def _send_session(hub: Hub, doc: store.GymDoc, s: store.Session) -> None:
+    """The session with each set's time goes to SirisAI (6.96), which links it to the Watch workout and works out the effort."""
+    if not any(x.at for e in s.entries for x in e.sets):
+        return
+    try:
+        await sirisai_api.post(hub, "/siris/health/gym/session", json=coach.timeline(doc, s), timeout=8.0)
+    except Exception as exc:  # noqa: BLE001
+        log.info("Couldn't send the session to SirisAI: %s", exc)
+
+
 async def _send_day(hub: Hub, doc: store.GymDoc, day: str) -> None:
     """The day's gym sessions go to SirisAI as workouts (6.8), so strain and the training load count them,
     and a training summary (6.9) so chat and voice can answer about it."""
@@ -285,6 +296,7 @@ async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict
     doc.sessions.append(body)
     store.save(doc)
     await _send_day(hub, doc, service.day_of(body.started_at))
+    await _send_session(hub, doc, body)
     return {"summary": service.summary(doc, body), "records": service.new_records(doc, body)}
 
 
@@ -534,3 +546,22 @@ async def schedule(body: ScheduleRequest, hub: Hub = Depends(get_hub)) -> dict[s
         return out
     result = await health.tool(hub, "calendar_create_event", {"summary": title, "start": slot[0].isoformat(), "end": slot[1].isoformat()})
     return {**out, "added": True, "result": result}
+
+
+
+@router.get("/sessions/{session_id}/effort")
+async def session_effort(session_id: str, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """The Watch's heart rate lined up with each set, and the effort per exercise, from SirisAI (6.96, SirisAI 4.28)."""
+    doc = store.load()
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    if s is None:
+        raise _missing("session")
+    if not any(x.at for e in s.entries for x in e.sets):
+        return {"linked": False, "why": "This workout has no set times (it was imported, or logged before 6.96), so it can't be lined up with the Watch."}
+    body = await sirisai_api.get(hub, f"/siris/health/gym/session/{session_id}/analysis", timeout=15.0)
+    if body is None:
+        return {"linked": False, "why": "SirisAI didn't answer (it needs 4.28 or later)."}
+    if not body.get("linked") and "hasn't had this workout" in str(body.get("why")):
+        await _send_session(hub, doc, s)  # sent again (it may have been saved offline, or before SirisAI was updated)
+        body = await sirisai_api.get(hub, f"/siris/health/gym/session/{session_id}/analysis", timeout=15.0) or body
+    return body

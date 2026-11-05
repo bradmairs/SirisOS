@@ -2,7 +2,16 @@ import { api, json, request } from "./client";
 
 export type Kind = "weight" | "bodyweight" | "time" | "cardio";
 export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean }
-export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure"; rpe?: number | null }
+export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure"; rpe?: number | null;
+  /** When it was ticked done (6.96), to line it up with the Watch's heart rate. */
+  at?: string | null }
+export interface EffortExercise { exercise: string; sets: number; avg_hr: number | null; peak_hr: number | null; peak_share: number | null; effort: number | null; rpe: number | null; recovery_bpm: number | null; e1rm: number | null }
+export interface Effort {
+  linked: boolean; why?: string; text?: string; watch?: { name: string; start: string; end: string }; max_hr?: number; resolution_s?: number;
+  avg_hr?: number | null; peak_hr?: number | null; kj?: number | null; zones_min?: number[]; exercises?: EffortExercise[];
+  sets?: { exercise: string; set: number; type: string; weight: number | null; reps: number | null; at: string; avg_hr: number | null; peak_hr: number | null; recovery_bpm: number | null }[];
+  timeline?: [string, number, number][];
+}
 export interface EntryLog { exercise: string; sets: SetLog[]; note?: string; group?: string | null }
 export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean }
 export type Progression = "double" | "linear" | "percent";
@@ -113,6 +122,7 @@ export const gym = {
   schedule: (dryRun: boolean, minutes = 60) =>
     api<{ slot: { start: string; end: string } | null; title?: string; detail?: string; added?: boolean }>(`${G}/schedule`, json({ minutes, dry_run: dryRun })),
   cleanup: (dryRun = false) => api<{ entries_removed: number; exercises_removed: number; names: string[]; sessions_kept: number }>(`${G}/cleanup?dry_run=${dryRun}`, { method: "POST" }),
+  effort: (id: string) => api<Effort>(`${G}/sessions/${id}/effort`),
   deload: (on: boolean, days = 7) => api<Deload>(`${G}/deload`, json({ on, days })),
   strength: () => api<Strength>(`${G}/strength`),
   year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),

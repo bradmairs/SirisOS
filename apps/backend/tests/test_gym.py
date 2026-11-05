@@ -531,3 +531,51 @@ def test_the_one_time_tidy_removes_exercises_with_no_data_and_keeps_workouts(cli
     client.post("/api/v1/gym/exercises", headers=AUTH, json={"name": "Landmine Press", "primary": "shoulders"})
     assert any(e["name"] == "Landmine Press" for e in client.get("/api/v1/gym", headers=AUTH).json()["exercises"])
     assert client.post("/api/v1/gym/cleanup?dry_run=true", headers=AUTH).json()["names"] == ["Landmine Press"]
+# 6.96: set times go to SirisAI, and the effort comes back.
+
+def test_set_times_go_to_sirisai_and_the_effort_comes_back(client, monkeypatch):
+    from app.hub import sirisai_api
+
+    posted, asked = [], []
+
+    async def post(hub, path, json=None, headers=None, timeout=20.0, **kw):
+        posted.append((path, json))
+        return {"kept": True}
+
+    async def get(hub, path, params=None, timeout=20.0):
+        asked.append(path)
+        return {"linked": True, "text": "Hardest: Bench Press", "exercises": [{"exercise": "Bench Press", "effort": 7.5}]}
+
+    monkeypatch.setattr(sirisai_api, "post", post)
+    monkeypatch.setattr(sirisai_api, "get", get)
+    s = session("s1", "2026-11-02", [(80, 8)])
+    s["entries"][0]["sets"][1].update(at="2026-11-02T07:04:40+00:00", rpe=8)
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=s)
+    sent = next(j for p, j in posted if p == "/siris/health/gym/session")
+    assert sent["id"] == "s1" and sent["sets"][1] == {"exercise": "bench-press", "name": "Bench Press", "set": 1, "type": "normal", "weight": 80.0, "reps": 8,
+                                                     "seconds": None, "rpe": 8.0, "at": "2026-11-02T07:04:40+00:00", "group": None}
+    assert sent["sets"][0]["type"] == "warmup" and sent["sets"][0]["set"] == 0
+    e = client.get("/api/v1/gym/sessions/s1/effort", headers=AUTH).json()
+    assert e["linked"] and asked == ["/siris/health/gym/session/s1/analysis"]
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s2", "2026-11-03", [(80, 8)]))
+    assert not client.get("/api/v1/gym/sessions/s2/effort", headers=AUTH).json()["linked"]  # no set times
+
+
+def test_jefit_timestamps_are_local_and_old_imports_move_to_their_local_day(client, tmp_path):
+    import json
+
+    from app.gym import importer
+
+    # 1730848423 is 2024-11-05 23:13:43 UTC, 10:13am on the 6th in Melbourne.
+    rows = importer.read_rows("timestamp,exercise,weight,reps,set\n1730848423,Bench Press,80,8,1\n")
+    assert rows[0]["date"].isoformat() == "2024-11-06T10:13:43"
+    raw = {"cleaned_empty": True, "sessions": [
+        {"id": "import-20241105", "title": "Imported workout", "started_at": "2024-11-05T23:13:43", "entries": [{"exercise": "bench-press", "sets": [{"weight": 80, "reps": 8}]}]},
+        {"id": "import-20241106", "title": "Imported workout", "started_at": "2024-11-06T21:00:00", "entries": [{"exercise": "back-squat", "sets": [{"weight": 100, "reps": 5}]}]},
+        {"id": "import-20210305", "title": "Imported workout", "started_at": "2021-03-05T07:00:00", "entries": [{"exercise": "deadlift", "sets": [{"weight": 140, "reps": 3}]}]}]}
+    (tmp_path / "gym.json").write_text(json.dumps(raw))
+    ids = sorted(s["id"] for s in client.get("/api/v1/gym/sessions", headers=AUTH).json()["sessions"])
+    assert ids == ["import-20210305", "import-20241106", "import-20241107"]  # 07:00 (no time) left alone
+    s = client.get("/api/v1/gym/sessions/import-20241106", headers=AUTH).json()
+    assert s["started_at"] == "2024-11-06T10:13:43" and [e["exercise"] for e in s["entries"]] == ["bench-press"]
+    assert list(tmp_path.glob("gym.before-local-times.*.json"))

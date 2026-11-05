@@ -89,7 +89,7 @@ export function GymWorkoutScreen() {
       const entry = s.entries[ei];
       let si = entry.sets.findIndex((x) => !x.done && x.type !== "warmup");
       if (si < 0) si = entry.sets.findIndex((x) => !x.done);
-      const patch = { reps: said.reps, done: true, ...(said.weight !== undefined ? { weight: said.weight } : {}), ...(said.rpe ? { rpe: said.rpe } : {}) };
+      const patch = { reps: said.reps, done: true, at: new Date().toISOString(), ...(said.weight !== undefined ? { weight: said.weight } : {}), ...(said.rpe ? { rpe: said.rpe } : {}) };
       const sets = si >= 0 ? entry.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) : [...entry.sets, { type: "normal" as const, weight: said.weight ?? entry.sets.at(-1)?.weight ?? null, ...patch }];
       update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets } : e)) });
       const name = byId.get(entry.exercise)?.name ?? entry.exercise;
@@ -243,7 +243,7 @@ function SetTable({ ex, sets, last, unit, settings, onChange, onRemove }: {
             )}
             <button type="button" className={`gym-sets__done ${x.done ? "gym-sets__done--on" : ""}`} aria-pressed={x.done} aria-label={`Set ${label} done`}
               onClick={() => {
-                const fill: Partial<SetLog> = { done: !x.done };
+                const fill: Partial<SetLog> = { done: !x.done, at: !x.done ? new Date().toISOString() : null };
                 if (!x.done && x.weight == null && prev?.weight) fill.weight = prev.weight;
                 if (!x.done && x.reps == null && prev?.reps) fill.reps = prev.reps;
                 onChange(i, fill);

@@ -996,3 +996,14 @@ h3.note__heading { font-size: 17px; }
 .gym-week__n { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gym-wd { padding: 4px 8px; font-size: 12px; }
 .gym-wd--taken:not(.chip--active) { opacity: .5; }
+
+/* SirisGym effort (6.96) */
+.gym-effort { display: grid; gap: 8px; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--ink-3) 8%, transparent); }
+.gym-effort__title { margin: 0; font-size: 13px; display: flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.gym-effort__chart { width: 100%; height: 90px; color: var(--critical, #f87171); }
+.gym-effort__set { opacity: .35; }
+.gym-effort__set--0 { fill: var(--accent); background: var(--accent); }
+.gym-effort__set--1 { fill: var(--good); background: var(--good); }
+.gym-effort__set--2 { fill: var(--warning, #f5a524); background: var(--warning, #f5a524); }
+.gym-effort__set--3 { fill: #a78bfa; background: #a78bfa; }
+.gym-effort__dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; opacity: 1; }

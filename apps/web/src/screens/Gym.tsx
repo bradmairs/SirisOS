@@ -276,6 +276,7 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
         <div className="stack" style={{ gap: 10 }}>
           <h2 className="sheet__title">{s.title}</h2>
           <p className="muted" style={{ margin: 0 }}>{fmtDay(s.started_at)}{s.summary.minutes ? ` · ${s.summary.minutes} min` : ""} · {Math.round(s.summary.volume).toLocaleString()} {unit} lifted</p>
+          <EffortCard id={id} />
           {s.watch && (
             <p className="gym-watch" aria-label="From your Apple Watch"><HeartPulse size={14} aria-hidden="true" />
               {[s.watch.avg_hr && `${Math.round(s.watch.avg_hr)} bpm average`, s.watch.max_hr && `${Math.round(s.watch.max_hr)} max`, s.watch.kj && `${s.watch.kj.toLocaleString()} kJ`, s.watch.minutes && `${s.watch.minutes} min on the Watch`].filter(Boolean).join(" · ")}
@@ -947,5 +948,52 @@ function TidyCard({ onChange }: { onChange: () => void }) {
       ) : <button type="button" className="button" style={{ alignSelf: "flex-start" }} onClick={look}>Look for them</button>}
       {msg && <p role="status" style={{ margin: 0 }}>{msg}</p>}
     </Glass>
+  );
+}
+
+/** The Watch's heart rate lined up with each set (6.96): the effort per exercise, worked out by SirisAI. */
+function EffortCard({ id }: { id: string }) {
+  const res = useResource(`gym:effort:${id}`, () => gym.effort(id), {});
+  const e = res.data;
+  if (!e) return null;
+  if (!e.linked) return <p className="muted" style={{ margin: 0, fontSize: 13 }}><HeartPulse size={13} aria-hidden="true" /> {e.why}</p>;
+  const tl = e.timeline ?? [];
+  const t0 = tl.length ? new Date(tl[0][0]).getTime() : 0, t1 = tl.length ? new Date(tl[tl.length - 1][0]).getTime() + 60_000 : 1;
+  const lo = Math.min(...tl.map((p) => p[1]), 60), hi = Math.max(...tl.map((p) => p[2]), lo + 20);
+  const x = (iso: string) => ((new Date(iso).getTime() - t0) / (t1 - t0)) * 100;
+  const y = (v: number) => 40 - ((v - lo) / (hi - lo)) * 38;
+  const names = [...new Set((e.sets ?? []).map((s) => s.exercise))];
+  return (
+    <section className="gym-effort" aria-label="Effort">
+      <h3 className="gym-effort__title"><HeartPulse size={14} aria-hidden="true" /> Effort, from your Watch</h3>
+      {tl.length > 1 && (
+        <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="gym-effort__chart" role="img" aria-label="Heart rate through the workout, with each set marked">
+          {(e.sets ?? []).filter((s) => s.type !== "warmup").map((s, i) => (
+            <rect key={i} x={x(s.at) - 1.2} y={0} width={2.4} height={42} className={`gym-effort__set gym-effort__set--${names.indexOf(s.exercise) % 4}`} />
+          ))}
+          <polyline points={tl.map((p) => `${x(p[0])},${y(p[1])}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+        </svg>
+      )}
+      {e.text && <p style={{ margin: 0, fontSize: 14 }}>{e.text}</p>}
+      {(e.exercises ?? []).length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table className="health-sources">
+            <thead><tr><th>Exercise</th><th>Effort</th><th>Peak</th><th>Recovery</th><th>Est. 1RM</th></tr></thead>
+            <tbody>
+              {e.exercises!.map((x2) => (
+                <tr key={x2.exercise}>
+                  <td><span className={`gym-effort__dot gym-effort__set--${names.indexOf(x2.exercise) % 4}`} />{x2.exercise}</td>
+                  <td>{x2.effort != null ? `${x2.effort}/10` : "–"}{x2.rpe ? <span className="muted"> (RPE {x2.rpe})</span> : null}</td>
+                  <td>{x2.peak_hr ? `${x2.peak_hr} bpm` : "–"}{x2.peak_share ? <span className="muted"> {Math.round(x2.peak_share * 100)}%</span> : null}</td>
+                  <td>{x2.recovery_bpm != null ? `−${x2.recovery_bpm} bpm` : "–"}</td>
+                  <td>{x2.e1rm ? `${x2.e1rm} kg` : "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>{[e.avg_hr && `${e.avg_hr} bpm average`, e.peak_hr && `${e.peak_hr} peak`, e.kj && `${e.kj.toLocaleString()} kJ`, e.watch?.name].filter(Boolean).join(" · ")}</p>
+    </section>
   );
 }

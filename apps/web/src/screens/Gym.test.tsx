@@ -304,6 +304,31 @@ describe("SirisGym 6.95: tidy", () => {
   });
 });
 
+describe("SirisGym 6.96: effort from the Watch", () => {
+  it("shows the effort per exercise in a workout", async () => {
+    signIn();
+    const summary = { id: "s1", title: "Push", date: "2026-11-02", started_at: "2026-11-02T07:00:00Z", minutes: 30, sets: 4, exercises: 2, volume: 2480, names: [] };
+    mockFetch({
+      "/api/v1/gym/sessions/s1/effort": () => jsonResponse({ linked: true, text: "Hardest: Back Squat, effort 8.5/10 with peaks of 172 bpm.", avg_hr: 128, peak_hr: 172, kj: 753,
+        watch: { name: "Traditional Strength Training", start: "", end: "" }, resolution_s: 60,
+        exercises: [{ exercise: "Back Squat", sets: 2, avg_hr: 165, peak_hr: 172, peak_share: 0.91, effort: 8.5, rpe: 9, recovery_bpm: 55, e1rm: 140 }],
+        sets: [{ exercise: "Back Squat", set: 1, type: "normal", weight: 120, reps: 5, at: "2026-11-02T07:15:40Z", avg_hr: 165, peak_hr: 172, recovery_bpm: 55 }],
+        timeline: [["2026-11-02T07:00:00Z", 110, 115], ["2026-11-02T07:15:00Z", 165, 172], ["2026-11-02T07:20:00Z", 110, 115]] }),
+      "/api/v1/gym/sessions/s1": () => jsonResponse({ ...summary, started_at: "2026-11-02T07:00:00Z", entries: [], summary, records: [], watch: null }),
+      "/api/v1/gym": () => jsonResponse({ ...GYM, recent: [summary] }),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    await user.click(within(await screen.findByRole("region", { name: "Recent workouts" })).getByRole("button", { name: /Push/ }));
+    const effort = await screen.findByRole("region", { name: "Effort" });
+    expect(effort).toHaveTextContent("Hardest: Back Squat");
+    expect(effort).toHaveTextContent("8.5/10");
+    expect(effort).toHaveTextContent("172 bpm");
+    expect(effort).toHaveTextContent("−55 bpm");
+    expect(within(effort).getByRole("img", { name: /Heart rate through the workout/ })).toBeInTheDocument();
+  });
+});
+
 describe("Import from JEFIT (6.6)", () => {
   it("previews an export, lets you change a match, then imports with your choices", async () => {
     signIn();
@@ -354,7 +379,7 @@ describe("<GymWorkoutScreen />", () => {
     await user.click(screen.getByRole("button", { name: "Finish" }));
     expect(await screen.findByText("Bench Press: heaviest ever, 82.5")).toBeInTheDocument();
     const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/sessions")!.init.body));
-    expect(sent.entries[0].sets).toEqual([{ weight: 82.5, reps: 8, done: true, type: "normal" }]);
+    expect(sent.entries[0].sets).toEqual([{ weight: 82.5, reps: 8, done: true, type: "normal", at: expect.any(String) }]);  // the time it was ticked (6.96)
     expect(window.localStorage.getItem("sirisos.gym.active")).toBeNull();
   });
 });
