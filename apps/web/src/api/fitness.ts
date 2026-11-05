@@ -22,7 +22,8 @@ export interface Upkeep {
       last?: { state?: string; detail?: string; version?: string; at?: string } | null;
     };
   } | null;
-  certificates: { host: string; expires: string | null; days_left: number | null; warning?: boolean; error?: string }[];
+  certificates: { host: string; expires: string | null; days_left: number | null; warning?: boolean; error?: string; issuer?: string;
+    hours_left?: number; lifetime_hours?: number | null; short_lived?: boolean }[];
 }
 
 export const fitness = {

@@ -71,3 +71,15 @@ describe("System status upkeep", () => {
     confirm.mockRestore();
   });
 });
+
+import { certText } from "./Status";
+
+describe("certificates (7.22)", () => {
+  it("says a self-renewing certificate renews itself instead of 'runs out in 0 days'", () => {
+    expect(certText({ days_left: 0, hours_left: 6, lifetime_hours: 12, short_lived: true, warning: false, issuer: "Caddy Local Authority - ECC Intermediate" }))
+      .toBe("Renews itself every 12 hours (Caddy Local Authority - ECC Intermediate) · 6 h left");
+    expect(certText({ days_left: 0, hours_left: 1, lifetime_hours: 12, short_lived: true, warning: true })).toMatch(/hasn't renewed/);
+    expect(certText({ days_left: 54 })).toBe("Runs out in 54 days");
+    expect(certText({ days_left: -1 })).toBe("Expired");
+  });
+});

@@ -175,6 +175,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.1: SirisGym: the Watch steers what to lift and the rest timer, fitter at the same weight, niggles, cardio, form videos, backups and export
 7.2: Work dashboard (8:00 to 4:30, on the tab bar and Home), edit Siris notes and memories, Passkey only, Dom's iPhone counts as home
 7.21: SirisGym: JEFIT exports read exactly (exercise logs only, Melbourne dates, no doubled sets, right exercises); re-import fixes an older import
+7.22: live updates no longer held back by a proxy in front, HTTPS seen through it, self-renewing certificates not flagged, updater note
 
 ## Terminal (ADR 113)
 

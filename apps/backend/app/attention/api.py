@@ -188,7 +188,7 @@ async def stream(request: Request, max_events: int = Query(0, ge=0, le=1000), hu
             for task in tasks:
                 task.cancel()
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
 
 
 def snooze_until(word: str, now: datetime | None = None) -> datetime:

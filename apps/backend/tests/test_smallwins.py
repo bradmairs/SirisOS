@@ -63,9 +63,26 @@ def test_fitness_week_and_goal(client):
 def test_upkeep_has_backups_and_certificates(client, monkeypatch):
     from datetime import datetime, timezone
 
-    monkeypatch.setattr(upkeep, "_expiry", lambda host, port, timeout=4.0: datetime.now(timezone.utc) + timedelta(days=10))
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(upkeep, "_cert", lambda host, port, timeout=4.0: {"not_before": now - timedelta(days=80), "not_after": now + timedelta(days=10),
+                                                                         "issuer": "R11"})
     body = client.get("/api/v1/hub/upkeep", headers=AUTH).json()
     assert body["sirisai"]["backups"]["count"] == 14 and body["sirisos"]["version"]
     certs = {c["host"]: c for c in body["certificates"]}
     assert "siris.local" in certs and certs["siris.local"]["warning"] is True and certs["siris.local"]["days_left"] in (9, 10)
     assert all(not h.startswith("http") for h in certs)
+
+
+
+def test_a_short_lived_certificate_that_renews_itself_isnt_a_warning():
+    """7.22: Caddy's own certificates last 12 hours and renew with a third left: "0 days" is normal for them."""
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 11, 6, 10, 0, tzinfo=timezone.utc)
+    caddy = upkeep.judge(now - timedelta(hours=6), now + timedelta(hours=6), now)
+    assert caddy["short_lived"] and caddy["days_left"] == 0 and caddy["hours_left"] == 6.0 and caddy["warning"] is False
+    stuck = upkeep.judge(now - timedelta(hours=11), now + timedelta(hours=1), now)
+    assert stuck["warning"] is True  # under a quarter left: it stopped renewing
+    lets_encrypt = upkeep.judge(now - timedelta(days=80), now + timedelta(days=10), now)
+    assert not lets_encrypt["short_lived"] and lets_encrypt["warning"] is True
+    assert upkeep.judge(now - timedelta(days=30), now + timedelta(days=60), now)["warning"] is False

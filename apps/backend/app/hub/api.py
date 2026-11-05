@@ -183,7 +183,7 @@ async def _stream(
     return StreamingResponse(
         relay(),
         media_type=media_type,
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
 
 
