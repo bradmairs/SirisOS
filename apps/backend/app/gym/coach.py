@@ -357,3 +357,19 @@ def today_for_brief(doc: GymDoc, today: date, readiness: dict[str, Any] | None) 
     last = max((service.day_of(s.started_at) for s in doc.sessions), default=None)
     return {"done": False, "title": f"{active.name}: {d.name}", "lifts": lifts, "more": max(0, len(d.exercises) - 4), "note": note,
             "days_since": (today - date.fromisoformat(last)).days if last else None}
+
+
+
+def timeline(doc: GymDoc, s: Session) -> dict[str, Any]:
+    """A session as SirisAI needs it to line the Watch's heart rate up with each set (6.96): every ticked set with its time."""
+    names = service.exercises(doc)
+    sets = []
+    for e in s.entries:
+        n = 0
+        for x in e.sets:
+            if not x.done:
+                continue
+            n += x.type != "warmup"
+            sets.append({"exercise": e.exercise, "name": names.get(e.exercise, {}).get("name", e.exercise), "set": n if x.type != "warmup" else 0,
+                         "type": x.type, "weight": x.weight, "reps": x.reps, "seconds": x.seconds, "rpe": x.rpe, "at": x.at, "group": e.group})
+    return {"id": s.id, "title": s.title, "started_at": s.started_at, "ended_at": s.ended_at, "sets": sets}

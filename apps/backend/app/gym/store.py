@@ -45,6 +45,7 @@ class SetLog(BaseModel):
     done: bool = True
     type: Literal["normal", "warmup", "drop", "failure"] = "normal"
     rpe: float | None = Field(default=None, ge=1, le=10)
+    at: str | None = Field(default=None, max_length=40)  # when it was ticked done (6.96), to line it up with the Watch's heart rate
 
 
 class EntryLog(BaseModel):
@@ -188,6 +189,7 @@ class GymDoc(BaseModel):
     measurements: list[Measurement] = Field(default_factory=list)
     photos: list[Photo] = Field(default_factory=list)
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
+    import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
 
 
 def _path():
@@ -247,6 +249,43 @@ def clean_empty(doc: "GymDoc") -> dict[str, Any]:
     return {"entries_removed": entries, "exercises_removed": len(gone), "names": [e.name for e in gone][:50], "sessions_kept": len(doc.sessions)}
 
 
+def local_import_times(doc: "GymDoc") -> dict[str, Any]:
+    """Imported workouts filed by UTC (6.96). JEFIT's timestamps are UTC, and
+    the importer before 6.96 kept them as if local, so a morning workout in
+    Melbourne was filed under the day before. When most imported start times
+    fall between 6pm and 4am (the sign they're UTC), each one with a time
+    (07:00 is the importer's stand-in for "no time") moves to local time and
+    its local day; its id becomes import-<that day>, joining a workout already
+    there. Nothing is lost."""
+    from app.tasks.service import zone
+
+    imported = [s for s in doc.sessions if s.id.startswith("import-") and "+" not in s.started_at[10:] and not s.started_at.endswith("Z")
+                and s.started_at[11:19] not in ("", "07:00:00")]
+    if not imported:
+        return {"moved": 0, "utc": False}
+    night = sum(1 for s in imported if int(s.started_at[11:13] or 0) >= 18 or int(s.started_at[11:13] or 0) < 4)
+    if night < 0.7 * len(imported):
+        return {"moved": 0, "utc": False}
+    tz = zone()
+    moving = {id(s) for s in imported}
+    placed: dict[str, Session] = {s.id: s for s in doc.sessions if id(s) not in moving}  # sessions that stay where they are
+    keep: list[Session] = [s for s in doc.sessions if id(s) not in moving]
+    for s in imported:
+        local = datetime.fromisoformat(s.started_at).replace(tzinfo=timezone.utc).astimezone(tz).replace(tzinfo=None)
+        s.started_at = local.isoformat(timespec="seconds")
+        s.id = f"import-{local.date().isoformat().replace('-', '')}"
+        if s.id in placed:  # another workout already on that day: join it
+            target = placed[s.id]
+            target.entries = (target.entries + s.entries)[:40]
+            target.started_at = min(target.started_at, s.started_at)
+        else:
+            placed[s.id] = s
+            keep.append(s)
+    doc.sessions = keep
+    moved = len(imported)
+    return {"moved": moved, "utc": True}
+
+
 def backup(tag: str) -> None:
     p = _path()
     if p.exists():
@@ -258,7 +297,13 @@ def load() -> GymDoc:
     raw = json_store.read(_path(), None)
     if not isinstance(raw, dict):
         return GymDoc()
-    doc = GymDoc.model_validate({"cleaned_empty": False, **to_si(raw)})
+    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, **to_si(raw)})
+    if not doc.import_times_local:
+        moved = local_import_times(doc)
+        doc.import_times_local = True
+        if moved["moved"]:
+            backup("before-local-times")
+        save(doc)
     if not doc.cleaned_empty:
         # Once (6.95): take out the exercises an early import made from workout names. A copy is kept first.
         out = clean_empty(doc)

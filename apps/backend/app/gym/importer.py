@@ -144,6 +144,10 @@ def read_rows(text: str, unit: str | None = None) -> list[dict[str, Any]]:
             when, name = parse_date(r[cols["date"]]), r[cols["exercise"]].strip()
             if not when or not name:
                 continue
+            if when.tzinfo is not None:  # 6.96: a timestamp is UTC; the workout happened at local time
+                from app.tasks.service import zone
+
+                when = when.astimezone(zone()).replace(tzinfo=None)
             factor = LB if pounds else 1.0
             if logs is not None and len(r) > logs and SETS.search(r[logs]):
                 for k, (w, reps) in enumerate(SETS.findall(r[logs])):
