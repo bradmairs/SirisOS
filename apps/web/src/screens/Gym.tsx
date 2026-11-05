@@ -441,7 +441,8 @@ function ImportCard({ g, onDone }: { g: Gym; onDone: () => void }) {
     try {
       const r = (await gym.importCommit(file, unit, choices)).imported;
       setDone(`Imported ${r.workouts.toLocaleString()} workouts and ${r.sets.toLocaleString()} sets${r.new_exercises ? `, with ${r.new_exercises} new exercises of yours` : ""}.`
-        + (r.skipped_days?.length ? ` Left out ${r.skipped_days.length} day${r.skipped_days.length === 1 ? "" : "s"} already logged here.` : ""));
+        + (r.skipped_days?.length ? ` Left out ${r.skipped_days.length} day${r.skipped_days.length === 1 ? "" : "s"} already logged here.` : "")
+        + (r.removed ? ` Took out ${r.removed} wrongly imported day${r.removed === 1 ? "" : "s"} (a backup was saved first).` : ""));
       setPre(null); onDone();
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
@@ -462,7 +463,9 @@ function ImportCard({ g, onDone }: { g: Gym; onDone: () => void }) {
       {pre && (
         <>
           <p role="status" style={{ margin: 0 }}><strong>{pre.workouts.toLocaleString()} workouts, {pre.sets.toLocaleString()} sets</strong>{pre.from ? `, ${fmtDay(pre.from)} ${pre.from.slice(0, 4)} to ${fmtDay(pre.to ?? pre.from)} ${(pre.to ?? pre.from).slice(0, 4)}` : ""}.
+            {pre.jefit ? " Read as a JEFIT export: only your logged exercises, on their Melbourne dates." : ""}
             {pre.replacing > 0 ? ` ${pre.replacing} of those days were imported before and will be replaced.` : ""}
+            {pre.removing ? ` ${pre.removing} imported day${pre.removing === 1 ? "" : "s"} that JEFIT doesn't have (from an older import) will be taken out, after a backup.` : ""}
             {pre.already_logged?.length ? ` ${pre.already_logged.length} day${pre.already_logged.length === 1 ? " is" : "s are"} already logged in SirisGym and won't be imported again (${pre.already_logged.slice(0, 3).join(", ")}${pre.already_logged.length > 3 ? "…" : ""}).` : ""}</p>
           <ul className="items" aria-label="Exercises to match">
             {pre.exercises.map((e) => (

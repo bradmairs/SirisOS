@@ -116,7 +116,7 @@ def test_import_previews_then_saves_once_however_often_its_sent(client):
 
     choices = {"Cable Lat Pulldown": "new"}
     done = _upload(client, JEFIT.encode(), dry_run="false", choices=choices).json()["imported"]
-    assert done == {"workouts": 2, "sets": 5, "new_exercises": 2, "skipped_days": []}
+    assert done == {"workouts": 2, "sets": 5, "new_exercises": 2, "skipped_days": [], "removed": 0, "tidied": 0}  # read as a JEFIT export (7.3)
     again = _upload(client, JEFIT.encode(), dry_run="false", choices=choices).json()["imported"]
     assert again["new_exercises"] == 0
     over = client.get("/api/v1/gym", headers=AUTH).json()
@@ -579,3 +579,75 @@ def test_jefit_timestamps_are_local_and_old_imports_move_to_their_local_day(clie
     s = client.get("/api/v1/gym/sessions/import-20241106", headers=AUTH).json()
     assert s["started_at"] == "2024-11-06T10:13:43" and [e["exercise"] for e in s["entries"]] == ["bench-press"]
     assert list(tmp_path.glob("gym.before-local-times.*.json"))
+
+
+JEFIT_EXPORT = """
+### SETTING ##########################################
+
+row_id,USERID,TIMESTAMP,gender,mass
+1,8423258,"2026-10-12 20:31:59",M," kg"
+######################################################
+
+### ROUTINES #########################################
+
+row_id,USERID,TIMESTAMP,belongSys,superset,_id,exercisename,logs
+9,8423258,"2026-11-05 21:00:00",1,0,5,"EZ Bar Skull Crusher","27.5x10,37.5x8,37.5x10"
+######################################################
+
+### WORKOUT SESSIONS #################################
+
+rowid,_id,USERID,edit_time,day_id,total_time,starttime,endtime,TIMESTAMP
+1,1793822104,8423258,0,0,2205,1793822104,1793824309,"2026-11-05 20:37:17"
+2,1793908155,8423258,0,0,2876,1793908155,1793911031,"2026-11-05 20:37:14"
+######################################################
+
+### EXERCISE LOGS ####################################
+
+USERID,TIMESTAMP,belongSys,logs,_id,record,mydate,eid,ename,day_item_id,belongsession,logTime
+8423258,"2026-11-04 20:04:50",1,"20.0x10,30.0x10,30.0x12",100391,42,2026-11-05,112,"Barbell Curl",1,1793822104,1793822687
+8423258,"2026-11-04 20:31:42",1,"53.0x10,60.0x10,67.0x10",100394,89,2026-11-05,253,"Machine Tricep Extension",2,1793822104,1793824300
+8423258,"2026-11-05 20:23:18",1,"12.5x8,12.5x10,12.5x12",100397,17.5,2026-11-06,32,"Dumbbell Lateral Raise",3,1793908155,1793910197
+8423258,"2026-11-05 20:23:18",1,"12.5x8,12.5x10,12.5x12",100397,17.5,2026-11-06,32,"Dumbbell Lateral Raise",3,1793908155,1793910197
+######################################################
+
+### EXERCISE SET LOGS ################################
+
+_id,userid,exercise_log_id,set_index,weight_lbs,reps,log_time,TIMESTAMP
+1,8423258,100397,0,27.5577,8,1793909589,"2026-11-05 20:23:18"
+2,8423258,100397,1,27.5577,10,1793909793,"2026-11-05 20:23:18"
+3,8423258,100397,2,27.5577,12,1793910198,"2026-11-05 20:23:18"
+######################################################
+
+### EXERCISE RECORDS #################################
+
+USERID,TIMESTAMP,eid,ename,record,mydate
+8423258,"2026-11-05 20:00:00",1,"Front Raise","12.5x10",2026-11-05
+######################################################
+"""
+
+
+def test_a_jefit_export_imports_only_logged_exercises_on_their_melbourne_day(client, tmp_path):
+    """7.3: Friday 7am in Melbourne is Thursday evening UTC; routines and records aren't workouts; a log repeated is kept once;
+    "Machine Tricep Extension" isn't the dumbbell overhead extension; an older wrong import of those days is taken out."""
+    import json
+
+    old = {"cleaned_empty": True, "import_times_local": True, "import_titles": True, "sessions": [
+        {"id": "import-20261104", "title": "Wrong", "started_at": "2026-11-05T07:04:00", "entries": [{"exercise": "barbell-curl", "sets": [{"weight": 20, "reps": 10}]}]}]}
+    (tmp_path / "gym.json").write_text(json.dumps(old))
+    files = {"file": ("Bmairs_20261105.csv", JEFIT_EXPORT.encode(), "text/csv")}
+    pre = client.post("/api/v1/gym/import", headers=AUTH, files=files, data={"dry_run": "true"}).json()["preview"]
+    assert pre["jefit"] and pre["workouts"] == 2 and pre["sets"] == 9 and pre["removing"] == 1
+    m = {e["name"]: e for e in pre["exercises"]}
+    assert set(m) == {"Barbell Curl", "Machine Tricep Extension", "Dumbbell Lateral Raise"}  # no routine or record exercises
+    assert m["Machine Tricep Extension"]["match"] is None and m["Dumbbell Lateral Raise"]["match"] == "lateral-raise"
+    r = client.post("/api/v1/gym/import", headers=AUTH, files=files, data={"dry_run": "false"}).json()["imported"]
+    assert r["workouts"] == 2 and r["removed"] == 1
+    got = {s["id"]: s for s in client.get("/api/v1/gym/sessions", headers=AUTH).json()["sessions"]}
+    assert set(got) == {"import-20261105", "import-20261106"}
+    fri = client.get("/api/v1/gym/sessions/import-20261106", headers=AUTH).json()
+    assert fri["started_at"] == "2026-11-06T06:49:15" and fri["ended_at"] == "2026-11-06T07:37:11"
+    assert [(x["weight"], x["reps"]) for x in fri["entries"][0]["sets"]] == [(12.5, 8), (12.5, 10), (12.5, 12)]
+    assert fri["entries"][0]["sets"][0]["at"] == "2026-11-05T20:13:09+00:00"
+    thu = client.get("/api/v1/gym/sessions/import-20261105", headers=AUTH).json()
+    assert [e["name"] for e in thu["entries"]] == ["Barbell Curl", "Machine Tricep Extension"]
+    assert list(tmp_path.glob("gym.before-jefit.*.json"))
