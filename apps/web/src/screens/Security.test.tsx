@@ -48,6 +48,24 @@ describe("passkeys", () => {
     expect(sent).toMatchObject({ challenge: "Y2hhbGxlbmdl", id: "cred1", label: "iPhone", response: { attestationObject: "YXR0" } });
   });
 
+  it("turns on Passkey only once there's a passkey (7.2)", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/security/password-signin": () => jsonResponse({ password_signin: false, checks: [{ level: "info", title: "Passkey only: the password can't sign in", fix: "" }] }),
+      "/api/v1/auth/passkeys": () => jsonResponse({ passkeys: [{ id: "k1", label: "iPhone", rp_id: "sirisos.home", created_at: "2026-10-17T00:00:00Z", last_used: null }] }),
+      "/api/v1/security": () => jsonResponse({ passkeys: 1, password_signin: true, checks: [{ level: "warning", title: "Your passkey works, but the short password still signs in too", fix: "Turn on Passkey only below." }] }),
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(<MemoryRouter><SecurityScreen /></MemoryRouter>);
+    expect(await screen.findByText("Your passkey works, but the short password still signs in too")).toBeInTheDocument();
+    expect(screen.getByText("Looks good")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox"));
+    expect(await screen.findByText("Passkey only: the password can't sign in")).toBeInTheDocument();
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/password-signin"))!.init.body))).toEqual({ on: false });
+    expect(screen.getByRole("checkbox")).toBeChecked();
+  });
+
   it("explains that a bare IP address can't use passkeys", async () => {
     signIn();
     stubWebAuthn("192.168.0.100");

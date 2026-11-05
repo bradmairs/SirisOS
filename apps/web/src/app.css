@@ -1010,3 +1010,11 @@ h3.note__heading { font-size: 17px; }
 .gym-effort__set--2 { fill: var(--warning, #f5a524); background: var(--warning, #f5a524); }
 .gym-effort__set--3 { fill: #a78bfa; background: #a78bfa; }
 .gym-effort__dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; opacity: 1; }
+
+/* Work (7.2) */
+.work-next { display: grid; gap: 2px; }
+.work-next__when { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent, #60a5fa); }
+.work-next a svg { vertical-align: -2px; }
+.work-group { margin: 6px 0 2px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.work-bar { display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
+.work-bar > span { display: block; height: 100%; background: var(--accent, #60a5fa); }

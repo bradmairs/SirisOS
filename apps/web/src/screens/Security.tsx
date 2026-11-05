@@ -11,6 +11,7 @@ const TONE = { critical: "tone-critical", warning: "tone-warning", info: "muted"
 export function SecurityScreen() {
   const [items, setItems] = useState<PasskeyInfo[] | null>(null);
   const [checks, setChecks] = useState<SecurityCheck[] | null>(null);
+  const [pwOn, setPwOn] = useState<boolean | null>(null);
   const [label, setLabel] = useState(deviceLabel());
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
@@ -18,8 +19,18 @@ export function SecurityScreen() {
 
   const refresh = () => {
     passkeys.list().then((r) => setItems(r.passkeys)).catch(() => setItems([]));
-    passkeys.checks().then((r) => setChecks(r.checks)).catch(() => setChecks([]));
+    passkeys.checks().then((r) => { setChecks(r.checks); setPwOn(r.password_signin ?? true); }).catch(() => setChecks([]));
   };
+  async function passkeyOnly(on: boolean) {
+    if (on && !window.confirm("Only your passkeys will sign in to SirisOS; the password stops working. Keep a passkey on more than one device (iCloud Keychain does this). Turn on Passkey only?")) return;
+    try {
+      const r = await passkeys.passwordSignin(!on);
+      setPwOn(r.password_signin);
+      setChecks(r.checks);
+    } catch (err) {
+      setNote({ ok: false, text: err instanceof Error ? err.message : "Couldn't change it." });
+    }
+  }
   useEffect(() => {
     document.title = "Security · SirisOS";
     refresh();
@@ -78,6 +89,12 @@ export function SecurityScreen() {
             </div>
           )}
           {note && <p className={note.ok ? "tone-good" : "tone-critical"} role="status" style={{ margin: 0, fontSize: 14 }}>{note.text}</p>}
+          {(items?.length ?? 0) > 0 && pwOn !== null && (
+            <label className="row" style={{ gap: 8, fontSize: 14 }}>
+              <input type="checkbox" checked={!pwOn} onChange={(e) => passkeyOnly(e.target.checked)} />
+              <span><strong>Passkey only</strong>: the password can't sign in. <span className="muted">If every passkey is lost, SIRISOS_PASSWORD_SIGNIN=on lets it back in.</span></span>
+            </label>
+          )}
         </Glass>
 
         <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Settings check">

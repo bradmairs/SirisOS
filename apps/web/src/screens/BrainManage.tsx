@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrainCircuit, RotateCcw, Search, Trash2, Undo2 } from "lucide-react";
+import { BrainCircuit, Pencil, RotateCcw, Search, Trash2, Undo2 } from "lucide-react";
 import { brain, memories } from "../api/hub";
 import { useResource } from "../api/resource";
 import type { BrainDeleted, SirisMemory } from "../api/types";
@@ -38,7 +38,23 @@ function MemoriesPanel() {
   const [confirming, setConfirming] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
   const list = useShowMore(items ?? []);
+
+  async function saveEdit() {
+    if (!editing) return;
+    setBusy(editing.id);
+    try {
+      const m = await memories.edit(editing.id, editing.text.trim());
+      setItems((all) => (all ?? []).map((x) => (x.id === m.id ? m : x)));
+      setDone("Memory corrected.");
+      setEditing(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   useEffect(() => {
     let live = true;
@@ -78,7 +94,7 @@ function MemoriesPanel() {
         <BrainCircuit aria-hidden="true" /> SirisAI's memories
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        What SirisAI saved from your chats. Deleting one stops SirisAI recalling it, and can't be undone.
+        What SirisAI saved from your chats. Correct one with the pencil; deleting one stops SirisAI recalling it, and can't be undone.
       </p>
       <label className="mini-search">
         <Search size={14} aria-hidden="true" />
@@ -96,7 +112,15 @@ function MemoriesPanel() {
           {list.shown.map((m) => (
             <li key={m.id} className="item">
               <span className="item__text">
-                <div className="item__title manage__memory">{m.content}</div>
+                {editing?.id === m.id ? (
+                  <span className="stack" style={{ gap: 6 }}>
+                    <textarea className="field" rows={3} aria-label="Memory" value={editing.text} onChange={(e) => setEditing({ id: m.id, text: e.target.value })} />
+                    <span className="row" style={{ gap: 6 }}>
+                      <button type="button" className="chip chip--button" onClick={saveEdit} disabled={busy === m.id || !editing.text.trim() || editing.text.trim() === m.content}>{busy === m.id ? "…" : "Save"}</button>
+                      <button type="button" className="chip chip--button" onClick={() => setEditing(null)}>Cancel</button>
+                    </span>
+                  </span>
+                ) : <div className="item__title manage__memory">{m.content}</div>}
                 <div className="item__subtitle">
                   Saved {dayLabel(m.created_at)}
                   {m.recall_count > 0 && ` · recalled ${m.recall_count} time${m.recall_count === 1 ? "" : "s"}`}
@@ -110,9 +134,14 @@ function MemoriesPanel() {
                   <button type="button" className="chip chip--button" onClick={() => setConfirming(null)}>Keep</button>
                 </span>
               ) : (
-                <button type="button" className="icon-link" onClick={() => setConfirming(m.id)} aria-label={`Delete memory: ${m.content}`} title="Delete">
-                  <Trash2 size={15} aria-hidden="true" />
-                </button>
+                <span className="row" style={{ gap: 4 }}>
+                  <button type="button" className="icon-link" onClick={() => { setDone(null); setEditing({ id: m.id, text: m.content }); }} aria-label={`Edit memory: ${m.content}`} title="Edit">
+                    <Pencil size={15} aria-hidden="true" />
+                  </button>
+                  <button type="button" className="icon-link" onClick={() => setConfirming(m.id)} aria-label={`Delete memory: ${m.content}`} title="Delete">
+                    <Trash2 size={15} aria-hidden="true" />
+                  </button>
+                </span>
               )}
             </li>
           ))}

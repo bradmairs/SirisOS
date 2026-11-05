@@ -23,8 +23,8 @@ def _schedule(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("when,expected", [
     ("2026-10-22 07:30", "morning"),   # Thursday
-    ("2026-10-22 08:29", "morning"),
-    ("2026-10-22 08:30", "work"),      # work is 8:30 to 4:30 on weekdays
+    ("2026-10-22 07:59", "morning"),
+    ("2026-10-22 08:00", "work"),      # work is 8:00 to 4:30 on weekdays (7.2)
     ("2026-10-22 16:29", "work"),
     ("2026-10-22 16:30", "evening"),
     ("2026-10-24 08:45", "morning"),   # Saturday: no work
@@ -60,7 +60,7 @@ def test_a_schedule_saved_before_wind_down_still_loads():
 def test_the_schedule_is_saved_checked_and_used():
     client = TestClient(app)
     got = client.get("/api/v1/home/schedule", headers=AUTH).json()
-    assert got["weekday"] == {"morning": "05:00", "day": "08:30", "evening": "16:30", "winddown": "20:00", "night": "23:00"}
+    assert got["weekday"] == {"morning": "05:00", "day": "08:00", "evening": "16:30", "winddown": "20:00", "night": "23:00"}
     assert "capture" not in got["hidden"]["winddown"] and "tasks" in got["hidden"]["winddown"]
     assert got["hidden"]["night"] == [w for w in got["hidden"]["night"] if w != "clock"] and got["leave_minutes"] == 30
     got["weekday"]["day"] = "09:00"

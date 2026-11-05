@@ -13,6 +13,7 @@ import { HomeControlsWidget } from "./SirisControls";
 import { ProtocolsManager } from "./ProtocolEditor";
 import { AppliancesCard, MaintenanceCard, RoomUpkeep, useMaintenance } from "./Maintenance";
 import { NetworkWatchCard } from "./NetworkWatch";
+import { PresencePhonesCard } from "./PresencePhones";
 import { PowerCard } from "./PowerCard";
 import { netwatch } from "../api/netwatch";
 import { power, powerGlow, roomWatts } from "../api/power";
@@ -208,6 +209,7 @@ export function HouseScreen() {
           )}
         </Glass>
 
+        <PresencePhonesCard />
         <NetworkWatchCard />
         <PowerCard data={powerUse.data ?? null} error={powerUse.data ? null : powerUse.error} placements={placements} onRoom={placeSensor} />
 

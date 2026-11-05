@@ -121,6 +121,31 @@ def reset() -> None:
         _challenges.clear()
 
 
+# -- passkey only (7.2) -------------------------------------------------------------
+
+def _settings_path():
+    return json_store.data_path("SIRISOS_SECURITY_PATH", "security.json")
+
+
+def password_signin() -> bool:
+    """Whether the password can sign in. Off ("passkey only") needs a passkey; SIRISOS_PASSWORD_SIGNIN=on
+    always lets it back in, for when every passkey is lost."""
+    if os.getenv("SIRISOS_PASSWORD_SIGNIN", "").strip().lower() in ("1", "on", "true", "yes"):
+        return True
+    if not passkeys():
+        return True
+    return bool(json_store.read(_settings_path(), {}).get("password_signin", True))
+
+
+def set_password_signin(on: bool) -> bool:
+    if not on and not passkeys():
+        raise ValueError("Add a passkey first: with none, the password is the only way in.")
+    doc = json_store.read(_settings_path(), {})
+    doc["password_signin"] = on
+    json_store.write(_settings_path(), doc)
+    return password_signin()
+
+
 # -- the settings check -----------------------------------------------------------
 
 def checks() -> list[dict[str, str]]:
@@ -131,9 +156,18 @@ def checks() -> list[dict[str, str]]:
     if jwt_secret in ("change-this-development-secret", "replace-with-a-long-random-secret") or len(jwt_secret) < 32:
         out.append({"level": "critical", "title": "Sign-in secret is a default or too short",
                     "fix": "Set SIRISOS_JWT_SECRET to a long random value (openssl rand -hex 32) and restart. Everyone signs in again."})
-    if password in ("change-me", "change-this-password") or len(password) < 12:
+    weak = password in ("change-me", "change-this-password") or len(password) < 12
+    have_keys = bool(passkeys())
+    if not password_signin():
+        out.append({"level": "info", "title": "Passkey only: the password can't sign in",
+                    "fix": "Lost your passkeys? Set SIRISOS_PASSWORD_SIGNIN=on and restart to let the password back in."})
+    elif weak and have_keys:
+        # 7.2: you have a passkey, but a short password still opens the door, so offer to close it rather than ask for a passkey again.
+        out.append({"level": "warning", "title": "Your passkey works, but the short password still signs in too",
+                    "fix": "Turn on Passkey only below so only your passkeys can sign in, or set a longer SIRISOS_ADMIN_PASSWORD."})
+    elif weak:
         out.append({"level": "critical", "title": "Admin password is a default or shorter than 12 characters",
-                    "fix": "Set a longer SIRISOS_ADMIN_PASSWORD, or add a passkey and use that."})
+                    "fix": "Add a passkey below and then turn on Passkey only, or set a longer SIRISOS_ADMIN_PASSWORD."})
     key = os.getenv("SIRISOS_SERVICE_KEY", "").strip()
     if key and len(key) < 24:
         out.append({"level": "warning", "title": "SirisAI's service key is too short and is being ignored",

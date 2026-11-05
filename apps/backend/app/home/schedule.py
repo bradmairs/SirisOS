@@ -85,7 +85,7 @@ def _default_hidden() -> dict[str, list[str]]:
 
 
 # Screens the tab bar's last two buttons can be (4.95), or "auto".
-DOCK_CHOICES = ("auto", "/links", "/career", "/house", "/tasks", "/wrapup", "/brief", "/projects", "/engineering",
+DOCK_CHOICES = ("auto", "/work", "/links", "/career", "/house", "/tasks", "/wrapup", "/brief", "/projects", "/engineering",
                 "/review", "/year", "/status", "/training", "/health")
 
 
@@ -106,13 +106,15 @@ def _default_dock() -> dict[str, DockSlots]:
 
 
 class Schedule(BaseModel):
-    weekday: DayTimes = Field(default_factory=lambda: DayTimes(morning="05:00", day="08:30", evening="16:30", night="23:00"))
+    weekday: DayTimes = Field(default_factory=lambda: DayTimes(morning="05:00", day="08:00", evening="16:30", night="23:00"))
     weekend: DayTimes = Field(default_factory=lambda: DayTimes(morning="05:00", day="10:00", evening="17:00", night="23:00"))
     sections: dict[str, list[str]] = Field(default_factory=_default_sections)
     hidden: dict[str, list[str]] = Field(default_factory=_default_hidden)
     dock: dict[str, DockSlots] = Field(default_factory=_default_dock)
     # Minutes before an event with a place to suggest leaving (the morning card), without traffic.
     leave_minutes: int = Field(default=30, ge=0, le=180)
+    # 7.2: work starts at 8:00 (Brad's hours, 8 to 4:30). A schedule still on the old 8:30 default is moved once.
+    work_8am: bool = True
 
     @field_validator("dock")
     @classmethod
@@ -154,9 +156,15 @@ def _path():
 def load() -> Schedule:
     raw = json_store.read(_path(), {})
     try:
-        return Schedule.model_validate(raw if isinstance(raw, dict) else {})
+        plan = Schedule.model_validate({"work_8am": False, **raw} if isinstance(raw, dict) and raw else {})
     except ValueError:
         return Schedule()   # a broken file never breaks Home
+    if not plan.work_8am:
+        if plan.weekday.day == "08:30" and plan.weekday.evening == "16:30" and _minutes(plan.weekday.morning) < _minutes("08:00"):
+            plan.weekday = plan.weekday.model_copy(update={"day": "08:00"})
+        plan.work_8am = True
+        save(plan)
+    return plan
 
 
 def save(schedule: Schedule) -> Schedule:

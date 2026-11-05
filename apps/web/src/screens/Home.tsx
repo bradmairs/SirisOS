@@ -17,6 +17,7 @@ import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
 import { MorningGymCard } from "./GymCards";
+import { WorkHomeCard } from "./Work";
 import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
 import { HomeJobsWidget } from "./Maintenance";
 import { TodaysRunWidget } from "./Training";
@@ -293,6 +294,7 @@ export function Home() {
       )}
 
       {adapt && !hideMine && <MorningGymCard />}
+      {adapt && phase === "work" && !hideMine && <WorkHomeCard />}
       {adapt && ctx && !hideMine && <FocusCard ctx={ctx} events={hud?.next_events} parcels={siris?.parcels?.length ?? 0} inbox={siris?.attention?.open ?? 0} />}
 
       {sections.map(({ title, slots }) =>

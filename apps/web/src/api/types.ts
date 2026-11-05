@@ -169,6 +169,8 @@ export interface BrainNote {
   aliases?: string[];
   /** When it was last updated (YYYY-MM-DD). */
   as_of?: string | null;
+  /** A fingerprint of the note as read (engine 1.98), sent back with an edit. */
+  version?: string;
 }
 
 export function isWidget(w: WidgetResult | null | undefined): w is Widget {

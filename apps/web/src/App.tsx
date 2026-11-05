@@ -37,6 +37,7 @@ const loadTrends = () => import("./screens/Trends");
 const loadHouse = () => import("./screens/House");
 const loadTraining = () => import("./screens/Training");
 const loadGym = () => import("./screens/Gym");
+const loadWork = () => import("./screens/Work");
 const loadGymWorkout = () => import("./screens/GymWorkout");
 const loadHealth = () => import("./screens/Health");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
@@ -51,6 +52,7 @@ const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.Projec
 const HouseScreen = lazy(() => loadHouse().then((m) => ({ default: m.HouseScreen })));
 const TrainingScreen = lazy(() => loadTraining().then((m) => ({ default: m.TrainingScreen })));
 const GymScreen = lazy(() => loadGym().then((m) => ({ default: m.GymScreen })));
+const WorkScreen = lazy(() => loadWork().then((m) => ({ default: m.WorkScreen })));
 const GymWorkoutScreen = lazy(() => loadGymWorkout().then((m) => ({ default: m.GymWorkoutScreen })));
 const HealthScreen = lazy(() => loadHealth().then((m) => ({ default: m.HealthScreen })));
 const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
@@ -83,7 +85,7 @@ function OpenCapture({ onOpen }: { onOpen: () => void }) {
 }
 
 // Screens that don't name the tab themselves.
-const TITLES: Record<string, string> = { "/": "Home", "/assistant": "SirisAI", "/brain": "Siris", "/links": "Links", "/engineering": "Engineering", "/career": "Career", "/brief": "Brief" };
+const TITLES: Record<string, string> = { "/": "Home", "/assistant": "SirisAI", "/brain": "Siris", "/links": "Links", "/engineering": "Engineering", "/work": "Work", "/career": "Career", "/brief": "Brief" };
 
 function ScreenFallback() {
   return (
@@ -187,6 +189,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/year" element={<TrendsScreen />} />
           <Route path="/house" element={<HouseScreen />} />
           <Route path="/training" element={<TrainingScreen />} />
+          <Route path="/work" element={<WorkScreen />} />
           <Route path="/gym" element={<GymScreen />} />
           <Route path="/gym/workout" element={<GymWorkoutScreen />} />
           <Route path="/health" element={<HealthScreen />} />

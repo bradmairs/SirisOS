@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from app.auth import JWT_ALGORITHM, CurrentUser
 from app.service_key import ServiceKeyMiddleware
 
-API_VERSION = "7.1"
+API_VERSION = "7.2"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
 JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
@@ -92,6 +92,8 @@ async def login(credentials: LoginRequest, request: Request) -> TokenResponse:
     if wait:
         raise HTTPException(status_code=429, detail=f"Too many wrong passwords. Try again in {max(1, wait // 60)} min.",
                             headers={"Retry-After": str(wait)})
+    if not security.password_signin():
+        raise HTTPException(status_code=403, detail="Password sign-in is off: use your passkey.")
     if not secrets.compare_digest(credentials.username, AUTH_USERNAME) or not secrets.compare_digest(
         credentials.password, AUTH_PASSWORD
     ):

@@ -35,6 +35,9 @@ export const brain = {
   /** Leaves search, links and the map. Restorable unless `permanent`. */
   remove: (title: string, permanent = false) => api<BrainDeleteResult>("/api/v1/brain/delete", json({ title, permanent })),
   restore: (title: string) => api<BrainDeleteResult>("/api/v1/brain/restore", json({ title })),
+  /** Replace a note's text (7.2). `version` is from the note as opened; a newer note refuses the edit. */
+  edit: (title: string, body: string, version?: string | null) =>
+    api<{ action: "edited" | "unchanged"; title: string; path: string; links_added: string[]; version: string }>("/api/v1/brain/edit", json({ title, body, version: version ?? null })),
   purge: (title: string) => api<BrainDeleteResult>("/api/v1/brain/purge", json({ title })),
   deleted: () => api<BrainDeleted[]>("/api/v1/brain/deleted"),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[]; image?: string }) =>
@@ -122,4 +125,12 @@ export const memories = {
   list: (query = "", limit = 50) =>
     api<SirisMemory[]>(`/api/v1/memories?limit=${limit}${query.trim() ? `&query=${encodeURIComponent(query.trim())}` : ""}`),
   remove: (id: number) => api<void>(`/api/v1/memories/${id}`, { method: "DELETE" }),
+  edit: (id: number, content: string) => api<SirisMemory>(`/api/v1/memories/${id}`, { method: "PUT", body: JSON.stringify({ content }) }),
+};
+
+/** Who counts as home (7.2): away suggestions only once every one of these phones has left. */
+export interface PresencePhone { name: string; source: "settings" | "added"; home: boolean | null }
+export const presence = {
+  get: () => api<{ home: boolean | null; checked_at: string | null; since: string | null; phones?: PresencePhone[] }>("/api/v1/presence"),
+  setAdded: (added: string[]) => api<{ home: boolean | null; phones?: PresencePhone[] }>("/api/v1/presence/phones", { method: "PUT", body: JSON.stringify({ added }) }),
 };
