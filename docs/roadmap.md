@@ -174,6 +174,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.0: Live-test batch: imports keep every set, impossible days held for checking, real workout names, merge duplicates, Last column, Finish warning, morning card, weekly coach, effort advice; lighter tab dot and saved data first; SirisAI-quiet alert, daily self-test, test mode
 7.1: SirisGym: the Watch steers what to lift and the rest timer, fitter at the same weight, niggles, cardio, form videos, backups and export
 7.2: Work dashboard (8:00 to 4:30, on the tab bar and Home), edit Siris notes and memories, Passkey only, Dom's iPhone counts as home
+7.21: SirisGym: JEFIT exports read exactly (exercise logs only, Melbourne dates, no doubled sets, right exercises); re-import fixes an older import
 
 ## Terminal (ADR 113)
 

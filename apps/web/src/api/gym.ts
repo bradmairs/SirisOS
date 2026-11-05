@@ -75,7 +75,7 @@ export interface Morning {
 }
 
 export interface ImportPreview {
-  sets: number; workouts: number; from: string | null; to: string | null; replacing: number; already_logged?: string[];
+  sets: number; workouts: number; from: string | null; to: string | null; replacing: number; already_logged?: string[]; jefit?: boolean; removing?: number;
   exercises: { name: string; sets: number; match: string | null; match_name: string | null; how: "exact" | "close" | "guess" | "none"; new_muscle: string }[];
 }
 /** What the weights in an import file are in; SirisGym saves kilograms either way. */
@@ -177,7 +177,7 @@ export const gym = {
   year: (y?: number) => api<YearReview>(`${G}/year${y ? `?year=${y}` : ""}`),
   importPreview: (file: File, unit: ImportUnit) => importFile<{ preview: ImportPreview }>(file, unit),
   importCommit: (file: File, unit: ImportUnit, choices: Record<string, string>) =>
-    importFile<{ imported: { workouts: number; sets: number; new_exercises: number; skipped_days?: string[] } }>(file, unit, choices),
+    importFile<{ imported: { workouts: number; sets: number; new_exercises: number; skipped_days?: string[]; removed?: number; tidied?: number } }>(file, unit, choices),
   deleteSession: (id: string) => api<{ deleted: string }>(`${G}/sessions/${id}`, { method: "DELETE" }),
 };
 
