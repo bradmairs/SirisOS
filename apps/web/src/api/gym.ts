@@ -25,17 +25,24 @@ export interface WarmupStep { percent: number; reps: number }
 export interface GymSettings {
   unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number;
   gyms: GymProfile[]; current_gym: string; warmups: boolean; warmup_steps: WarmupStep[]; muscle_targets?: Record<string, number[]>;
-  shortcut_start?: string; shortcut_finish?: string;
+  shortcut_start?: string; shortcut_finish?: string; learn_rest?: boolean;
 }
-export interface Suggest { weight: number | null; reps: number; why: string; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null }
+export interface Suggest { weight: number | null; reps: number; why: string; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null; watch_effort?: number }
+export type Area = "shoulder" | "elbow" | "wrist" | "lower back" | "knee";
+export const AREAS: Area[] = ["shoulder", "elbow", "wrist", "lower back", "knee"];
+export interface Niggle { id: string; area: Area; note: string; started: string; healed?: string | null }
+export interface Video { id: string; date: string; exercise: string; session?: string | null; set?: number | null; weight?: number | null; reps?: number | null; note: string; type: string }
+export interface Backup { name: string; tag: string; saved_at: string; bytes: number; sessions: number | null }
+export interface Fitness { weight: number; first: string; latest: string; times: number; first_peak: number; latest_peak: number; delta_bpm: number; verdict: "fitter" | "harder" | "same"; text: string;
+  series: { date: string; peak_hr: number; effort: number | null }[] }
 export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[];
   /** Imported, and too big to be one workout (7.0): left out of records and stats until you say it's real. */
   held?: boolean }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number; schedule?: WeekSchedule | null } | null;
-  recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number };
-  streak_weeks: number; total_sessions: number;
+  recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number; cardio_min?: number; cardio_km?: number; cardio_sessions?: number };
+  streak_weeks: number; total_sessions: number; niggles?: Niggle[];
   held?: Summary[]; muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
 }
 export interface MuscleWeek { muscle: string; sets: number; target: [number, number]; status: "under" | "in range" | "over" }
@@ -47,7 +54,8 @@ export interface YearReview extends YearStats {
   year: number; previous: YearStats; months: { month: string; sessions: number; volume: number; records: number }[];
   muscles: { muscle: string; sets: number }[]; best: { exercise: string; name: string; e1rm: number; date: string }[];
 }
-export interface Plan { routine: string; day: number; title: string; gym?: string; deload?: boolean; readiness?: { score: number | null; band: string } | null; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[] })[] }
+export interface Plan { routine: string; day: number; title: string; gym?: string; deload?: boolean; readiness?: { score: number | null; band: string } | null; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[];
+  niggle?: { area: string; swap: string | null; name?: string; why: string; from: string | null }; rest_learned?: { seconds: number; planned: number; why: string } })[] }
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
 export interface ExerciseDetail {
   exercise: Exercise;
@@ -55,6 +63,7 @@ export interface ExerciseDetail {
     most_reps?: { reps: number; weight: number | null; date: string }; best_volume?: { volume: number; date: string } };
   series: { date: string; e1rm: number | null; best: number | null; volume: number; reps: number }[];
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
+  fitness?: Fitness | null; videos?: Video[];
 }
 
 export interface Duplicate { from: string; from_name: string; from_sets: number; into: string; into_name: string; into_sets: number; sure: boolean }
@@ -123,6 +132,31 @@ export const gym = {
   /** The photo as a blob URL (it needs the sign-in, so an <img src> can't fetch it itself). */
   photoUrl: async (id: string) => URL.createObjectURL(await (await request(`${G}/photos/${id}`)).blob()),
   deletePhoto: (id: string) => api<{ deleted: string }>(`${G}/photos/${id}`, { method: "DELETE" }),
+  niggles: () => api<{ niggles: Niggle[]; areas: Area[] }>(`${G}/niggles`),
+  addNiggle: (area: Area, note = "") => api<Niggle>(`${G}/niggles`, json({ area, note })),
+  healNiggle: (id: string) => api<Niggle>(`${G}/niggles/${id}/healed`, { method: "POST" }),
+  addVideo: async (file: File, v: { exercise: string; session?: string; set?: number; weight?: number | null; reps?: number | null; note?: string }) => {
+    const body = new FormData();
+    body.append("file", file);
+    for (const [k, val] of Object.entries(v)) if (val != null && val !== "") body.append(k, String(val));
+    const r = await request(`${G}/videos`, { method: "POST", body });
+    return (await r.json()) as Video;
+  },
+  /** The video as a blob URL (it needs the sign-in, like photos). */
+  videoUrl: async (id: string) => URL.createObjectURL(await (await request(`${G}/videos/${id}`)).blob()),
+  deleteVideo: (id: string) => api<{ deleted: string }>(`${G}/videos/${id}`, { method: "DELETE" }),
+  refreshEffort: () => api<{ waiting: number }>(`${G}/effort/refresh`, { method: "POST" }),
+  backups: () => api<{ backups: Backup[] }>(`${G}/backups`),
+  restore: (name: string) => api<{ restored: string; sessions: number; saved_current_as: string | null }>(`${G}/backups/restore`, json({ name })),
+  /** Download every set as CSV, or everything as JSON. */
+  download: async (kind: "csv" | "json") => {
+    const blob = await (await request(`${G}/export.${kind}`)).blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `sirisgym-${new Date().toISOString().slice(0, 10)}.${kind}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  },
   rest: (seconds: number, next: string) => api<{ ringing_in: number }>(`${G}/rest`, json({ seconds, next })),
   stopRest: () => api<{ stopped: boolean }>(`${G}/rest`, { method: "DELETE" }),
   swap: (exercise: string, gymId?: string | null) =>

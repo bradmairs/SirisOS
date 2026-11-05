@@ -28,7 +28,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from app.gym import service
+from app.gym import service, watch
 from app.gym.store import GymDoc, PlanExercise, Session, counted
 
 MUSCLE_TARGET = (10.0, 20.0)
@@ -261,7 +261,9 @@ def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
     return {"today": today.isoformat(), "total_sessions": len(counted(doc)), "streak_weeks": service.streak(doc, today), "recent": recent,
             "lifts": lifts, "week": service.week(doc, today), "muscles": [m for m in muscles(doc, today) if m["status"] != "in range"],
             "records_30d": records[-12:], "deload": deload(doc, today), "next": nxt,
-            "measurements": [m.model_dump(exclude={"id"}) for m in doc.measurements[-3:]]}
+            "measurements": [m.model_dump(exclude={"id"}) for m in doc.measurements[-3:]],
+            "niggles": [{"area": n.area, "since": n.started, "note": n.note} for n in active_niggles(doc)],
+            "same_weight": watch.fitter(doc)}
 
 
 def as_workouts(doc: GymDoc, day: str) -> dict[str, Any]:
@@ -379,3 +381,47 @@ def timeline(doc: GymDoc, s: Session) -> dict[str, Any]:
             sets.append({"exercise": e.exercise, "name": names.get(e.exercise, {}).get("name", e.exercise), "set": n if x.type != "warmup" else 0,
                          "type": x.type, "weight": x.weight, "reps": x.reps, "seconds": x.seconds, "rpe": x.rpe, "at": x.at, "group": e.group})
     return {"id": s.id, "title": s.title, "started_at": s.started_at, "ended_at": s.ended_at, "sets": sets}
+
+
+# -- 7.1: niggles. A sore spot swaps out the exercises that load it, until it's healed. --
+
+NIGGLE_WORDS = {
+    "shoulder": r"overhead|shoulder press|military|arnold|upright row|dip|bench press|push.?up|front raise|thruster|snatch|jerk",
+    "elbow": r"skull|tricep.*extension|french press|preacher|barbell curl|chin.?up|dip",
+    "wrist": r"front squat|barbell curl|wrist curl|push.?up|clean|skull",
+    "lower back": r"deadlift|rack pull|barbell row|bent.?over row|pendlay|good morning|back squat|t.?bar row|swing|back extension|hyperextension",
+    "knee": r"squat|lunge|split squat|step.?up|leg extension|leg press|jump|burpee|pistol",
+}
+
+
+def active_niggles(doc: GymDoc) -> list[Any]:
+    return [n for n in doc.niggles if not n.healed]
+
+
+def loads(doc: GymDoc, exercise: str, area: str) -> bool:
+    """Whether an exercise loads a sore area hard: the programme builder's list for
+    built-in exercises, and the name for your own and imported ones."""
+    import re
+
+    from app.gym import builder
+
+    if exercise in builder.HARD_ON.get(area, set()):
+        return True
+    ex = service.exercises(doc).get(exercise) or {}
+    if not ex.get("custom"):
+        return False
+    return bool(re.search(NIGGLE_WORDS[area], str(ex.get("name", "")).lower()))
+
+
+def spare(doc: GymDoc, exercise: str, gym_id: str | None = None) -> dict[str, Any] | None:
+    """For a planned exercise that loads a sore area: the swap to make, or a
+    caution when nothing else does the job."""
+    sore = [n for n in active_niggles(doc) if loads(doc, exercise, n.area)]
+    if not sore:
+        return None
+    areas = [n.area for n in sore]
+    ok = [o for o in swaps(doc, exercise, gym_id) if not any(loads(doc, o["id"], a) for a in areas)]
+    label = " and ".join(dict.fromkeys(areas))
+    if ok:
+        return {"area": label, "swap": ok[0]["id"], "name": ok[0]["name"], "why": f"Swapped to spare your {label}."}
+    return {"area": label, "swap": None, "why": f"Loads your {label}: go light and stop if it hurts (nothing else here does the same job)."}

@@ -9,6 +9,7 @@ import { Glass } from "../components/Glass";
 import { ExercisePicker, ExerciseSheet, kg, useGym } from "./Gym";
 import { Sheet } from "../components/Sheet";
 import { useResource } from "../api/resource";
+import { FilmButton } from "./GymCards";
 
 /** The workout in progress (6.5): log each set against last time, a rest timer after each one,
  * plates for the bar, and finish (it waits on the phone if there's no signal). */
@@ -153,6 +154,8 @@ export function GymWorkoutScreen() {
               </header>
               {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
               {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
+              {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
+              {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
               <SetTable ex={ex} sets={entry.sets} last={(p?.last ?? []).length ? p!.last : []} unit={unit} settings={here}
                 onChange={(si, patch) => {
                   setSet(ei, si, patch);
@@ -166,6 +169,14 @@ export function GymWorkoutScreen() {
                 onClick={() => { const prev = entry.sets.at(-1); update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets, { weight: prev?.weight ?? null, reps: null, done: false, type: "normal" }] } : e)) }); }}>
                 <Plus size={12} aria-hidden="true" /> Set
               </button>
+              {(() => {
+                // Filmed during the set it's for: the next one to tick (or the last, once they're all done).
+                const work = entry.sets.filter((x) => x.type !== "warmup");
+                const i = work.findIndex((x) => !x.done);
+                const at = i >= 0 ? work[i] : work.at(-1);
+                return <FilmButton exercise={entry.exercise} session={s.id} set={i >= 0 ? i + 1 : work.length || undefined} weight={at?.weight ?? null}
+                  reps={at?.reps ?? null} name={ex?.name ?? entry.exercise} />;
+              })()}
               <input className="field" style={{ fontSize: 13 }} placeholder="Note for this exercise (a niggle, the setup, the seat height)" aria-label={`Note for ${ex?.name ?? entry.exercise}`}
                 value={entry.note ?? ""} onChange={(e) => update({ ...s, entries: s.entries.map((x, i) => (i === ei ? { ...x, note: e.target.value } : x)) })} />
               {ei < s.entries.length - 1 && !(entry.group && entry.group === s.entries[ei + 1].group) && (

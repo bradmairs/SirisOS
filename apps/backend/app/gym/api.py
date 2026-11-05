@@ -46,7 +46,7 @@ import json
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 import asyncio
@@ -54,7 +54,7 @@ import logging
 import time
 
 from app.auth import require_user
-from app.gym import builder, coach, importer, service, store, templates, tidy
+from app.gym import builder, coach, importer, service, store, templates, tidy, watch
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
@@ -129,6 +129,7 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "held": [service.summary(doc, s) for s in reversed(doc.sessions) if store.held(s) and not s.review],
         "muscles": coach.muscles(doc, today),
         "deload": coach.deload(doc, today, _low(h)),
+        "niggles": [n.model_dump() for n in coach.active_niggles(doc)],
         "readiness": {k: (h.get("readiness") or {}).get(k) for k in ("score", "band")} if h.get("readiness") else None,
     }
 
@@ -200,7 +201,8 @@ def exercise(exercise_id: str) -> dict[str, Any]:
     rows = service.history(doc, exercise_id)
     return {"exercise": ex, "records": service.records(rows), "last": rows[-1] if rows else None,
             "series": [{"date": r["date"], "e1rm": r["e1rm"], "best": r["best"].get("weight"), "volume": r["volume"], "reps": r["reps"]} for r in rows[-60:]],
-            "history": list(reversed(rows[-30:]))}
+            "history": list(reversed(rows[-30:])), "fitness": watch.fitness(doc, exercise_id),
+            "videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True) if v.exercise == exercise_id]}
 
 
 @router.get("/templates")
@@ -262,7 +264,7 @@ def delete_routine(routine_id: str) -> dict[str, Any]:
 @router.get("/plan")
 async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13), gym: str | None = Query(default=None, max_length=40),
                hub: Hub = Depends(get_hub)) -> dict[str, Any]:
-    doc = store.load()
+    doc = await _refresh_effort(hub, store.load())
     h = await _health(hub)
     deloading = coach.deload(doc, tasks.today())["active"]
     r = next((x for x in doc.routines if x.id == routine), None)
@@ -274,14 +276,24 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
     out = []
     warmed: set[str] = set()
     for p in d.exercises:
+        spared = coach.spare(doc, p.exercise, gym)  # a sore spot (7.1): swap to something that spares it
+        if spared and spared["swap"]:
+            p = p.model_copy(update={"exercise": spared["swap"]})
         sets, sug = coach.adjust(p, service.suggest(doc, p, gym), doc, h.get("readiness"), deloading)
         ex = names.get(p.exercise, {})
+        learned = watch.rest(doc, p.exercise, p.rest_s)  # the rest your heart rate needs (7.1)
+        extra: dict[str, Any] = {}
+        if spared:
+            extra["niggle"] = {**spared, "from": d.exercises[len(out)].exercise if spared["swap"] else None}
+        if learned:
+            extra["rest_learned"] = learned
         # Warm up for the first exercise that works each main muscle (6.7).
         warm = service.warmups(doc, p.exercise, sug.get("weight"), gym) if ex.get("primary") not in warmed else []
         if warm:
             warmed.add(ex.get("primary", ""))
         out.append({**p.model_dump(), "sets": sets, "name": ex.get("name", p.exercise), "kind": ex.get("kind", "weight"), "equipment": ex.get("equipment"),
-                    "last": service.last(doc, p.exercise), "suggest": sug, "warmups": warm})
+                    "last": service.last(doc, p.exercise), "suggest": sug, "warmups": warm, **extra,
+                    **({"rest_s": learned["seconds"]} if learned else {})})
     band = (h.get("readiness") or {}).get("band")
     return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out, "deload": deloading,
             "readiness": {"score": (h.get("readiness") or {}).get("score"), "band": band} if band else None}
@@ -320,6 +332,9 @@ async def _send_day(hub: Hub, doc: store.GymDoc, day: str) -> None:
 @router.post("/sessions")
 async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     doc = store.load()
+    was = next((s for s in doc.sessions if s.id == body.id), None)
+    if was and was.effort and not body.effort:
+        body.effort = was.effort  # the Watch's verdict is kept on the server; the phone doesn't send it back
     doc.sessions = [s for s in doc.sessions if s.id != body.id]
     if not body.ended_at:
         body.ended_at = store.now()
@@ -657,4 +672,162 @@ async def session_effort(session_id: str, hub: Hub = Depends(get_hub)) -> dict[s
     if not body.get("linked") and "hasn't had this workout" in str(body.get("why")):
         await _send_session(hub, doc, s)  # sent again (it may have been saved offline, or before SirisAI was updated)
         body = await sirisai_api.get(hub, f"/siris/health/gym/session/{session_id}/analysis", timeout=15.0) or body
+    if watch.keep(s, body):
+        store.save(doc)
     return body
+
+
+_TRIED: dict[str, float] = {}
+
+
+async def _refresh_effort(hub: Hub, doc: store.GymDoc) -> store.GymDoc:
+    """Ask SirisAI about recent workouts it hasn't given a verdict on (7.1), at most
+    every half hour each, so what to lift and the rest timer use the Watch."""
+    changed = False
+    for s in watch.pending(doc, tasks.today().isoformat()):
+        if time.monotonic() - _TRIED.get(s.id, -1e9) < 1800:
+            continue
+        _TRIED[s.id] = time.monotonic()
+        try:
+            body = await sirisai_api.get(hub, f"/siris/health/gym/session/{s.id}/analysis", timeout=6.0)
+        except Exception:  # noqa: BLE001
+            body = None
+        if body and watch.keep(s, body):
+            changed = True
+    if changed:
+        store.save(doc)
+    return doc
+
+
+@router.post("/effort/refresh")
+async def refresh_effort(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    doc = await _refresh_effort(hub, store.load())
+    return {"waiting": len(watch.pending(doc, tasks.today().isoformat()))}
+
+
+# -- 7.1: niggles, form videos, backups and export --
+
+class NiggleRequest(BaseModel):
+    area: Literal["shoulder", "elbow", "wrist", "lower back", "knee"]
+    note: str = Field(default="", max_length=200)
+
+
+@router.get("/niggles")
+def niggles() -> dict[str, Any]:
+    doc = store.load()
+    return {"niggles": [n.model_dump() for n in reversed(doc.niggles)], "areas": store.AREAS}
+
+
+@router.post("/niggles")
+def add_niggle(body: NiggleRequest) -> dict[str, Any]:
+    doc = store.load()
+    n = next((x for x in doc.niggles if x.area == body.area and not x.healed), None)
+    if n:
+        n.note = body.note or n.note
+    else:
+        n = store.Niggle(area=body.area, note=body.note, started=tasks.today().isoformat())
+        doc.niggles.append(n)
+    store.save(doc)
+    return n.model_dump()
+
+
+@router.post("/niggles/{niggle_id}/healed")
+def heal_niggle(niggle_id: str) -> dict[str, Any]:
+    doc = store.load()
+    n = next((x for x in doc.niggles if x.id == niggle_id), None)
+    if n is None:
+        raise _missing("niggle")
+    n.healed = tasks.today().isoformat()
+    store.save(doc)
+    return n.model_dump()
+
+
+VIDEO_TYPES = {"video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm", "video/x-m4v": "m4v"}
+VIDEO_MAX = 300 * 1024 * 1024
+
+
+@router.post("/videos")
+async def add_video(file: UploadFile = File(...), exercise: str = Form(..., max_length=60), session: str | None = Form(None),
+                    set: int | None = Form(None), weight: float | None = Form(None), reps: int | None = Form(None),
+                    note: str = Form("", max_length=200), date: str | None = Form(None)) -> dict[str, Any]:
+    ext = VIDEO_TYPES.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(status_code=415, detail="Send an MP4, MOV or WebM video.")
+    v = store.Video(date=date or tasks.today().isoformat(), exercise=exercise, session=session, set=set, weight=weight, reps=reps,
+                    note=note, file="", type=file.content_type or "video/mp4")
+    v.file = f"{v.id}.{ext}"
+    path = store.video_dir() / v.file
+    size = 0
+    with path.open("wb") as out:
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > VIDEO_MAX:
+                out.close()
+                path.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="That video is over 300 MB: trim it to the set.")
+            out.write(chunk)
+    doc = store.load()
+    doc.videos.append(v)
+    store.save(doc)
+    return v.model_dump(exclude={"file"})
+
+
+@router.get("/videos")
+def videos(exercise: str | None = Query(default=None, max_length=60)) -> dict[str, Any]:
+    doc = store.load()
+    return {"videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True)
+                       if exercise is None or v.exercise == exercise]}
+
+
+@router.get("/videos/{video_id}")
+def get_video(video_id: str) -> FileResponse:
+    v = next((x for x in store.load().videos if x.id == video_id), None)
+    path = store.video_dir() / v.file if v else None
+    if path is None or not path.exists():
+        raise _missing("video")
+    return FileResponse(path, media_type=v.type)
+
+
+@router.delete("/videos/{video_id}")
+def delete_video(video_id: str) -> dict[str, Any]:
+    doc = store.load()
+    v = next((x for x in doc.videos if x.id == video_id), None)
+    if v is None:
+        raise _missing("video")
+    (store.video_dir() / v.file).unlink(missing_ok=True)
+    doc.videos = [x for x in doc.videos if x.id != video_id]
+    store.save(doc)
+    return {"deleted": video_id}
+
+
+@router.get("/backups")
+def list_backups() -> dict[str, Any]:
+    return {"backups": store.backups()}
+
+
+class RestoreRequest(BaseModel):
+    name: str = Field(max_length=80)
+
+
+@router.post("/backups/restore")
+def restore_backup(body: RestoreRequest) -> dict[str, Any]:
+    if body.name not in {b["name"] for b in store.backups()}:
+        raise _missing("backup")
+    try:
+        return store.restore(body.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/export.csv")
+def export_csv() -> Response:
+    """Every set ever logged, one row each, in kg, km and seconds (7.1)."""
+    return Response(service.to_csv(store.load()), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="sirisgym-{tasks.today().isoformat()}.csv"'})
+
+
+@router.get("/export.json")
+def export_json() -> Response:
+    doc = store.load()
+    return Response(doc.model_dump_json(indent=1), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="sirisgym-{tasks.today().isoformat()}.json"'})

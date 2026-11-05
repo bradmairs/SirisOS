@@ -980,6 +980,8 @@ h3.note__heading { font-size: 17px; }
 .gym-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .gym-compare figure { margin: 0; display: grid; gap: 6px; }
 .gym-compare img, .gym-photo-one { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; }
+.gym-compare video { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; background: #000; border-radius: 12px; }
+.gym-fitness svg { vertical-align: -2px; }
 .gym-photo-one { max-width: 240px; }
 .gym-voice { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .health-import { margin: 12px 0 0; padding: 10px 14px; border-radius: 14px; font-size: 14px; background: color-mix(in srgb, var(--warning, #fbbf24) 14%, transparent); }

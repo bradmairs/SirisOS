@@ -172,6 +172,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.96: SirisGym: set times lined up with the Watch's heart rate (effort per exercise, from SirisAI 4.28); JEFIT times in local time, old imports moved to their day
 6.97: SirisGym on the tab bar from 6 to 8 am
 7.0: Live-test batch: imports keep every set, impossible days held for checking, real workout names, merge duplicates, Last column, Finish warning, morning card, weekly coach, effort advice; lighter tab dot and saved data first; SirisAI-quiet alert, daily self-test, test mode
+7.1: SirisGym: the Watch steers what to lift and the rest timer, fitter at the same weight, niggles, cardio, form videos, backups and export
 
 ## Terminal (ADR 113)
 
