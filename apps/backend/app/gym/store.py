@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.services import json_store
 
@@ -88,6 +88,13 @@ class PlanExercise(BaseModel):
 class RoutineDay(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     exercises: list[PlanExercise] = Field(default_factory=list, max_length=20)
+    # Days of the week this is done on (6.94): 0 = Monday ... 6 = Sunday. Empty: in turn, after the last one done.
+    weekdays: list[int] = Field(default_factory=list, max_length=7)
+
+    @field_validator("weekdays")
+    @classmethod
+    def _weekdays(cls, v: list[int]) -> list[int]:
+        return sorted({d for d in v if 0 <= d <= 6})
 
 
 class Routine(BaseModel):

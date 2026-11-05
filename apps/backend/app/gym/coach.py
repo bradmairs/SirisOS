@@ -1,4 +1,4 @@
-"""SirisGYM's smarter training (6.8): weekly sets per muscle against a target,
+"""SirisGym's smarter training (6.8): weekly sets per muscle against a target,
 when to deload, today's readiness in the plan, strength against bodyweight,
 the year in review, and the Apple Watch workout that matches a session.
 
@@ -245,9 +245,11 @@ def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
     active = next((r for r in doc.routines if r.active), None)
     nxt = None
     if active and active.days:
-        i = service.next_day(doc, active.id)
+        i = service.next_day(doc, active.id, today)
         d = active.days[i]
-        nxt = {"routine": active.name, "day": d.name, "exercises": [
+        sched = service.schedule(doc, active.id, today)
+        rest = bool(sched and sched["rest"])
+        nxt = {"routine": active.name, "rest_day": rest, "on": (sched["next"]["weekday"] if rest and sched["next"] else "today") if sched else None, "day": d.name, "exercises": [
             {"name": names.get(p.exercise, {}).get("name", p.exercise), "sets": p.sets, "reps": p.reps, **{k: v for k, v in service.suggest(doc, p).items() if k in ("weight", "why")}}
             for p in d.exercises]}
     return {"today": today.isoformat(), "total_sessions": len(doc.sessions), "streak_weeks": service.streak(doc, today), "recent": recent,
@@ -264,7 +266,7 @@ def as_workouts(doc: GymDoc, day: str) -> dict[str, Any]:
         if t is None or t.date().isoformat() != day:
             continue
         summ = service.summary(doc, s)
-        items.append({"name": f"SirisGYM: {s.title}"[:60], "start": t.strftime("%Y-%m-%d %H:%M:%S %z"), "minutes": summ["minutes"] or 45,
+        items.append({"name": f"SirisGym: {s.title}"[:60], "start": t.strftime("%Y-%m-%d %H:%M:%S %z"), "minutes": summ["minutes"] or 45,
                       "km": None, "kcal": None, "avg_hr": None, "max_hr": None})
     return {"metrics": {day: {}}, "workouts": {day: items}}
 
@@ -336,7 +338,11 @@ def today_for_brief(doc: GymDoc, today: date, readiness: dict[str, Any] | None) 
         return None
     if any(service.day_of(s.started_at) == today.isoformat() for s in doc.sessions):
         return {"done": True, "title": f"{active.name}: done today"}
-    i = service.next_day(doc, active.id)
+    sched = service.schedule(doc, active.id, today)
+    if sched and sched["rest"]:
+        n = sched["next"]
+        return {"done": False, "rest": True, "title": f"{active.name}: rest day" + (f", {active.days[n['day']].name} on {n['weekday']}" if n else "")}
+    i = service.next_day(doc, active.id, today)
     d = active.days[i]
     names = service.exercises(doc)
     deloading = deload(doc, today)["active"]

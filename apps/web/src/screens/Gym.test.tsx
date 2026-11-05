@@ -40,7 +40,7 @@ describe("<GymScreen />", () => {
   });
 });
 
-describe("SirisGYM 6.7", () => {
+describe("SirisGym 6.7", () => {
   it("starts at the chosen gym with warm-ups and per-set weights, and keeps supersets", async () => {
     signIn();
     const plan = { routine: "r1", day: 0, title: "Push", gym: "work", exercises: [
@@ -52,7 +52,7 @@ describe("SirisGYM 6.7", () => {
     render(<MemoryRouter><GymScreen /></MemoryRouter>);
     await user.click(await screen.findByRole("radio", { name: "Work gym" }));
     await user.click(screen.getByRole("button", { name: "Start Push" }));
-    expect(calls.some((c) => c.url.includes("/api/v1/gym/plan?routine=r1&gym=work"))).toBe(true);
+    expect(calls.some((c) => c.url.includes("/api/v1/gym/plan?routine=r1&day=0&gym=work"))).toBe(true);
     const s = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
     expect(s.gym).toBe("work");
     expect(s.entries[0].group).toBe("A");
@@ -97,7 +97,7 @@ describe("SirisGYM 6.7", () => {
   });
 });
 
-describe("SirisGYM 6.8", () => {
+describe("SirisGym 6.8", () => {
   it("shows today's readiness, offers a deload, and the week's sets against targets", async () => {
     signIn();
     const g = { ...GYM, readiness: { score: 38, band: "Recover" }, deload: { active: false, until: null, suggest: true, why: ["bench Press has stalled for three sessions"] },
@@ -133,7 +133,7 @@ describe("SirisGYM 6.8", () => {
   });
 });
 
-describe("SirisGYM 6.9", () => {
+describe("SirisGym 6.9", () => {
   it("drafts a programme from a goal into the routine editor", async () => {
     signIn();
     const routine = { id: "", name: "Muscle, 4 days", active: false, note: "", days: [{ name: "Upper 1", exercises: [{ exercise: "bench-press", sets: 3, reps: "6-10", rest_s: 120 }] }] };
@@ -198,18 +198,18 @@ describe("SirisGYM 6.9", () => {
   });
 });
 
-describe("SirisGYM 6.92: Shortcuts", () => {
+describe("SirisGym 6.92: Shortcuts", () => {
   it("runs the start Shortcut on iPhone and comes back to the workout", async () => {
     signIn();
     const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
     const opened: string[] = [];
     const open = vi.spyOn(shortcuts, "open").mockImplementation((u: string) => { opened.push(u); });
     const plan = { routine: "r1", day: 0, title: "Push", exercises: [] };
-    mockFetch({ "/api/v1/gym/plan": () => jsonResponse(plan), "/api/v1/gym": () => jsonResponse({ ...GYM, settings: { ...GYM.settings, shortcut_start: "SirisGYM Start" } }) });
+    mockFetch({ "/api/v1/gym/plan": () => jsonResponse(plan), "/api/v1/gym": () => jsonResponse({ ...GYM, settings: { ...GYM.settings, shortcut_start: "SirisGym Start" } }) });
     const user = userEvent.setup();
     render(<MemoryRouter><GymScreen /></MemoryRouter>);
     await user.click(await screen.findByRole("button", { name: "Start Push" }));
-    expect(opened[0]).toBe(`shortcuts://x-callback-url/run-shortcut?name=SirisGYM%20Start&x-success=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`
+    expect(opened[0]).toBe(`shortcuts://x-callback-url/run-shortcut?name=SirisGym%20Start&x-success=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`
       + `&x-cancel=${encodeURIComponent(`${window.location.origin}/gym/workout`)}&x-error=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`);
     expect(window.localStorage.getItem("sirisos.gym.active")).not.toBeNull();
     open.mockRestore(); ua.mockRestore();
@@ -217,14 +217,14 @@ describe("SirisGYM 6.92: Shortcuts", () => {
 
   it("does nothing off iPhone or without a name", () => {
     const open = vi.spyOn(shortcuts, "open").mockImplementation(() => {});
-    expect(shortcuts.run("SirisGYM Start", "/gym/workout")).toBe(false);  // jsdom isn't an iPhone
+    expect(shortcuts.run("SirisGym Start", "/gym/workout")).toBe(false);  // jsdom isn't an iPhone
     expect(shortcuts.run("", "/gym/workout")).toBe(false);
     expect(open).not.toHaveBeenCalled();
     open.mockRestore();
   });
 });
 
-describe("SirisGYM 6.93", () => {
+describe("SirisGym 6.93", () => {
   it("swaps an exercise mid-workout for the same movement", async () => {
     signIn();
     saveActive({ id: "w5", title: "Push", started_at: new Date().toISOString(), entries: [{ exercise: "bench-press", sets: [{ weight: 80, reps: null, done: false, type: "normal" }] }] });
@@ -261,6 +261,30 @@ describe("SirisGYM 6.93", () => {
   });
 });
 
+describe("SirisGym 6.94: weekdays", () => {
+  it("shows the week, says when today's a rest day, and sets a day's weekdays", async () => {
+    signIn();
+    const week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((w, i) => ({ weekday: w, day: i === 0 || i === 3 ? 0 : null, name: i === 0 || i === 3 ? "Push" : null }));
+    const g = { ...GYM, routines: [{ ...GYM.routines[0], days: [{ ...GYM.routines[0].days[0], weekdays: [0, 3] }] }],
+      active: { routine: "r1", next_day: 0, schedule: { today: null, rest: true, next: { day: 0, date: "2026-11-09", weekday: "Monday" }, week } } };
+    const calls = mockFetch({ "/api/v1/gym/routines/r1": (_u, init) => jsonResponse(JSON.parse(String(init?.body))), "/api/v1/gym/templates": () => jsonResponse({ templates: [] }), "/api/v1/gym": () => jsonResponse(g) });
+    const user = userEvent.setup();
+    const { unmount } = render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    expect(await screen.findByText(/Rest day: next is Push on Monday/)).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "This week's days" })).getAllByText("Push")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Do Push today" })).toBeInTheDocument();
+    unmount();
+    render(<MemoryRouter initialEntries={["/gym?view=routines"]}><GymScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: /Push, pull, legs/ }));
+    const days = screen.getByRole("group", { name: "Days for Push" });
+    expect(within(days).getByRole("button", { name: "Mon" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(days).getByRole("button", { name: "Sat" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/routines/r1")!.init.body));
+    expect(sent.days[0].weekdays).toEqual([0, 3, 5]);
+  });
+});
+
 describe("Import from JEFIT (6.6)", () => {
   it("previews an export, lets you change a match, then imports with your choices", async () => {
     signIn();
@@ -275,7 +299,7 @@ describe("Import from JEFIT (6.6)", () => {
     });
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/gym?view=history"]}><GymScreen /></MemoryRouter>);
-    expect(await screen.findByRole("heading", { name: "SirisGYM" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "SirisGym" })).toBeInTheDocument();
     await user.upload(await screen.findByLabelText("Export file"), new File(["mydate,ename,logs"], "jefit.csv", { type: "text/csv" }));
     expect(await screen.findByText("310 workouts, 1,200 sets")).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "Exercises to match" });

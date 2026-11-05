@@ -43,7 +43,7 @@ export interface Brief {
   energy?: import("./health").Energy | null;
   /** Today's training session, and why it changed (6.1). */
   training?: { title: string; kind: string; km: number | null; changed: boolean; why: string | null; level: string | null } | null;
-  /** SirisGYM's day (6.93): the next routine day with what to lift. */
+  /** SirisGym's day (6.93): the next routine day with what to lift. */
   gym?: { done: boolean; title: string; lifts?: { name: string; sets: number; reps: string; weight: number | null }[]; more?: number; note?: string | null; days_since?: number | null } | null;
   home: string[];
   apps_attention: { name: string; state: string; detail: string }[];

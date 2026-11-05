@@ -89,7 +89,8 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "settings": doc.settings.model_dump(),
         "exercises": sorted(service.exercises(doc).values(), key=lambda e: e["name"]),
         "routines": [r.model_dump() for r in doc.routines],
-        "active": {"routine": active.id, "next_day": service.next_day(doc, active.id)} if active else None,
+        "active": {"routine": active.id, "next_day": service.next_day(doc, active.id, today),
+                   "schedule": service.schedule(doc, active.id, today)} if active else None,
         "recent": [service.summary(doc, s) for s in reversed(doc.sessions[-10:])],
         "week": service.week(doc, today),
         "streak_weeks": service.streak(doc, today),
@@ -235,7 +236,7 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
     r = next((x for x in doc.routines if x.id == routine), None)
     if r is None or not r.days:
         raise _missing("routine")
-    i = service.next_day(doc, r.id) if day is None else min(day, len(r.days) - 1)
+    i = service.next_day(doc, r.id, tasks.today()) if day is None else min(day, len(r.days) - 1)
     d = r.days[i]
     names = service.exercises(doc)
     out = []
@@ -514,7 +515,7 @@ async def schedule(body: ScheduleRequest, hub: Hub = Depends(get_hub)) -> dict[s
     if slot is None:
         return {"slot": None, "detail": f"No free {body.minutes} minutes on {day.isoformat()} between 6am and 9pm."}
     active = next((r for r in doc.routines if r.active), None)
-    title = body.title or (f"Gym: {active.days[service.next_day(doc, active.id)].name}" if active and active.days else "Gym")
+    title = body.title or (f"Gym: {active.days[service.next_day(doc, active.id, day)].name}" if active and active.days else "Gym")
     out = {"slot": {"start": slot[0].isoformat(timespec="minutes"), "end": slot[1].isoformat(timespec="minutes")}, "title": title}
     if body.dry_run:
         return out

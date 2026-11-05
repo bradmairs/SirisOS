@@ -529,7 +529,7 @@ function LogView({ h, onChange }: { h: Health; onChange: () => void }) {
 
 /** Your data (5.8): years of history from the Health app, export, a summary for a doctor, and deleting a range. */
 const SOURCE_NAME: Record<string, string> = { health_auto_export: "Health Auto Export", apple_export: "Apple Health export", shortcut: "Shortcut",
-  sirisos: "SirisOS (before 5.8)", manual: "typed in", sirisgym: "SirisGYM" };
+  sirisos: "SirisOS (before 5.8)", manual: "typed in", sirisgym: "SirisGym" };
 
 /** Where the numbers come from (6.93): each metric on a day, every source's value, and which one counts. */
 function SourcesCard({ today }: { today: string }) {

@@ -7,7 +7,9 @@ export interface EntryLog { exercise: string; sets: SetLog[]; note?: string; gro
 export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean }
 export type Progression = "double" | "linear" | "percent";
 export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string; group?: string | null; progression?: Progression; percents?: number[] }
-export interface RoutineDay { name: string; exercises: PlanExercise[] }
+/** `weekdays`: 0 = Monday … 6 = Sunday (6.94); empty: in turn. */
+export interface RoutineDay { name: string; exercises: PlanExercise[]; weekdays?: number[] }
+export interface WeekSchedule { today: number | null; rest: boolean; next: { day: number; date: string; weekday: string } | null; week: { weekday: string; day: number | null; name: string | null }[] }
 export interface Routine { id: string; name: string; days: RoutineDay[]; note?: string; active: boolean }
 export interface GymProfile { id: string; name: string; bar: number; plates: number[]; dumbbells: number[]; stack_step?: number | null }
 export interface WarmupStep { percent: number; reps: number }
@@ -20,7 +22,7 @@ export interface Suggest { weight: number | null; reps: number; why: string; pus
 export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[] }
 export interface Gym {
-  settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number } | null;
+  settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number; schedule?: WeekSchedule | null } | null;
   recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number };
   streak_weeks: number; total_sessions: number;
   muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
@@ -48,7 +50,7 @@ export interface ImportPreview {
   sets: number; workouts: number; from: string | null; to: string | null; replacing: number;
   exercises: { name: string; sets: number; match: string | null; match_name: string | null; how: "exact" | "close" | "guess" | "none"; new_muscle: string }[];
 }
-/** What the weights in an import file are in; SirisGYM saves kilograms either way. */
+/** What the weights in an import file are in; SirisGym saves kilograms either way. */
 export type ImportUnit = "auto" | "kg" | "lb";
 
 export interface Measurement { id?: string; date: string; waist?: number | null; chest?: number | null; hips?: number | null; neck?: number | null;

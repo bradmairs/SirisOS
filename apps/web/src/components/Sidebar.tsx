@@ -19,7 +19,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/year", label: "Your year", Icon: ChartColumn, end: false, dock: false },
   { to: "/health", label: "Health", Icon: HeartPulse, end: false, dock: false },
   { to: "/training", label: "Training", Icon: Footprints, end: false, dock: false },
-  { to: "/gym", label: "SirisGYM", Icon: Dumbbell, end: false, dock: false },
+  { to: "/gym", label: "SirisGym", Icon: Dumbbell, end: false, dock: false },
   { to: "/assistant", label: "SirisAI", Icon: Sparkles, end: false },
   { to: "/brain", label: "Siris", Icon: Brain, end: false },
   { to: "/links", label: "Links", Icon: LayoutGrid, end: false },

@@ -83,6 +83,8 @@ SPLITS: dict[int, list[tuple[str, list[str]]]] = {
         ("Pull B", ["vpull", "hpull", "rear", "biceps", "core"]),
         ("Legs B", ["hinge", "squat", "single-leg", "calves", "core"])],
 }
+# Which weekdays each split lands on (6.94), spread for recovery; change any in the editor.
+WEEK: dict[int, list[int]] = {2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5]}
 DOSE: dict[str, dict[str, tuple[int, str, int]]] = {  # goal -> main / accessory: sets, reps, rest
     "strength": {"main": (4, "3-6", 180), "acc": (3, "6-10", 90)},
     "muscle": {"main": (3, "6-10", 120), "acc": (3, "10-15", 60)},
@@ -168,7 +170,7 @@ def build(req: BuildRequest) -> dict[str, Any]:
                                       progression=progression))
         while len(picks) > 3 and _minutes(picks) > minutes:
             picks.pop()
-        out_days.append(RoutineDay(name=name, exercises=picks))
+        out_days.append(RoutineDay(name=name, exercises=picks, weekdays=[WEEK[days][len(out_days)]]))
     labels = {"strength": "strength", "muscle": "muscle", "general": "general fitness"}
     note = (f"{days} days a week for {labels[goal]}, about {minutes} minutes, {'in a gym' if equipment == 'gym' else 'with ' + equipment}."
             + (f" Spares the {', '.join(avoid)}: no exercises that load {'it' if len(avoid) == 1 else 'them'} hard; stop anything that hurts." if avoid else ""))

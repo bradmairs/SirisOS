@@ -172,7 +172,7 @@ async def _training_today(hub: Any) -> dict[str, Any] | None:
 
 
 def _gym_today(day: date, readiness: dict[str, Any] | None) -> dict[str, Any] | None:
-    """SirisGYM's day (6.93): the next routine day with what to lift, adjusted for readiness or a deload."""
+    """SirisGym's day (6.93): the next routine day with what to lift, adjusted for readiness or a deload."""
     from app.gym import coach, store as gym_store
 
     try:
