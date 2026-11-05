@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.hub.connectors.sirisai import SirisAIConnector
 from app.hub.guest import guest_mode, hide_personal
-from app.hub.service import Hub, get_hub, make_client, shared_client
+from app.hub.service import Hub, get_hub, make_client, shared_client, test_mode
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_user)])
 
@@ -27,7 +27,7 @@ async def list_apps(
 ) -> dict[str, Any]:
     apps = await hub.apps(fresh=fresh, with_widgets=widgets)
     guest = widgets and await guest_mode(hub)
-    return {"apps": hide_personal(apps) if guest else apps, "guest_mode": guest}
+    return {"apps": hide_personal(apps) if guest else apps, "guest_mode": guest, "test_mode": test_mode()}
 
 
 @router.get("/hub/upkeep", tags=["hub"])
@@ -497,6 +497,12 @@ async def delete_memory(memory_id: int, connector: SirisAIConnector = Depends(_s
     """Delete one of SirisAI's memories. There's no undo."""
     await _forward(connector, "DELETE", f"/siris/memory/{memory_id}")
     return Response(status_code=204)
+
+
+@router.get("/brain/inbox/count", tags=["brain"])
+async def brain_inbox_count(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """How many notes wait in the brain's inbox: all the tab bar's dot needs, without working out the insights."""
+    return await _forward(connector, "GET", "/siris/brain/inbox/count")
 
 
 @router.get("/brain/insights", tags=["brain"])

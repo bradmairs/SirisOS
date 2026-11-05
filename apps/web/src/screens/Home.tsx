@@ -16,6 +16,7 @@ import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
 import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { FocusCard } from "./FocusCard";
+import { MorningGymCard } from "./GymCards";
 import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
 import { HomeJobsWidget } from "./Maintenance";
 import { TodaysRunWidget } from "./Training";
@@ -45,6 +46,7 @@ export function useApps(_widgets = true) {
     apps: data?.apps ?? null,
     // SirisAI's guest mode (ADR 110): personal widgets are already left out by the hub.
     guest: !!data?.guest_mode,
+    testMode: !!data?.test_mode,
     error: data ? null : error,
     /** Showing the last good list because the latest refresh failed. */
     stale: !!data && !!error,
@@ -147,7 +149,7 @@ export function AppGrid({ apps, onOpen, layout = "grid" }: { apps: HubApp[]; onO
 }
 
 export function Home() {
-  const { apps, guest, error, stale, refreshing, reload } = useApps(true);
+  const { apps, guest, testMode, error, stale, refreshing, reload } = useApps(true);
   const online = useOnline();
   const { hud, loading: hudLoading } = useHud();
   const { widgets: siris, loading: sirisLoading, reload: reloadSiris } = useSirisWidgets();
@@ -276,6 +278,7 @@ export function Home() {
         </section>
       )}
 
+      {testMode && <p className="guest-banner" role="status">Test mode: this copy reads live services but sends them nothing.</p>}
       {hideMine && (
         <p className="guest-banner" role="status">Guest mode is on: your calendar, email, health and notes are hidden.</p>
       )}
@@ -289,6 +292,7 @@ export function Home() {
         </p>
       )}
 
+      {adapt && !hideMine && <MorningGymCard />}
       {adapt && ctx && !hideMine && <FocusCard ctx={ctx} events={hud?.next_events} parcels={siris?.parcels?.length ?? 0} inbox={siris?.attention?.open ?? 0} />}
 
       {sections.map(({ title, slots }) =>

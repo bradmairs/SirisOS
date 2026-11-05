@@ -26,13 +26,28 @@ transport: httpx.AsyncBaseTransport | None = None
 STALE_FOR_SECONDS = 300.0
 
 
+def test_mode() -> bool:
+    """A copy of SirisOS being tried out (7.0): SIRISOS_TEST_MODE=1 lets it read live services but send them nothing."""
+    return os.getenv("SIRISOS_TEST_MODE", "").lower() in ("1", "true", "yes", "on")
+
+
+class TestModeBlocked(httpx.TransportError):
+    """Raised instead of sending. It's an httpx error, so every caller treats it as the service not answering."""
+
+
+async def _test_mode_guard(request: httpx.Request) -> None:
+    if test_mode() and request.method not in ("GET", "HEAD", "OPTIONS") and request.url.host not in ("localhost", "127.0.0.1", "::1"):
+        logger.info("Test mode: not sending %s %s", request.method, request.url.host)
+        raise TestModeBlocked(f"Test mode: {request.method} to {request.url.host} not sent", request=request)
+
+
 def _verify() -> bool:
     return os.getenv("SIRISOS_HUB_VERIFY_SSL", "true").lower() not in ("0", "false", "no")
 
 
 def make_client(timeout: float | httpx.Timeout = 6.0) -> httpx.AsyncClient:
     """A dedicated client, for callers that own its lifetime (e.g. a long SSE relay)."""
-    return httpx.AsyncClient(timeout=timeout, transport=transport, verify=_verify(), follow_redirects=False)
+    return httpx.AsyncClient(timeout=timeout, transport=transport, verify=_verify(), follow_redirects=False, event_hooks={"request": [_test_mode_guard]})
 
 
 _shared: tuple[Any, Any, httpx.AsyncClient] | None = None
@@ -50,6 +65,7 @@ def shared_client() -> httpx.AsyncClient:
             verify=_verify(),
             follow_redirects=False,
             limits=httpx.Limits(max_connections=40, max_keepalive_connections=20, keepalive_expiry=60),
+            event_hooks={"request": [_test_mode_guard]},
         )
         _shared = (loop, transport, client)
     return _shared[2]

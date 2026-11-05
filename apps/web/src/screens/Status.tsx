@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Activity, HardDrive, RefreshCw } from "lucide-react";
 import { useResource } from "../api/resource";
-import { systemStatus, type AppHealth } from "../api/status";
+import { selfTest, systemStatus, type AppHealth } from "../api/status";
 import { fitness } from "../api/fitness";
 import { Glass } from "../components/Glass";
 import { AccessCheckCard } from "./AccessCheck";
@@ -21,6 +21,7 @@ const pct = (v: number | null) => (v == null ? "–" : `${v % 1 === 0 ? v : v.to
 /** Each app's health now and over the last day and week. */
 export function StatusScreen() {
   const { data, error, loading, reload } = useResource("hub:status", () => systemStatus.get(), { refreshMs: 60_000, persist: true });
+  const test = useResource("hub:selftest", () => selfTest.last(), { staleMs: 10 * 60_000, persist: true }).data?.last;
   useEffect(() => {
     document.title = "System status · SirisOS";
   }, []);
@@ -51,6 +52,7 @@ export function StatusScreen() {
       {data && (
         <p className="muted" style={{ margin: "14px 6px 0", fontSize: 13 }}>
           Checked every {data.sample_every_minutes} minutes, and whenever SirisOS is open. Seven days are kept.
+          {test && ` This morning's self-test: ${test.ok} fine, ${test.look.length} worth a look, ${test.broken.length} broken.`}
         </p>
       )}
     </>

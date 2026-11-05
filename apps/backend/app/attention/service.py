@@ -263,8 +263,13 @@ def push_items() -> list[dict[str, Any]]:
 
 async def os_items(hub: Hub) -> list[dict[str, Any]]:
     dismissed = set(_dismissed())
+    from app import selftest
+    from app.hub import watch
+
     apps = await hub.apps(with_widgets=True)
-    return [from_os(i) for i in own_items(apps) + backup_items() + push_items() if f"os:{i['key']}" not in dismissed]
+    silent = watch.items()
+    mine = [i for i in own_items(apps) if not (silent and i["key"].startswith("app:sirisai:"))]  # the one alert says it better
+    return [from_os(i) for i in mine + silent + backup_items() + push_items() + selftest.items() if f"os:{i['key']}" not in dismissed]
 
 
 async def inbox(hub: Hub) -> dict[str, Any]:

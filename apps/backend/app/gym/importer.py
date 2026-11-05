@@ -296,11 +296,11 @@ def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str
         ids.add(sid)
         t = first_time[d]
         start = t if (t.hour or t.minute) else t.replace(hour=7)
-        session = store.Session(
-            id=sid, title="Imported workout", started_at=start.replace(tzinfo=None).isoformat(timespec="seconds"), ended_at=None,
-            entries=[store.EntryLog(exercise=ex, sets=[store.SetLog(weight=round(s["weight"], 2) if s.get("weight") else None, reps=s.get("reps") or None, seconds=s.get("seconds"),
-                                                                   km=s.get("km"), done=True) for s in sets][:40]) for ex, sets in entries.items()][:40],
-            note="Imported")
+        logged = [store.EntryLog(exercise=ex, sets=[store.SetLog(weight=round(s["weight"], 2) if s.get("weight") else None, reps=s.get("reps") or None, seconds=s.get("seconds"),
+                                                                 km=s.get("km"), done=True) for s in sets]) for ex, sets in entries.items()]
+        was = next((x for x in doc.sessions if x.id == sid), None)
+        session = store.Session(id=sid, title=service.trained_title(doc, logged), started_at=start.replace(tzinfo=None).isoformat(timespec="seconds"), ended_at=None,
+                                entries=logged, note="Imported", review=was.review if was else "")  # what you decided about the day stays
         doc.sessions = [x for x in doc.sessions if x.id != sid]
         doc.sessions.append(session)
     doc.sessions.sort(key=lambda x: x.started_at)

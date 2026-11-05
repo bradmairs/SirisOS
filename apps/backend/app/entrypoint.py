@@ -117,6 +117,13 @@ async def lifespan(application):
 
         if power.enabled():
             tasks.append(asyncio.create_task(power.loop(get_hub)))
+        from app import selftest
+        from app.hub import watch
+
+        if watch.enabled():
+            tasks.append(asyncio.create_task(watch.loop(get_hub)))
+        if selftest.enabled():
+            tasks.append(asyncio.create_task(selftest.loop()))
         try:
             yield state
         finally:

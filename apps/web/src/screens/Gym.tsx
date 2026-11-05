@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, newId, saveActive, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Progression, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, newId, saveActive, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
+import { GymCoachCard } from "./GymCards";
 
 /** SirisGym (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
 const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "progress", label: "Progress" }, { id: "exercises", label: "Exercises" },
@@ -20,6 +21,15 @@ export function useGym() {
   return useResource<Gym>("gym", () => gym.get(), { staleMs: 30_000, persist: true });
 }
 
+/** The reps a set starts with: last time's at the same weight, or the bottom of the range. Never the top: ticking
+ * through without changing it would log reps you didn't do, and the plan would add weight because of them. */
+function startingReps(e: Plan["exercises"][number], i: number, weight: number | null): number | null {
+  if (e.kind !== "weight" && e.kind !== "bodyweight") return null;
+  const before = e.last[i];
+  if (before?.reps && (before.weight ?? null) === weight) return before.reps;
+  return Number(e.reps.split("-")[0]) || null;
+}
+
 /** Start a workout: from a routine day (with last time, what to lift and warm-ups), or empty. */
 export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string, shortcut?: string) {
   const now = new Date().toISOString();
@@ -31,7 +41,10 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
       group: e.group ?? null,
       sets: [
         ...(e.warmups ?? []).map((w) => ({ weight: w.weight, reps: w.reps, done: false, type: "warmup" as const })),
-        ...Array.from({ length: e.sets }, (_, i) => ({ weight: e.suggest.per_set?.[i] ?? e.suggest.weight ?? e.last[i]?.weight ?? null, reps: null, done: false, type: "normal" as const })),
+        ...Array.from({ length: e.sets }, (_, i) => {
+          const weight = e.suggest.per_set?.[i] ?? e.suggest.weight ?? e.last[i]?.weight ?? null;
+          return { weight, reps: startingReps(e, i, weight), done: false, type: "normal" as const };
+        }),
       ],
     })) };
     try { window.sessionStorage.setItem(`sirisos.gym.plan.${s.id}`, JSON.stringify(p)); } catch { /* fine */ }
@@ -238,9 +251,41 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
           </ul>
         )}
       </Glass>
+      <GymCoachCard />
       <FuelAndTimeCard />
+      {(g.held ?? []).length > 0 && <HeldCard g={g} onChange={onChange} />}
       {g.recent.length > 0 && <RecentList g={g} />}
     </>
+  );
+}
+
+/** Imported days too big to be one workout (7.0): nothing's deleted, and they count once you say so. */
+function HeldCard({ g, onChange }: { g: Gym; onChange: () => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const decide = async (id: string, verdict: "real" | "wrong") => {
+    setBusy(id);
+    try { await gym.review(id, verdict); onChange(); } finally { setBusy(null); }
+  };
+  const held = g.held ?? [];
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Imported days to check">
+      <header className="widget__head"><Activity aria-hidden="true" /><span>{held.length} imported day{held.length === 1 ? "" : "s"} to check</span></header>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>Each is too big to be one workout, so an export probably put a lot of logs on one date. They're left out of your records, streak and coach until you decide. Nothing's deleted.</p>
+      <ul className="items">
+        {held.map((s) => (
+          <li key={s.id} className="item">
+            <button type="button" className="item__text house__pick" onClick={() => setOpen(s.id)}>
+              <span className="item__title" style={{ whiteSpace: "normal" }}>{fmtDay(s.date)}, {s.date.slice(0, 4)}: {s.title}</span>
+              <span className="item__subtitle" style={{ whiteSpace: "normal" }}>{s.sets.toLocaleString()} sets · {Math.round(s.volume).toLocaleString()} {g.settings.unit}</span>
+            </button>
+            <button type="button" className="chip chip--button" disabled={busy === s.id} onClick={() => decide(s.id, "real")}>It happened</button>
+            <button type="button" className="chip chip--button" disabled={busy === s.id} onClick={() => decide(s.id, "wrong")}>Leave out</button>
+          </li>
+        ))}
+      </ul>
+      {open && <SessionSheet id={open} unit={g.settings.unit} onClose={() => setOpen(null)} />}
+    </Glass>
   );
 }
 
@@ -256,7 +301,7 @@ function RecentList({ g, items }: { g: Gym; items?: Gym["recent"] }) {
           <li key={s.id} className="item">
             <button type="button" className="item__text house__pick" onClick={() => setOpen(s.id)}>
               <span className="item__title">{s.title}</span>
-              <span className="item__subtitle">{fmtDay(s.date)}{s.minutes ? ` · ${s.minutes} min` : ""} · {s.sets} sets · {Math.round(s.volume).toLocaleString()} {g.settings.unit}</span>
+              <span className="item__subtitle">{fmtDay(s.date)}{s.minutes ? ` · ${s.minutes} min` : ""} · {s.sets} sets · {Math.round(s.volume).toLocaleString()} {g.settings.unit}{s.held ? " · left out of your stats" : ""}</span>
             </button>
             <ChevronRight size={16} className="muted" aria-hidden="true" />
           </li>
@@ -283,6 +328,12 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
             </p>
           )}
           {s.deload && <p className="muted" style={{ margin: 0 }}>A deload session.</p>}
+          {s.id.startsWith("import-") && (s.summary.held || s.review === "real") && (
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span className="muted" style={{ fontSize: 13 }}>{s.summary.held ? "Left out of your records and stats." : "You said this one happened."}</span>
+              <button type="button" className="chip chip--button" onClick={async () => { await gym.review(id, s.summary.held ? "real" : "wrong"); window.location.reload(); }}>{s.summary.held ? "It happened" : "Leave it out"}</button>
+            </div>
+          )}
           {s.records.length > 0 && <ul className="items">{s.records.map((r) => <li key={r.text} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r.text}</span></span></li>)}</ul>}
           {s.entries.map((e) => (
             <div key={e.exercise}>
@@ -616,6 +667,8 @@ function ExercisesView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const [adding, setAdding] = useState(false);
   const shown = g.exercises.filter((e) => (!muscle || e.primary === muscle) && (!q || e.name.toLowerCase().includes(q.toLowerCase())));
   return (
+    <>
+    <DuplicatesCard onChange={onChange} />
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Exercises">
       <header className="widget__head"><Dumbbell aria-hidden="true" /><span>{g.exercises.length} exercises</span>
         <button type="button" className="widget__source icon-link" onClick={() => setAdding(true)}><Plus size={14} aria-hidden="true" /> Your own</button></header>
@@ -631,6 +684,43 @@ function ExercisesView({ g, onChange }: { g: Gym; onChange: () => void }) {
       </ul>
       {open && <ExerciseSheet id={open} unit={g.settings.unit} onClose={() => setOpen(null)} />}
       {adding && <NewExercise onClose={() => setAdding(false)} onSaved={() => { setAdding(false); onChange(); }} />}
+    </Glass>
+    </>
+  );
+}
+
+/** Exercises that look the same (7.0): merge one into the other, and its history comes along. A copy is saved first. */
+function DuplicatesCard({ onChange }: { onChange: () => void }) {
+  const res = useResource("gym:duplicates", () => gym.duplicates(), { staleMs: 60_000 });
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const found = res.data?.duplicates ?? [];
+  const merge = async (d: Duplicate) => {
+    if (!window.confirm(`Merge ${d.from_name} into ${d.into_name}? Its ${d.from_sets} sets move across and routines follow.`)) return;
+    setBusy(true);
+    try {
+      const r = await gym.merge(d.from, d.into);
+      setMsg(`${d.from_name} is now ${d.into_name}: ${r.sets_moved} sets from ${r.workouts} workouts moved.`);
+      await res.reload?.(true);
+      onChange();
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't merge them."); } finally { setBusy(false); }
+  };
+  if (!found.length && !msg) return null;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Duplicate exercises">
+      <header className="widget__head"><ListPlus aria-hidden="true" /><span>{found.length ? `${found.length} that look the same` : "Duplicate exercises"}</span></header>
+      <ul className="items">
+        {found.map((d) => (
+          <li key={d.from} className="item">
+            <span className="item__text">
+              <span className="item__title">{d.from_name}</span>
+              <span className="item__subtitle" style={{ whiteSpace: "normal" }}>{d.from_sets} sets, into {d.into_name} ({d.into_sets} sets){d.sure ? "" : ". Check these are the same"}</span>
+            </span>
+            <button type="button" className="chip chip--button" disabled={busy} onClick={() => merge(d)}>Merge</button>
+          </li>
+        ))}
+      </ul>
+      {msg && <p role="status" className="muted" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
     </Glass>
   );
 }
@@ -975,6 +1065,11 @@ function EffortCard({ id }: { id: string }) {
         </svg>
       )}
       {e.text && <p style={{ margin: 0, fontSize: 14 }}>{e.text}</p>}
+      {(e.advice ?? []).length > 0 && (
+        <ul className="gym-advice" aria-label="For next time">
+          {e.advice!.map((a) => <li key={a}>{a}</li>)}
+        </ul>
+      )}
       {(e.exercises ?? []).length > 0 && (
         <div style={{ overflowX: "auto" }}>
           <table className="health-sources">

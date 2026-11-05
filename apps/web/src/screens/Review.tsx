@@ -5,6 +5,7 @@ import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, TrendingUp, 
 import { useResource } from "../api/resource";
 import { review, type WeeklyReview } from "../api/review";
 import { Glass } from "../components/Glass";
+import { GymCoachCard } from "./GymCards";
 
 const dayName = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
 
@@ -16,7 +17,7 @@ function Metric({ value, label }: { value: string | number | null; label: string
 
 /** Sunday's look back and ahead (3.5). */
 export function ReviewScreen() {
-  const res = useResource<WeeklyReview>("review:week", () => review.get(), { staleMs: 60_000 });
+  const res = useResource<WeeklyReview>("review:week", () => review.get(), { staleMs: 60_000, persist: true });
   const data = res.data ?? null;
   const [focus, setFocus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -112,6 +113,7 @@ export function ReviewScreen() {
               </Glass>
             )}
 
+            <GymCoachCard />
             <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Next week">
               <header className="widget__head"><CalendarRange aria-hidden="true" /><span>Next week</span></header>
               {data.next_week.meetings !== null && <p className="muted" style={{ margin: 0, fontSize: 14 }}>{data.next_week.meetings} meetings.</p>}

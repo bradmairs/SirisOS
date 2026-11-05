@@ -37,7 +37,7 @@ from functools import lru_cache
 from typing import Any
 
 from app.gym import library
-from app.gym.store import GymDoc, PlanExercise, Session, SetLog
+from app.gym.store import EntryLog, GymDoc, PlanExercise, Session, SetLog, counted, held
 
 REP_MAXES = (1, 3, 5, 10)
 
@@ -77,7 +77,7 @@ def day_of(stamp: str) -> str:
 def history(doc: GymDoc, exercise: str) -> list[dict[str, Any]]:
     """Each session the exercise was in, oldest first."""
     out = []
-    for s in doc.sessions:
+    for s in counted(doc):
         for e in s.entries:
             if e.exercise != exercise or not working(e.sets):
                 continue
@@ -121,7 +121,7 @@ def new_records(doc: GymDoc, session: Session) -> list[dict[str, Any]]:
     """The records this session set, against every session before it. A deload session sets none (6.8)."""
     if session.deload:
         return []
-    before = GymDoc(sessions=[s for s in doc.sessions if s.started_at < session.started_at and s.id != session.id])
+    before = GymDoc(sessions=[s for s in counted(doc) if s.started_at < session.started_at and s.id != session.id])
     names = exercises(doc)
     found = []
     for e in session.entries:
@@ -257,7 +257,7 @@ def heatmap(doc: GymDoc, today: date, days: int = 371) -> list[dict[str, Any]]:
     since = (today - timedelta(days=days)).isoformat()
     names = exercises(doc)
     out: dict[str, dict[str, Any]] = {}
-    for s in doc.sessions:
+    for s in counted(doc):
         d = _day(s.started_at)
         if d < since:
             continue
@@ -290,7 +290,7 @@ def week(doc: GymDoc, today: date) -> dict[str, Any]:
     start = (today - timedelta(days=today.weekday())).isoformat()
     names = exercises(doc)
     by_muscle: dict[str, float] = defaultdict(float)
-    sessions = [s for s in doc.sessions if _day(s.started_at) >= start]
+    sessions = [s for s in counted(doc) if _day(s.started_at) >= start]
     for s in sessions:
         for e in s.entries:
             n = len(working(e.sets))
@@ -306,7 +306,7 @@ def week(doc: GymDoc, today: date) -> dict[str, Any]:
 
 def streak(doc: GymDoc, today: date) -> int:
     """Weeks in a row (this one or last counting) with at least one session."""
-    weeks = {date.fromisoformat(_day(s.started_at)).isocalendar()[:2] for s in doc.sessions}
+    weeks = {date.fromisoformat(_day(s.started_at)).isocalendar()[:2] for s in counted(doc)}
     d = today - timedelta(days=today.weekday())
     if d.isocalendar()[:2] not in weeks:
         d -= timedelta(days=7)
@@ -324,7 +324,22 @@ def summary(doc: GymDoc, s: Session) -> dict[str, Any]:
     sets = sum(len(working(e.sets)) for e in s.entries)
     return {"id": s.id, "title": s.title, "date": _day(s.started_at), "started_at": s.started_at, "minutes": minutes, "sets": sets,
             "exercises": len([e for e in s.entries if working(e.sets)]), "volume": round(sum(volume(e.sets) for e in s.entries), 1),
-            "names": [exercises(doc).get(e.exercise, {}).get("name", e.exercise) for e in s.entries][:8]}
+            "names": [exercises(doc).get(e.exercise, {}).get("name", e.exercise) for e in s.entries][:8], "held": held(s)}
+
+
+def trained_title(doc: GymDoc, entries: list[EntryLog]) -> str:
+    """A workout's name from what was trained (7.0): the muscles with at least a
+    fifth of the working sets, biggest first, at most three. "Chest and Back"."""
+    names = exercises(doc)
+    by_muscle: dict[str, int] = defaultdict(int)
+    for e in entries:
+        by_muscle[(names.get(e.exercise) or {}).get("primary") or "other"] += len(working(e.sets))
+    total = sum(by_muscle.values())
+    top = [m for m, n in sorted(by_muscle.items(), key=lambda t: -t[1]) if n and n >= total / 5 and m != "other"][:3]
+    if not top:
+        return "Workout"
+    words = [m.capitalize() for m in top]
+    return words[0] if len(words) == 1 else f"{', '.join(words[:-1])} and {words[-1]}"
 
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]

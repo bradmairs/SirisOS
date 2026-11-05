@@ -82,6 +82,9 @@ function OpenCapture({ onOpen }: { onOpen: () => void }) {
   return null;
 }
 
+// Screens that don't name the tab themselves.
+const TITLES: Record<string, string> = { "/": "Home", "/assistant": "SirisAI", "/brain": "Siris", "/links": "Links", "/engineering": "Engineering", "/career": "Career", "/brief": "Brief" };
+
 function ScreenFallback() {
   return (
     <div className="screen-fallback" aria-busy="true" aria-label="Loading">
@@ -113,7 +116,14 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
   // Swipe in from the left edge to open the menu, and back to close it (phones and tablets).
   useEdgeSwipe({ open: menuOpen, onOpen: () => setMenuOpen(true), onClose: closeMenu });
   const morning = useMorningBrief();
-  const onBriefScreen = useLocation().pathname === "/brief";
+  const { pathname } = useLocation();
+  const onBriefScreen = pathname === "/brief";
+  // A workout has the whole screen: the tab bar is one mistap from leaving it.
+  const inWorkout = pathname === "/gym/workout";
+  useEffect(() => {
+    const title = TITLES[`/${pathname.split("/")[1]}`];
+    if (title) document.title = `${title} · SirisOS`;
+  }, [pathname]);
   const [searching, setSearching] = useState(false);
   const openSearch = useCallback(() => {
     setMenuOpen(false);
@@ -189,7 +199,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
         </Routes>
         </Suspense>
       </main>
-      <Dock />
+      {!inWorkout && <Dock />}
       {talking && (
         <Suspense fallback={null}>
           <Talk onClose={closeTalk} />

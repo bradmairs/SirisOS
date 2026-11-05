@@ -151,7 +151,7 @@ def _gym_week(monday: date, today: date) -> dict[str, Any] | None:
     except Exception:  # noqa: BLE001
         return None
     end = (monday + timedelta(days=6)).isoformat()
-    week = [s for s in doc.sessions if monday.isoformat() <= gym.day_of(s.started_at) <= end]
+    week = [s for s in gym_store.counted(doc) if monday.isoformat() <= gym.day_of(s.started_at) <= end]
     if not week and not doc.sessions:
         return None
     records = [r["text"] for s in week for r in gym.new_records(doc, s)]

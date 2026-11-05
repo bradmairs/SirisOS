@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 from app.services import json_store
 
@@ -50,7 +50,7 @@ class SetLog(BaseModel):
 
 class EntryLog(BaseModel):
     exercise: str = Field(max_length=60)
-    sets: list[SetLog] = Field(default_factory=list, max_length=40)
+    sets: list[SetLog] = Field(default_factory=list, max_length=2000)
     note: str = Field(default="", max_length=500)
     group: str | None = Field(default=None, max_length=2)  # superset letter (6.7): rest comes after the group
 
@@ -62,11 +62,14 @@ class Session(BaseModel):
     ended_at: str | None = Field(default=None, max_length=40)
     routine_id: str | None = Field(default=None, max_length=40)
     day: int | None = Field(default=None, ge=0, le=13)
-    entries: list[EntryLog] = Field(default_factory=list, max_length=40)
+    entries: list[EntryLog] = Field(default_factory=list, max_length=500)
     note: str = Field(default="", max_length=2000)
     bodyweight: float | None = Field(default=None, ge=0, le=500)
     gym: str | None = Field(default=None, max_length=40)  # which gym profile (6.7)
     deload: bool = False  # a lighter session on purpose (6.8): no records, not a stall
+    # An imported day too big to be one workout (7.0): "" until you've looked, "real" counts it, "wrong" keeps it out for good.
+    review: Literal["", "real", "wrong"] = ""
+    _held: bool | None = PrivateAttr(default=None)
 
 
 Progression = Literal["double", "linear", "percent"]
@@ -190,6 +193,31 @@ class GymDoc(BaseModel):
     photos: list[Photo] = Field(default_factory=list)
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
+    import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it
+
+
+HELD_SETS = 60
+HELD_VOLUME = 40_000
+
+
+def held(s: Session) -> bool:
+    """An imported day that can't be one workout (7.0): more than 60 working sets
+    or 40 tonnes, usually an export that put months of logs on one date. It stays
+    in the file and in History, but counts for nothing until you say it's real."""
+    if s._held is None:
+        if s.review:
+            s._held = s.review == "wrong"
+        elif not s.id.startswith("import-"):
+            s._held = False
+        else:
+            sets = [x for e in s.entries for x in e.sets if x.done and x.type != "warmup"]
+            s._held = len(sets) > HELD_SETS or sum((x.weight or 0) * (x.reps or 0) for x in sets) > HELD_VOLUME
+    return s._held
+
+
+def counted(doc: "GymDoc") -> list[Session]:
+    """The workouts stats, records and the coach go by."""
+    return [s for s in doc.sessions if not held(s)]
 
 
 def _path():
@@ -203,6 +231,7 @@ def photo_dir():
 
 
 LB = 0.45359237
+IMPORTED = "Imported workout"
 
 
 def to_si(raw: dict) -> dict:
@@ -276,7 +305,7 @@ def local_import_times(doc: "GymDoc") -> dict[str, Any]:
         s.id = f"import-{local.date().isoformat().replace('-', '')}"
         if s.id in placed:  # another workout already on that day: join it
             target = placed[s.id]
-            target.entries = (target.entries + s.entries)[:40]
+            target.entries = target.entries + s.entries
             target.started_at = min(target.started_at, s.started_at)
         else:
             placed[s.id] = s
@@ -297,7 +326,7 @@ def load() -> GymDoc:
     raw = json_store.read(_path(), None)
     if not isinstance(raw, dict):
         return GymDoc()
-    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, **to_si(raw)})
+    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, "import_titles": False, **to_si(raw)})
     if not doc.import_times_local:
         moved = local_import_times(doc)
         doc.import_times_local = True
@@ -310,6 +339,17 @@ def load() -> GymDoc:
         doc.cleaned_empty = True
         if out["entries_removed"] or out["exercises_removed"]:
             backup("before-cleanup")
+        save(doc)
+    if not doc.import_titles:
+        # Once (7.0): imported workouts named from what was trained. A copy is kept first.
+        from app.gym import service
+
+        old = [s for s in doc.sessions if s.title == IMPORTED]
+        if old:
+            backup("before-titles")
+        for s in old:
+            s.title = service.trained_title(doc, s.entries)
+        doc.import_titles = True
         save(doc)
     return doc
 

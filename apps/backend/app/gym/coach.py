@@ -29,7 +29,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from app.gym import service
-from app.gym.store import GymDoc, PlanExercise, Session
+from app.gym.store import GymDoc, PlanExercise, Session, counted
 
 MUSCLE_TARGET = (10.0, 20.0)
 MAIN_LIFTS = {"back-squat": "Squat", "bench-press": "Bench press", "deadlift": "Deadlift", "overhead-press": "Overhead press",
@@ -38,6 +38,9 @@ MAIN_LIFTS = {"back-squat": "Squat", "bench-press": "Bench press", "deadlift": "
 STANDARDS = {"back-squat": (0.75, 1.25, 1.5, 2.0), "bench-press": (0.5, 0.75, 1.0, 1.5), "deadlift": (1.0, 1.5, 2.0, 2.5),
              "overhead-press": (0.35, 0.55, 0.75, 1.0), "barbell-row": (0.5, 0.75, 1.0, 1.25), "pull-up": (0.0, 0.1, 0.35, 0.65)}
 LEVELS = ["starting out", "beginner", "novice", "intermediate", "advanced"]
+
+
+STALL_RECENT_DAYS = 42
 
 
 def muscles(doc: GymDoc, today: date) -> list[dict[str, Any]]:
@@ -55,14 +58,17 @@ def muscles(doc: GymDoc, today: date) -> list[dict[str, Any]]:
     return out
 
 
-def _stalled(doc: GymDoc) -> list[str]:
+def _stalled(doc: GymDoc, today: date) -> list[str]:
+    """Main lifts you're still doing whose last three sessions didn't beat the six before (7.0).
+    Not the all-time best: a best from years ago would call every lift stalled for good."""
     names = service.exercises(doc)
+    since = (today - timedelta(days=STALL_RECENT_DAYS)).isoformat()
     out = []
     for ex in MAIN_LIFTS:
         rows = [r for r in service.history(doc, ex) if r["e1rm"]]
-        if len(rows) < 4:
+        if len(rows) < 4 or rows[-1]["date"] < since:
             continue
-        best_before = max(r["e1rm"] for r in rows[:-3])
+        best_before = max(r["e1rm"] for r in rows[-9:-3])
         if max(r["e1rm"] for r in rows[-3:]) <= best_before:
             out.append(names.get(ex, {}).get("name", ex))
     return out
@@ -71,7 +77,7 @@ def _stalled(doc: GymDoc) -> list[str]:
 def weeks_in_a_row(doc: GymDoc, today: date) -> int:
     """Weeks in a row with training and no deload session."""
     by_week: dict[tuple[int, int], bool] = {}
-    for s in doc.sessions:
+    for s in counted(doc):
         k = date.fromisoformat(service.day_of(s.started_at)).isocalendar()[:2]
         by_week[k] = by_week.get(k, False) or s.deload
     d = today - timedelta(days=today.weekday())
@@ -85,7 +91,7 @@ def weeks_in_a_row(doc: GymDoc, today: date) -> int:
 def deload(doc: GymDoc, today: date, low_mornings: int = 0) -> dict[str, Any]:
     active = bool(doc.settings.deload_until and doc.settings.deload_until >= today.isoformat())
     why = []
-    if stalled := _stalled(doc):
+    if stalled := _stalled(doc, today):
         why.append(f"{', '.join(stalled)} {'has' if len(stalled) == 1 else 'have'} stalled for three sessions")
     if (n := weeks_in_a_row(doc, today)) >= 6:
         why.append(f"{n} weeks of training in a row without a lighter week")
@@ -147,7 +153,7 @@ def standards(doc: GymDoc, today: date, weight_kg: float | None = None) -> dict[
 
 def year(doc: GymDoc, y: int) -> dict[str, Any]:
     def stats(yy: int) -> dict[str, Any]:
-        ss = [s for s in doc.sessions if service.day_of(s.started_at)[:4] == str(yy)]
+        ss = [s for s in counted(doc) if service.day_of(s.started_at)[:4] == str(yy)]
         minutes = sum(service.summary(doc, s)["minutes"] or 0 for s in ss)
         return {"sessions": len(ss), "hours": round(minutes / 60, 1), "sets": sum(service.summary(doc, s)["sets"] for s in ss),
                 "volume": round(sum(service.summary(doc, s)["volume"] for s in ss), 1)}
@@ -156,7 +162,7 @@ def year(doc: GymDoc, y: int) -> dict[str, Any]:
     months = [{"month": f"{y}-{m:02d}", "sessions": 0, "volume": 0.0, "records": 0} for m in range(1, 13)]
     by_muscle: dict[str, float] = defaultdict(float)
     prior = GymDoc(exercises=doc.exercises, settings=doc.settings)
-    for s in sorted(doc.sessions, key=lambda x: x.started_at):
+    for s in sorted(counted(doc), key=lambda x: x.started_at):
         d = service.day_of(s.started_at)
         if d[:4] == str(y):
             m = months[int(d[5:7]) - 1]
@@ -230,7 +236,7 @@ def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
     main lift's trend, this week by muscle, records in the last 30 days, the
     deload state and the next routine day with what to lift."""
     names = service.exercises(doc)
-    recent = [service.summary(doc, s) for s in doc.sessions[-8:]]
+    recent = [service.summary(doc, s) for s in counted(doc)[-8:]]
     lifts = {}
     for ex, label in MAIN_LIFTS.items():
         rows = [r for r in service.history(doc, ex) if r["e1rm"]]
@@ -239,7 +245,7 @@ def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
                                                           "last": [{"date": r["date"], "e1rm": r["e1rm"], "top": r["best"].get("weight")} for r in rows[-6:]]}
     since = (today - timedelta(days=30)).isoformat()
     records = []
-    for s in doc.sessions:
+    for s in counted(doc):
         if service.day_of(s.started_at) >= since:
             records += [r["text"] for r in service.new_records(doc, s)]
     active = next((r for r in doc.routines if r.active), None)
@@ -252,7 +258,7 @@ def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
         nxt = {"routine": active.name, "rest_day": rest, "on": (sched["next"]["weekday"] if rest and sched["next"] else "today") if sched else None, "day": d.name, "exercises": [
             {"name": names.get(p.exercise, {}).get("name", p.exercise), "sets": p.sets, "reps": p.reps, **{k: v for k, v in service.suggest(doc, p).items() if k in ("weight", "why")}}
             for p in d.exercises]}
-    return {"today": today.isoformat(), "total_sessions": len(doc.sessions), "streak_weeks": service.streak(doc, today), "recent": recent,
+    return {"today": today.isoformat(), "total_sessions": len(counted(doc)), "streak_weeks": service.streak(doc, today), "recent": recent,
             "lifts": lifts, "week": service.week(doc, today), "muscles": [m for m in muscles(doc, today) if m["status"] != "in range"],
             "records_30d": records[-12:], "deload": deload(doc, today), "next": nxt,
             "measurements": [m.model_dump(exclude={"id"}) for m in doc.measurements[-3:]]}
@@ -261,7 +267,7 @@ def for_sirisai(doc: GymDoc, today: date) -> dict[str, Any]:
 def as_workouts(doc: GymDoc, day: str) -> dict[str, Any]:
     """A day's gym sessions in SirisAI's own shape, for strain and the training load."""
     items = []
-    for s in doc.sessions:
+    for s in counted(doc):
         t = local(s.started_at)
         if t is None or t.date().isoformat() != day:
             continue

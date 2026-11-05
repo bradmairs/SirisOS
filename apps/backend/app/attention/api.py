@@ -44,6 +44,14 @@ class SnoozeRequest(BaseModel):
     until: str = Field(pattern=r"^(later|tonight|tomorrow|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*)$")
 
 
+@router.get("/selftest")
+def get_selftest() -> dict[str, Any]:
+    """This morning's self-test (7.0): what it found, for the Status page."""
+    from app import selftest
+
+    return {"last": selftest.last()}
+
+
 @router.get("")
 async def get_inbox(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     return await service.inbox(hub)

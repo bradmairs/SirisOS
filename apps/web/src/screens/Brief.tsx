@@ -36,6 +36,7 @@ export function useBrief() {
   const { data, error, loading, reload } = useResource<Brief>("brief", (fresh) => briefApi.get(fresh), {
     refreshMs: BRIEF_REFRESH_MS,
     staleMs: 60_000,
+    persist: true,
   });
   return { brief: data ?? null, error: data ? null : error, refreshing: loading, reload: () => reload(true).catch(() => undefined) };
 }

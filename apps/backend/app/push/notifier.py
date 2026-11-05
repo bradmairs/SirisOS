@@ -19,7 +19,7 @@ from app.attention import service as attention
 from app.brief.service import zone
 from app.career import cpd
 from app.career import store as career_store
-from app.hub.service import Hub, get_hub, shared_client
+from app.hub.service import Hub, get_hub, shared_client, test_mode
 from app.push import actions, store, webpush
 
 logger = logging.getLogger(__name__)
@@ -153,6 +153,8 @@ def payload_for(msg: dict[str, Any]) -> dict[str, Any]:
 
 async def deliver(messages: list[dict[str, Any]]) -> int:
     """Push each message to the subscribed devices; returns how many were sent."""
+    if test_mode():
+        return 0
     subs = store.subscriptions()
     sent_keys: list[str] = []
     count = 0
