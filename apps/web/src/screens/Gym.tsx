@@ -380,7 +380,8 @@ function ImportCard({ g, onDone }: { g: Gym; onDone: () => void }) {
     setBusy(true); setError(null);
     try {
       const r = (await gym.importCommit(file, unit, choices)).imported;
-      setDone(`Imported ${r.workouts.toLocaleString()} workouts and ${r.sets.toLocaleString()} sets${r.new_exercises ? `, with ${r.new_exercises} new exercises of yours` : ""}.`);
+      setDone(`Imported ${r.workouts.toLocaleString()} workouts and ${r.sets.toLocaleString()} sets${r.new_exercises ? `, with ${r.new_exercises} new exercises of yours` : ""}.`
+        + (r.skipped_days?.length ? ` Left out ${r.skipped_days.length} day${r.skipped_days.length === 1 ? "" : "s"} already logged here.` : ""));
       setPre(null); onDone();
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
@@ -401,7 +402,8 @@ function ImportCard({ g, onDone }: { g: Gym; onDone: () => void }) {
       {pre && (
         <>
           <p role="status" style={{ margin: 0 }}><strong>{pre.workouts.toLocaleString()} workouts, {pre.sets.toLocaleString()} sets</strong>{pre.from ? `, ${fmtDay(pre.from)} ${pre.from.slice(0, 4)} to ${fmtDay(pre.to ?? pre.from)} ${(pre.to ?? pre.from).slice(0, 4)}` : ""}.
-            {pre.replacing > 0 ? ` ${pre.replacing} of those days were imported before and will be replaced.` : ""}</p>
+            {pre.replacing > 0 ? ` ${pre.replacing} of those days were imported before and will be replaced.` : ""}
+            {pre.already_logged?.length ? ` ${pre.already_logged.length} day${pre.already_logged.length === 1 ? " is" : "s are"} already logged in SirisGym and won't be imported again (${pre.already_logged.slice(0, 3).join(", ")}${pre.already_logged.length > 3 ? "…" : ""}).` : ""}</p>
           <ul className="items" aria-label="Exercises to match">
             {pre.exercises.map((e) => (
               <li key={e.name} className="item">
@@ -745,6 +747,7 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
           {x.id !== s.current_gym && <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => setS({ ...s, current_gym: x.id })}>Train here now</button>}
         </Glass>
       ))}
+      <TidyCard onChange={onChange} />
       <div className="row" style={{ gap: 8 }}>
         <button type="button" className="button" onClick={() => setS({ ...s, gyms: [...s.gyms, { id: newId(), name: `Gym ${s.gyms.length + 1}`, bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], dumbbells: [], stack_step: null }] })}>
           <Plus size={14} aria-hidden="true" /> Add a gym</button>
@@ -915,5 +918,34 @@ function ProgressView() {
         )}
       </Glass>
     </>
+  );
+}
+
+
+/** Exercises with nothing logged (6.95): see which, then take them out. Workouts are kept, and a copy is saved first. */
+function TidyCard({ onChange }: { onChange: () => void }) {
+  const [found, setFound] = useState<{ names: string[]; entries_removed: number } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const look = async () => { setMsg(null); setFound(await gym.cleanup(true)); };
+  const go = async () => {
+    const r = await gym.cleanup(false);
+    setFound(null);
+    setMsg(`Took out ${r.exercises_removed} exercise${r.exercises_removed === 1 ? "" : "s"} and ${r.entries_removed} empty entr${r.entries_removed === 1 ? "y" : "ies"}; all ${r.sessions_kept} workouts kept.`);
+    onChange();
+  };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Tidy up">
+      <header className="widget__head"><Trash2 aria-hidden="true" /><span>Exercises with nothing logged</span></header>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>Your own exercises with no sets anywhere and not in a routine, and empty entries in workouts. Workouts themselves are never removed.</p>
+      {found ? (
+        found.names.length || found.entries_removed ? (
+          <>
+            <p style={{ margin: 0, fontSize: 14 }}>{found.names.length ? found.names.join(", ") : "No exercises"}{found.entries_removed ? ` and ${found.entries_removed} empty entries` : ""}.</p>
+            <button type="button" className="button button--primary" style={{ alignSelf: "flex-start" }} onClick={go}>Take them out</button>
+          </>
+        ) : <p className="muted" style={{ margin: 0 }}>Nothing to tidy.</p>
+      ) : <button type="button" className="button" style={{ alignSelf: "flex-start" }} onClick={look}>Look for them</button>}
+      {msg && <p role="status" style={{ margin: 0 }}>{msg}</p>}
+    </Glass>
   );
 }

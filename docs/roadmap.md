@@ -168,6 +168,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 6.92: SirisGYM runs an iPhone Shortcut when a workout starts or finishes (e.g. start the Watch workout)
 6.93: Test the sync, where the numbers come from, exercise swap, protein target, gym time in the calendar, the gym in the brief, live checks
 6.94: SirisGym: routine days on set weekdays (the week on Today, rest days), renamed from SirisGYM
+6.95: SirisGym: no duplicate workouts from JEFIT (live days skipped, repeated sets once); exercises made from workout names taken out, workouts kept
 
 ## Terminal (ADR 113)
 
