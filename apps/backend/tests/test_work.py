@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime
 
@@ -32,8 +33,7 @@ def test_a_schedule_on_the_old_830_start_moves_to_8_once(tmp_path):
     assert schedule.load().weekday.day == "08:30"
 
 
-@pytest.mark.asyncio
-async def test_the_dashboard_brings_the_working_day_together(monkeypatch):
+def test_the_dashboard_brings_the_working_day_together(monkeypatch):
     at = datetime(2026, 11, 5, 10, 0, tzinfo=zone())  # a Thursday
 
     async def get(hub, path, params=None, timeout=20.0):
@@ -53,7 +53,7 @@ async def test_the_dashboard_brings_the_working_day_together(monkeypatch):
     tasks_store.save(tasks_store.TasksDocument(tasks=[tasks_store.Task(title="Check the pump station drawings", due="2026-11-05"),
                                                       tasks_store.Task(title="Buy milk", due="2026-11-05")]))
     monkeypatch.setattr(service.tasks, "today", lambda: at.date())
-    d = await service.dashboard(None, at)
+    d = asyncio.run(service.dashboard(None, at))
     assert d["hours"] == {"start": "08:00", "end": "16:30", "on": True, "workday": True, "minutes_left": 390, "minutes_in": 120}
     assert [e["title"] for e in d["events"]] == ["Design review"] and d["next"]["in_minutes"] == 60
     assert [t["title"] for t in d["tasks"]["groups"]["today"]] == ["Check the pump station drawings"]
