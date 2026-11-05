@@ -90,7 +90,7 @@ export interface DockSlots { fourth: string; fifth: string }
 
 /** Screens those buttons can be, as the schedule allows (app/home/schedule.py). */
 export const DOCK_CHOICES: { value: string; label: string }[] = [
-  { value: "auto", label: "Automatic" }, { value: "/links", label: "Links" }, { value: "/career", label: "Career" },
+  { value: "auto", label: "Automatic" }, { value: "/work", label: "Work" }, { value: "/links", label: "Links" }, { value: "/career", label: "Career" },
   { value: "/house", label: "Smart home" }, { value: "/tasks", label: "Tasks" }, { value: "/wrapup", label: "Wrap up" },
   { value: "/brief", label: "Today's brief" }, { value: "/projects", label: "Projects" }, { value: "/engineering", label: "Engineering" },
   { value: "/review", label: "Weekly review" }, { value: "/year", label: "Your year" }, { value: "/status", label: "System status" }, { value: "/training", label: "Training" }, { value: "/health", label: "Health" },
@@ -171,7 +171,7 @@ export function setAdaptive(on: boolean): void {
 export function localPhase(at = new Date()): DayPhase {
   const m = at.getHours() * 60 + at.getMinutes();
   const weekend = at.getDay() === 0 || at.getDay() === 6;
-  const [day, evening] = weekend ? [10 * 60, 17 * 60] : [8 * 60 + 30, 16 * 60 + 30];
+  const [day, evening] = weekend ? [10 * 60, 17 * 60] : [8 * 60, 16 * 60 + 30];
   if (m < 5 * 60 || m >= 23 * 60) return "night";
   if (m < day) return "morning";
   if (m < evening) return weekend ? "weekend" : "work";

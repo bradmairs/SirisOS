@@ -52,7 +52,9 @@ interface CreateOptions {
 export const passkeys = {
   list: () => api<{ passkeys: PasskeyInfo[] }>("/api/v1/auth/passkeys"),
   remove: (id: string) => api<{ removed: boolean }>(`/api/v1/auth/passkeys/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  checks: () => api<{ checks: SecurityCheck[]; passkeys: number }>("/api/v1/security"),
+  checks: () => api<{ checks: SecurityCheck[]; passkeys: number; password_signin?: boolean }>("/api/v1/security"),
+  /** Passkey only (7.2): false stops the password signing in. */
+  passwordSignin: (on: boolean) => api<{ password_signin: boolean; checks: SecurityCheck[] }>("/api/v1/security/password-signin", { method: "PUT", body: JSON.stringify({ on }) }),
 
   /** Make a passkey on this device (Face ID) and register it with SirisOS. */
   async add(label: string): Promise<PasskeyInfo> {

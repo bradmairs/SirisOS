@@ -147,3 +147,20 @@ def test_security_check_flags_defaults(client, monkeypatch):
     titles = [c["title"] for c in checks]
     assert "Sign-in secret is a default or too short" in titles and "No passkey yet" in titles
     assert checks[0]["level"] == "critical"
+
+
+def test_with_a_passkey_the_check_offers_passkey_only_and_that_stops_the_password(client, monkeypatch, tmp_path):
+    """7.2: having a passkey no longer gets "add a passkey"; passkey only turns the password off, and an env setting lets it back."""
+    monkeypatch.setenv("SIRISOS_SECURITY_PATH", str(tmp_path / "security.json"))
+    monkeypatch.delenv("SIRISOS_PASSWORD_SIGNIN", raising=False)
+    assert client.put("/api/v1/security/password-signin", headers=AUTH, json={"on": False}).status_code == 409  # no passkey yet
+    service.add_passkey(service.Passkey(id="k1", public_key="x", alg=-7, sign_count=0, label="iPhone", rp_id=RP, created_at="2026-11-05T00:00:00+00:00"))
+    checks = client.get("/api/v1/security", headers=AUTH).json()
+    titles = [c["title"] for c in checks["checks"]]
+    assert "Your passkey works, but the short password still signs in too" in titles and "No passkey yet" not in titles
+    assert not any("add a passkey" in c["fix"].lower() and c["level"] == "critical" for c in checks["checks"])
+    r = client.put("/api/v1/security/password-signin", headers=AUTH, json={"on": False}).json()
+    assert r["password_signin"] is False and not any(c["level"] == "critical" and "password" in c["title"].lower() for c in r["checks"])
+    assert client.post("/api/v1/auth/login", json={"username": "brad", "password": "change-me"}).status_code == 403
+    monkeypatch.setenv("SIRISOS_PASSWORD_SIGNIN", "on")
+    assert client.post("/api/v1/auth/login", json={"username": "brad", "password": "change-me"}).status_code == 200

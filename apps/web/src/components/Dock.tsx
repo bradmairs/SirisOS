@@ -23,8 +23,8 @@ const tab = (to: string): Tab => ({ ...SCREENS[to], label: SHORT[to] ?? SCREENS[
  * The tab bar follows where you are and the part of the day (4.94, 4.95). The first three are
  * always Home, SirisAI and Siris. Unless you've picked them in Times of day:
  * - the fourth is the brief in the morning, Wrap up from wind down, and Links otherwise;
- * - the fifth is Career in work hours, Smart home when you're home, Tasks when you're out,
- *   and Career when SirisAI can't tell.
+ * - the fifth is Work in work hours (8:00 to 4:30 on weekdays; 7.2), Smart home when you're home,
+ *   Tasks when you're out, and Career when SirisAI can't tell.
  * - from 6 to 8 am, SirisGym takes the fifth (or the fourth, if you've picked the fifth; 6.97).
  * With "Changes with the time of day" off it's Links and Career all day.
  */
@@ -35,7 +35,7 @@ export function dockItems(ctx: Pick<HomeContext, "phase" | "home" | "dock"> | nu
   const fourth = ctx?.dock?.fourth && ctx.dock.fourth !== "auto" ? ctx.dock.fourth
     : phase === "morning" ? "/brief" : phase === "winddown" || phase === "night" ? "/wrapup" : "/links";
   const fifth = ctx?.dock?.fifth && ctx.dock.fifth !== "auto" ? ctx.dock.fifth
-    : phase === "work" ? "/career" : ctx?.home === true ? "/house" : ctx?.home === false ? "/tasks" : "/career";
+    : phase === "work" ? "/work" : ctx?.home === true ? "/house" : ctx?.home === false ? "/tasks" : "/career";
   const slots = [fourth, fifth];
   if (gymTime(at) && !slots.includes("/gym")) {
     const free = ctx?.dock?.fifth && ctx.dock.fifth !== "auto" ? (ctx.dock.fourth && ctx.dock.fourth !== "auto" ? -1 : 0) : 1;

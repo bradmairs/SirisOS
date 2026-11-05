@@ -131,4 +131,18 @@ def delete_passkey(cred_id: str) -> dict[str, Any]:
 
 @router.get("/api/v1/security", dependencies=[Depends(require_user)])
 def security_check() -> dict[str, Any]:
-    return {"checks": service.checks(), "passkeys": len(service.passkeys())}
+    return {"checks": service.checks(), "passkeys": len(service.passkeys()), "password_signin": service.password_signin()}
+
+
+class PasswordSignin(BaseModel):
+    on: bool
+
+
+@router.put("/api/v1/security/password-signin", dependencies=[Depends(require_user)])
+def put_password_signin(body: PasswordSignin) -> dict[str, Any]:
+    """Passkey only (7.2): turn password sign-in off once there's a passkey, or back on."""
+    try:
+        on = service.set_password_signin(body.on)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"password_signin": on, "checks": service.checks()}

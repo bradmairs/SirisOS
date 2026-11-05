@@ -47,10 +47,10 @@ describe("<FocusCard />", () => {
 });
 
 describe("the part of the day", () => {
-  it("matches the server's default schedule: work is 8:30 to 4:30 on weekdays", () => {
+  it("matches the server's default schedule: work is 8:00 to 4:30 on weekdays (7.2)", () => {
     expect(localPhase(new Date(2026, 9, 22, 7, 30))).toBe("morning");   // Thursday
-    expect(localPhase(new Date(2026, 9, 22, 8, 29))).toBe("morning");
-    expect(localPhase(new Date(2026, 9, 22, 8, 30))).toBe("work");
+    expect(localPhase(new Date(2026, 9, 22, 7, 59))).toBe("morning");
+    expect(localPhase(new Date(2026, 9, 22, 8, 0))).toBe("work");
     expect(localPhase(new Date(2026, 9, 22, 16, 29))).toBe("work");
     expect(localPhase(new Date(2026, 9, 22, 16, 30))).toBe("evening");
     expect(localPhase(new Date(2026, 9, 24, 9))).toBe("morning");       // Saturday: no work

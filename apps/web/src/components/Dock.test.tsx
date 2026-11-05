@@ -21,8 +21,8 @@ describe("the tab bar", () => {
     expect(labels({ phase: "evening", home: true })[3]).toBe("Links");
   });
 
-  it("makes the fifth Career at work, Smart home at home, Tasks out, Career when it can't tell", () => {
-    expect(labels({ phase: "work", home: true })[4]).toBe("Career");     // even working from home
+  it("makes the fifth Work at work (7.2), Smart home at home, Tasks out, Career when it can't tell", () => {
+    expect(labels({ phase: "work", home: true })[4]).toBe("Work");     // even working from home
     expect(labels({ phase: "evening", home: true })[4]).toBe("Smart home");
     expect(labels({ phase: "weekend", home: false })[4]).toBe("Tasks");
     expect(labels({ phase: "evening", home: null })[4]).toBe("Career");

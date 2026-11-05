@@ -7,6 +7,7 @@ import { Glass } from "../components/Glass";
 import { NoteBody } from "../components/NoteBody";
 import { DeleteNoteButton } from "./BrainDelete";
 import { NoteConnections } from "./NoteConnections";
+import { EditNoteButton, NoteEditor } from "./NoteEdit";
 
 const LINKS_SHOWN = 12;
 
@@ -24,6 +25,8 @@ export function NoteHit({ hit, onOpen, onDeleted, start = false }: {
 }) {
   const [open, setOpen] = useState(start);
   const [allLinks, setAllLinks] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
   useEffect(() => { if (start) setOpen(true); }, [start]);
   const note = useResource<BrainNote>(`brain:note:${hit.title}`, () => brain.note(hit.title), { enabled: open, staleMs: 60_000 });
   const n = note.data;
@@ -45,7 +48,12 @@ export function NoteHit({ hit, onOpen, onDeleted, start = false }: {
         <div id={id} className="note-hit__body">
           {!n && !note.error && <div className="skeleton" style={{ height: 80 }} />}
           {!n && note.error && <p className="tone-critical" style={{ margin: 0 }}>Couldn't open this note: {note.error}</p>}
-          {n && (
+          {n && editing && (
+            <NoteEditor note={n} onCancel={() => setEditing(false)}
+              onSaved={(r) => { setEditing(false); setSaved(r.links_added.length ? `Saved, and linked ${r.links_added.join(", ")}.` : "Saved."); note.reload?.(true); }} />
+          )}
+          {saved && !editing && <p className="tone-good" role="status" style={{ margin: 0, fontSize: 13 }}>{saved}</p>}
+          {n && !editing && (
             <>
               {n.body && readable(n.body, n.title) ? <NoteBody text={readable(n.body, n.title)} onOpen={onOpen} /> : <p className="muted" style={{ margin: 0 }}>This note has no text yet.</p>}
               {(n.tags?.length || n.as_of) && (
@@ -74,6 +82,7 @@ export function NoteHit({ hit, onOpen, onDeleted, start = false }: {
       )}
       {hit.path && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{hit.path}</p>}
       <div className="row note-actions">
+        <EditNoteButton onClick={() => { setOpen(true); setSaved(null); setEditing(true); }} />
         <NoteConnections title={hit.title} />
         <DeleteNoteButton title={hit.title} onDeleted={onDeleted} />
       </div>

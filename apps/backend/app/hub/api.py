@@ -499,6 +499,44 @@ async def delete_memory(memory_id: int, connector: SirisAIConnector = Depends(_s
     return Response(status_code=204)
 
 
+class MemoryEdit(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+@router.put("/memories/{memory_id}", tags=["brain"])
+async def edit_memory(memory_id: int, body: MemoryEdit, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Correct one of SirisAI's memories (7.2, SirisAI 4.4)."""
+    return await _forward(connector, "PUT", f"/siris/memory/{memory_id}", json=body.model_dump())
+
+
+class BrainEdit(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=200_000)
+    version: str | None = Field(default=None, max_length=40)
+
+
+@router.post("/brain/edit", tags=["brain"])
+async def brain_edit(body: BrainEdit, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Edit a note's text (7.2, SirisAI 4.4, engine 1.98). Refused if it changed since `version` was read."""
+    return await _forward(connector, "POST", "/siris/brain/edit", json=body.model_dump())
+
+
+class PresencePhones(BaseModel):
+    added: list[str] = Field(default_factory=list, max_length=12)
+
+
+@router.get("/presence", tags=["home"])
+async def presence(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Home or away, and the phones that count as someone home (7.2, SirisAI 4.4)."""
+    return await _forward(connector, "GET", "/siris/hub/v1/presence")
+
+
+@router.put("/presence/phones", tags=["home"])
+async def presence_phones(body: PresencePhones, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """The phones added here that count as home: away only once all of them have left."""
+    return await _forward(connector, "PUT", "/siris/hub/v1/presence/phones", json=body.model_dump())
+
+
 @router.get("/brain/inbox/count", tags=["brain"])
 async def brain_inbox_count(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """How many notes wait in the brain's inbox: all the tab bar's dot needs, without working out the insights."""

@@ -43,6 +43,7 @@ from app.netwatch.api import router as netwatch_router
 from app.power.api import router as power_router
 from app.standby.api import router as standby_router
 from app.gym.api import router as gym_router
+from app.work.api import router as work_router
 from app.training.api import public_router as training_public_router
 from app.training.api import router as training_router
 from app.setup.api import router as setup_router
@@ -79,6 +80,7 @@ for router in (
     power_router,
     standby_router,
     gym_router,
+    work_router,
     training_router,
     training_public_router,
     setup_router,
