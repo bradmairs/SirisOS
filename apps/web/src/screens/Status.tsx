@@ -144,7 +144,7 @@ function UpkeepCard() {
                 {u.last?.state ? ` · last update: ${u.last.state}${u.last.version ? ` (${u.last.version})` : ""}` : ""}
               </div>
               {u.updater_running === false && (
-                <div className="item__subtitle tone-warning">The updater isn't running on the server, so updates can't install themselves. Once, in SirisAI's deploy folder: <code>make auto-update</code></div>
+                <div className="item__subtitle tone-warning">The updater isn't running on the server, so updates can't install themselves. Once, in SirisAI's deploy folder: <code>make update</code> (it installs the updater too, from SirisAI 4.5)</div>
               )}
             </span>
             {u.available && !u.waiting ? (
@@ -171,11 +171,21 @@ function UpkeepCard() {
             <span className={`item__dot ${c.warning ? "dot-warning" : "dot-good"}`} aria-hidden="true" />
             <span className="item__text">
               <div className="item__title">Certificate · {c.host}</div>
-              <div className="item__subtitle">{c.days_left! < 0 ? "Expired" : `Runs out in ${c.days_left} days`}</div>
+              <div className="item__subtitle">{certText(c)}</div>
             </span>
           </li>
         ))}
       </ul>
     </Glass>
   );
+}
+
+/** "Runs out in 54 days", or for a certificate that renews itself every few hours (Caddy's own, 7.22) how long it lasts. */
+export function certText(c: { days_left: number | null; hours_left?: number; lifetime_hours?: number | null; short_lived?: boolean; warning?: boolean; issuer?: string }): string {
+  if (c.days_left != null && c.days_left < 0) return "Expired";
+  if (c.short_lived) {
+    const life = c.lifetime_hours ? `every ${Math.round(c.lifetime_hours)} hours` : "every few hours";
+    return c.warning ? `Runs out in ${c.hours_left} h and hasn't renewed: restart Caddy` : `Renews itself ${life}${c.issuer ? ` (${c.issuer})` : ""} · ${c.hours_left} h left`;
+  }
+  return `Runs out in ${c.days_left} day${c.days_left === 1 ? "" : "s"}`;
 }
