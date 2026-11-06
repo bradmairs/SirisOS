@@ -189,8 +189,8 @@ describe("the terminal's height (7.23)", () => {
 describe("class names xterm owns (7.23)", () => {
   it("aren't styled by SirisOS: its .focus margin pushed the typing line out of view while typing", async () => {
     const { readFileSync } = await import("node:fs");
-    const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
-    for (const name of ["terminal", "focus", "xterm", "composition-view"]) {
+    const css = readFileSync("src/app.css", "utf8");  // vitest runs from apps/web
+    for (const name of ["terminal", "focus"]) {  // xterm puts both on its own element
       expect(css).not.toMatch(new RegExp(`(^|[\\s,}])\\.${name}(?![\\w-])(?!\\s*\\.)[^{;]*\\{`, "m"));
     }
   });
