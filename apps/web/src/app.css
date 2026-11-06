@@ -482,6 +482,7 @@ html, body { overflow-x: clip; }
   background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 .inbox-row--urgent { border-left-color: var(--critical); background: color-mix(in srgb, var(--critical) 10%, transparent); }
+.inbox-row--focused { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
 .inbox-row--attention { border-left-color: var(--warning); }
 .inbox-row--info { border-left-color: var(--accent); }
 .inbox-row__icon { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--ink-2); }

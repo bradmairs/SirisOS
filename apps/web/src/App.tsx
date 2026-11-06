@@ -40,6 +40,7 @@ const loadGym = () => import("./screens/Gym");
 const loadWork = () => import("./screens/Work");
 const loadGymWorkout = () => import("./screens/GymWorkout");
 const loadHealth = () => import("./screens/Health");
+const loadLife = () => import("./screens/Life");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
 const Brain = lazy(() => loadBrain().then((m) => ({ default: m.Brain })));
 const Links = lazy(() => loadLinks().then((m) => ({ default: m.Links })));
@@ -55,6 +56,7 @@ const GymScreen = lazy(() => loadGym().then((m) => ({ default: m.GymScreen })));
 const WorkScreen = lazy(() => loadWork().then((m) => ({ default: m.WorkScreen })));
 const GymWorkoutScreen = lazy(() => loadGymWorkout().then((m) => ({ default: m.GymWorkoutScreen })));
 const HealthScreen = lazy(() => loadHealth().then((m) => ({ default: m.HealthScreen })));
+const LifeScreen = lazy(() => loadLife().then((m) => ({ default: m.LifeScreen })));
 const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
 const Talk = lazy(() => loadTalk().then((m) => ({ default: m.Talk })));
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
@@ -72,6 +74,15 @@ function warmScreens() {
   const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
   if (idle) idle(warm, { timeout: 3000 });
   else window.setTimeout(warm, 1500);
+}
+
+/** /?attention=<id> (7.3): SirisAI's "Approve in SirisOS" push button. Opens
+ * the Inbox on that approval, ready for the PIN. */
+function HomeOrApproval() {
+  const location = useLocation();
+  const id = new URLSearchParams(location.search).get("attention");
+  if (id && /^\d+$/.test(id)) return <Navigate to={`/inbox?focus=ai:${id}`} replace />;
+  return <Home />;
 }
 
 /** /capture (a Home Screen link): open quick capture over Home. */
@@ -173,7 +184,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
       <main className="shell">
         <Suspense fallback={<ScreenFallback />}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomeOrApproval />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/brain" element={<Brain />} />
           <Route path="/links" element={<Links />} />
@@ -193,6 +204,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/gym" element={<GymScreen />} />
           <Route path="/gym/workout" element={<GymWorkoutScreen />} />
           <Route path="/health" element={<HealthScreen />} />
+          <Route path="/life" element={<LifeScreen />} />
           <Route path="/projects/:title" element={<ProjectScreen />} />
           <Route path="/wrapup" element={<WrapUpScreen />} />
           <Route path="/review" element={<ReviewScreen />} />

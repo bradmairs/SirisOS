@@ -98,6 +98,15 @@ export const assistant = {
     yield* readNdjson<VoiceEvent>(response.body);
   },
   conversations: (limit = 20) => api<ConversationSummary[]>(`/api/v1/assistant/conversations?limit=${limit}`),
+  /** By words and dates (7.3, SirisAI 4.6), each with the title and summary SirisAI wrote. */
+  searchConversations: async (q: string, since = ""): Promise<ConversationSummary[]> => {
+    const params = new URLSearchParams({ q });
+    if (since) params.set("since", since);
+    const found = await api<{ conversation_id: string; title: string; summary: string; last_at: string; matches: string[] }[]>(
+      `/api/v1/assistant/conversations/search?${params}`,
+    );
+    return found.map((c) => ({ conversation_id: c.conversation_id, started_with: c.title, last_at: c.last_at, summary: c.summary, matches: c.matches }));
+  },
   conversation: (id: string) =>
     api<{ role: string; content: string | null; tool_name: string | null; created_at: string }[]>(
       `/api/v1/assistant/conversations/${encodeURIComponent(id)}`,

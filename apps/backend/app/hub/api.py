@@ -203,6 +203,18 @@ async def conversations(limit: int = Query(20, ge=1, le=50), connector: SirisAIC
     return await _forward(connector, "GET", "/siris/conversations", params={"limit": limit})
 
 
+@router.get("/assistant/conversations/search", tags=["assistant"])
+async def search_conversations(
+    q: str = Query("", max_length=200),
+    since: str = Query("", pattern=r"^(\d{4}-\d{2}-\d{2})?$"),
+    until: str = Query("", pattern=r"^(\d{4}-\d{2}-\d{2})?$"),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> Any:
+    """Past conversations by words and dates, each with its title and summary (SirisAI 4.6)."""
+    params = {k: v for k, v in {"q": q, "since": since, "until": until}.items() if v}
+    return await _forward(connector, "GET", "/siris/conversations/search", params=params)
+
+
 @router.get("/assistant/conversations/{conversation_id}", tags=["assistant"])
 async def conversation(conversation_id: str, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", f"/siris/conversations/{conversation_id}")

@@ -1,5 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ArrowUpRight, Bell, CheckCircle2, Clock, Inbox as InboxIcon, Lightbulb, ShieldAlert } from "lucide-react";
 import { inbox } from "../api/hub";
 import type { InboxAction, InboxCounts, InboxEvent, InboxItem } from "../api/types";
@@ -131,7 +131,7 @@ function linkFor(item: InboxItem): { to?: string; href?: string } {
   return {};
 }
 
-export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: InboxItem, action: string, pin?: string) => Promise<unknown> }) {
+export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; onAct: (item: InboxItem, action: string, pin?: string) => Promise<unknown>; focused?: boolean }) {
   const [asking, setAsking] = useState<InboxAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +141,14 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
   const [pin, setPin] = useState("");
   const Icon = KIND_ICON[item.kind] ?? Bell;
   const link = linkFor(item);
+  const row = useRef<HTMLLIElement>(null);
+  // Opened from a push's "Approve in SirisOS" (7.3): show it and ask for the
+  // PIN straight away. Nothing is sent until the PIN is entered.
+  useEffect(() => {
+    if (!focused) return;
+    row.current?.scrollIntoView?.({ block: "center" });
+    if (item.actions.some((a) => a.id === "approve")) setNeedsPin("approve");
+  }, [focused, item.actions]);
 
   async function go(action: string, withPin?: string) {
     setBusy(true);
@@ -171,7 +179,7 @@ export function InboxRow({ item, onAct }: { item: InboxItem; onAct: (item: Inbox
   }
 
   return (
-    <li className={`inbox-row inbox-row--${item.severity}`} aria-label={item.title}>
+    <li ref={row} className={`inbox-row inbox-row--${item.severity}${focused ? " inbox-row--focused" : ""}`} aria-label={item.title}>
       <Icon className="inbox-row__icon" aria-hidden="true" />
       <div className="inbox-row__text">
         <div className="inbox-row__title">{item.title}</div>
@@ -250,6 +258,8 @@ export function InboxBadge() {
 
 export function InboxScreen() {
   const { items, act, loaded, connected } = useInbox();
+  const [params] = useSearchParams();
+  const focus = params.get("focus");
   useEffect(() => {
     document.title = "Inbox · SirisOS";
   }, []);
@@ -269,9 +279,12 @@ export function InboxScreen() {
       ) : (
         <Glass as="section" className="inbox-panel" aria-label="Inbox">
           <ul className="inbox-list">
-            {items.map((item) => <InboxRow key={item.id} item={item} onAct={act} />)}
+            {items.map((item) => <InboxRow key={item.id} item={item} onAct={act} focused={item.id === focus} />)}
           </ul>
         </Glass>
+      )}
+      {loaded && focus && !items.some((i) => i.id === focus) && (
+        <p className="muted" role="status" style={{ margin: "12px 6px 0" }}>That approval has already been answered or has expired.</p>
       )}
       <div style={{ marginTop: 18 }}>
         <NotificationSettings />

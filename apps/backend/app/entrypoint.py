@@ -48,6 +48,7 @@ from app.training.api import public_router as training_public_router
 from app.training.api import router as training_router
 from app.setup.api import router as setup_router
 from app.health.api import router as health_router
+from app.life.api import router as life_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -85,6 +86,7 @@ for router in (
     training_public_router,
     setup_router,
     health_router,
+    life_router,
     career_router,
     links_router,
     push_router,
