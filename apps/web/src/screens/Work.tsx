@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Award, BriefcaseBusiness, CalendarClock, Check, FolderKanban, ListTodo, MapPin, NotebookPen, Ruler, Search } from "lucide-react";
+import { Award, BriefcaseBusiness, Check, ListTodo, NotebookPen, Ruler, Search } from "lucide-react";
 import { brain } from "../api/hub";
 import { useResource } from "../api/resource";
 import { tasks, type TaskItem } from "../api/tasks";
@@ -9,7 +9,6 @@ import { span, work, type WorkDay } from "../api/work";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 const GROUPS = [["overdue", "Overdue"], ["today", "Today"], ["week", "This week"]] as const;
 
 export function useWork() {
@@ -19,10 +18,6 @@ export function useWork() {
 function lead(w: WorkDay): string {
   if (w.hours.on && w.hours.minutes_left != null) return `Home time in ${span(w.hours.minutes_left)} (${w.hours.end})`;
   return w.hours.workday ? `Work hours ${w.hours.start} to ${w.hours.end}` : "Not a work day";
-}
-
-function nextText(n: NonNullable<WorkDay["next"]>): string {
-  return n.now ? "On now" : n.in_minutes < 90 ? `In ${span(n.in_minutes)}` : `At ${time(n.start)}`;
 }
 
 /** Work (7.2): everything for the working day at the engineering job, open from 8:00 to 4:30. */
@@ -37,43 +32,13 @@ export function WorkScreen() {
       {!w && !res.error && <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />}
       {w && (
         <div className="stack" style={{ marginTop: 16 }}>
-          <NextCard w={w} />
           <WorkTasksCard w={w} onChange={() => res.reload?.(true)} />
           <TodosCard w={w} onChange={() => res.reload?.(true)} />
-          <ProjectsCard w={w} />
           <WorkNotesCard />
           <ToolsCard w={w} />
         </div>
       )}
     </>
-  );
-}
-
-function NextCard({ w }: { w: WorkDay }) {
-  const rest = (w.events ?? []).filter((e) => !w.next || e.start !== w.next.start || e.title !== w.next.title);
-  return (
-    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Meetings today">
-      <header className="widget__head"><CalendarClock aria-hidden="true" /><span>Today</span></header>
-      {w.next ? (
-        <div className="work-next">
-          <span className="work-next__when">{nextText(w.next)}</span>
-          <strong>{w.next.title}</strong>
-          <span className="muted">{time(w.next.start)}{w.next.end ? `–${time(w.next.end)}` : ""}</span>
-          {w.next.location && (
-            <a className="muted" href={`https://maps.apple.com/?q=${encodeURIComponent(w.next.location)}`} target="_blank" rel="noreferrer">
-              <MapPin size={12} aria-hidden="true" /> {w.next.location}</a>
-          )}
-        </div>
-      ) : <p className="muted" style={{ margin: 0 }}>{w.events === null ? "The calendar isn't available." : "No more meetings today."}</p>}
-      {rest.length > 0 && (
-        <ul className="items" aria-label="The rest of today">
-          {rest.map((e) => (
-            <li key={`${e.start}-${e.title}`} className="item"><span className="item__text"><span className="item__title">{e.title}</span>
-              <span className="item__subtitle">{e.all_day ? "All day" : time(e.start)}{e.location ? ` · ${e.location}` : ""}</span></span></li>
-          ))}
-        </ul>
-      )}
-    </Glass>
   );
 }
 
@@ -146,26 +111,6 @@ function TodosCard({ w, onChange }: { w: WorkDay; onChange: () => void }) {
   );
 }
 
-function ProjectsCard({ w }: { w: WorkDay }) {
-  if (!w.projects?.length) return null;
-  return (
-    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Work projects">
-      <header className="widget__head"><FolderKanban aria-hidden="true" /><span>Work projects</span></header>
-      <ul className="items">
-        {w.projects.map((p) => (
-          <li key={p.title} className="item">
-            <span className="item__text"><Link className="item__title" to={`/brain?q=${encodeURIComponent(p.title)}`}>{p.title}</Link>
-              <span className="item__subtitle">
-                {p.days_left != null ? <span className={p.days_left < 7 ? "tone-warning" : ""}>{p.days_left < 0 ? `${-p.days_left} days overdue` : `due in ${p.days_left} days`}</span> : "no due date"}
-                {p.open_tasks ? ` · ${p.open_tasks} to-do${p.open_tasks === 1 ? "" : "s"}` : ""}
-              </span></span>
-          </li>
-        ))}
-      </ul>
-    </Glass>
-  );
-}
-
 /** Find a work note, or jot one down: it's tagged #work, so the nightly sort files it under Work/. */
 function WorkNotesCard() {
   const [q, setQ] = useState("");
@@ -227,7 +172,7 @@ function ToolsCard({ w }: { w: WorkDay }) {
   );
 }
 
-/** On Home in work hours (7.2): the next meeting, what's due, and the way into Work. */
+/** On Home in work hours (7.2): what's due and the way into Work (no calendar or projects: 7.31). */
 export function WorkHomeCard() {
   const res = useWork();
   const w = res.data;
@@ -237,7 +182,6 @@ export function WorkHomeCard() {
     <Glass as="section" className="widget" style={{ minHeight: 0, marginTop: 14 }} aria-label="At work">
       <header className="widget__head"><BriefcaseBusiness aria-hidden="true" /><span>At work</span>
         {w.hours.minutes_left != null && <span className="widget__source">home in {span(w.hours.minutes_left)}</span>}</header>
-      {w.next && <p style={{ margin: 0 }}><strong>{nextText(w.next)}:</strong> {w.next.title}{w.next.location ? ` · ${w.next.location}` : ""}</p>}
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         {due ? `${due} work task${due === 1 ? "" : "s"} due` : "No work tasks due today"}{w.todos?.length ? ` · ${w.todos.length} to-do${w.todos.length === 1 ? "" : "s"} in work notes` : ""}
       </p>

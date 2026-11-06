@@ -55,8 +55,7 @@ def test_the_dashboard_brings_the_working_day_together(monkeypatch):
     monkeypatch.setattr(service.tasks, "today", lambda: at.date())
     d = asyncio.run(service.dashboard(None, at))
     assert d["hours"] == {"start": "08:00", "end": "16:30", "on": True, "workday": True, "minutes_left": 390, "minutes_in": 120}
-    assert [e["title"] for e in d["events"]] == ["Design review"] and d["next"]["in_minutes"] == 60
+    assert "events" not in d and "next" not in d and "projects" not in d  # 7.31: no calendar, no projects
     assert [t["title"] for t in d["tasks"]["groups"]["today"]] == ["Check the pump station drawings"]
-    assert [p["title"] for p in d["projects"]] == ["GVW Sewer Upgrade"] and d["projects"][0]["open_tasks"] == 1
     assert [t["task"] for t in d["todos"]] == ["Issue RFI 3"]
     assert d["cpd"]["required"] == 150

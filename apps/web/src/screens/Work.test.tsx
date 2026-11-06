@@ -35,10 +35,10 @@ describe("Work (7.2)", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><WorkScreen /></MemoryRouter>);
     expect(await screen.findByText("Home time in 6 h 30 min (16:30)")).toBeInTheDocument();
-    expect(screen.getByText("In 1 h")).toBeInTheDocument();
-    expect(screen.getByText("Design review")).toBeInTheDocument();
-    expect(screen.getByText("Site visit")).toBeInTheDocument();
-    expect(screen.getByText("GVW Sewer Upgrade", { selector: "a.item__title" })).toBeInTheDocument();
+    // 7.31: no calendar (not linked for work) and no projects (Projects is personal).
+    expect(screen.queryByText("Design review")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Work projects" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Meetings today" })).not.toBeInTheDocument();
     expect(screen.getByText(/Working on/)).toHaveTextContent("Mooroopna pump station");
     expect(screen.getByText(/CPD: 112 of 150 hours/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Done: Check the pump station drawings" }));
