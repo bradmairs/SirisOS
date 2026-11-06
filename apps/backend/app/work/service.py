@@ -17,10 +17,12 @@ Each part is fetched on its own: one that fails or isn't set up is empty, never 
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime
+import re
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from app.hub import sirisai_api
+from app.services import json_store
 from app.hub.service import Hub
 from app.siris_projects import service as projects
 from app.tasks import service as tasks
@@ -99,7 +101,90 @@ def _cpd(day: date) -> dict[str, Any] | None:
         s = cpd.summary(career.load(), day)
     except Exception:  # noqa: BLE001
         return None
-    return {"total": s.get("total"), "required": s.get("required"), "short": s.get("short")}
+    return {"total": s.get("total"), "required": s.get("required"), "short": s.get("short"),
+            "minimums": [{"category": m["category"], "label": m["label"], "hours": m["hours"], "minimum": m["minimum"], "short": m["short"]}
+                         for m in s.get("minimums") or []], "window": s.get("window")}
+
+
+def log_cpd(title: str, hours_: float, category: str, day: date, provider: str = "") -> dict[str, Any]:
+    """CPD logged from Work (7.4): kept with the imported records (a re-import never removes it), in your category."""
+    import uuid
+
+    from app.career import cpd, store as career
+
+    record = career.CpdRecord(id=f"sirisos-{uuid.uuid4().hex[:10]}", date=day.isoformat(), title=title, provider=provider, type="Logged in SirisOS",
+                              hours=hours_, split={category: hours_}, basis="you")
+    cpd.merge(career.load(), [record], "SirisOS Work page")
+    return record.model_dump()
+
+
+# -- 7.4: the visuals. Focus time and to-dos ticked here are kept in work.json; work tasks done come from Tasks. --
+
+def _path():
+    return json_store.data_path("SIRISOS_WORK_PATH", "work.json")
+
+
+def _load() -> dict[str, Any]:
+    raw = json_store.read(_path(), {})
+    return raw if isinstance(raw, dict) else {}
+
+
+def add_focus(day: date, minutes: int) -> int:
+    doc = _load()
+    focus = doc.setdefault("focus", {})
+    focus[day.isoformat()] = int(focus.get(day.isoformat(), 0)) + max(0, min(minutes, 240))
+    doc["focus"] = dict(sorted(focus.items())[-120:])
+    json_store.write(_path(), doc)
+    return doc["focus"][day.isoformat()]
+
+
+def add_todo_done(day: date) -> None:
+    doc = _load()
+    done = doc.setdefault("todos_done", {})
+    done[day.isoformat()] = int(done.get(day.isoformat(), 0)) + 1
+    doc["todos_done"] = dict(sorted(done.items())[-120:])
+    json_store.write(_path(), doc)
+
+
+def week(day: date) -> dict[str, Any]:
+    """Monday to Sunday of this week: work tasks done (Tasks, plus work-note to-dos ticked here) and focus minutes."""
+    from app.tasks import store as task_store
+    from app.tasks.service import zone
+
+    monday = day - timedelta(days=day.weekday())
+    days = [monday + timedelta(days=i) for i in range(7)]
+    done = {d.isoformat(): 0 for d in days}
+    for t in task_store.load().tasks:
+        if t.done_at and tasks.area_of(t.title, t.notes, t.area) == "work":
+            d = datetime.fromisoformat(t.done_at).astimezone(zone()).date().isoformat()
+            if d in done:
+                done[d] += 1
+    doc = _load()
+    for d in done:
+        done[d] += int((doc.get("todos_done") or {}).get(d, 0))
+    focus = doc.get("focus") or {}
+    return {"days": [{"date": d.isoformat(), "weekday": d.strftime("%a"), "done": done[d.isoformat()], "focus_min": int(focus.get(d.isoformat(), 0))}
+                     for d in days], "done_today": done[day.isoformat()], "focus_today": int(focus.get(day.isoformat(), 0))}
+
+
+WORK_APP = re.compile(r"\b(gvw|goulburn|cmp|timesheets?|sirispm|pm|archive|engineering|civil ?3d|12d|autocad|bentley|drawings?|gis)\b", re.I)
+
+
+def apps() -> list[dict[str, Any]]:
+    """Work apps for the tiles: links in a group named Work, or named like a work app (GVW, CMP, Timesheet, SirisPM, Archive)."""
+    from app.links import store as links
+
+    out = []
+    for g in links.load().groups:
+        for link in g.links:
+            if "work" in g.name.lower() or WORK_APP.search(f"{link.name} {link.note}"):
+                out.append({"id": link.id, "name": link.name, "url": link.url, "icon": link.icon, "note": link.note})
+    return out[:12]
+
+
+async def _recent_notes(hub: Hub) -> list[dict[str, Any]] | None:
+    found = await sirisai_api.get(hub, "/siris/brain/recent", params={"folder": "Work", "limit": 6}, timeout=8.0)
+    return found if isinstance(found, list) else None
 
 
 async def dashboard(hub: Hub, at: datetime) -> dict[str, Any]:
@@ -112,10 +197,12 @@ async def dashboard(hub: Hub, at: datetime) -> dict[str, Any]:
             return empty
 
     # 7.31: no calendar (Brad's work calendar isn't linked, and he doesn't want it) and no projects (Projects is personal).
-    tk, pr = await asyncio.gather(
+    tk, notes, pr = await asyncio.gather(
         safe(_tasks(hub, day), {"groups": {}, "counts": {}}),
+        safe(_recent_notes(hub), None),
         safe(_projects(hub), {"projects": None, "todos": None}),
     )
     pr.pop("projects", None)
     return {"date": day.isoformat(), "local_time": at.isoformat(timespec="minutes"), "hours": hours(at), "tasks": tk, **pr,
+            "week": week(day), "apps": apps(), "notes": notes,
             "engineering": _engineering(), "cpd": _cpd(day)}

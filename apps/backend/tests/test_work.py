@@ -59,3 +59,44 @@ def test_the_dashboard_brings_the_working_day_together(monkeypatch):
     assert [t["title"] for t in d["tasks"]["groups"]["today"]] == ["Check the pump station drawings"]
     assert [t["task"] for t in d["todos"]] == ["Issue RFI 3"]
     assert d["cpd"]["required"] == 150
+
+
+def test_the_week_focus_apps_notes_and_logging_cpd(monkeypatch, tmp_path):
+    """7.4: the visuals' data: work done this week (tasks and note to-dos), focus minutes, work app links, recent work notes, CPD."""
+    from fastapi.testclient import TestClient
+
+    from app.entrypoint import app
+    from app.links import store as links
+    from tests.test_hub import AUTH
+
+    monkeypatch.setenv("SIRISOS_WORK_PATH", str(tmp_path / "work.json"))
+    monkeypatch.setenv("SIRISOS_LINKS_PATH", str(tmp_path / "links.json"))
+    at = datetime(2026, 11, 5, 10, 0, tzinfo=zone())  # a Thursday
+    tasks_store.save(tasks_store.TasksDocument(tasks=[
+        tasks_store.Task(title="Send the RFI to the client", done_at="2026-11-04T01:00:00+00:00", area="work"),
+        tasks_store.Task(title="Buy milk", done_at="2026-11-04T01:00:00+00:00")]))
+    service.add_focus(at.date(), 25)
+    service.add_focus(at.date(), 25)
+    service.add_todo_done(at.date())
+    links.save(links.LinksDocument(groups=[links.LinkGroup(name="Apps", links=[
+        links.Link(name="GVW", url="https://gvw.sirishome.org"), links.Link(name="Plex", url="http://plex.local")])]))
+
+    async def get(hub, path, params=None, timeout=20.0):
+        if path == "/siris/brain/recent":
+            assert params == {"folder": "Work", "limit": 6}
+            return [{"title": "Pump Stations", "path": "Work/GVW/Pump Stations.md", "as_of": "2026-11-05", "excerpt": "Wet wells", "tags": []}]
+        return None
+
+    monkeypatch.setattr(sirisai_api, "get", get)
+    monkeypatch.setattr(service.tasks, "today", lambda: at.date())
+    d = asyncio.run(service.dashboard(None, at))
+    wk = {x["weekday"]: x for x in d["week"]["days"]}
+    assert wk["Wed"]["done"] == 1 and wk["Thu"]["done"] == 1 and wk["Thu"]["focus_min"] == 50 and d["week"]["focus_today"] == 50
+    assert [a["name"] for a in d["apps"]] == ["GVW"]
+    assert d["notes"][0]["title"] == "Pump Stations"
+    assert {m["category"] for m in d["cpd"]["minimums"]} == {"area", "risk", "business"}
+    client = TestClient(app)
+    r = client.post("/api/v1/work/cpd", headers=AUTH, json={"title": "Safety in design webinar", "hours": 1.5, "category": "risk", "date": "2026-11-05"}).json()
+    assert r["record"]["basis"] == "you" and r["record"]["split"] == {"risk": 1.5}
+    assert next(m for m in r["cpd"]["minimums"] if m["category"] == "risk")["hours"] >= 1.5
+    assert client.post("/api/v1/work/focus", headers=AUTH, json={"minutes": 25}).json()["today"] >= 25

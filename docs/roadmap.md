@@ -178,6 +178,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.22: live updates no longer held back by a proxy in front, HTTPS seen through it, self-renewing certificates not flagged, updater note
 7.23: Apple Health sync moved to Health → Data sync; the terminal fits what's visible so the typing line isn't hidden
 7.31: Work without the calendar or projects
+7.4: Work made visual: day ring, task tiles, week bars, focus timer, work app tiles, CPD rings and logging, recent work notes as cards, desktop grid
 
 ## Terminal (ADR 113)
 

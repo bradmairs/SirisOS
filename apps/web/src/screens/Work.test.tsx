@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { clearResources } from "../api/resource";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { WorkHomeCard, WorkScreen } from "./Work";
+import { dayFraction } from "../api/work";
 
 afterEach(() => { clearResources(); vi.restoreAllMocks(); });
 
@@ -39,8 +40,8 @@ describe("Work (7.2)", () => {
     expect(screen.queryByText("Design review")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Work projects" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Meetings today" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Working on/)).toHaveTextContent("Mooroopna pump station");
-    expect(screen.getByText(/CPD: 112 of 150 hours/)).toBeInTheDocument();
+    expect(screen.getByText(/Engineering project:/)).toHaveTextContent("Mooroopna pump station");
+    expect(screen.getByRole("img", { name: "CPD: 112 of 150 hours in three years" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Done: Check the pump station drawings" }));
     await vi.waitFor(() => expect(calls.some((c) => c.url.includes("/api/v1/tasks/sirisos%3At1/done"))).toBe(true));
     await user.click(screen.getByRole("button", { name: "Done: Issue RFI 3" }));
@@ -65,5 +66,85 @@ describe("Work (7.2)", () => {
     const off = render(<MemoryRouter><WorkHomeCard /></MemoryRouter>);
     await new Promise((r) => setTimeout(r, 20));
     expect(off.container).toBeEmptyDOMElement();
+  });
+});
+
+
+const RICH = {
+  ...DAY,
+  tasks: { groups: { overdue: [{ id: "sirisos:o", source: "sirisos", title: "Return the RFI", detail: null, due: "2026-11-04", time: null, group: "overdue", area: "work" }],
+    today: DAY.tasks.groups.today, week: [] }, counts: { overdue: 1, today: 1, week: 0 } },
+  cpd: { total: 112, required: 150, short: 38, minimums: [{ category: "risk", label: "Risk management", hours: 6.5, minimum: 10, short: 3.5 }] },
+  week: { days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => ({ date: `2026-11-0${2 + i}`, weekday: d, done: [3, 5, 2, 4, 1, 0, 0][i], focus_min: 25 })),
+    done_today: 4, focus_today: 75 },
+  apps: [{ id: "l1", name: "GVW", url: "https://gvw.sirishome.org", icon: null, note: "" }],
+  notes: [{ title: "Pump Station Design", path: "Work/GVW/Pump Station Design.md", type: "note", as_of: "2026-11-04", tags: [], excerpt: "Duty/standby submersibles." }],
+};
+
+describe("Work, visual (7.4)", () => {
+  it("shows the day, task tiles, the week's bars, app tiles, CPD rings and recent work notes", async () => {
+    signIn();
+    mockFetch({ "/api/v1/links/status": () => jsonResponse({ l1: { up: true, status: 200, ms: 20 } }), "/api/v1/work": () => jsonResponse(RICH) });
+    const user = userEvent.setup();
+    render(<MemoryRouter><WorkScreen /></MemoryRouter>);
+    expect(await screen.findByText("1h 15m")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /1\s*Overdue/ })).toHaveAttribute("aria-selected", "true");  // overdue first when there is some
+    expect(screen.getByText("Return the RFI")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /1\s*Today/ }));
+    expect(screen.getByText("Check the pump station drawings")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Tue: 5 done, 25 min focused" })).toBeInTheDocument();
+    const apps = screen.getByRole("region", { name: "Work apps" });
+    expect(within(apps).getByRole("link", { name: /^GVW/ })).toHaveAttribute("href", "https://gvw.sirishome.org");
+    expect(within(apps).getByRole("link", { name: "Calculators" })).toHaveAttribute("href", "/engineering");
+    expect(await screen.findByLabelText("Up")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Risk management: 6.5 of 10 hours" })).toBeInTheDocument();
+    expect(screen.getByText("3.5 h short")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Pump Station Design/ })).toHaveAttribute("href", "/brain?q=Pump%20Station%20Design");
+  });
+
+  it("logs CPD in a category and shows the new totals", async () => {
+    signIn();
+    const after = { ...RICH.cpd, total: 113.5, minimums: [{ category: "risk", label: "Risk management", hours: 8, minimum: 10, short: 2 }] };
+    let logged = false;
+    const calls = mockFetch({
+      "/api/v1/work/cpd": () => { logged = true; return jsonResponse({ record: {}, cpd: after }); },
+      "/api/v1/work": () => jsonResponse(logged ? { ...RICH, cpd: after } : RICH),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><WorkScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Log CPD" }));
+    await user.type(screen.getByLabelText("CPD activity"), "Safety in design webinar");
+    await user.click(screen.getByRole("radio", { name: "Risk" }));
+    await user.clear(screen.getByLabelText("Hours"));
+    await user.type(screen.getByLabelText("Hours"), "1.5");
+    await user.click(screen.getByRole("button", { name: "Log it" }));
+    expect(await screen.findByText(/Logged 1.5 h of risk/)).toBeInTheDocument();
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/work/cpd"))!.init.body))).toEqual({ title: "Safety in design webinar", hours: 1.5, category: "risk" });
+    expect(screen.getByText("2 h short")).toBeInTheDocument();
+  });
+
+  it("runs a 25-minute focus block and logs it when it ends", async () => {
+    signIn();
+    window.localStorage.removeItem("sirisos.work.focus");
+    const calls = mockFetch({ "/api/v1/work/focus": () => jsonResponse({ today: 25 }), "/api/v1/work": () => jsonResponse(RICH) });
+    render(<MemoryRouter><WorkScreen /></MemoryRouter>);
+    const start = await screen.findByRole("button", { name: "Start" });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      start.click();
+      await vi.advanceTimersByTimeAsync(25 * 60 * 1000 + 1000);
+      await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/work/focus"))).toBe(true));
+      expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/work/focus"))!.init.body))).toEqual({ minutes: 25 });
+      expect(await screen.findByText("1 done today")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+      window.localStorage.removeItem("sirisos.work.focus");
+    }
+  });
+
+  it("knows how far through the working day it is", () => {
+    expect(dayFraction("08:00", "16:30", new Date(2026, 10, 6, 7, 0))).toBe(0);
+    expect(dayFraction("08:00", "16:30", new Date(2026, 10, 6, 12, 15))).toBeCloseTo(0.5, 2);
+    expect(dayFraction("08:00", "16:30", new Date(2026, 10, 6, 17, 0))).toBe(1);
   });
 });
