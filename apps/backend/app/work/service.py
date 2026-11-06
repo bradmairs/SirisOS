@@ -3,13 +3,11 @@
 
 Everything an engineering day at work needs, from what SirisOS already has:
 
-- **the day**: how long until home time, today's meetings and the next one;
+- **the day**: how long until home time (7.31: no calendar, which Brad doesn't link for work);
 - **tasks**: SirisOS tasks that are work (set, or guessed from their words),
   overdue, today and this week;
-- **work projects**: Siris' projects under Work/ or named for a work
-  organisation (GVW, CMP: SIRISOS_PROJECTS_EXCLUDE), the ones Projects leaves
-  out, with what's due and their open to-dos;
-- **to-dos in work notes**: open tasks in those notes;
+- **to-dos in work notes**: open tasks in Siris' work notes (under Work/ or
+  named for a work organisation: GVW, CMP), not shown as projects (7.31);
 - **the engineering project** picked in Engineering, and the other active ones;
 - **CPD**: hours in Engineers Australia's three-year window against 150.
 
@@ -19,7 +17,7 @@ Each part is fetched on its own: one that fails or isn't set up is empty, never 
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from app.hub import sirisai_api
@@ -45,42 +43,6 @@ def hours(at: datetime) -> dict[str, Any]:
 
 def _work_project(p: dict[str, Any]) -> bool:
     return not projects.personal(p)
-
-
-async def _events(hub: Hub, day: date, at: datetime) -> dict[str, Any]:
-    body = await sirisai_api.get(hub, "/siris/hub/v1/calendar", params={"start": day.isoformat(), "end": (day + timedelta(days=1)).isoformat()},
-                                 timeout=8.0)
-    if body is None or body.get("guest_mode"):
-        return {"events": None, "next": None}
-    out = []
-    for e in body.get("events") or []:
-        start = str(e.get("start") or "")
-        if not start.startswith(day.isoformat()):
-            continue
-        out.append({"title": e.get("title") or "Event", "start": start, "end": e.get("end"), "all_day": bool(e.get("all_day")),
-                    "location": e.get("location") or None})
-    out.sort(key=lambda e: (not e["all_day"], e["start"]))
-    nxt = None
-    for e in out:
-        if e["all_day"]:
-            continue
-        try:
-            when = datetime.fromisoformat(e["start"].replace("Z", "+00:00"))
-            when = when if when.tzinfo else when.replace(tzinfo=at.tzinfo)
-        except ValueError:
-            continue
-        mins = round((when - at).total_seconds() / 60)
-        end_ok = True
-        if e.get("end"):
-            try:
-                fin = datetime.fromisoformat(str(e["end"]).replace("Z", "+00:00"))
-                end_ok = (fin if fin.tzinfo else fin.replace(tzinfo=at.tzinfo)) > at
-            except ValueError:
-                pass
-        if end_ok and mins > -600:
-            nxt = {**e, "in_minutes": mins, "now": mins <= 0}
-            break
-    return {"events": out, "next": nxt}
 
 
 async def _tasks(hub: Hub, day: date) -> dict[str, Any]:
@@ -149,10 +111,11 @@ async def dashboard(hub: Hub, at: datetime) -> dict[str, Any]:
         except Exception:  # noqa: BLE001 - one part failing leaves the rest
             return empty
 
-    ev, tk, pr = await asyncio.gather(
-        safe(_events(hub, day, at), {"events": None, "next": None}),
+    # 7.31: no calendar (Brad's work calendar isn't linked, and he doesn't want it) and no projects (Projects is personal).
+    tk, pr = await asyncio.gather(
         safe(_tasks(hub, day), {"groups": {}, "counts": {}}),
         safe(_projects(hub), {"projects": None, "todos": None}),
     )
-    return {"date": day.isoformat(), "local_time": at.isoformat(timespec="minutes"), "hours": hours(at), **ev, "tasks": tk, **pr,
+    pr.pop("projects", None)
+    return {"date": day.isoformat(), "local_time": at.isoformat(timespec="minutes"), "hours": hours(at), "tasks": tk, **pr,
             "engineering": _engineering(), "cpd": _cpd(day)}

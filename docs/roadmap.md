@@ -177,6 +177,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.21: SirisGym: JEFIT exports read exactly (exercise logs only, Melbourne dates, no doubled sets, right exercises); re-import fixes an older import
 7.22: live updates no longer held back by a proxy in front, HTTPS seen through it, self-renewing certificates not flagged, updater note
 7.23: Apple Health sync moved to Health → Data sync; the terminal fits what's visible so the typing line isn't hidden
+7.31: Work without the calendar or projects
 
 ## Terminal (ADR 113)
 
