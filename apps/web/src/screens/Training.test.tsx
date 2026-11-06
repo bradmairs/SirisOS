@@ -6,6 +6,7 @@ import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { clearResources } from "../api/resource";
 import type { Training } from "../api/training";
 import { TodaysRunWidget, TrainingScreen } from "./Training";
+import { HealthSyncCard } from "./HealthSync";
 
 const none: Training = { today: "2026-10-30", health: true, recovery: { level: "good", notes: [], known: true }, plan: null, this_week: null, session: null, recent_weekly_km: 18.5 };
 const planned: Training = {
@@ -42,8 +43,11 @@ describe("training", () => {
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/training/race"))!.init.body))).toMatchObject({ name: "Run Melbourne", date: "2027-01-24", distance_km: 10, start_km: null });
     expect(await screen.findByRole("link", { name: "Subscribe" })).toHaveAttribute("href", expect.stringMatching(/^webcal:\/\/.*calendar\.ics\?t=abc123abc123$/));
 
+    // 7.23: Apple Health moved to Health → Data sync; Training points there.
+    expect(screen.getByRole("link", { name: "Health → Data sync" })).toHaveAttribute("href", "/health?view=sync");
+    render(<MemoryRouter><HealthSyncCard health={false} /></MemoryRouter>);
     expect(screen.queryByText("What the phone sent lately")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Make a key" }));
+    await user.click(await screen.findByRole("button", { name: "Make a key" }));
     expect(await screen.findByText("hk_secret123")).toBeInTheDocument();
   });
 
@@ -72,7 +76,7 @@ describe("the import log", () => {
       "/api/v1/health/import/status": () => jsonResponse({ ...status, has_key: true, key_hint: "abcd",
         attempts: [{ at: "2026-10-30T08:39:00+00:00", status: 401, outcome: "The key doesn't match: copy it again", bytes: 48_000 }] }),
     });
-    render(<MemoryRouter><TrainingScreen /></MemoryRouter>);
+    render(<MemoryRouter><HealthSyncCard health /></MemoryRouter>);
     expect(await screen.findByText("The key doesn't match: copy it again")).toBeInTheDocument();
     expect(screen.getByText(/· 401 · 48 KB/)).toBeInTheDocument();
   });

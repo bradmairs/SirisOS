@@ -101,7 +101,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
   if (ctx.phase === "morning") {
     const first = upcoming[0];
     return (
-      <Glass as="section" className="widget widget--wide focus" aria-label="This morning">
+      <Glass as="section" className="widget widget--wide focus-card" aria-label="This morning">
         <header className="widget__head"><Sunrise aria-hidden="true" /><span>This morning</span></header>
         {first ? <EventLine e={first} leave={ctx.leave_minutes} prefix="First up: " /> : <p className="muted" style={{ margin: 0 }}>Nothing on the calendar this morning.</p>}
         <Weather w={ctx.weather_today} label="Today" />
@@ -121,7 +121,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
   if (ctx.phase === "work") {
     const next = upcoming[0];
     return (
-      <Glass as="section" className="widget widget--wide focus" aria-label="Next up">
+      <Glass as="section" className="widget widget--wide focus-card" aria-label="Next up">
         <header className="widget__head"><CalendarClock aria-hidden="true" /><span>Next up</span></header>
         {next ? (
           <p style={{ margin: 0, fontSize: 17 }}><strong>{next.title}</strong> <span className="focus__when">{until(next.start, now)}</span>
@@ -137,7 +137,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
   }
   if (ctx.phase === "weekend") {
     return (
-      <Glass as="section" className="widget widget--wide focus" aria-label="Today">
+      <Glass as="section" className="widget widget--wide focus-card" aria-label="Today">
         <header className="widget__head"><Sun aria-hidden="true" /><span>Today</span></header>
         {/* What's still to come: all-day plans, then the rest by time. */}
         {(() => {
@@ -153,7 +153,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
     const since = ctx.home && ctx.home_since ? (now.getTime() - new Date(ctx.home_since).getTime()) / 60_000 : Infinity;
     const welcome = since >= 0 && since <= WELCOME_MINUTES;
     return (
-      <Glass as="section" className="widget widget--wide focus" aria-label="This evening">
+      <Glass as="section" className="widget widget--wide focus-card" aria-label="This evening">
         {welcome && (
           <div className="focus__welcome" role="status">
             <House size={15} aria-hidden="true" /> <strong>Welcome home.</strong>{" "}
@@ -179,7 +179,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
   }
   // Wind down and night: tomorrow, quietly.
   return (
-    <Glass as="section" className="widget widget--wide focus focus--quiet" aria-label="Tomorrow">
+    <Glass as="section" className="widget widget--wide focus-card focus--quiet" aria-label="Tomorrow">
       <header className="widget__head"><MoonStar aria-hidden="true" /><span>Tomorrow</span></header>
       {ctx.phase === "night" && <p className="focus__clock" aria-label="Now">{now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>}
       {firstTomorrow ? <EventLine e={firstTomorrow} leave={ctx.leave_minutes} prefix="First: " /> : <p className="muted" style={{ margin: 0 }}>Nothing on first thing.</p>}

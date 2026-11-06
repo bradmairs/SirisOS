@@ -101,3 +101,19 @@ describe("<HealthScreen />", () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe("Data sync (7.23)", () => {
+  it("has Apple Health's sync, moved from Training", async () => {
+    signIn();
+    clearResources();
+    mockFetch({
+      "/api/v1/health/import/status": () => jsonResponse({ path: "/api/v1/health/import", has_key: true, key_hint: "abcd", last_ok: null, last: null, attempts: [] }),
+      "/api/v1/health": () => jsonResponse(data),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><HealthScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("tab", { name: "Data sync" }));
+    expect(await screen.findByText("Apple Health, on its own")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Test the sync" })).toBeInTheDocument();
+  });
+});

@@ -176,6 +176,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.2: Work dashboard (8:00 to 4:30, on the tab bar and Home), edit Siris notes and memories, Passkey only, Dom's iPhone counts as home
 7.21: SirisGym: JEFIT exports read exactly (exercise logs only, Melbourne dates, no doubled sets, right exercises); re-import fixes an older import
 7.22: live updates no longer held back by a proxy in front, HTTPS seen through it, self-renewing certificates not flagged, updater note
+7.23: Apple Health sync moved to Health → Data sync; the terminal fits what's visible so the typing line isn't hidden
 
 ## Terminal (ADR 113)
 
