@@ -79,6 +79,9 @@ export interface ConversationSummary {
   conversation_id: string;
   started_with: string;
   last_at: string;
+  /** From a search (7.3, SirisAI 4.6): what came of it, and the lines that matched. */
+  summary?: string;
+  matches?: string[];
 }
 
 export interface BrainHit {

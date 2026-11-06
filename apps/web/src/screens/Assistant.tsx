@@ -74,6 +74,8 @@ export function Assistant() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<ConversationSummary[] | null>(null);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historySince, setHistorySince] = useState("");
   const abort = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -312,6 +314,15 @@ export function Assistant() {
     }
   }
 
+  async function searchHistory(e: FormEvent) {
+    e.preventDefault();
+    try {
+      setHistory(historyQuery.trim() || historySince ? await assistant.searchConversations(historyQuery.trim(), historySince) : await assistant.conversations());
+    } catch {
+      setHistory([]);
+    }
+  }
+
   async function openHistory() {
     setHistory([]);
     try {
@@ -442,8 +453,14 @@ export function Assistant() {
       {history && (
         <Sheet label="Conversations" onClose={() => setHistory(null)}>
           <h2 className="app-sheet__name" style={{ marginBottom: 12 }}>Conversations</h2>
+          <form className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }} onSubmit={searchHistory} aria-label="Search conversations">
+            <input className="field" style={{ flex: "1 1 160px" }} type="search" value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)}
+              placeholder="What did we talk about?" aria-label="Search words" />
+            <input className="field" type="date" value={historySince} onChange={(e) => setHistorySince(e.target.value)} aria-label="Since" />
+            <button type="submit" className="button button--small">Search</button>
+          </form>
           {history.length === 0 ? (
-            <p className="muted">No conversations yet.</p>
+            <p className="muted">{historyQuery || historySince ? "Nothing found." : "No conversations yet."}</p>
           ) : (
             <ul className="items">
               {history.map((c) => (
@@ -451,6 +468,7 @@ export function Assistant() {
                   <button className="item item--button" onClick={() => resume(c.conversation_id)}>
                     <span className="item__text">
                       <div className="item__title">{c.started_with || "Conversation"}</div>
+                      {c.summary && <div className="item__subtitle">{c.summary}</div>}
                       <div className="item__subtitle">{new Date(c.last_at).toLocaleString()}</div>
                     </span>
                   </button>

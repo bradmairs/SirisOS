@@ -159,3 +159,31 @@ describe("SirisAI's approval PIN", () => {
     expect(bodies).toEqual([{ action: "install" }, { action: "install", pin: "0000" }, { action: "install", pin: "4321" }]);
   });
 });
+
+describe("Approve in SirisOS (7.3)", () => {
+  it("opens on the approval from the push, asking for the PIN before sending anything", async () => {
+    signIn();
+    const bodies: unknown[] = [];
+    mockFetch({
+      "/api/v1/attention/stream": () => sseResponse([{ type: "snapshot", items: [INTRUDER, APPROVAL], counts: { open: 2, urgent: 1 } }]),
+      "/api/v1/attention/ai%3A8/act": (_url, init) => {
+        bodies.push(JSON.parse(String(init.body)));
+        return jsonResponse({ item: { id: "ai:8", status: "done" }, result: null });
+      },
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/inbox?focus=ai:8"]}><InboxScreen /></MemoryRouter>);
+    const row = await screen.findByRole("listitem", { name: "Approve: turn on switch.heater" });
+    const pin = await within(row).findByLabelText("Approval PIN", { selector: "input" });
+    expect(bodies).toEqual([]);
+    await user.type(pin, "4321{enter}");
+    await waitFor(() => expect(bodies).toEqual([{ action: "approve", pin: "4321" }]));
+  });
+
+  it("says so when it's already been answered", async () => {
+    signIn();
+    mockFetch({ "/api/v1/attention/stream": () => sseResponse([{ type: "snapshot", items: [INTRUDER], counts: { open: 1, urgent: 1 } }]) });
+    render(<MemoryRouter initialEntries={["/inbox?focus=ai:8"]}><InboxScreen /></MemoryRouter>);
+    expect(await screen.findByText("That approval has already been answered or has expired.")).toBeInTheDocument();
+  });
+});
