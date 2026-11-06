@@ -171,6 +171,7 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
     socket.current = ws;
     const resize = () => {
       try { fit.fit(); } catch { /* hidden */ }
+      term.scrollToBottom();  // the line being typed stays in view
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
     };
     ws.onmessage = (e) => {
@@ -196,7 +197,27 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
     const typing = term.onData(send);
     const observer = new ResizeObserver(resize);
     observer.observe(box.current!);
+    // 7.23: the screen fills what's actually visible, so its last line (where you type) is never behind the keyboard or tab bar.
+    const vv = window.visualViewport;
+    let keyboard = false;
+    const fitToView = () => {
+      const el = box.current;
+      if (!el) return;
+      const open = !!vv && vv.height < window.innerHeight - 120;
+      if (open && !keyboard) el.closest(".terminal")?.scrollIntoView({ block: "start" });  // the keyboard came up: give the terminal the room
+      keyboard = open;
+      const h = screenHeight(el, vv);
+      if (h != null && Math.abs(el.getBoundingClientRect().height - h) > 2) el.style.height = `${h}px`;
+    };
+    const settle = () => window.requestAnimationFrame(fitToView);
+    vv?.addEventListener("resize", settle);
+    vv?.addEventListener("scroll", settle);
+    window.addEventListener("resize", settle);
+    settle();
     return () => {
+      vv?.removeEventListener("resize", settle);
+      vv?.removeEventListener("scroll", settle);
+      window.removeEventListener("resize", settle);
       observer.disconnect();
       typing.dispose();
       ws.onclose = null;
@@ -485,4 +506,17 @@ export function TerminalScreen() {
       </div>
     </>
   );
+}
+
+/** How tall the terminal can be (7.23): from its top to the bottom of what's visible (above the keyboard, which iOS
+ *  doesn't take out of 100dvh, and the tab bar), less the rows of keys under it. Null when it can't tell. */
+export function screenHeight(el: HTMLElement, vv: VisualViewport | null | undefined = window.visualViewport): number | null {
+  const top = el.getBoundingClientRect().top;
+  let bottom = vv ? vv.height + vv.offsetTop : window.innerHeight;
+  const dock = document.querySelector(".dock")?.getBoundingClientRect();
+  if (dock && dock.height > 0 && dock.top > top && dock.top < bottom) bottom = dock.top;
+  let below = 0;
+  for (let n = el.nextElementSibling; n; n = n.nextElementSibling) below += (n as HTMLElement).getBoundingClientRect().height + 8;
+  const h = Math.floor(bottom - top - below - 10);
+  return Number.isFinite(h) ? Math.max(160, h) : null;
 }

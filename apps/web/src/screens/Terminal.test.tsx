@@ -15,6 +15,7 @@ vi.mock("@xterm/xterm", () => ({
     loadAddon() {}
     open() {}
     focus() {}
+    scrollToBottom() {}
     dispose() {}
     write(data: string | Uint8Array) { written.push(typeof data === "string" ? data : new TextDecoder().decode(data)); }
     onData(fn: (data: string) => void) { typed = fn; return { dispose() {} }; }
@@ -157,5 +158,30 @@ describe("<TerminalScreen />", () => {
     await user.click(screen.getByRole("button", { name: /Open home/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Codes work once");
     expect(screen.getByLabelText("6-digit code")).toHaveValue("");
+  });
+});
+
+
+describe("the terminal's height (7.23)", () => {
+  it("reaches the top of the keyboard, less the keys under it, never behind the tab bar", async () => {
+    const { screenHeight } = await import("./Terminal");
+    const wrap = document.createElement("div");
+    const screen = document.createElement("div");
+    const keys = document.createElement("div");
+    wrap.append(screen, keys);
+    document.body.append(wrap);
+    const rect = (r: Partial<DOMRect>) => () => ({ top: 0, height: 0, bottom: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON() {}, ...r }) as DOMRect;
+    screen.getBoundingClientRect = rect({ top: 150 });
+    keys.getBoundingClientRect = rect({ height: 40 });
+    // The keyboard is up: only 480 px of the 844 px screen are visible.
+    expect(screenHeight(screen, { height: 480, offsetTop: 0 } as VisualViewport)).toBe(480 - 150 - 48 - 10);
+    // No keyboard, but the tab bar starts at 760.
+    const dock = document.createElement("nav");
+    dock.className = "dock";
+    dock.getBoundingClientRect = rect({ top: 760, height: 70 });
+    document.body.append(dock);
+    expect(screenHeight(screen, { height: 844, offsetTop: 0 } as VisualViewport)).toBe(760 - 150 - 48 - 10);
+    wrap.remove();
+    dock.remove();
   });
 });
