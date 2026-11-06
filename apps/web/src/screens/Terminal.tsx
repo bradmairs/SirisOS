@@ -204,7 +204,7 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
       const el = box.current;
       if (!el) return;
       const open = !!vv && vv.height < window.innerHeight - 120;
-      if (open && !keyboard) el.closest(".terminal")?.scrollIntoView({ block: "start" });  // the keyboard came up: give the terminal the room
+      if (open && !keyboard) el.closest(".terminal-session")?.scrollIntoView({ block: "start" });  // the keyboard came up: give the terminal the room
       keyboard = open;
       const h = screenHeight(el, vv);
       if (h != null && Math.abs(el.getBoundingClientRect().height - h) > 2) el.style.height = `${h}px`;
@@ -229,7 +229,7 @@ function Session({ host, ticket, onEnd }: { host: string; ticket: string; onEnd:
   }, [ticket]);
 
   return (
-    <section className="terminal" aria-label={`Terminal on ${host}`}>
+    <section className="terminal-session" aria-label={`Terminal on ${host}`}>
       <div className="row terminal__bar">
         <span className="terminal__target"><Server size={14} aria-hidden="true" /> {target}</span>
         <button type="button" className="chip chip--button" onClick={() => { socket.current?.close(); }}>
