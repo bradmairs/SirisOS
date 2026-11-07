@@ -365,3 +365,14 @@ export interface HomeControls {
   controls: HomeControl[];
   scenes: { id: string; name: string; source: "siris" | "home_assistant" }[];
 }
+
+/** A handwritten page to check (7.6): the machine's transcription and the words that look misread. */
+export interface HandwritingPage {
+  title: string;
+  path: string;
+  source: string;
+  score: number;
+  illegible: number;
+  odd_words: string[];
+  text: string;
+}

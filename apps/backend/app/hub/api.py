@@ -491,6 +491,48 @@ async def brain_deleted(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/brain/deleted")
 
 
+@router.get("/brain/handwriting", tags=["brain"])
+async def brain_handwriting(
+    limit: int = Query(20, ge=1, le=100),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> Any:
+    """Handwritten pages to check, the likeliest misreadings first, each with its transcription (7.6)."""
+    return await _forward(connector, "GET", "/siris/brain/handwriting", params={"limit": limit})
+
+
+@router.get("/brain/handwriting/image", tags=["brain"])
+async def brain_handwriting_image(
+    title: str = Query(min_length=1, max_length=200),
+    n: int = Query(1, ge=1, le=20),
+    connector: SirisAIConnector = Depends(_sirisai),
+) -> Response:
+    """Part `n` of a handwritten page, drawn from its ink in OneNote; `X-Page-Parts` says how many parts."""
+    try:
+        response = await shared_client().get(f"{connector.base_url}/siris/brain/handwriting/image",
+                                             params={"title": title, "n": n}, headers=connector.headers(), timeout=60.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("detail", response.text)
+        except ValueError:
+            detail = response.text
+        raise HTTPException(status_code=404 if response.status_code == 404 else 502, detail=f"SirisAI: {detail}")
+    return Response(response.content, media_type="image/png",
+                    headers={"X-Page-Parts": response.headers.get("x-page-parts", "1"), "Cache-Control": "private, max-age=86400"})
+
+
+class HandwritingCheck(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    text: str = Field(default="", max_length=50000)
+
+
+@router.post("/brain/handwriting/check", tags=["brain"])
+async def brain_handwriting_check(body: HandwritingCheck, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Brad checked a handwritten page: right as it is (no text), or his correction replaces the transcription."""
+    return await _forward(connector, "POST", "/siris/brain/handwriting/check", json=body.model_dump())
+
+
 @router.get("/memories", tags=["brain"])
 async def memories(
     query: str | None = Query(None, max_length=200),

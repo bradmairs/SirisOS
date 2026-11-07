@@ -1118,3 +1118,14 @@ h3.note__heading { font-size: 17px; }
 .ask-about__card { position: relative; width: min(440px, 100%); display: grid; gap: 10px; padding: 16px; }
 .search__filters { display: flex; gap: 6px; overflow-x: auto; padding: 4px 6px 8px; scrollbar-width: none; }
 .search__filters .chip { flex: none; }
+
+/* Handwriting to check (7.6): the page beside its reading, side by side when there's room. */
+.handwriting { grid-column: 1 / -1; }
+.handwriting__count { margin-left: auto; font-size: 12px; }
+.handwriting__odd { gap: 4px; flex-wrap: wrap; }
+.handwriting__pair { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 760px) { .handwriting__pair { grid-template-columns: 1fr 1fr; } }
+.handwriting__page { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto;
+  border-radius: 12px; background: #fff; padding: 6px; }
+.handwriting__page img { width: 100%; height: auto; display: block; }
+.handwriting__text { min-height: 220px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
