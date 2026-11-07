@@ -200,12 +200,14 @@ export function plates(target: number, bar: number, available: number[]): { perS
 
 /** Run an iPhone Shortcut by name, then come back to `back` (6.92). Only on iPhone/iPad; elsewhere nothing happens. */
 export const shortcuts = {
-  url: (name: string, back: string) =>
-    `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(name)}&x-success=${encodeURIComponent(back)}&x-cancel=${encodeURIComponent(back)}&x-error=${encodeURIComponent(back)}`,
+  /** `text` goes to the Shortcut as its input (7.61: "finished" or "discarded"), so one stop Shortcut can tell them apart. */
+  url: (name: string, back: string, text?: string) =>
+    `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(name)}${text ? `&input=text&text=${encodeURIComponent(text)}` : ""}`
+    + `&x-success=${encodeURIComponent(back)}&x-cancel=${encodeURIComponent(back)}&x-error=${encodeURIComponent(back)}`,
   open: (url: string) => { window.location.href = url; },
-  run(name: string | undefined, backPath: string): boolean {
+  run(name: string | undefined, backPath: string, text?: string): boolean {
     if (!name?.trim() || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return false;
-    this.open(this.url(name.trim(), `${window.location.origin}${backPath}`));
+    this.open(this.url(name.trim(), `${window.location.origin}${backPath}`, text));
     return true;
   },
 };

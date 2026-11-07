@@ -5,6 +5,7 @@ import { useResource } from "../api/resource";
 import type { BrainDeleted, SirisMemory } from "../api/types";
 import { Glass } from "../components/Glass";
 import { useShowMore } from "../components/ShowMore";
+import { HandwritingPanel } from "./HandwritingReview";
 
 const dayLabel = (iso: string) => {
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
@@ -16,12 +17,13 @@ export function useDeletedNotes() {
   return useResource<BrainDeleted[]>("brain:deleted", () => brain.deleted(), { staleMs: 30_000 });
 }
 
-/** Housekeeping for the brain: SirisAI's own memories, and notes deleted recently. */
+/** Housekeeping for the brain: handwriting to check, SirisAI's own memories, and notes deleted recently. */
 export function BrainManage({ onRestored }: { onRestored?: (title: string) => void }) {
   return (
     <section aria-labelledby="manage-title">
       <h2 id="manage-title" className="section-title">Manage</h2>
       <div className="widget-grid">
+        <HandwritingPanel />
         <MemoriesPanel />
         <DeletedPanel onRestored={onRestored} />
       </div>

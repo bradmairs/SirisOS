@@ -1223,3 +1223,13 @@ h3.note__heading { font-size: 17px; }
   .budget-line:has(.budget-line__goal) { grid-template-columns: 1fr 1fr; }
 }
 .budget-line__goal label > span { white-space: nowrap; flex: none; }
+/* Handwriting to check (7.6): the page beside its reading, side by side when there's room. */
+.handwriting { grid-column: 1 / -1; }
+.handwriting__count { margin-left: auto; font-size: 12px; }
+.handwriting__odd { gap: 4px; flex-wrap: wrap; }
+.handwriting__pair { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 760px) { .handwriting__pair { grid-template-columns: 1fr 1fr; } }
+.handwriting__page { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto;
+  border-radius: 12px; background: #fff; padding: 6px; }
+.handwriting__page img { width: 100%; height: auto; display: block; }
+.handwriting__text { min-height: 220px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }

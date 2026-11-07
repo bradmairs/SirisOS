@@ -842,9 +842,12 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         <label className="gym-setting">Weight step (kg)<input className="field" type="number" step={0.25} min={0.25} max={20} value={s.increment} onChange={(e) => setS({ ...s, increment: Number(e.target.value) || 2.5 })} /></label>
         <label className="gym-setting">iPhone Shortcut to run when a workout starts
           <input className="field" placeholder="e.g. SirisGym Start (empty: none)" value={s.shortcut_start ?? ""} onChange={(e) => setS({ ...s, shortcut_start: e.target.value })} /></label>
-        <label className="gym-setting">…and when it finishes
+        <label className="gym-setting">…and when it finishes or is discarded (to stop the Watch workout)
           <input className="field" placeholder="e.g. SirisGym Finish (empty: none)" value={s.shortcut_finish ?? ""} onChange={(e) => setS({ ...s, shortcut_finish: e.target.value })} /></label>
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. It runs on iPhone, then comes straight back here.</p>
+        {!!s.shortcut_start?.trim() && !s.shortcut_finish?.trim() && (
+          <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 12 }}>With a start Shortcut but no finish one, the Watch workout keeps running after you finish or discard here. Name a Shortcut that ends it.</p>
+        )}
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. The finish one gets "finished" or "discarded" as its input, and should end the Watch workout. It runs on iPhone, then comes straight back here.</p>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.learn_rest ?? true} onChange={(e) => setS({ ...s, learn_rest: e.target.checked })} /> Set the rest timer from how long my heart rate takes to settle (needs the Watch)</label>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (
