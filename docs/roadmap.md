@@ -182,6 +182,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.5: work wrap-up at home time (carry-over, first thing, CPD, to Siris), chartership progress trend, ask about this page, tasks and SirisGym in search with filters, the week in the review notification
 7.61: discarding a SirisGym workout runs the finish Shortcut too (stops the Watch); the Shortcut gets finished or discarded as input
 7.8: SirisGym first-use fixes: weights carry down to the next sets, decimal weights type properly, edit a saved workout, a workout-in-progress bar on every page
+7.81: Data sync setup says Time Grouping Minutes (metrics) and Seconds (workouts), with SirisAI 5.01
 
 ## Terminal (ADR 113)
 
