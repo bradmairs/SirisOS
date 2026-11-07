@@ -31,6 +31,9 @@ export interface HealthImportStatus {
   last_ok: { at: string; days?: string[]; format?: string } | null;
   /** Every request to the import address, newest first, with why it failed (5.62). */
   attempts?: { at: string; status: number; outcome: string; bytes: number }[];
+  /** 7.91: the last weight that came through, and names in the export SirisAI didn't use. */
+  last_weight?: { date: string; kg: number; at: string } | null;
+  ignored?: string[];
 }
 
 export const training = {

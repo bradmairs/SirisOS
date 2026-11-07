@@ -66,6 +66,14 @@ def note(result: dict[str, Any] | None, error: str | None = None) -> None:
         days = (result or {}).get("days")
         entry["days"] = sorted(days)[-14:] if isinstance(days, dict) else [(result or {}).get("date")]
         entry["format"] = (result or {}).get("format") or "metrics"
+        # 7.91: the last weight that came through, and names SirisAI didn't use (a weight sent under another name shows here).
+        if isinstance(days, dict):
+            weighed = sorted((d, m["weight_kg"]) for d, m in days.items() if isinstance(m, dict) and isinstance(m.get("weight_kg"), (int, float)))
+            if weighed and weighed[-1][0] >= str((doc.get("last_weight") or {}).get("date") or ""):
+                doc["last_weight"] = {"date": weighed[-1][0], "kg": round(float(weighed[-1][1]), 2), "at": entry["at"]}
+        ignored = [str(x)[:60] for x in (result or {}).get("ignored") or []][:20]
+        if ignored:
+            doc["ignored"] = ignored
     doc["last"] = entry
     if not error:
         doc["last_ok"] = entry
@@ -84,4 +92,5 @@ def attempt(status: int, outcome: str, size: int = 0) -> None:
 def status() -> dict[str, Any]:
     doc = _load()
     return {"has_key": bool(doc.get("key_hash")), "key_hint": doc.get("key_hint"), "made": doc.get("made"),
-            "last": doc.get("last"), "last_ok": doc.get("last_ok"), "attempts": doc.get("attempts") or []}
+            "last": doc.get("last"), "last_ok": doc.get("last_ok"), "attempts": doc.get("attempts") or [],
+            "last_weight": doc.get("last_weight"), "ignored": doc.get("ignored") or []}
