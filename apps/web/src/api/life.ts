@@ -22,6 +22,12 @@ export interface Speed {
   jobs: Job[];
 }
 
+export interface FromEmail {
+  looked_at?: number; read?: number; added?: number; more?: number; problem?: string; skipped?: string;
+  things?: { id: number; name: string; shop: string | null; bought: string | null }[];
+}
+export interface EmailStatus { connected: boolean; address: string | null; can_send: boolean; drafts_replies: boolean; last: (FromEmail & { at: string }) | null }
+
 const L = "/api/v1/life";
 
 export const life = {
@@ -36,6 +42,8 @@ export const life = {
   bills: (all = false) => api<Bill[]>(`${L}/bills${all ? "?all=true" : ""}`),
   scanBills: () => api<{ looked_at?: number; added?: number; skipped?: string }>(`${L}/bills/scan`, { method: "POST" }),
   setBill: (id: number, status: "done" | "ignored" | "open") => api<Bill>(`${L}/bills/${id}/status`, json({ status })),
+  email: () => api<EmailStatus>(`${L}/email`),
+  thingsFromEmail: (days: number) => api<FromEmail>(`${L}/things/from-email?days=${days}`, { method: "POST" }),
   travel: () => api<Trip[]>(`${L}/travel`),
   away: (on: boolean) => api<{ away_mode: string }>(`${L}/travel/away?on=${on}`, { method: "POST" }),
   speed: () => api<Speed>(`${L}/speed`),
