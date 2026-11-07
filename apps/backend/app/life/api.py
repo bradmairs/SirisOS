@@ -17,8 +17,9 @@ answering. The data is SirisAI's (4.6); these pass it through.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
@@ -47,8 +48,22 @@ async def _call(hub: Hub, method: str, path: str, timeout: float = 30.0, **kwarg
 
 
 @router.get("/documents")
-async def documents(q: str = Query("", max_length=200), hub: Hub = Depends(get_hub)) -> Any:
-    return await _call(hub, "GET", "/siris/documents", params={"q": q})
+async def documents(q: str = Query("", max_length=200), kind: str = Query("", max_length=20), not_kind: str = Query("", max_length=20),
+                    limit: int = Query(30, ge=1, le=300), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/documents", params={"q": q, **({"kind": kind} if kind else {}), **({"not_kind": not_kind} if not_kind else {}), **({"limit": limit} if limit != 30 else {})})
+
+
+@router.get("/documents/{doc_id}/files/{name}")
+async def document_file(doc_id: int = Path(ge=1), name: str = Path(max_length=100), hub: Hub = Depends(get_hub)) -> Response:
+    """A kept receipt's original (SirisAI 5.31). It came from an email, so the browser is told nothing in it may run."""
+    try:
+        r = await sirisai_api.raw(hub, "GET", f"/siris/documents/{doc_id}/files/{quote(name, safe='')}", timeout=30.0)
+    except sirisai_api.SirisAIError as exc:
+        raise _fail(exc) from None
+    if r.status_code >= 400:
+        raise HTTPException(status_code=404 if r.status_code == 404 else 502, detail="No such file." if r.status_code == 404 else "SirisAI couldn't send it.")
+    return Response(content=r.content, media_type=r.headers.get("content-type", "application/octet-stream"), headers={
+        "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:"})
 
 
 @router.post("/documents")
@@ -121,7 +136,7 @@ async def email_status(hub: Hub = Depends(get_hub)) -> Any:
 
 @router.post("/things/from-email")
 async def things_from_email(days: int = Query(30, ge=1, le=1825), hub: Hub = Depends(get_hub)) -> Any:
-    """Receipts in email become Things (SirisAI 5.21). The local model reads up to 25 emails, so it can take a few minutes."""
+    """Receipts in email are kept, and what was bought goes in Things (SirisAI 5.31). The local model reads up to 25 emails, so it can take a few minutes."""
     return await _call(hub, "POST", "/siris/things/from-email", params={"days": days}, timeout=600.0)
 
 

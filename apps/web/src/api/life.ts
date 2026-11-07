@@ -1,10 +1,12 @@
-import { api, json } from "./client";
+import { api, json, request } from "./client";
 
 /** Life admin and reply speed from SirisAI 4.6 (SirisOS 7.3). */
 export interface Due { date: string; what: string; amount: number | null }
 export interface Doc {
   id: number; added_at: string; filename: string; title: string; kind: string; sender: string;
   summary: string; due: Due[]; note_title: string | null; text?: string; reminders?: number;
+  /** The originals of a kept receipt: the email and its attachments (SirisAI 5.31). */
+  files?: string[];
 }
 export interface Bill {
   id: number; kind: "renewal" | "trial_ending" | "price_rise" | "bill_due"; service: string; subject: string;
@@ -23,15 +25,18 @@ export interface Speed {
 }
 
 export interface FromEmail {
-  looked_at?: number; read?: number; added?: number; more?: number; problem?: string; skipped?: string;
+  looked_at?: number; read?: number; kept?: number; added?: number; linked?: number; more?: number; problem?: string; skipped?: string;
   things?: { id: number; name: string; shop: string | null; bought: string | null }[];
 }
-export interface EmailStatus { connected: boolean; address: string | null; can_send: boolean; drafts_replies: boolean; last: (FromEmail & { at: string }) | null }
+export interface EmailStatus { connected: boolean; address: string | null; can_send: boolean; drafts_replies: boolean; label?: string | null; last: (FromEmail & { at: string }) | null }
 
 const L = "/api/v1/life";
 
 export const life = {
-  documents: (q = "") => api<Doc[]>(`${L}/documents${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  documents: (q = "") => api<Doc[]>(`${L}/documents?not_kind=receipt${q ? `&q=${encodeURIComponent(q)}` : ""}`),
+  receipts: (q = "") => api<Doc[]>(`${L}/documents?kind=receipt&limit=300${q ? `&q=${encodeURIComponent(q)}` : ""}`),
+  /** An original: it needs the sign-in, so it comes as a blob rather than through a plain link. */
+  documentFile: async (id: number, name: string) => (await request(`${L}/documents/${id}/files/${encodeURIComponent(name)}`)).blob(),
   addDocument: (file: File) => {
     const form = new FormData();
     form.append("file", file);

@@ -938,6 +938,8 @@ h3.note__heading { font-size: 17px; }
 .gym-rest__time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 44px; }
 .gym-rest__bar { flex: 1; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 25%, transparent); overflow: hidden; }
 .gym-rest__bar span { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
+.receipt-frame { width: 100%; height: 60vh; border: 1px solid color-mix(in srgb, var(--ink-3) 25%, transparent); border-radius: 12px; background: #fff; }
+.receipt-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; max-height: 60vh; overflow: auto; }
 .gym-advice { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
 .gym-muscles { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .gym-muscles li { display: grid; grid-template-columns: 90px 1fr 32px; gap: 8px; align-items: center; font-size: 13px; text-transform: capitalize; }
