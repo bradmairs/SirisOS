@@ -215,6 +215,42 @@ describe("SirisGym 6.92: Shortcuts", () => {
     open.mockRestore(); ua.mockRestore();
   });
 
+  it("stops the Watch when a workout is finished or discarded (7.61)", async () => {
+    signIn();
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
+    const opened: string[] = [];
+    const open = vi.spyOn(shortcuts, "open").mockImplementation((u: string) => { opened.push(u); });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const settings = { ...GYM.settings, shortcut_start: "SirisGym Start", shortcut_finish: "SirisGym Finish" };
+    const back = encodeURIComponent(`${window.location.origin}/gym`);
+    const active = () => saveActive({ id: "w9", title: "Push", started_at: new Date().toISOString(), entries: [
+      { exercise: "bench-press", sets: [{ weight: 80, reps: 8, done: false, type: "normal" }] }] });
+    mockFetch({ "/api/v1/gym/rest": () => jsonResponse({ stopped: true }), "/api/v1/gym/sessions": () => jsonResponse({ id: "w9", records: [] }),
+      "/api/v1/gym": () => jsonResponse({ ...GYM, settings }) });
+    const user = userEvent.setup();
+
+    active();
+    const first = render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: /Discard/ }));
+    expect(opened[0]).toBe(`shortcuts://x-callback-url/run-shortcut?name=SirisGym%20Finish&input=text&text=discarded&x-success=${back}&x-cancel=${back}&x-error=${back}`);
+    expect(window.localStorage.getItem("sirisos.gym.active")).toBeNull();
+    first.unmount();
+
+    active();
+    render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
+    await user.click(within(await screen.findByRole("region", { name: "Bench Press" })).getByRole("button", { name: "Set 1 done" }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+    await vi.waitFor(() => expect(opened[1]).toContain("name=SirisGym%20Finish&input=text&text=finished&"));
+    open.mockRestore(); ua.mockRestore(); confirm.mockRestore();
+  });
+
+  it("warns when the Watch is started but nothing stops it", async () => {
+    signIn();
+    mockFetch({ "/api/v1/gym": () => jsonResponse({ ...GYM, settings: { ...GYM.settings, shortcut_start: "SirisGym Start", shortcut_finish: "" } }) });
+    render(<MemoryRouter initialEntries={["/gym?view=settings"]}><GymScreen /></MemoryRouter>);
+    expect(await screen.findByText(/the Watch workout keeps running after you finish or discard here/)).toBeInTheDocument();
+  });
+
   it("does nothing off iPhone or without a name", () => {
     const open = vi.spyOn(shortcuts, "open").mockImplementation(() => {});
     expect(shortcuts.run("SirisGym Start", "/gym/workout")).toBe(false);  // jsdom isn't an iPhone

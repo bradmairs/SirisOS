@@ -104,6 +104,14 @@ export function GymWorkoutScreen() {
   const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
   const doneSets = s.entries.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0);
 
+  /** Discarding stops the Watch too (7.61): the finish Shortcut runs, told "discarded", then comes back to SirisGym. */
+  function discard() {
+    if (!window.confirm("Discard this workout?")) return;
+    gym.stopRest().catch(() => {});
+    saveActive(null);
+    if (!shortcuts.run(g?.settings.shortcut_finish, "/gym", "discarded")) navigate("/gym");
+  }
+
   async function finish() {
     if (!s) return;
     const final: Session = { ...s, ended_at: new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length) };
@@ -115,12 +123,12 @@ export function GymWorkoutScreen() {
       const r = await gym.finish(final);
       saveActive(null);
       setDone(r);
-      shortcuts.run(g?.settings.shortcut_finish, "/gym");
+      shortcuts.run(g?.settings.shortcut_finish, "/gym", "finished");
     } catch (e) {
       if (unreachable(e) && keep({ kind: "gym", session: final })) {
         saveActive(null);
         setDone({ offline: true });
-        shortcuts.run(g?.settings.shortcut_finish, "/gym");
+        shortcuts.run(g?.settings.shortcut_finish, "/gym", "finished");
       } else {
         setInfo(e instanceof Error ? e.message : "Couldn't save it.");
       }
@@ -187,7 +195,7 @@ export function GymWorkoutScreen() {
         })}
         <button type="button" className="button" onClick={() => setPicking(true)}><Plus size={14} aria-hidden="true" /> Add an exercise</button>
         <textarea className="field" rows={2} placeholder="Notes (how it felt, the gym, anything)" aria-label="Workout notes" value={s.note ?? ""} onChange={(e) => update({ ...s, note: e.target.value })} />
-        <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} onClick={() => { if (window.confirm("Discard this workout?")) { saveActive(null); navigate("/gym"); } }}>
+        <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} onClick={discard}>
           <Trash2 size={14} aria-hidden="true" /> Discard
         </button>
       </div>
