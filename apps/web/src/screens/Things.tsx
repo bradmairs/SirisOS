@@ -57,7 +57,7 @@ export function ThingsCard() {
       )}
       <input className="field" type="search" placeholder="Find (e.g. dishwasher)" aria-label="Find a thing" value={q} onChange={(e) => setQ(e.target.value)} />
       {data && data.length === 0 ? (
-        <p className="muted" style={{ margin: 0, fontSize: 14 }}>{q ? "Nothing matches." : "Nothing yet. Add receipts under Life admin and they show up here."}</p>
+        <p className="muted" style={{ margin: 0, fontSize: 14 }}>{q ? "Nothing matches." : "Nothing yet. Receipts from your email or added under Life admin show up here."}</p>
       ) : (
         <ul className="items">
           {(data ?? []).map((t) => {

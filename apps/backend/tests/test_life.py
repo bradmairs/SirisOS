@@ -35,6 +35,10 @@ def client(monkeypatch, seen):
             return httpx.Response(200, json={"deleted": 7} if request.method == "DELETE" else {"id": 7, "text": "..."})
         if path == "/siris/documents/8":
             return httpx.Response(404, json={"detail": "No such document"})
+        if path == "/siris/things/from-email":
+            return httpx.Response(200, json={"read": 2, "added": 1, "things": [{"id": 1, "name": "Drill"}]})
+        if path == "/siris/email/status":
+            return httpx.Response(200, json={"connected": False})
         if path == "/siris/bills":
             return httpx.Response(200, json=[{"id": 1, "label": "Netflix renews Mon 9 Nov for $22.99"}])
         if path == "/siris/bills/1/status":
@@ -103,3 +107,11 @@ def test_things_people_and_news(client, seen):
     assert client.get("/api/v1/life/people", headers=AUTH).json()[0]["days_to_birthday"] == 5
     assert client.get("/api/v1/life/people/2/gifts", headers=AUTH).json()["ideas"] == ["coffee"]
     assert client.get("/api/v1/life/news", headers=AUTH).json()["stories"][0]["title"] == "A"
+
+
+def test_receipts_in_email_pass_through(client, seen):
+    assert client.post("/api/v1/life/things/from-email?days=365", headers=AUTH).status_code == 200
+    assert ("POST", "/siris/things/from-email", {"days": "365"}, b"") in seen
+    assert client.post("/api/v1/life/things/from-email?days=0", headers=AUTH).status_code == 422
+    assert client.get("/api/v1/life/email", headers=AUTH).status_code == 200
+    assert any(s[1] == "/siris/email/status" for s in seen)

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { FileText, Plane, Receipt, Trash2, Upload } from "lucide-react";
+import { FileText, Mail, Plane, Receipt, Trash2, Upload } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useResource } from "../api/resource";
-import { life, type Bill, type Doc, type Trip } from "../api/life";
+import { life, type Bill, type Doc, type FromEmail, type Trip } from "../api/life";
 import { Glass } from "../components/Glass";
 
 function day(iso: string) {
@@ -81,6 +82,54 @@ export function DocumentsCard() {
           ))}
         </ul>
       )}
+    </Glass>
+  );
+}
+
+function foundText(r: FromEmail): string {
+  if (r.skipped) return `Not checked: ${r.skipped}.`;
+  const names = (r.things ?? []).map((t) => t.name).join(", ");
+  return [
+    `Read ${r.read ?? 0} receipt${r.read === 1 ? "" : "s"}: ${r.added ? `added ${names}` : "nothing new to add"}.`,
+    r.more ? `${r.more} more to read: check again, or they'll be read over the coming mornings.` : "",
+    r.problem ? `Stopped early: ${r.problem}.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+/** Receipts in email become Things (SirisOS 8.0, SirisAI 5.21). Bills and subscriptions looks ahead at what's due; this looks back at what you bought. */
+export function ReceiptsCard() {
+  const { data } = useResource("life:email", () => life.email(), { staleMs: 60_000 });
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function check(days: number) {
+    setBusy(true);
+    setNote(null);
+    try {
+      setNote(foundText(await life.thingsFromEmail(days)));
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Receipts in email">
+      <header className="widget__head"><Mail aria-hidden="true" /><span>Receipts in email</span>
+        {data?.connected && <button type="button" className="button button--small" style={{ marginLeft: "auto" }} disabled={busy} onClick={() => check(30)}>{busy ? "Reading…" : "Check email"}</button>}
+      </header>
+      {data && !data.connected && (
+        <p className="muted" style={{ margin: 0, fontSize: 14 }}>Email isn't connected yet. Once it is, what you buy shows up in Things, with its warranty. Connecting is done on the server: run scripts/setup_gmail.sh in SirisAI's folder.</p>
+      )}
+      {data?.connected && (
+        <>
+          <p className="muted" style={{ margin: 0, fontSize: 14 }}>Reading {data.address} each morning, without changing anything in it. What you buy goes in <Link to="/things">Things</Link>: appliances, electronics, tools and furniture, not food or consumables.</p>
+          <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => check(365)}>Look back a year</button>
+        </>
+      )}
+      {note && <p className="muted" role="status" style={{ margin: 0, fontSize: 14 }}>{note}</p>}
+      {!note && data?.last && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Last check: {foundText(data.last)}</p>}
     </Glass>
   );
 }
@@ -190,6 +239,7 @@ export function LifeScreen() {
       <div className="stack" style={{ marginTop: 16 }}>
         <DocumentsCard />
         <BillsCard />
+        <ReceiptsCard />
         <TravelCard />
       </div>
     </>

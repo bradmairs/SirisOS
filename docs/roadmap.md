@@ -185,6 +185,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.81: Data sync setup says Time Grouping Minutes (metrics) and Seconds (workouts), with SirisAI 5.01
 7.9: protocol on/off and notification switches (SirisAI 5.11), one device per install for notifications with a device list, one wind-down a night, evenly spaced tab bar
 7.91: SirisGym reads weight from the daily health records (400 days, not the slow 70-day overview); Data sync shows the last weight received
+8.0: Receipts in email fill in Things (SirisAI 5.21), read-only, with a script to connect Gmail
 
 ## Terminal (ADR 113)
 

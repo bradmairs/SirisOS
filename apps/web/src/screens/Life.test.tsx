@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { clearResources } from "../api/resource";
-import { BillsCard, DocumentsCard, TravelCard } from "./Life";
+import { MemoryRouter } from "react-router-dom";
+import { BillsCard, DocumentsCard, ReceiptsCard, TravelCard } from "./Life";
 import { SpeedCard } from "./SpeedCard";
 
 describe("Life admin (7.3)", () => {
@@ -29,6 +30,37 @@ describe("Life admin (7.3)", () => {
     expect(await within(card).findByText(/Filed "Rates notice"\. Due .*\(\$412\.50\); 2 reminders set\./)).toBeInTheDocument();
     expect(calls.some((c) => c.init.method === "POST" && c.init.body instanceof FormData)).toBe(true);
     expect(await within(card).findByText("Rates notice")).toBeInTheDocument();
+  });
+
+  it("says how to connect email, and doesn't offer to check until it is", async () => {
+    signIn();
+    mockFetch({ "/api/v1/life/email": () => jsonResponse({ connected: false, address: null, can_send: false, drafts_replies: false, last: null }) });
+    render(<MemoryRouter><ReceiptsCard /></MemoryRouter>);
+    expect(await screen.findByText(/run scripts\/setup_gmail.sh/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check email" })).toBeNull();
+  });
+
+  it("checks email for receipts and says what it added", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/life/email": () => jsonResponse({ connected: true, address: "me@example.com", can_send: false, drafts_replies: false, last: null }),
+      "/api/v1/life/things/from-email": () => jsonResponse({ looked_at: 40, read: 25, added: 2, more: 3, things: [{ id: 1, name: "Soundbar", shop: "JB Hi-Fi", bought: "2026-10-20" }, { id: 2, name: "Drill", shop: "Bunnings", bought: "2026-10-01" }] }),
+    });
+    render(<MemoryRouter><ReceiptsCard /></MemoryRouter>);
+    await userEvent.click(await screen.findByRole("button", { name: "Look back a year" }));
+    expect(await screen.findByText(/added Soundbar, Drill.*3 more to read/)).toBeInTheDocument();
+    expect(calls.some((c) => c.url.endsWith("/from-email?days=365") && c.init.method === "POST")).toBe(true);
+  });
+
+  it("says plainly when the email login is refused", async () => {
+    signIn();
+    mockFetch({
+      "/api/v1/life/email": () => jsonResponse({ connected: true, address: "me@example.com", can_send: false, drafts_replies: false, last: null }),
+      "/api/v1/life/things/from-email": () => jsonResponse({ skipped: "the email account refused the login" }),
+    });
+    render(<MemoryRouter><ReceiptsCard /></MemoryRouter>);
+    await userEvent.click(await screen.findByRole("button", { name: "Check email" }));
+    expect(await screen.findByText("Not checked: the email account refused the login.")).toBeInTheDocument();
   });
 
   it("lists bills and marks one done", async () => {

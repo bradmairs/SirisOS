@@ -114,6 +114,17 @@ async def things(q: str = Query("", max_length=200), hub: Hub = Depends(get_hub)
     return await _call(hub, "GET", "/siris/things", params={"q": q})
 
 
+@router.get("/email")
+async def email_status(hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/email/status")
+
+
+@router.post("/things/from-email")
+async def things_from_email(days: int = Query(30, ge=1, le=1825), hub: Hub = Depends(get_hub)) -> Any:
+    """Receipts in email become Things (SirisAI 5.21). The local model reads up to 25 emails, so it can take a few minutes."""
+    return await _call(hub, "POST", "/siris/things/from-email", params={"days": days}, timeout=600.0)
+
+
 @router.post("/things")
 async def add_thing(body: dict[str, Any], hub: Hub = Depends(get_hub)) -> Any:
     return await _call(hub, "POST", "/siris/things", json=body)
