@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { App } from "../App";
 import { Assistant } from "../screens/Assistant";
 import type { SearchResponse } from "../api/search";
-import { jsonResponse, mockFetch, signIn } from "../test/helpers";
+import { jsonResponse, mockFetch, signIn, sseResponse } from "../test/helpers";
 import { SearchPalette, score } from "./SearchPalette";
 
 const RESULTS: SearchResponse = {
@@ -150,5 +150,41 @@ describe("search in the shell", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText("About 2 kW.")).toBeInTheDocument();
+  });
+});
+
+describe("Search filters (7.5)", () => {
+  it("narrows the results to one kind", async () => {
+    signIn();
+    mockFetch({ "/api/v1/search": () => jsonResponse({ ...RESULTS, groups: [...RESULTS.groups,
+      { id: "tasks", label: "Tasks", icon: "check-square", best: 3, hits: [
+        { title: "Check pump station drawings", subtitle: "Work · due 2026-11-09", url: "/tasks", external: false, kind: "task", app_id: null, score: 3 }] }] }) });
+    const user = userEvent.setup();
+    renderPalette();
+    await user.type(screen.getByRole("combobox", { name: "Search everything" }), "pump");
+    const hit = (t: string) => screen.queryAllByText((_, el) => el?.className === "search__hit-title" && el.textContent === t);
+    await screen.findByRole("radio", { name: "Tasks" });
+    await user.click(screen.getByRole("radio", { name: "Tasks" }));
+    expect(hit("Check pump station drawings")).toHaveLength(1);
+    expect(hit("Pump curves")).toHaveLength(0);
+    await user.click(screen.getByRole("radio", { name: "All" }));
+    expect(hit("Pump curves")).toHaveLength(1);
+  });
+});
+
+describe("Ask about this page (7.5)", () => {
+  it("sends the page's summary with the question, and shows just the question", async () => {
+    signIn();
+    const { handOff } = await import("../api/pageContext");
+    const calls = mockFetch({
+      "/api/v1/assistant/chat/stream": () => sseResponse([{ type: "final", response: { conversation_id: "c1", response: "Start with the drawings.", tool_call: null, confirmation_required: null, plan: null, used_planner: false } }]),
+      "/api/v1/assistant": () => jsonResponse([]),
+    });
+    handOff({ title: "Work", summary: "Work tasks due today: Check the pump station drawings.", path: "/work" });
+    render(<MemoryRouter initialEntries={["/assistant?q=What%20first%3F&about=1"]}><Routes><Route path="/assistant" element={<Assistant />} /></Routes></MemoryRouter>);
+    expect(await screen.findByText("Start with the drawings.")).toBeInTheDocument();
+    const prompt = JSON.parse(String(calls.find((c) => c.url.endsWith("/chat/stream"))!.init.body)).prompt as string;
+    expect(prompt).toBe("What first?\n\n(Asked from SirisOS's Work page. What's on it now:\nWork tasks due today: Check the pump station drawings.)");
+    expect(screen.getByText("What first?")).toBeInTheDocument();
   });
 });

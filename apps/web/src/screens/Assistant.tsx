@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { takeHandoff, withContext } from "../api/pageContext";
 import { Link, useSearchParams } from "react-router-dom";
 import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, Wrench, X } from "lucide-react";
 import { assistant, brain } from "../api/hub";
@@ -154,11 +155,11 @@ export function Assistant() {
   }, [refreshLearned]);
 
   const send = useCallback(
-    (prompt: string) => {
+    (prompt: string, full?: string) => {
       if (!prompt.trim() || busy) return;
       setMessages((m) => [...m, { role: "user", text: prompt.trim() }]);
       setInput("");
-      run((signal) => assistant.chat(prompt.trim(), conversationId, signal));
+      run((signal) => assistant.chat((full ?? prompt).trim(), conversationId, signal));
     },
     [busy, conversationId, run],
   );
@@ -167,8 +168,10 @@ export function Assistant() {
   useEffect(() => {
     const q = params.get("q");
     if (q) {
+      // 7.5: "Ask about this page" sends what's on the page with the question; the chat shows just the question.
+      const about = params.get("about") === "1" ? takeHandoff() : null;
       setParams({}, { replace: true });
-      send(q);
+      send(q, about ? withContext(q, about) : undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

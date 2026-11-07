@@ -148,3 +148,47 @@ describe("Work, visual (7.4)", () => {
     expect(dayFraction("08:00", "16:30", new Date(2026, 10, 6, 17, 0))).toBe(1);
   });
 });
+
+describe("Work wrap-up, chartership and asking about the page (7.5)", () => {
+  const WRAP = { ...DAY, hours: { ...DAY.hours, minutes_left: 10 },
+    wrapup: { due: true, saved: null, next_workday: "2026-11-06" },
+    chartership: { now: { percent: 50, solid: 2, elements: 16, evidence: 13 }, change: { percent: 13, solid: 1, since: "2026-10-08" },
+      trend: [{ week: "2026-10-05", percent: 37, solid: 1, elements: 16, evidence: 6 }, { week: "2026-11-02", percent: 50, solid: 2, elements: 16, evidence: 13 }],
+      next: "Add a second piece of evidence", weakest: [{ id: "1.1", title: "Personal commitment", strength: "none" }] } };
+
+  it("wraps up work: what got done, tasks carried to the next workday, first thing, CPD", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/work/wrapup": () => jsonResponse({ done: "Finished the RFI response.", carried: 1, first: "Call the contractor", note: "", cpd: {}, saved_as: "memories", next_workday: "2026-11-06", at: "2026-11-05T16:25+11:00" }),
+      "/api/v1/work": () => jsonResponse(WRAP),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><WorkScreen /></MemoryRouter>);
+    const card = await screen.findByRole("region", { name: "Work wrap-up" });
+    expect(within(card).getByText("Carry over to Friday")).toBeInTheDocument();
+    expect(within(card).getByRole("checkbox", { name: "Check the pump station drawings" })).toBeChecked();
+    await user.type(within(card).getByPlaceholderText(/Finished the RFI/), "Finished the RFI response.");
+    await user.type(within(card).getByPlaceholderText(/Call the contractor/), "Call the contractor");
+    await user.type(within(card).getByLabelText("CPD activity"), "Toolbox talk");
+    await user.click(within(card).getByRole("radio", { name: "Risk" }));
+    await user.click(within(card).getByRole("button", { name: "Done for the day" }));
+    await vi.waitFor(() => expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/work/wrapup"))!.init.body))).toEqual({
+      done: "Finished the RFI response.", carry: ["sirisos:t1"], first: "Call the contractor", note: "", cpd: { title: "Toolbox talk", hours: 1, category: "risk" } }));
+  });
+
+  it("shows chartership progress and its trend, and hands the page to Siris", async () => {
+    signIn();
+    mockFetch({ "/api/v1/work": () => jsonResponse({ ...WRAP, wrapup: { due: false, saved: null, next_workday: "2026-11-06" } }) });
+    render(<MemoryRouter><WorkScreen /></MemoryRouter>);
+    const card = await screen.findByRole("region", { name: "Chartership" });
+    expect(within(card).getByRole("img", { name: "Application 50% ready" })).toBeInTheDocument();
+    expect(within(card).getByText(/\+13% since/)).toBeInTheDocument();
+    expect(within(card).getByRole("img", { name: /Readiness by week/ })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Work wrap-up" })).not.toBeInTheDocument();
+    const { pageContext, withContext } = await import("../api/pageContext");
+    const ctx = pageContext();
+    expect(ctx?.title).toBe("Work");
+    expect(ctx?.summary).toContain("Work tasks due today: Check the pump station drawings.");
+    expect(withContext("What should I focus on?", ctx)).toMatch(/^What should I focus on\?\n\n\(Asked from SirisOS's Work page\. What's on it now:\nWorking hours/);
+  });
+});

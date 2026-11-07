@@ -5,6 +5,7 @@
     POST /api/v1/work/focus    {minutes}: focus time from the timer (7.4)
     POST /api/v1/work/todo-done   a work-note to-do ticked on the Work page, for the week's chart
     POST /api/v1/work/cpd      {title, hours, category, date?, provider?}: log CPD
+    POST /api/v1/work/wrapup   {done, carry[], first, note, cpd?}: the end-of-work wrap-up (7.5)
 """
 
 from __future__ import annotations
@@ -59,3 +60,23 @@ def log_cpd(body: CpdLog) -> dict[str, Any]:
 
     day = date_type.fromisoformat(body.date) if body.date else datetime.now(zone()).date()
     return {"record": service.log_cpd(body.title, body.hours, body.category, day, body.provider), "cpd": service._cpd(day)}
+
+
+class WrapCpd(BaseModel):
+    title: str = Field(default="", max_length=200)
+    hours: float = Field(default=0, ge=0, le=24)
+    category: Literal["area", "risk", "business", "other"] = "area"
+
+
+class WorkWrapUp(BaseModel):
+    done: str = Field(default="", max_length=2000)
+    carry: list[str] = Field(default_factory=list, max_length=30)
+    first: str = Field(default="", max_length=300)
+    note: str = Field(default="", max_length=2000)
+    cpd: WrapCpd | None = None
+
+
+@router.post("/wrapup")
+async def wrap_up(body: WorkWrapUp, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    day = datetime.now(zone()).date()
+    return await service.wrapup(hub, day, body.done, body.carry, body.first, body.note, body.cpd.model_dump() if body.cpd else None)

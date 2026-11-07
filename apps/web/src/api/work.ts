@@ -14,6 +14,21 @@ export interface WorkDay {
   week?: { days: { date: string; weekday: string; done: number; focus_min: number }[]; done_today: number; focus_today: number };
   apps?: { id: string; name: string; url: string; icon: string | null; note: string }[];
   notes?: { title: string; path: string; type: string; as_of: string; tags: string[]; excerpt: string }[] | null;
+  /** The end-of-work wrap-up (7.5): due from 15 minutes before home time, unless done. */
+  wrapup?: { due: boolean; saved: WorkWrapUpSaved | null; next_workday: string };
+  /** How close the chartered application is, and how it's moved (7.5). */
+  chartership?: Chartership | null;
+}
+
+export interface WorkWrapUpSaved { done: string; carried: number; first: string | null; note: string; cpd: unknown; saved_as: string | null; next_workday: string; at: string }
+
+export interface ChartershipPoint { percent: number; solid: number; elements: number; evidence: number }
+export interface Chartership {
+  now: ChartershipPoint;
+  trend: (ChartershipPoint & { week: string })[];
+  change: { percent: number; solid: number; since: string };
+  next: string | null;
+  weakest: { id: string; title: string; strength: "none" | "thin" | "solid" }[];
 }
 
 export type CpdCategory = "area" | "risk" | "business" | "other";
@@ -24,6 +39,8 @@ export const work = {
   todoDone: () => api<{ ok: boolean }>("/api/v1/work/todo-done", { method: "POST" }),
   logCpd: (c: { title: string; hours: number; category: CpdCategory; date?: string; provider?: string }) =>
     api<{ record: unknown; cpd: WorkDay["cpd"] }>("/api/v1/work/cpd", { method: "POST", body: JSON.stringify(c) }),
+  wrapUp: (w: { done: string; carry: string[]; first: string; note: string; cpd?: { title: string; hours: number; category: CpdCategory } | null }) =>
+    api<WorkWrapUpSaved>("/api/v1/work/wrapup", { method: "POST", body: JSON.stringify(w) }),
 };
 
 /** How far through the working day `at` is, 0 to 1 (0 before it starts, 1 after it ends). */

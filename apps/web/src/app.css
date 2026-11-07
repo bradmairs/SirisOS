@@ -623,7 +623,8 @@ html, body { overflow-x: clip; }
 .capture__photo img { display: block; max-height: 180px; max-width: 100%; border-radius: var(--r-sm, 12px); }
 .capture__photo .icon-link { position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, 0.55); border-radius: 999px; }
 .capture__rec { color: var(--critical) !important; }
-.topbar__talk { margin-left: auto; width: 38px; height: 38px; color: var(--ink-2); }
+.topbar__talk { width: 38px; height: 38px; color: var(--ink-2); }
+.topbar__ask { margin-left: auto; width: 38px; height: 38px; color: var(--ink-2); }
 .brief-past { width: 100%; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
 
 /* iPhone shortcuts */
@@ -1026,8 +1027,24 @@ h3.note__heading { font-size: 17px; }
   .work-day { grid-column: span 4; } .work-focus { grid-column: span 2; }
   .work-tasks { grid-column: span 4; } .work-week { grid-column: span 2; }
   .work-apps, .work-cpd, .work-grid > [aria-label="To-dos in work notes"] { grid-column: span 2; }
-  .work-notes { grid-column: span 6; }
+  .work-notes { grid-column: span 4; }
+  .work-wrap { grid-column: span 6; } .work-chartership { grid-column: span 2; }
 }
+/* 7.5: the work wrap-up and chartership */
+.work-wrap__form { display: grid; gap: 12px; }
+.work-wrap__step { display: flex; gap: 12px; align-items: flex-start; }
+.work-wrap__n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--ink); }
+.work-wrap__body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.work-wrap__q { font-weight: 600; }
+.work-wrap__hint { font-size: 12px; }
+.work-wrap__carry { display: grid; gap: 4px; }
+.work-chartership__top { display: flex; align-items: center; gap: 16px; }
+.work-chartership__side { display: grid; gap: 4px; font-size: 14px; }
+.work-spark { display: flex; align-items: flex-end; gap: 3px; height: 44px; }
+.work-spark__bar { flex: 1; min-width: 4px; border-radius: 4px 4px 0 0; background: var(--accent); opacity: 0.85; }
+.work-chartership__weak { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.work-chartership__weak .chip { min-width: 46px; justify-content: center; margin-right: 6px; }
 .work-ring { position: relative; flex: none; display: grid; place-items: center; }
 .work-ring svg { position: absolute; inset: 0; }
 .work-ring__track { fill: none; stroke: color-mix(in srgb, var(--ink) 10%, transparent); }
@@ -1087,3 +1104,17 @@ h3.note__heading { font-size: 17px; }
 .work-note-card__title { font-size: 15px; }
 .work-note-card__text { font-size: 13px; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .work-note-card__when { font-size: 11px; color: var(--ink-3); }
+
+/* 7.5: ask Siris about this page. The topbar button on phones, a pill at the bottom right on desktop. */
+.ask-fab { display: none !important; }
+@media (min-width: 960px) {
+  .shell { padding-bottom: 96px; }
+  .ask-fab { display: inline-flex !important; position: fixed; right: 28px; bottom: 24px; z-index: 24; align-items: center; gap: 8px;
+    padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--ink); border: 0; cursor: pointer; }
+}
+.ask-about { position: fixed; inset: 0; z-index: 60; display: grid; place-items: end center; padding: var(--gutter); padding-bottom: calc(var(--safe-bottom) + 24px); }
+@media (min-width: 960px) { .ask-about { place-items: end end; padding: 24px 28px; } }
+.ask-about__scrim { position: absolute; inset: 0; background: color-mix(in srgb, #000 30%, transparent); }
+.ask-about__card { position: relative; width: min(440px, 100%); display: grid; gap: 10px; padding: 16px; }
+.search__filters { display: flex; gap: 6px; overflow-x: auto; padding: 4px 6px 8px; scrollbar-width: none; }
+.search__filters .chip { flex: none; }

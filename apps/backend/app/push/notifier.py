@@ -107,6 +107,9 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         from app.review import service as review
 
         out += review.push_message(now)
+        from app.work import service as work
+
+        out += work.wrapup_push(now)
         from app.goals import service as goals
 
         out += goals.push_message(now)
