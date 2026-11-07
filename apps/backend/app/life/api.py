@@ -104,3 +104,71 @@ async def speed(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     if timings is None and jobs is None:
         raise HTTPException(status_code=503, detail="SirisAI isn't reachable, or is older than 4.6.")
     return {"timings": timings or {"stages": {}, "recent": []}, "jobs": jobs or []}
+
+
+# -- things, people and news (7.6, SirisAI 4.9) --------------------------------
+
+
+@router.get("/things")
+async def things(q: str = Query("", max_length=200), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/things", params={"q": q})
+
+
+@router.post("/things")
+async def add_thing(body: dict[str, Any], hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "POST", "/siris/things", json=body)
+
+
+@router.put("/things/{thing_id}")
+async def update_thing(body: dict[str, Any], thing_id: int = Path(ge=1), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "PUT", f"/siris/things/{thing_id}", json=body)
+
+
+@router.delete("/things/{thing_id}")
+async def delete_thing(thing_id: int = Path(ge=1), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "DELETE", f"/siris/things/{thing_id}")
+
+
+@router.get("/people")
+async def people(hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/people")
+
+
+@router.post("/people")
+async def add_person(body: dict[str, Any], hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "POST", "/siris/people", json=body)
+
+
+@router.put("/people/{person_id}")
+async def update_person(body: dict[str, Any], person_id: int = Path(ge=1), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "PUT", f"/siris/people/{person_id}", json=body)
+
+
+@router.delete("/people/{person_id}")
+async def delete_person(person_id: int = Path(ge=1), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "DELETE", f"/siris/people/{person_id}")
+
+
+@router.get("/people/{person_id}/gifts")
+async def person_gifts(person_id: int = Path(ge=1), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", f"/siris/people/{person_id}/gifts")
+
+
+@router.get("/news")
+async def news(hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/news", timeout=45.0)
+
+
+@router.get("/trial")
+async def speed_trial(hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/timings/trial")
+
+
+@router.post("/trial")
+async def start_speed_trial(days: int = Query(14, ge=2, le=60), hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "POST", "/siris/timings/trial", params={"days": days})
+
+
+@router.get("/reliability")
+async def reliability(hub: Hub = Depends(get_hub)) -> Any:
+    return await _call(hub, "GET", "/siris/reliability")

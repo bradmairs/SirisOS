@@ -106,7 +106,16 @@ export const health = {
   sources: (day: string) => api<Sources>(`/api/v1/health/sources?day=${day}`),
   get: () => api<Health>("/api/v1/health"),
   today: () => api<{ readiness: Readiness | null; energy?: Energy | null }>("/api/v1/health/today"),
-  log: (kind: LogKind, amount?: number, text?: string) => api<{ logged: unknown }>("/api/v1/health/log", json({ kind, amount, text: text ?? "" })),
+  /** Kept on the phone and sent later when there's no connection (7.6). */
+  log: async (kind: LogKind, amount?: number, text?: string): Promise<{ logged: unknown; queued?: boolean }> => {
+    try {
+      return await api<{ logged: unknown }>("/api/v1/health/log", json({ kind, amount, text: text ?? "" }));
+    } catch (e) {
+      const { keep, unreachable } = await import("./outbox");
+      if (unreachable(e) && keep({ kind: "health_log", log: { kind, amount, text } })) return { logged: null, queued: true };
+      throw e;
+    }
+  },
   meal: (file: File) => upload<{ kcal: number; protein_g: number | null; note: HealthNote }>("/api/v1/health/meal", file),
   goals: () => api<{ goals: Goal[] }>("/api/v1/health/goals"),
   addGoal: (goal: { metric: string; target: number; end: string; start?: string; title?: string }) => api<{ goal: Goal }>("/api/v1/health/goals", json(goal)),

@@ -27,3 +27,28 @@ describe("outbox (6.3)", () => {
     expect(keep({ kind: "capture", body: { image: "x".repeat(2_000_000) } })).toBe(false);
   });
 });
+
+describe("offline actions (7.6)", () => {
+  it("keeps a health log made offline and sends it later", async () => {
+    signIn();
+    const { health } = await import("./health");
+    mockFetch({ "/api/v1/health/log": () => { throw new TypeError("Load failed"); } });
+    expect(await health.log("water", 250)).toEqual({ logged: null, queued: true });
+    expect(waiting()).toBe(1);
+    const calls = mockFetch({ "/api/v1/health/log": () => jsonResponse({ logged: {} }) });
+    expect(await flush()).toBe(1);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ kind: "water", amount: 250, text: "" });
+  });
+
+  it("sends a queued dismiss and Got it", async () => {
+    signIn();
+    expect(keep({ kind: "inbox", id: "ai:4", action: "dismiss" })).toBe(true);
+    expect(keep({ kind: "inbox", id: "ai:5", action: "acknowledge" })).toBe(true);
+    const calls = mockFetch({
+      "/api/v1/attention/ai%3A4/dismiss": () => jsonResponse({ item: { id: "ai:4" } }),
+      "/api/v1/attention/ai%3A5/act": () => jsonResponse({ item: { id: "ai:5" }, result: null }),
+    });
+    expect(await flush()).toBe(2);
+    expect(calls.map((c) => c.url)).toEqual(["/api/v1/attention/ai%3A4/dismiss", "/api/v1/attention/ai%3A5/act"]);
+  });
+});

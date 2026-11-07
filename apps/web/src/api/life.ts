@@ -40,3 +40,28 @@ export const life = {
   away: (on: boolean) => api<{ away_mode: string }>(`${L}/travel/away?on=${on}`, { method: "POST" }),
   speed: () => api<Speed>(`${L}/speed`),
 };
+
+/** Things you own and people (7.6, SirisAI 4.9). */
+export interface Thing {
+  id: number; name: string; brand: string; model: string; room: string; bought: string | null; price: number | null; shop: string;
+  warranty_until: string | null; manual: string; notes: string; document_id: number | null; warranty_days_left?: number; under_warranty?: boolean;
+}
+export interface Person {
+  id: number; name: string; relation: string; birthday: string | null; anniversary: string | null; notes: string; last_contact: string | null;
+  keep_in_touch_days: number | null; next_birthday?: string; days_to_birthday?: number; next_anniversary?: string; days_to_anniversary?: number; turning?: number | null;
+}
+
+export const things = {
+  list: (q = "") => api<Thing[]>(`${L}/things${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  add: (t: Partial<Thing> & { warranty_months?: number }) => api<Thing>(`${L}/things`, json(t)),
+  update: (id: number, t: Partial<Thing>) => api<Thing>(`${L}/things/${id}`, { method: "PUT", body: JSON.stringify(t) }),
+  remove: (id: number) => api<{ deleted: number }>(`${L}/things/${id}`, { method: "DELETE" }),
+};
+
+export const people = {
+  list: () => api<Person[]>(`${L}/people`),
+  add: (p: Partial<Person>) => api<Person>(`${L}/people`, json(p)),
+  update: (id: number, p: Partial<Person>) => api<Person>(`${L}/people/${id}`, { method: "PUT", body: JSON.stringify(p) }),
+  remove: (id: number) => api<{ deleted: number }>(`${L}/people/${id}`, { method: "DELETE" }),
+  gifts: (id: number) => api<{ ideas: string[]; last_seen: { text: string; days_ago?: number } }>(`${L}/people/${id}/gifts`),
+};

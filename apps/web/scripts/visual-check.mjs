@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1"];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -44,6 +44,21 @@ const yearReview = { year: 2026, sessions: 132, hours: 141.5, sets: 2650, volume
   muscles: [{ muscle: "chest", sets: 520 }, { muscle: "back", sets: 480 }, { muscle: "quads", sets: 400 }],
   best: [{ exercise: "back-squat", name: "Back Squat", e1rm: 152.5, date: "2026-09-20" }, { exercise: "bench-press", name: "Bench Press", e1rm: 116.7, date: "2026-10-02" }] };
 const heat = { days: Array.from({ length: 120 }, (_, i) => { const d = new Date(Date.now() - i * 3 * 86400000); return { date: d.toISOString().slice(0, 10), volume: 4000 + (i % 5) * 1500, sets: 18, muscles: ["chest"] }; }) };
+const budgetFixture = {
+  currency: "AUD",
+  income: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly" }, { id: "i2", name: "Side work", amount: 400, every: "monthly" }],
+  sections: {
+    expenses: [{ id: "e1", name: "Rent", amount: 2000, every: "monthly" }, { id: "e2", name: "Power and gas", amount: 420, every: "quarterly" },
+      { id: "e3", name: "Car rego", amount: 900, every: "yearly" }, { id: "e4", name: "Netflix", amount: 22.99, every: "monthly" }],
+    savings: [{ id: "s1", name: "Holiday", amount: 500, every: "monthly", goal: 6000, saved: 1000 }, { id: "s2", name: "Emergency fund", amount: 300, every: "monthly", goal: 10000, saved: 7200 }],
+    spending: [{ id: "p1", name: "Groceries", amount: 200, every: "weekly" }, { id: "p2", name: "Eating out", amount: 300, every: "monthly" }, { id: "p3", name: "Fuel", amount: 70, every: "weekly" }],
+  },
+  history: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11"].map((month, i) => ({ month, income: 6500 + i * 100, expenses: 2400 + i * 20, savings: 600 + i * 50, spending: 1450 - i * 30, left: 2050 + i * 60 })),
+  totals: { income: 6900, expenses: 2408, savings: 800, spending: 1470, left: 2222 },
+};
+const thingsFixture = [{ id: 1, name: "Dishwasher", brand: "Bosch", model: "SMS6", room: "Kitchen", bought: "2025-01-10", price: 1099, shop: "Harvey Norman",
+  warranty_until: "2026-11-20", manual: "https://bosch.example/manual", notes: "", document_id: null, warranty_days_left: 13, under_warranty: true }];
+const peopleFixture = [{ id: 2, name: "Sam Lee", relation: "friend", birthday: "1990-11-12", anniversary: null, notes: "", last_contact: null, keep_in_touch_days: null, days_to_birthday: 5, turning: 36 }];
 const task = (id, title, due, group) => ({ id: `sirisos:${id}`, source: "sirisos", title, detail: null, due, time: null, group, area: "work" });
 const workFixture = {
   date: "2026-11-05", local_time: "2026-11-05T16:20+11:00",
@@ -65,6 +80,9 @@ const workFixture = {
     weakest: [{ id: "1.1", title: "Deal with ethical issues", strength: "none" }, { id: "2.3", title: "Develop safe and sustainable solutions", strength: "thin" }] },
 };
 const FIXTURES = [
+  ["/api/v1/budget", budgetFixture],
+  ["/api/v1/life/things", thingsFixture],
+  ["/api/v1/life/people", peopleFixture],
   ["/api/v1/work", workFixture],
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],
