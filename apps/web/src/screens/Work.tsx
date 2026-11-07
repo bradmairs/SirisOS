@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { Award, BriefcaseBusiness, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer } from "lucide-react";
+import { usePageContext } from "../api/pageContext";
+import { Link, useSearchParams } from "react-router-dom";
+import { Award, BriefcaseBusiness, GraduationCap, Sunset, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer } from "lucide-react";
 import { brain } from "../api/hub";
 import { links, type LinkStatus } from "../api/links";
 import { useResource } from "../api/resource";
 import { tasks, type TaskItem } from "../api/tasks";
 import type { BrainHit } from "../api/types";
-import { dayFraction, span, work, type CpdCategory, type WorkDay } from "../api/work";
+import { dayFraction, span, work, type Chartership, type CpdCategory, type WorkDay } from "../api/work";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
@@ -34,11 +35,30 @@ const clock = (hhmm: string) => {
 };
 
 /** Work (7.2; made visual in 7.4): the working day at the engineering job, open from 8:00 to 4:30. */
+/** What's on the Work page, in a few lines for "Ask about this page" (7.5). */
+export function workSummary(w: WorkDay): string {
+  const lines = [`Working hours ${w.hours.start} to ${w.hours.end}${w.hours.minutes_left != null ? `, ${span(w.hours.minutes_left)} to home time` : ""}.`];
+  const g = w.tasks.groups;
+  const list = (name: string, items?: TaskItem[]) => items?.length ? lines.push(`${name}: ${items.slice(0, 8).map((t) => t.title).join("; ")}.`) : 0;
+  list("Overdue work tasks", g.overdue); list("Work tasks due today", g.today); list("Work tasks this week", g.week);
+  if (w.todos?.length) lines.push(`To-dos in work notes: ${w.todos.slice(0, 8).map((t) => `${t.task} (${t.note})`).join("; ")}.`);
+  if (w.week) lines.push(`Done today: ${w.week.done_today}; focused ${w.week.focus_today} min.`);
+  if (w.cpd) lines.push(`CPD: ${Math.round(w.cpd.total)} of ${w.cpd.required} h in three years` + ((w.cpd.minimums ?? []).filter((m) => m.short).map((m) => `, ${m.label} ${m.short} h short`).join("")) + ".");
+  if (w.chartership) lines.push(`Chartered application ${w.chartership.now.percent}% ready, ${w.chartership.now.solid} of ${w.chartership.now.elements} elements solid${w.chartership.next ? `; next: ${w.chartership.next}` : ""}.`);
+  if (w.engineering.current) lines.push(`Engineering project: ${w.engineering.current.name}.`);
+  return lines.join("\n");
+}
+
 export function WorkScreen() {
   const res = useWork();
   useEffect(() => { document.title = "Work · SirisOS"; }, []);
   const w = res.data;
   const reload = () => res.reload?.(true);
+  usePageContext("Work", w ? workSummary(w) : null);
+  const [params] = useSearchParams();
+  const asked = params.get("wrapup") === "1";
+  const wrap = w?.wrapup;
+  const showWrap = !!wrap && (asked || wrap.due || (!!wrap.saved && w!.hours.workday && !w!.hours.on));
   return (
     <>
       <PageHead eyebrow={w ? lead(w) : "Work"} title="Work" />
@@ -46,12 +66,14 @@ export function WorkScreen() {
       {!w && !res.error && <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />}
       {w && (
         <div className="work-grid">
+          {showWrap && <WrapUpCard w={w} onSaved={reload} />}
           <DayCard w={w} />
           <FocusCard onLogged={reload} />
           <WorkTasksCard w={w} onChange={reload} />
           <WeekCard w={w} />
           <AppsCard w={w} />
           <CpdCard w={w} onChange={reload} />
+          {w.chartership && <ChartershipCard c={w.chartership} />}
           <TodosCard w={w} onChange={reload} />
           <WorkNotesCard w={w} />
         </div>
@@ -345,6 +367,125 @@ function CpdCard({ w, onChange }: { w: WorkDay; onChange: () => void }) {
           </div>
         </form>
       ) : <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => { setMsg(null); setOpen(true); }}>Log CPD</button>}
+    </Glass>
+  );
+}
+
+const dayName = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-AU", { weekday: "long" });
+const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+
+/** 7.5: the end-of-work wrap-up. What got done (to Siris), open work tasks carried to the next workday, the first thing then, any CPD. */
+function WrapUpCard({ w, onSaved }: { w: WorkDay; onSaved: () => void }) {
+  const open = [...(w.tasks.groups.overdue ?? []), ...(w.tasks.groups.today ?? [])];
+  const [done, setDone] = useState("");
+  const [carry, setCarry] = useState<Set<string>>(() => new Set(open.map((t) => t.id)));
+  const [first, setFirst] = useState("");
+  const [cpdTitle, setCpdTitle] = useState("");
+  const [cpdHours, setCpdHours] = useState("1");
+  const [cpdCat, setCpdCat] = useState<CpdCategory>("area");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const saved = w.wrapup?.saved;
+  const next = dayName(w.wrapup?.next_workday ?? w.date);
+  if (saved) {
+    return (
+      <Glass as="section" className="widget work-wrap" style={{ minHeight: 0 }} aria-label="Work wrap-up">
+        <header className="widget__head"><Sunset aria-hidden="true" /><span>Work wrapped up</span><span className="widget__source">{saved.at.slice(11, 16)}</span></header>
+        <p style={{ margin: 0 }}>{saved.done || "Wrapped up."}</p>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          {[saved.carried ? `${saved.carried} task${saved.carried === 1 ? "" : "s"} moved to ${dayName(saved.next_workday)}` : "",
+            saved.first ? `first thing: ${saved.first}` : "", saved.cpd ? "CPD logged" : "", saved.saved_as ? "sent to Siris" : ""].filter(Boolean).join(" · ")}
+        </p>
+      </Glass>
+    );
+  }
+  const toggle = (id: string) => setCarry((c) => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const save = async () => {
+    setBusy(true); setError(null);
+    try {
+      const h = Number(cpdHours);
+      await work.wrapUp({ done, carry: [...carry], first, note: "", cpd: cpdTitle.trim() && h > 0 ? { title: cpdTitle.trim(), hours: h, category: cpdCat } : null });
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save the wrap-up");
+    } finally { setBusy(false); }
+  };
+  return (
+    <Glass as="section" className="widget work-wrap" style={{ minHeight: 0 }} aria-label="Work wrap-up">
+      <header className="widget__head"><Sunset aria-hidden="true" /><span>Wrap up work</span><span className="widget__source">two minutes</span></header>
+      <form className="work-wrap__form" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <label className="work-wrap__step">
+          <span className="work-wrap__n">1</span>
+          <span className="work-wrap__body"><span className="work-wrap__q">What got done?</span>
+            <textarea className="field" rows={2} placeholder="Finished the RFI response. Site visit at the pump station." value={done} onChange={(e) => setDone(e.target.value)} />
+            <span className="muted work-wrap__hint">Goes to Siris, filed on the note it's about.</span></span>
+        </label>
+        <div className="work-wrap__step">
+          <span className="work-wrap__n">2</span>
+          <span className="work-wrap__body"><span className="work-wrap__q">Carry over to {next}</span>
+            {open.length ? (
+              <span className="work-wrap__carry">
+                {open.map((t) => (
+                  <label key={t.id} className="career-app__check"><input type="checkbox" checked={carry.has(t.id)} onChange={() => toggle(t.id)} /><span>{t.title}</span></label>
+                ))}
+              </span>
+            ) : <span className="muted">Nothing left open today.</span>}</span>
+        </div>
+        <label className="work-wrap__step">
+          <span className="work-wrap__n">3</span>
+          <span className="work-wrap__body"><span className="work-wrap__q">First thing {next}</span>
+            <input className="field" placeholder="Call the contractor about the valve pit" value={first} onChange={(e) => setFirst(e.target.value)} /></span>
+        </label>
+        <div className="work-wrap__step">
+          <span className="work-wrap__n">4</span>
+          <span className="work-wrap__body"><span className="work-wrap__q">Anything worth logging as CPD?</span>
+            <input className="field" placeholder="Toolbox talk: confined spaces (optional)" aria-label="CPD activity" value={cpdTitle} onChange={(e) => setCpdTitle(e.target.value)} />
+            {cpdTitle.trim() && (
+              <span className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span className="row gym-chips" role="radiogroup" aria-label="Category">
+                  {CATS.map((x) => <button key={x.id} type="button" role="radio" aria-checked={cpdCat === x.id} className={`chip chip--button ${cpdCat === x.id ? "chip--active" : ""}`} onClick={() => setCpdCat(x.id)}>{x.label}</button>)}
+                </span>
+                <label className="row" style={{ gap: 6 }}>Hours <input className="field" style={{ width: 80 }} type="number" min={0.25} step={0.25} aria-label="CPD hours" value={cpdHours} onChange={(e) => setCpdHours(e.target.value)} /></label>
+              </span>
+            )}</span>
+        </div>
+        {error && <p className="tone-critical" role="alert" style={{ margin: 0 }}>{error}</p>}
+        <button type="submit" className="button button--primary" disabled={busy} style={{ alignSelf: "flex-start" }}>{busy ? "Saving…" : "Done for the day"}</button>
+      </form>
+    </Glass>
+  );
+}
+
+/** 7.5: the chartered application: how ready it is, how that's moved week by week, and the weakest elements. */
+function ChartershipCard({ c }: { c: Chartership }) {
+  const up = c.change.percent;
+  const max = 100;
+  return (
+    <Glass as="section" className="widget work-chartership" style={{ minHeight: 0 }} aria-label="Chartership">
+      <header className="widget__head"><GraduationCap aria-hidden="true" /><span>Chartership</span><Link to="/career?view=application" className="widget__source">Application</Link></header>
+      <div className="work-chartership__top">
+        <Ring value={c.now.percent / 100} size={96} stroke={9} tone={c.now.percent === 100 ? "good" : "accent"} label={`Application ${c.now.percent}% ready`}>
+          <strong className="work-ring__big">{c.now.percent}%</strong><span className="muted">ready</span>
+        </Ring>
+        <div className="work-chartership__side">
+          <span><strong>{c.now.solid}</strong> of {c.now.elements} elements solid</span>
+          <span className={up > 0 ? "tone-good" : "muted"}>{up > 0 ? `+${up}%` : up < 0 ? `${up}%` : "No change"} since {shortDate(c.change.since)}</span>
+        </div>
+      </div>
+      {c.trend.length > 1 && (
+        <div className="work-spark" role="img" aria-label={`Readiness by week: ${c.trend.map((p) => `${shortDate(p.week)} ${p.percent}%`).join(", ")}`}>
+          {c.trend.map((p) => (
+            <span key={p.week} className="work-spark__bar" title={`Week of ${shortDate(p.week)}: ${p.percent}% ready, ${p.solid} solid`}
+              style={{ height: `${Math.max(4, (p.percent / max) * 100)}%` }} />
+          ))}
+        </div>
+      )}
+      {c.weakest.length > 0 && (
+        <ul className="work-chartership__weak">
+          {c.weakest.map((e) => <li key={e.id}><span className={`chip ${e.strength === "none" ? "tone-critical" : "tone-warning"}`}>{e.strength}</span> E{e.id} {e.title}</li>)}
+        </ul>
+      )}
+      {c.next && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Next: {c.next}</p>}
     </Glass>
   );
 }

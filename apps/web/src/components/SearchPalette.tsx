@@ -16,6 +16,8 @@ import {
   Sparkles,
   type LucideIcon,
   House,
+  ListChecks,
+  Dumbbell,
 } from "lucide-react";
 import { search, type SearchGroup, type SearchHit } from "../api/search";
 import { CALCULATORS } from "../engineering/calculators";
@@ -37,6 +39,8 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   goto: CornerDownLeft,
   award: Award,
   house: House,
+  "check-square": ListChecks,
+  dumbbell: Dumbbell,
 };
 
 const SCREENS: { title: string; subtitle: string; url: string; words?: string }[] = [
@@ -129,6 +133,8 @@ export function SearchPalette({ onClose, onOpenApp }: { onClose: () => void; onO
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
+  // 7.5: narrow the results to one kind (Siris, Tasks, SirisGym...), from the groups this search found.
+  const [only, setOnly] = useState<string | null>(null);
   const [recent] = useState(readRecent);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -178,9 +184,12 @@ export function SearchPalette({ onClose, onOpenApp }: { onClose: () => void; onO
     // Stable sort: on a tie, instant local results stay ahead of the server's.
     return [...mine, ...theirs].sort((a, b) => b.best - a.best).concat(ask);
   }, [q, remote]);
+  const kinds = useMemo(() => groups.filter((g) => g.id !== "ask").map((g) => ({ id: g.id, label: g.label })), [groups]);
+  useEffect(() => { if (only && !kinds.some((k) => k.id === only)) setOnly(null); }, [kinds, only]);
+  const shown = useMemo(() => (only ? groups.filter((g) => g.id === only) : groups), [groups, only]);
 
-  const flat = useMemo(() => groups.flatMap((g) => g.hits.map((h) => ({ group: g, hit: h }))), [groups]);
-  useEffect(() => setActive(0), [q, remote]);
+  const flat = useMemo(() => shown.flatMap((g) => g.hits.map((h) => ({ group: g, hit: h }))), [shown]);
+  useEffect(() => setActive(0), [q, remote, only]);
   useEffect(() => {
     list.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView?.({ block: "nearest" });
   }, [active]);
@@ -247,7 +256,16 @@ export function SearchPalette({ onClose, onOpenApp }: { onClose: () => void; onO
             </Section>
           )}
 
-          {groups.map((g) => (
+          {kinds.length > 1 && (
+            <div className="search__filters" role="radiogroup" aria-label="Show only">
+              <button type="button" role="radio" aria-checked={!only} className={`chip chip--button ${!only ? "chip--active" : ""}`} onClick={() => setOnly(null)}>All</button>
+              {kinds.map((k) => (
+                <button key={k.id} type="button" role="radio" aria-checked={only === k.id} className={`chip chip--button ${only === k.id ? "chip--active" : ""}`}
+                  onClick={() => setOnly(only === k.id ? null : k.id)}>{k.label}</button>
+              ))}
+            </div>
+          )}
+          {shown.map((g) => (
             <Section key={g.id} title={g.label} Icon={groupIcon(g)}>
               {g.hits.map((h) => {
                 index += 1;

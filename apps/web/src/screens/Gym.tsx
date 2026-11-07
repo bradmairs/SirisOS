@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { usePageContext } from "../api/pageContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
@@ -54,6 +55,19 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
   if (!shortcuts.run(shortcut, "/gym/workout")) navigate("/gym/workout");
 }
 
+/** What's on SirisGym, in a few lines for "Ask about this page" (7.5). */
+export function gymSummary(g: Gym): string {
+  const lines = [`${g.total_sessions} workouts logged, a ${g.streak_weeks}-week streak.`,
+    `This week: ${g.week.sessions} workouts, ${Math.round(g.week.volume)} kg volume.`];
+  if (g.readiness?.band) lines.push(`Readiness today: ${g.readiness.band}${g.readiness.score != null ? ` (${g.readiness.score})` : ""}.`);
+  const under = (g.muscles ?? []).filter((m) => m.status === "under").map((m) => m.muscle);
+  if (under.length) lines.push(`Under the weekly set target: ${under.join(", ")}.`);
+  if (g.deload?.active) lines.push(`On a deload week until ${g.deload.until}.`);
+  else if (g.deload?.suggest) lines.push(`A deload is suggested: ${g.deload.why.join("; ")}.`);
+  if (g.recent[0]) lines.push(`Last workout: ${g.recent[0].title} on ${g.recent[0].date ?? ""}.`);
+  return lines.join("\n");
+}
+
 export function GymScreen() {
   const res = useGym();
   const [params, setParams] = useSearchParams();
@@ -62,6 +76,7 @@ export function GymScreen() {
   // Recent workouts get the Watch's verdict (7.1), so what to lift and the rest timer can use it.
   useEffect(() => { gym.refreshEffort().catch(() => {}); }, []);
   const g = res.data;
+  usePageContext("SirisGym", g ? gymSummary(g) : null);
   return (
     <>
       <PageHead eyebrow={g ? `${g.total_sessions} workouts · ${g.streak_weeks}-week streak` : "Gym"} title="SirisGym" />

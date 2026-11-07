@@ -201,5 +201,37 @@ def push_message(now: datetime) -> list[dict[str, Any]]:
         return []
     if saved(week_of(local.date())[0]):
         return []
+    numbers = week_numbers(local.date())
+    body = (f"{numbers}. " if numbers else "") + "Five minutes: how the week went, and what matters next week."
     return [{"key": f"review:{local.date().isoformat()}", "topic": "brief", "title": "Your weekly review",
-             "body": "Five minutes: how the week went, and what matters next week.", "url": "/review", "urgency": "normal"}]
+             "body": body, "url": "/review", "urgency": "normal"}]
+
+
+def week_numbers(today: date) -> str:
+    """The week in a line for the notification (7.5), from what SirisOS keeps itself (no waiting on SirisAI):
+    tasks done, workouts, focus time at work, CPD hours."""
+    monday, _ = week_of(today)
+    parts = []
+    try:
+        done = sum(1 for t in task_store.load().tasks if t.done_at and monday <= datetime.fromisoformat(t.done_at).astimezone(zone()).date() <= today)
+        if done:
+            parts.append(f"{done} task{'s' * (done != 1)} done")
+    except Exception:  # noqa: BLE001
+        pass
+    gym = _gym_week(monday, today)
+    if gym and gym["sessions"]:
+        parts.append(f"{gym['sessions']} workout{'s' * (gym['sessions'] != 1)}")
+    try:
+        from app.work import service as work
+
+        focus = sum(d["focus_min"] for d in work.week(today)["days"])
+        if focus >= 30:
+            parts.append(f"{focus / 60:.1f} h focused at work")
+    except Exception:  # noqa: BLE001
+        pass
+    cpd = round(sum(r.hours for r in career_store.load().cpd.records if r.date and monday.isoformat() <= r.date <= today.isoformat()), 1)
+    if cpd:
+        parts.append(f"{cpd:g} h CPD")
+    if not parts:
+        return ""
+    return (", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0]).capitalize()

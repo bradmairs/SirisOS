@@ -179,6 +179,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.23: Apple Health sync moved to Health → Data sync; the terminal fits what's visible so the typing line isn't hidden
 7.31: Work without the calendar or projects
 7.4: Work made visual: day ring, task tiles, week bars, focus timer, work app tiles, CPD rings and logging, recent work notes as cards, desktop grid
+7.5: work wrap-up at home time (carry-over, first thing, CPD, to Siris), chartership progress trend, ask about this page, tasks and SirisGym in search with filters, the week in the review notification
 
 ## Terminal (ADR 113)
 

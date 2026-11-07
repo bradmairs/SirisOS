@@ -100,3 +100,29 @@ def test_the_week_focus_apps_notes_and_logging_cpd(monkeypatch, tmp_path):
     assert r["record"]["basis"] == "you" and r["record"]["split"] == {"risk": 1.5}
     assert next(m for m in r["cpd"]["minimums"] if m["category"] == "risk")["hours"] >= 1.5
     assert client.post("/api/v1/work/focus", headers=AUTH, json={"minutes": 25}).json()["today"] >= 25
+
+
+def test_the_work_wrap_up_carries_tasks_to_the_next_workday_and_tells_siris(monkeypatch, tmp_path):
+    """7.5: at home time: what got done to Siris, open work tasks to Monday (from a Friday), the first thing for Monday, CPD logged."""
+    monkeypatch.setenv("SIRISOS_WORK_PATH", str(tmp_path / "work.json"))
+    friday = datetime(2026, 11, 6, 16, 20, tzinfo=zone())
+    assert service.wrapup_due(friday) and not service.wrapup_due(friday.replace(hour=15))
+    assert not service.wrapup_due(datetime(2026, 11, 7, 16, 20, tzinfo=zone()))  # Saturday
+    assert service.wrapup_push(friday)[0]["url"] == "/work?wrapup=1"
+    task = tasks_store.Task(title="Check the pump station drawings", due="2026-11-06", area="work")
+    tasks_store.save(tasks_store.TasksDocument(tasks=[task]))
+    sent = []
+
+    async def post(hub, path, json=None, **kw):
+        sent.append(json)
+        return {}
+
+    monkeypatch.setattr(sirisai_api, "post", post)
+    entry = asyncio.run(service.wrapup(None, friday.date(), "Finished the RFI response.", [f"sirisos:{task.id}"], "Call the contractor",
+                                       "", {"title": "Toolbox talk: confined spaces", "hours": 0.5, "category": "risk"}))
+    assert entry["next_workday"] == "2026-11-09" and entry["carried"] == 1 and entry["cpd"]["split"] == {"risk": 0.5}
+    doc = tasks_store.load()
+    assert {t.title: t.due for t in doc.tasks} == {"Check the pump station drawings": "2026-11-09", "Call the contractor": "2026-11-09"}
+    assert [s["text"] for s in sent] == ["Friday 6 November 2026: At work: Finished the RFI response."]
+    assert service.wrapup_saved(friday.date())["first"] == "Call the contractor"
+    assert not service.wrapup_due(friday) and service.wrapup_push(friday) == []

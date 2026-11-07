@@ -23,7 +23,7 @@ uploaded and is kept in the data folder next to it.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -304,6 +304,7 @@ def view(doc: CareerDocument) -> dict[str, Any]:
         "elements": [{**e.model_dump(), "meaning": ELEMENT_MEANING.get(e.id, "")} for e in doc.elements],
         "bia_states": BIA_STATES,
         "readiness": readiness(doc),
+        "progress": progress(doc),
     }
 
 
@@ -350,3 +351,46 @@ def remove_file(doc_id: str) -> CareerDocument:
     files = {k: v for k, v in doc.application.files.items() if k != doc_id}
     return store.save(doc.model_copy(update={"application": doc.application.model_copy(update={"files": files})}))
 
+
+
+# ---- 7.5: progress over time ----------------------------------------------
+
+def _history_path():
+    from app.services import json_store
+
+    return json_store.data_path("SIRISOS_CHARTERSHIP_HISTORY_PATH", "chartership-history.json")
+
+
+def progress(doc: CareerDocument, today: date | None = None) -> dict[str, Any]:
+    """Today's readiness kept once a day (a year of days), and the trend: one point a
+    week for the last 12 weeks, with the change since four weeks ago."""
+    from app.services import json_store
+
+    if today is None:
+        from app.tasks.service import today as local_today
+
+        today = local_today()
+    r = readiness(doc)
+    n = len(r["elements"]) or 1
+    point = {"percent": r["percent"], "solid": r["strength"]["solid"], "elements": len(r["elements"]),
+             "evidence": round(r["strength"]["solid"] / n * 100)}
+    raw = json_store.read(_history_path(), {})
+    days = raw if isinstance(raw, dict) else {}
+    if days.get(today.isoformat()) != point:
+        days[today.isoformat()] = point
+        days = dict(sorted(days.items())[-366:])
+        json_store.write(_history_path(), days)
+    weeks: dict[str, dict[str, Any]] = {}
+    for d, p in sorted(days.items()):
+        day = date.fromisoformat(d)
+        if (today - day).days > 7 * 12:
+            continue
+        monday = (day - timedelta(days=day.weekday())).isoformat()
+        weeks[monday] = {"week": monday, **p}
+    trend = list(weeks.values())
+    back = today - timedelta(days=28)
+    earlier = [(d, p) for d, p in sorted(days.items()) if date.fromisoformat(d) <= back]
+    since, first = earlier[-1] if earlier else next(iter(sorted(days.items())))
+    return {"now": point, "trend": trend, "change": {"percent": point["percent"] - first["percent"], "solid": point["solid"] - first["solid"], "since": since},
+            "next": next((e["next"] for e in r["elements"] if e["next"]), None),
+            "weakest": [{"id": e["id"], "title": e["title"], "strength": e["strength"]} for e in r["elements"] if e["strength"] != "solid"][:3]}

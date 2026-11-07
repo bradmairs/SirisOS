@@ -133,3 +133,17 @@ def test_each_element_says_how_well_it_is_evidenced(career_file):
     assert application.element_strength(doc)[0]["strength"] == "none"  # weakest first
     ready = application.readiness(doc)
     assert ready["strength"]["solid"] == 1 and ready["strength"]["thin"] == 1
+
+
+def test_chartership_progress_is_kept_daily_and_shows_the_change(career_file, tmp_path, monkeypatch):
+    """7.5: readiness kept once a day; a weekly trend and the change over four weeks."""
+    monkeypatch.setenv("SIRISOS_CHARTERSHIP_HISTORY_PATH", str(tmp_path / "hist.json"))
+    doc = store.load()
+    first = application.progress(doc, date(2026, 10, 1))
+    assert first["change"]["percent"] == 0 and len(first["trend"]) == 1
+    application.apply_edit(application.ApplicationEdit(area_of_practice="Civil"))
+    later = application.progress(store.load(), date(2026, 11, 5))
+    assert later["now"]["percent"] > first["now"]["percent"]
+    assert later["change"] == {"percent": later["now"]["percent"] - first["now"]["percent"], "solid": 0, "since": "2026-10-01"}
+    assert [p["week"] for p in later["trend"]] == ["2026-09-28", "2026-11-02"]
+    assert later["weakest"] and later["next"]

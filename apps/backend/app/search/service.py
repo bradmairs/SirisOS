@@ -325,6 +325,54 @@ def home_source(query: str) -> list[dict[str, Any]]:
     return out
 
 
+def tasks_source(query: str) -> list[dict[str, Any]]:
+    """SirisOS tasks (7.5): open ones with when they're due, and the last 90 days of done ones with when."""
+    from datetime import timedelta
+
+    from app.tasks import service as tasks, store as task_store
+
+    today = tasks.today()
+    cutoff = (today - timedelta(days=90)).isoformat()
+    out = []
+    for t in task_store.load().tasks:
+        if not matches(query, t.title, t.notes):
+            continue
+        area = "Work" if tasks.area_of(t.title, t.notes, t.area) == "work" else "Task"
+        if t.done_at:
+            if t.done_at[:10] < cutoff:
+                continue
+            sub = f"{area} · done {t.done_at[:10]}"
+        else:
+            sub = f"{area} · " + (f"due {t.due}" if t.due else "no date")
+        out.append(hit(query, t.title, sub, url="/tasks", kind="task", extra=(t.notes,)))
+    return out
+
+
+def gym_source(query: str) -> list[dict[str, Any]]:
+    """SirisGym (7.5): exercises you've done, with when you last did them and your best set."""
+    from app.gym import service as gym, store as gym_store
+
+    doc = gym_store.load()
+    known = gym.exercises(doc)
+    done = {e.exercise for s in gym_store.counted(doc) for e in s.entries}
+    out = []
+    for ex_id in done:
+        name = (known.get(ex_id) or {}).get("name") or ex_id
+        if not matches(query, name, (known.get(ex_id) or {}).get("primary")):
+            continue
+        rows = gym.history(doc, ex_id)
+        if not rows:
+            continue
+        best = gym.records(rows).get("heaviest")
+        sub = " · ".join(x for x in ("Exercise", f"last {rows[-1]['date']}", f"{len(rows)} sessions",
+                                     f"best {best['weight']:g} kg × {best['reps']}" if best and best.get("reps") else "") if x)
+        out.append(hit(query, name, sub, url="/gym?view=progress", kind="exercise"))
+    for s in gym_store.counted(doc):
+        if s.note and matches(query, s.title, s.note):
+            out.append(hit(query, s.title, f"Workout · {gym.day_of(s.started_at)}", url="/gym?view=history", kind="workout", extra=(s.note,)))
+    return out
+
+
 # -- the search ----------------------------------------------------------------
 
 GROUPS: list[tuple[str, str, str]] = [
@@ -338,6 +386,8 @@ GROUPS: list[tuple[str, str, str]] = [
     ("career", "Career", "award"),
     ("home", "Home", "house"),
     ("engineering", "Engineering", "ruler"),
+    ("tasks", "Tasks", "check-square"),
+    ("gym", "SirisGym", "dumbbell"),
 ]
 
 
@@ -369,6 +419,8 @@ async def search(hub: Hub, query: str) -> dict[str, Any]:
         "engineering": _run("Engineering", lambda: engineering_source(query), failed, blocking=True),
         "career": _run("Career", lambda: career_source(query), failed, blocking=True),
         "home": _run("Home", lambda: home_source(query), failed, blocking=True),
+        "tasks": _run("Tasks", lambda: tasks_source(query), failed, blocking=True),
+        "gym": _run("SirisGym", lambda: gym_source(query), failed, blocking=True),
     }
     connector = hub.get("sirisai")
     if isinstance(connector, SirisAIConnector) and connector.configured:

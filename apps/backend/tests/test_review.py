@@ -112,8 +112,15 @@ def test_what_matters_goes_to_siris_and_this_week(ai):
 def test_the_sunday_notification(ai, monkeypatch):
     monkeypatch.setenv("SIRISOS_REVIEW_WEEKDAY", "6")
     monkeypatch.setenv("SIRISOS_REVIEW_HOUR", "16")
+    monkeypatch.setenv("SIRISOS_WORK_PATH", str(__import__("pathlib").Path(service._path()).parent / "work.json"))
     sunday = datetime(SUNDAY.year, SUNDAY.month, SUNDAY.day, 17, tzinfo=zone())
     assert service.push_message(sunday)[0]["url"] == "/review"
+    assert service.push_message(sunday)[0]["body"].startswith("Five minutes")  # nothing to count yet
+    t = tasks.add(task_store.Task(title="Send RFI"))
+    doc = task_store.load()
+    doc.tasks[0].done_at = datetime(SUNDAY.year, SUNDAY.month, SUNDAY.day, 9, tzinfo=zone()).isoformat()
+    task_store.save(doc)
+    assert service.push_message(sunday)[0]["body"].startswith("1 task done. Five minutes")  # 7.5: the week in a line
     assert service.push_message(sunday.replace(hour=10)) == []
     assert service.push_message(sunday - timedelta(days=1)) == []
     import asyncio

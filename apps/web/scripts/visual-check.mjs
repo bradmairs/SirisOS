@@ -10,8 +10,10 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year"];
-const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "desktop", width: 1280, height: 900, mobile: false }];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1"];
+// 7.5: an iPad too (the Work page is meant to stay open on one at work).
+const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
+  { name: "desktop", width: 1280, height: 900, mobile: false }];
 const health = JSON.parse(readFileSync("src/screens/__health_fixture.json", "utf8"));
 const hud = { system: { cpu_percent: 7, memory: { percent_used: 41, used_gb: 13.1, total_gb: 32 }, disk: { "/": { percent_used: 63, used_gb: 590, total_gb: 937 } }, temperatures_celsius: {} } };
 const LONG = "https://web.push.apple.com/QGZ2Yd0ab1cdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
@@ -42,7 +44,28 @@ const yearReview = { year: 2026, sessions: 132, hours: 141.5, sets: 2650, volume
   muscles: [{ muscle: "chest", sets: 520 }, { muscle: "back", sets: 480 }, { muscle: "quads", sets: 400 }],
   best: [{ exercise: "back-squat", name: "Back Squat", e1rm: 152.5, date: "2026-09-20" }, { exercise: "bench-press", name: "Bench Press", e1rm: 116.7, date: "2026-10-02" }] };
 const heat = { days: Array.from({ length: 120 }, (_, i) => { const d = new Date(Date.now() - i * 3 * 86400000); return { date: d.toISOString().slice(0, 10), volume: 4000 + (i % 5) * 1500, sets: 18, muscles: ["chest"] }; }) };
+const task = (id, title, due, group) => ({ id: `sirisos:${id}`, source: "sirisos", title, detail: null, due, time: null, group, area: "work" });
+const workFixture = {
+  date: "2026-11-05", local_time: "2026-11-05T16:20+11:00",
+  hours: { start: "08:00", end: "16:30", on: true, workday: true, minutes_left: 10, minutes_in: 500 },
+  tasks: { groups: { overdue: [task("a", "Send the Mooroopna pump station RFI response to the contractor", "2026-11-03", "overdue")],
+    today: [task("b", "Check the pump station drawings", "2026-11-05", "today"), task("c", "Timesheet", "2026-11-05", "today")],
+    week: [task("d", "Site visit: Kialla sewer main", "2026-11-07", "week")] }, counts: { overdue: 1, today: 2, week: 1 } },
+  todos: [{ task: "Issue RFI 3", note: "GVW Sewer Upgrade", due: "2026-11-07" }, { task: "Update the valve schedule", note: "Pump Stations", due: null }],
+  engineering: { current: { id: "p1", name: "Mooroopna pump station", kind: "water", tags: [] }, active: [] },
+  cpd: { total: 112, required: 150, short: 38, minimums: [{ category: "area", label: "Area of practice", hours: 60, minimum: 50, short: 0 },
+    { category: "risk", label: "Risk management", hours: 6, minimum: 10, short: 4 }, { category: "business", label: "Business & management", hours: 9, minimum: 15, short: 6 }] },
+  week: { days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => ({ date: `2026-11-0${i + 2}`, weekday: d, done: [3, 5, 2, 4, 0, 0, 0][i], focus_min: [50, 75, 25, 100, 0, 0, 0][i] })), done_today: 4, focus_today: 100 },
+  apps: [{ id: "l1", name: "GVW", url: "https://gvw.example", icon: null, note: "" }, { id: "l2", name: "Timesheet", url: "https://ts.example", icon: null, note: "" }, { id: "l3", name: "Archive", url: "https://archive.example", icon: null, note: "" }],
+  notes: [{ title: "Pump Stations", path: "Work/GVW/Pump Stations.md", type: "note", as_of: "2026-11-05", tags: [], excerpt: "Wet well levels and the duty/standby changeover." }],
+  wrapup: { due: true, saved: null, next_workday: "2026-11-06" },
+  chartership: { now: { percent: 50, solid: 5, elements: 16, evidence: 31 }, change: { percent: 13, solid: 2, since: "2026-10-08" },
+    trend: Array.from({ length: 10 }, (_, i) => ({ week: `2026-${i < 4 ? "09" : "10"}-${String(1 + (i % 4) * 7).padStart(2, "0")}`, percent: 25 + i * 3, solid: 2 + Math.floor(i / 3), elements: 16, evidence: 20 })),
+    next: "Add a second piece of evidence: a project or task where you did this",
+    weakest: [{ id: "1.1", title: "Deal with ethical issues", strength: "none" }, { id: "2.3", title: "Develop safe and sustainable solutions", strength: "thin" }] },
+};
 const FIXTURES = [
+  ["/api/v1/work", workFixture],
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],
   ["/api/v1/gym/body", { measurements: [{ id: "a", date: "2026-08-01", waist: 88, chest: 104 }, { id: "b", date: "2026-11-01", waist: 84.5, chest: 106, arm: 38.5 }],

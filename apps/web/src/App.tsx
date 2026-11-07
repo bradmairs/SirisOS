@@ -1,3 +1,4 @@
+import { AskAbout } from "./components/AskAbout";
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { Menu, Mic, PenLine, Search } from "lucide-react";
@@ -171,6 +172,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <LogoMark size={30} />
           <span className="topbar__word">SIRIS<b>OS</b></span>
         </Link>
+        <AskAbout variant="topbar" />
         <button type="button" className="icon-link topbar__talk" onClick={openTalk} aria-label="Talk to SirisOS">
           <Mic size={19} aria-hidden="true" />
         </button>
@@ -181,6 +183,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Search size={20} aria-hidden="true" />
         </button>
       </header>
+      <AskAbout variant="fab" />
       <main className="shell">
         <Suspense fallback={<ScreenFallback />}>
         <Routes>

@@ -183,3 +183,22 @@ def test_home_jobs_and_appliances_answer_when_it_was_last_done(monkeypatch, tmp_
     hits = {h["kind"]: h for h in search.home_source("heat pump")}
     assert hits["job"]["subtitle"] == "Home job · last done 2026-03-02 · next due 2027-03-02"
     assert hits["appliance"]["subtitle"].startswith("Appliance · Daikin FTXM")
+
+
+def test_tasks_and_sirisgym_are_searched(tmp_path, monkeypatch):
+    """7.5: open and recently done tasks, and exercises with when you last did them and your best set."""
+    from app.gym import store as gym_store
+    from app.search import service as search
+    from app.tasks import store as task_store
+
+    monkeypatch.setenv("SIRISOS_TASKS_PATH", str(tmp_path / "tasks.json"))
+    monkeypatch.setenv("SIRISOS_GYM_PATH", str(tmp_path / "gym.json"))
+    task_store.save(task_store.TasksDocument(tasks=[task_store.Task(title="Check pump station drawings", due="2026-11-09", area="work")]))
+    doc = gym_store.load()
+    doc.sessions.append(gym_store.Session(title="Push", started_at="2026-11-02T20:00:00+00:00", ended_at="2026-11-02T21:00:00+00:00",
+                                          entries=[gym_store.EntryLog(exercise="bench-press", sets=[gym_store.SetLog(reps=5, weight=80)])]))
+    gym_store.save(doc)
+    t = search.tasks_source("pump station")
+    assert t[0]["subtitle"] == "Work · due 2026-11-09"
+    g = search.gym_source("bench")
+    assert g and "best 80 kg × 5" in g[0]["subtitle"] and "last 2026-11-03" in g[0]["subtitle"]

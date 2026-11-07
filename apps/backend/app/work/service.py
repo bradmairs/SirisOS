@@ -106,6 +106,16 @@ def _cpd(day: date) -> dict[str, Any] | None:
                          for m in s.get("minimums") or []], "window": s.get("window")}
 
 
+def _chartership(day: date) -> dict[str, Any] | None:
+    """How close the chartered application is, and how it's moved (7.5)."""
+    from app.career import application, store as career
+
+    try:
+        return application.progress(career.load(), day)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def log_cpd(title: str, hours_: float, category: str, day: date, provider: str = "") -> dict[str, Any]:
     """CPD logged from Work (7.4): kept with the imported records (a re-import never removes it), in your category."""
     import uuid
@@ -205,4 +215,74 @@ async def dashboard(hub: Hub, at: datetime) -> dict[str, Any]:
     pr.pop("projects", None)
     return {"date": day.isoformat(), "local_time": at.isoformat(timespec="minutes"), "hours": hours(at), "tasks": tk, **pr,
             "week": week(day), "apps": apps(), "notes": notes,
-            "engineering": _engineering(), "cpd": _cpd(day)}
+            "wrapup": {"due": wrapup_due(at), "saved": wrapup_saved(day), "next_workday": next_workday(day).isoformat()},
+            "engineering": _engineering(), "cpd": _cpd(day), "chartership": _chartership(day)}
+
+
+# -- 7.5: the end-of-work wrap-up, at home time (Times of day's work end, 4:30) on workdays. --
+
+def next_workday(day: date) -> date:
+    nxt = day + timedelta(days=1)
+    while nxt.weekday() >= 5:
+        nxt += timedelta(days=1)
+    return nxt
+
+
+def wrapup_saved(day: date) -> dict[str, Any] | None:
+    return ((_load().get("wrapups") or {}).get(day.isoformat())) or None
+
+
+def wrapup_due(at: datetime) -> bool:
+    """From 15 minutes before home time until three hours after, on a workday, unless done."""
+    h = hours(at)
+    if not h["workday"] or wrapup_saved(at.date()):
+        return False
+    end = int(h["end"][:2]) * 60 + int(h["end"][3:])
+    now = at.hour * 60 + at.minute
+    return end - 15 <= now < end + 180
+
+
+async def wrapup(hub: Hub, day: date, done: str, carry: list[str], first: str, note: str,
+                 cpd: dict[str, Any] | None) -> dict[str, Any]:
+    """Save the work wrap-up: open work tasks carried to the next workday, the first
+    thing for tomorrow as a work task, CPD logged, and what got done to Siris as memories."""
+    from app.tasks import store as task_store
+    from app.wrapup import service as evening
+
+    nxt = next_workday(day)
+    moved = []
+    for task_id in carry[:30]:
+        try:
+            tasks.snooze(task_id, nxt)
+            moved.append(task_id)
+        except Exception:  # noqa: BLE001 - a task done or deleted meanwhile is skipped
+            continue
+    first = first.strip()
+    if first:
+        doc = task_store.load()
+        if not any(not t.done_at and t.title.lower() == first.lower() for t in doc.tasks):
+            tasks.add(task_store.Task(title=first, due=nxt.isoformat(), area="work", notes=f"First thing, from the {day.isoformat()} work wrap-up"))
+    logged = None
+    if cpd and str(cpd.get("title") or "").strip() and float(cpd.get("hours") or 0) > 0:
+        logged = log_cpd(str(cpd["title"]).strip(), float(cpd["hours"]), str(cpd.get("category") or "area"), day)
+    lines = " ".join(x.strip() for x in (f"At work: {done.strip()}" if done.strip() else "", note.strip()) if x)
+    saved_as = await evening.remember(hub, day, lines) if lines else None
+    entry = {"done": done.strip(), "carried": len(moved), "first": first or None, "note": note.strip(),
+             "cpd": logged, "saved_as": saved_as, "next_workday": nxt.isoformat(),
+             "at": datetime.now(tasks.zone()).isoformat(timespec="minutes")}
+    doc = _load()
+    wraps = doc.setdefault("wrapups", {})
+    wraps[day.isoformat()] = entry
+    doc["wrapups"] = dict(sorted(wraps.items())[-90:])
+    json_store.write(_path(), doc)
+    return entry
+
+
+def wrapup_push(now: datetime) -> list[dict[str, Any]]:
+    from app.brief.service import zone
+
+    local = now.astimezone(zone())
+    if not wrapup_due(local):
+        return []
+    return [{"key": f"work-wrapup:{local.date().isoformat()}", "topic": "brief", "title": "Wrap up work",
+             "body": "Two minutes: what got done, what carries over, any CPD.", "url": "/work?wrapup=1", "urgency": "normal"}]
