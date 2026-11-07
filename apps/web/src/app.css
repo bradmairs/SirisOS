@@ -1233,3 +1233,4 @@ h3.note__heading { font-size: 17px; }
   border-radius: 12px; background: #fff; padding: 6px; }
 .handwriting__page img { width: 100%; height: auto; display: block; }
 .handwriting__text { min-height: 220px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
+.budget .button { max-width: 100%; white-space: normal; text-align: left; }
