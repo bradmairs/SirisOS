@@ -52,6 +52,22 @@ async def workouts(hub: Hub, days: int = 42) -> list[dict[str, Any]]:
     return list((body or {}).get("workouts") or [])
 
 
+async def weights(hub: Hub, days: int = 400) -> list[dict[str, Any]] | None:
+    """Every day with a weight (7.91), oldest first, straight from the daily records: a quick read, unlike the
+    overview, which works out 70 days of scores (and so misses a weigh-in older than that). None when SirisAI
+    can't be reached or guest mode is on."""
+    body = await sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": days}, timeout=8.0)
+    if body is None or body.get("guest_mode"):
+        return None
+    out, level = [], None
+    for d in body.get("days") or []:
+        kg = (d.get("metrics") or {}).get("weight_kg")
+        if isinstance(kg, (int, float)) and kg > 0:
+            level = float(kg) if level is None else level + 0.1 * (float(kg) - level)  # the same smoothing as SirisAI's trend
+            out.append({"date": d.get("date"), "weight": round(float(kg), 2), "trend": round(level, 2)})
+    return out
+
+
 async def tool(hub: Hub, name: str, arguments: dict[str, Any] | None = None) -> Any:
     """Run one of SirisAI's health tools (a quick log, a goal), confirmed by the tap that asked."""
     body = await sirisai_api.post(hub, f"/siris/tools/{name}/run", json={"arguments": arguments or {}, "confirmed": True})

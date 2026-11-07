@@ -30,6 +30,7 @@ export function HealthSyncCard({ health }: { health: boolean }) {
           : health ? "SirisAI has health data, but none has come through here yet." : "No health data yet."}
         {s?.last?.error ? ` The last try failed: ${s.last.error}` : ""}
       </p>
+      <WeightLine s={s} />
       <TestSync />
       {(s?.attempts?.length ?? 0) > 0 && (
         <details className="training__attempts" open={s!.attempts![0].status >= 400}>
@@ -105,5 +106,21 @@ function TestSync() {
       <button type="button" className="button" disabled={busy} onClick={run}>{busy ? "Testing…" : "Test the sync"}</button>
       {r && <span role="status" className={r.ok ? "tone-good" : "tone-warning"} style={{ fontSize: 13 }}>{r.ok ? "✓ " : "✗ "}{r.detail}</span>}
     </div>
+  );
+}
+
+
+/** 7.91: whether weight is arriving (SirisGym's protein target, strength ratios and body chart use it). */
+function WeightLine({ s }: { s: HealthImportStatus | undefined }) {
+  if (!s?.last_ok) return null;
+  const w = s.last_weight;
+  const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const odd = (s.ignored ?? []).filter((n) => /weight|mass|scale/i.test(n));
+  return (
+    <p className={w ? "muted" : "tone-warning"} role="status" style={{ margin: 0, fontSize: 14 }} aria-label="Weight from Apple Health">
+      {w ? `Weight: ${w.kg} kg on ${day(w.date)} is the latest that came through (SirisGym uses it).`
+        : "No weight has come through yet. In Health Auto Export's Health Metrics automation, tick Weight & Body Mass, then sync. SirisGym uses it for your protein target, strength ratios and body chart."}
+      {odd.length ? ` Sent under a name SirisAI doesn't use: ${odd.join(", ")}.` : ""}
+    </p>
   );
 }

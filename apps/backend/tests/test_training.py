@@ -164,3 +164,37 @@ def test_sickness_and_readiness_ease_the_day():
     rec = service.recovery([], TODAY, {"score": 80, "band": "Primed", "summary": "fine"}, {"today": ["wrist temperature +0.6 °C", "HRV 20% down"]})
     assert rec["level"] == "rest" and "getting sick" in rec["notes"][-1]
     assert service.recovery([], TODAY, {"score": 40, "band": "Recover", "summary": "HRV low"})["level"] == "easy"
+
+
+def test_the_last_weight_and_unused_names_are_kept_from_imports():
+    """7.91: Data sync says when weight last came through, and which names SirisAI didn't use."""
+    health_import.note({"days": {"2026-11-05": {"steps": 9000.0}, "2026-11-06": {"weight_kg": 82.44, "steps": 10.0}}, "ignored": ["body_weight_scale"]})
+    health_import.note({"days": {"2026-11-07": {"steps": 3000.0}}})  # a later sync without a weight keeps the last one
+    s = health_import.status()
+    assert s["last_weight"]["date"] == "2026-11-06" and s["last_weight"]["kg"] == 82.44 and s["ignored"] == ["body_weight_scale"]
+
+
+def test_the_gym_reads_weight_from_the_daily_records_even_when_the_overview_is_slow(monkeypatch):
+    """7.91: the overview can outlast the gym's wait (no weight at all), and only looks 70 days back."""
+    import asyncio
+
+    from app.gym import api as gym_api
+    from app.health import service as health
+    from app.hub import sirisai_api
+
+    async def get(hub, path, params=None, timeout=20.0):
+        if path == "/siris/hub/v1/health/days":
+            assert params == {"days": 400}
+            return {"guest_mode": False, "days": [{"date": "2026-06-01", "metrics": {"weight_kg": 84.0}},
+                                                  {"date": "2026-06-02", "metrics": {"steps": 10}},
+                                                  {"date": "2026-08-01", "metrics": {"weight_kg": 83.0}}]}
+        return None
+
+    async def slow(hub, on=None):
+        raise asyncio.TimeoutError  # what the gym's 6 s wait turns a slow overview into
+
+    monkeypatch.setattr(sirisai_api, "get", get)
+    monkeypatch.setattr(health, "overview", slow)
+    found = asyncio.run(gym_api._read_health(None))
+    assert found["weight_kg"] == 83.0 and found["weight_date"] == "2026-08-01"
+    assert [w["weight"] for w in found["weight_series"]] == [84.0, 83.0] and found["weight_series"][-1]["trend"] == 83.9

@@ -97,13 +97,31 @@ async def _read_health(hub: Hub) -> dict[str, Any]:
     """Today's readiness, the last few mornings and the latest weight, from SirisAI (6.8); nothing when it can't be reached."""
     from app.health import service as health
 
-    try:
-        body = await asyncio.wait_for(health.overview(hub), timeout=6)
-    except Exception:  # noqa: BLE001 - the gym works without it
-        return {}
+    async def scored() -> dict[str, Any]:
+        try:
+            return await asyncio.wait_for(health.overview(hub), timeout=6)
+        except Exception:  # noqa: BLE001 - the gym works without it
+            return {}
+
+    async def weighed() -> list[dict[str, Any]] | None:
+        try:
+            return await asyncio.wait_for(health.weights(hub), timeout=8)
+        except Exception:  # noqa: BLE001
+            return None
+
+    # 7.91: weight comes from the daily records, not the overview: the overview can take longer than the gym waits
+    # (and then there was no weight at all), and it only looks 70 days back.
+    body, series = await asyncio.gather(scored(), weighed())
     weight = (body.get("weight") or {}) if isinstance(body.get("weight"), dict) else {}
+    if series:
+        latest, latest_date = series[-1]["weight"], series[-1]["date"]
+    else:
+        latest, latest_date = weight.get("latest") or weight.get("current") or weight.get("kg"), weight.get("latest_date")
+        series = weight.get("series") or []
+    if not body and not series:
+        return {}
     return {"readiness": body.get("readiness"), "recent": body.get("readiness_recent") or [],
-            "weight_kg": weight.get("latest") or weight.get("current") or weight.get("kg"), "weight_series": weight.get("series") or []}
+            "weight_kg": latest, "weight_date": latest_date, "weight_series": series[-60:]}
 
 
 def _low(h: dict[str, Any]) -> int:
