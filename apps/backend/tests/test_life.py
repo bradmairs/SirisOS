@@ -47,6 +47,14 @@ def client(monkeypatch, seen):
             return httpx.Response(200, json={"stages": {"total": {"p50_ms": 900, "p95_ms": 2400, "count": 40}}, "recent": []})
         if path == "/siris/scheduler/jobs":
             return httpx.Response(200, json=[{"name": "reminders", "runs": 12, "last_seconds": 0.01, "running": False}])
+        if path == "/siris/things":
+            return httpx.Response(200, json={"id": 4, **json.loads(request.content)} if request.method == "POST" else [{"id": 4, "name": "TV"}])
+        if path == "/siris/people/2/gifts":
+            return httpx.Response(200, json={"ideas": ["coffee"], "last_seen": {"text": "6 days ago"}})
+        if path == "/siris/people":
+            return httpx.Response(200, json=[{"id": 2, "name": "Sam", "days_to_birthday": 5}])
+        if path == "/siris/news":
+            return httpx.Response(200, json={"stories": [{"title": "A"}], "episodes": [], "overnight": []})
         if path == "/siris/conversations/search":
             return httpx.Response(200, json=[{"conversation_id": "c1", "title": "NAS backups", "summary": "Nightly at 2am."}])
         return httpx.Response(404)
@@ -87,3 +95,11 @@ def test_speed_and_conversation_search(client, seen):
 
 def test_needs_sign_in(client):
     assert client.get("/api/v1/life/bills").status_code == 401
+
+
+def test_things_people_and_news(client, seen):
+    assert client.get("/api/v1/life/things", headers=AUTH).json() == [{"id": 4, "name": "TV"}]
+    assert client.post("/api/v1/life/things", json={"name": "Fridge", "warranty_months": 24}, headers=AUTH).json()["name"] == "Fridge"
+    assert client.get("/api/v1/life/people", headers=AUTH).json()[0]["days_to_birthday"] == 5
+    assert client.get("/api/v1/life/people/2/gifts", headers=AUTH).json()["ideas"] == ["coffee"]
+    assert client.get("/api/v1/life/news", headers=AUTH).json()["stories"][0]["title"] == "A"

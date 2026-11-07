@@ -15,6 +15,7 @@ import { AppSheet } from "./AppSheet";
 import { HomeCustomise, type SectionInfo } from "./HomeCustomise";
 import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
+import { TodayTimeline } from "./TodayTimeline";
 import { FocusCard } from "./FocusCard";
 import { MorningGymCard } from "./GymCards";
 import { WorkHomeCard } from "./Work";
@@ -185,6 +186,7 @@ export function Home() {
     { id: "app-health", label: "Siris apps", node: apps ? <AppHealthWidget apps={apps} delay={120} /> : appsLoading && <LoadingWidget title="Siris apps" Icon={ShieldCheck} delay={120} /> },
   ];
   const today: Slot[] = [
+    { id: "timeline", label: "Today timeline", node: !hideMine && <TodayTimeline events={comingUp} /> },
     { id: "tasks", label: "Tasks", node: !hideMine && <TasksWidget delay={20} area={adapt ? taskArea : undefined} /> },
     { id: "coming-up", label: "Coming up", node: !hideMine && (comingUp ? <ComingUpWidget events={comingUp} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },
     { id: "career", label: "Career", node: !hideMine && <CareerWidget delay={30} /> },

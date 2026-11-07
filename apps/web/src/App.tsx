@@ -42,6 +42,8 @@ const loadWork = () => import("./screens/Work");
 const loadGymWorkout = () => import("./screens/GymWorkout");
 const loadHealth = () => import("./screens/Health");
 const loadLife = () => import("./screens/Life");
+const loadBudget = () => import("./screens/Budget");
+const loadThings = () => import("./screens/Things");
 const Assistant = lazy(() => loadAssistant().then((m) => ({ default: m.Assistant })));
 const Brain = lazy(() => loadBrain().then((m) => ({ default: m.Brain })));
 const Links = lazy(() => loadLinks().then((m) => ({ default: m.Links })));
@@ -58,6 +60,8 @@ const WorkScreen = lazy(() => loadWork().then((m) => ({ default: m.WorkScreen })
 const GymWorkoutScreen = lazy(() => loadGymWorkout().then((m) => ({ default: m.GymWorkoutScreen })));
 const HealthScreen = lazy(() => loadHealth().then((m) => ({ default: m.HealthScreen })));
 const LifeScreen = lazy(() => loadLife().then((m) => ({ default: m.LifeScreen })));
+const BudgetScreen = lazy(() => loadBudget().then((m) => ({ default: m.BudgetScreen })));
+const ThingsScreen = lazy(() => loadThings().then((m) => ({ default: m.ThingsScreen })));
 const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
 const Talk = lazy(() => loadTalk().then((m) => ({ default: m.Talk })));
 const QuickCapture = lazy(() => loadCapture().then((m) => ({ default: m.QuickCapture })));
@@ -208,6 +212,8 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/gym/workout" element={<GymWorkoutScreen />} />
           <Route path="/health" element={<HealthScreen />} />
           <Route path="/life" element={<LifeScreen />} />
+          <Route path="/budget" element={<BudgetScreen />} />
+          <Route path="/things" element={<ThingsScreen />} />
           <Route path="/projects/:title" element={<ProjectScreen />} />
           <Route path="/wrapup" element={<WrapUpScreen />} />
           <Route path="/review" element={<ReviewScreen />} />

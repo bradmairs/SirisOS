@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { keep, unreachable } from "../api/outbox";
 import { AlertTriangle, ArrowUpRight, Bell, CheckCircle2, Clock, Inbox as InboxIcon, Lightbulb, ShieldAlert } from "lucide-react";
 import { inbox } from "../api/hub";
 import type { InboxAction, InboxCounts, InboxEvent, InboxItem } from "../api/types";
@@ -107,7 +108,18 @@ export function useInbox() {
   /** Do it, then drop the item. Not optimistic: an approval that fails must
    * stay on screen with its error, not vanish and come back. */
   async function act(item: InboxItem, action: string, pin?: string) {
-    const result = action === "dismiss" ? await inbox.dismiss(item.id) : await inbox.act(item.id, action, pin);
+    let result: unknown;
+    try {
+      result = action === "dismiss" ? await inbox.dismiss(item.id) : await inbox.act(item.id, action, pin);
+    } catch (e) {
+      // Offline (7.7): "Got it" and dismiss wait on the phone; approvals never do.
+      if ((action === "dismiss" || action === "acknowledge") && unreachable(e) && keep({ kind: "inbox", id: item.id, action })) {
+        const items = state.items.filter((i) => i.id !== item.id);
+        set({ items, counts: countsOf(items) });
+        return { queued: true };
+      }
+      throw e;
+    }
     // A slow one (SirisAI 3.72) is still running: the item stays until it's done.
     if (pending(result)) return result;
     const items = state.items.filter((i) => i.id !== item.id);
