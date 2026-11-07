@@ -3,6 +3,8 @@ import { Cake, Gift, Package, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
 import { people, things, type Person, type Thing } from "../api/life";
 import { Glass } from "../components/Glass";
+import { Sheet } from "../components/Sheet";
+import { ReceiptView } from "./ReceiptView";
 
 const day = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
@@ -19,6 +21,7 @@ export function ThingsCard() {
   const [q, setQ] = useState("");
   const { data, reload } = useResource(`things:${q}`, () => things.list(q), { staleMs: 30_000 });
   const [adding, setAdding] = useState(false);
+  const [receipt, setReceipt] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", brand: "", bought: "", warranty_months: "", manual: "", room: "" });
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +77,9 @@ export function ThingsCard() {
                     ? <a className="item__subtitle" href={t.manual} target="_blank" rel="noreferrer">Manual</a>
                     : <div className="item__subtitle">Manual: {t.manual}</div>)}
                 </span>
+                {t.document_id != null && (
+                  <button type="button" className="chip chip--button" aria-expanded={receipt === t.document_id} onClick={() => setReceipt(receipt === t.document_id ? null : t.document_id)}>Receipt</button>
+                )}
                 <button type="button" className="icon-link" aria-label={`Remove ${t.name}`} onClick={async () => { await things.remove(t.id); await reload(true); }}>
                   <Trash2 size={16} aria-hidden="true" />
                 </button>
@@ -82,6 +88,7 @@ export function ThingsCard() {
           })}
         </ul>
       )}
+      {receipt != null && <Sheet label="Receipt" onClose={() => setReceipt(null)}><ReceiptView id={receipt} /></Sheet>}
     </Glass>
   );
 }

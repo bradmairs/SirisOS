@@ -35,6 +35,8 @@ def client(monkeypatch, seen):
             return httpx.Response(200, json={"deleted": 7} if request.method == "DELETE" else {"id": 7, "text": "..."})
         if path == "/siris/documents/8":
             return httpx.Response(404, json={"detail": "No such document"})
+        if path == "/siris/documents/7/files/email.html":
+            return httpx.Response(200, content=b"<b>Thanks</b>", headers={"content-type": "text/html"})
         if path == "/siris/things/from-email":
             return httpx.Response(200, json={"read": 2, "added": 1, "things": [{"id": 1, "name": "Drill"}]})
         if path == "/siris/email/status":
@@ -115,3 +117,11 @@ def test_receipts_in_email_pass_through(client, seen):
     assert client.post("/api/v1/life/things/from-email?days=0", headers=AUTH).status_code == 422
     assert client.get("/api/v1/life/email", headers=AUTH).status_code == 200
     assert any(s[1] == "/siris/email/status" for s in seen)
+
+
+def test_a_receipts_original_comes_with_nothing_able_to_run(client, seen):
+    r = client.get("/api/v1/life/documents/7/files/email.html", headers=AUTH)
+    assert r.status_code == 200 and "sandbox" in r.headers["content-security-policy"] and r.headers["x-content-type-options"] == "nosniff"
+    assert seen[-1][1] == "/siris/documents/7/files/email.html"
+    assert client.get("/api/v1/life/documents?kind=receipt&limit=300", headers=AUTH).status_code == 200
+    assert seen[-1][2]["kind"] == "receipt" and seen[-1][2]["limit"] == "300"

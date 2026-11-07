@@ -44,12 +44,34 @@ describe("Life admin (7.3)", () => {
     signIn();
     const calls = mockFetch({
       "/api/v1/life/email": () => jsonResponse({ connected: true, address: "me@example.com", can_send: false, drafts_replies: false, last: null }),
-      "/api/v1/life/things/from-email": () => jsonResponse({ looked_at: 40, read: 25, added: 2, more: 3, things: [{ id: 1, name: "Soundbar", shop: "JB Hi-Fi", bought: "2026-10-20" }, { id: 2, name: "Drill", shop: "Bunnings", bought: "2026-10-01" }] }),
+      "/api/v1/life/things/from-email": () => jsonResponse({ looked_at: 40, read: 25, kept: 25, added: 2, more: 3, things: [{ id: 1, name: "Soundbar", shop: "JB Hi-Fi", bought: "2026-10-20" }, { id: 2, name: "Drill", shop: "Bunnings", bought: "2026-10-01" }] }),
     });
     render(<MemoryRouter><ReceiptsCard /></MemoryRouter>);
     await userEvent.click(await screen.findByRole("button", { name: "Look back a year" }));
-    expect(await screen.findByText(/added Soundbar, Drill.*3 more to read/)).toBeInTheDocument();
+    expect(await screen.findByText(/kept 25 receipts\. Added to Things: Soundbar, Drill\..*3 more to read/)).toBeInTheDocument();
     expect(calls.some((c) => c.url.endsWith("/from-email?days=365") && c.init.method === "POST")).toBe(true);
+  });
+
+  it("lists kept receipts and shows the email in a sandbox with its attachments", async () => {
+    signIn();
+    URL.createObjectURL = () => "blob:invoice";
+    URL.revokeObjectURL = () => undefined;
+    const doc = { id: 9, added_at: "2026-10-20T00:00:00", filename: "x", title: "JB: soundbar", kind: "receipt", sender: "JB Hi-Fi", summary: "JB Hi-Fi, 20 Oct 2026, $899.00", due: [], note_title: null };
+    const calls = mockFetch({
+      "/api/v1/life/email": () => jsonResponse({ connected: true, address: "me@example.com", can_send: false, drafts_replies: false, label: "Receipts", last: null }),
+      "/api/v1/life/documents?kind=receipt": () => jsonResponse([doc]),
+      "/api/v1/life/documents/9/files/email.html": () => new Response("<b>Thanks</b>"),
+      "/api/v1/life/documents/9/files/invoice.pdf": () => new Response("pdf"),
+      "/api/v1/life/documents/9": () => jsonResponse({ ...doc, files: ["email.html", "invoice.pdf"] }),
+    });
+    render(<MemoryRouter><ReceiptsCard /></MemoryRouter>);
+    expect(await screen.findByText(/everything in your receipts folder is kept/i)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /JB: soundbar/ }));
+    const frame = await screen.findByTitle("Receipt: JB: soundbar");
+    expect(frame).toHaveAttribute("sandbox", "");
+    expect(frame.getAttribute("srcdoc")).toContain("Thanks");
+    expect(await screen.findByRole("link", { name: "invoice.pdf" })).toHaveAttribute("href", "blob:invoice");
+    expect(calls.some((c) => c.url.includes("kind=receipt"))).toBe(true);
   });
 
   it("says plainly when the email login is refused", async () => {
