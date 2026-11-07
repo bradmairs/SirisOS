@@ -380,7 +380,7 @@ a {
    never runs off the edge whatever the width (a Pro Max is 430px). */
 @media (max-width: 640px) {
   .dock { width: calc(100vw - 2 * var(--gutter)); gap: 0; }
-  .dock__item { min-width: 0; padding: 0 4px; flex: 1 1 auto; letter-spacing: 0; }
+  .dock__item { min-width: 0; padding: 0 2px; flex: 1 1 0; letter-spacing: 0; }  /* 7.9: equal shares, so the icons sit evenly and the row looks centred whatever the labels */
   .dock__item > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (max-width: 380px) { .dock__item { font-size: 10.5px; } }

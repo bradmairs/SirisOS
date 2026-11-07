@@ -1,0 +1,5 @@
+{
+  "entity_id": "light.kitchen",
+  "action": "turn_off",
+  "state": "off"
+}

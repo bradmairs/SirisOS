@@ -22,13 +22,18 @@ export interface DeviceSubscription {
   last_error?: string | null;
   last_error_at?: string | null;
   failing?: boolean;
+  /** 7.9: the install it came from ("" before 7.9). */
+  device?: string;
 }
 
 export const push = {
   key: () => api<{ public_key: string; topics: Topic[] }>("/api/v1/push/key"),
   list: () => api<{ subscriptions: DeviceSubscription[] }>("/api/v1/push/subscriptions"),
-  subscribe: (sub: PushSubscriptionJSON, label: string, topics: Topic[]) =>
-    api<DeviceSubscription>("/api/v1/push/subscribe", json({ endpoint: sub.endpoint, keys: sub.keys, label, topics })),
+  subscribe: (sub: PushSubscriptionJSON, label: string, topics: Topic[]) => {
+    const replaces = lastEndpoint();
+    return api<DeviceSubscription>("/api/v1/push/subscribe", json({ endpoint: sub.endpoint, keys: sub.keys, label, topics, device: deviceId(),
+      ...(replaces && replaces !== sub.endpoint ? { replaces } : {}) })).then((d) => { rememberEndpoint(d.endpoint); return d; });
+  },
   unsubscribe: (endpoint: string) => api<{ removed: boolean }>("/api/v1/push/unsubscribe", json({ endpoint })),
   test: (endpoint: string) => api<{ sent: boolean }>("/api/v1/push/test", json({ endpoint })),
 };
@@ -74,6 +79,34 @@ export async function enablePush(topics: Topic[]): Promise<DeviceSubscription> {
   const { public_key } = await push.key();
   const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(public_key) }));
   return push.subscribe(sub.toJSON(), deviceLabel(), topics);
+}
+
+/** 7.9: this install of SirisOS, so the server keeps one subscription per install and a phone never gets things twice. */
+const DEVICE = "sirisos.push.device";
+const ENDPOINT = "sirisos.push.endpoint";
+export function deviceId(): string {
+  try {
+    let id = window.localStorage.getItem(DEVICE);
+    if (!id) { id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; window.localStorage.setItem(DEVICE, id); }
+    return id;
+  } catch { return ""; }
+}
+function lastEndpoint(): string | null { try { return window.localStorage.getItem(ENDPOINT); } catch { return null; } }
+function rememberEndpoint(endpoint: string) { try { window.localStorage.setItem(ENDPOINT, endpoint); } catch { /* fine */ } }
+
+/** On opening the app (7.9): if this install's subscription changed (iOS can renew it) or the server doesn't know it's
+ * this install yet, register it again with the same topics, so the old one is dropped rather than kept as a second device. */
+export async function syncPush(): Promise<void> {
+  if (!pushSupported() || Notification.permission !== "granted") return;
+  const sub = await currentSubscription();
+  if (!sub) return;
+  const listed = (await push.list()).subscriptions;
+  const mine = listed.find((s) => s.endpoint === sub.endpoint);
+  const prev = lastEndpoint();
+  const was = mine ?? (prev ? listed.find((s) => s.endpoint === prev) : undefined);
+  if (!was) return;  // turned off on purpose (or never on here): leave it
+  if (mine && mine.device === deviceId() && prev === sub.endpoint) return;
+  await push.subscribe(sub.toJSON(), deviceLabel(), was.topics);
 }
 
 export async function disablePush(): Promise<void> {

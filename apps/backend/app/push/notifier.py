@@ -9,6 +9,8 @@ push service says is gone is dropped.
 
 from __future__ import annotations
 
+import re
+
 import asyncio
 import logging
 import os
@@ -39,6 +41,15 @@ def message(key: str, topic: str, title: str, body: str = "", url: str = "/", ur
     """`target` and `actions` put buttons on it (push/actions.py)."""
     return {"key": key, "topic": topic, "title": title, "body": body, "url": url, "urgency": urgency,
             "target": target, "actions": actions or []}
+
+
+WIND_DOWN = re.compile(r"\bwind(ing)?[ -]down\b", re.I)
+
+
+def _zone():
+    from app.brief.service import zone
+
+    return zone()
 
 
 def inbox_messages(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -96,7 +107,18 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     """Every notification that applies right now, sent or not."""
     out: list[dict[str, Any]] = []
     try:
-        out += inbox_messages((await attention.inbox(hub))["items"])
+        items = (await attention.inbox(hub))["items"]
+        out += inbox_messages(items)
+        # 7.9: SirisAI sends its own wind-down alert; remember it so SirisOS's bedtime nudge doesn't say it again.
+        if any(WIND_DOWN.search(str(i.get("title") or "")) for i in items):
+            from app.push import store as push_store
+
+            day = now.astimezone(_zone()).date().isoformat()
+            if f"nudge:{day}:wind-down" in push_store.sent():  # SirisOS's nudge went first: SirisAI's alert stays in the inbox, unpushed
+                wind = {f"inbox:{i['id']}" for i in items if WIND_DOWN.search(str(i.get("title") or ""))}
+                out = [m for m in out if m["key"] not in wind]
+            else:
+                push_store.mark_sent([f"sirisai-wind-down:{day}"])
     except Exception as exc:  # noqa: BLE001 - one source never stops the others
         logger.info("Push: inbox unavailable: %s", exc)
     out += brief_message(now)

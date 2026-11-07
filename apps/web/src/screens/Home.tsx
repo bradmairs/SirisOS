@@ -208,7 +208,7 @@ export function Home() {
   const homeControls: Slot[] = sirisLoading
     ? [{ id: "loading-home", label: "Home", node: <LoadingWidget title="Home" Icon={House} wide /> }]
     : [
-        { id: "protocols", label: "Protocols (while you're home)", node: atHome && siris && siris.protocols.length > 0 && <ProtocolsWidget protocols={siris.protocols} lastRun={siris.last_protocol} onChanged={reloadSiris} /> },
+        { id: "protocols", label: "Protocols (while you're home)", node: atHome && siris && siris.protocols.some((p) => p.active !== false) && <ProtocolsWidget protocols={siris.protocols.filter((p) => p.active !== false)} lastRun={siris.last_protocol} onChanged={reloadSiris} /> },
         { id: "cameras", label: "Cameras", node: siris && siris.cameras.length > 0 && <CamerasWidget cameras={siris.cameras} /> },
         { id: "car", label: "Car", node: siris?.car && <CarWidget car={siris.car} /> },
         { id: "upkeep", label: "Around the house", node: !hideMine && <HomeJobsWidget /> },

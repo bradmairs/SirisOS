@@ -1,0 +1,12 @@
+{
+  "home": true,
+  "checked_at": "2026-11-05T20:14:40.648438",
+  "since": "2026-11-05T20:14:40.648438",
+  "phones": [
+    {
+      "name": "Dom's iPhone",
+      "source": "added",
+      "home": null
+    }
+  ]
+}

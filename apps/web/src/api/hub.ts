@@ -83,6 +83,9 @@ export const assistant = {
   undoProtocol: () => api<ProtocolRunResult>("/api/v1/assistant/protocols/undo", json({ confirmed: true })),
   /** The editor (4.91): every protocol with its steps, and what a step can do. */
   protocols: () => api<ProtocolCatalogue>("/api/v1/assistant/protocols"),
+  /** 7.9: turn a protocol on or off, and its notifications (SirisAI 5.11). */
+  switchProtocol: (name: string, body: { active?: boolean; notify?: boolean }) =>
+    api<{ name: string; active: boolean; notify: boolean }>(`/api/v1/assistant/protocols/${encodeURIComponent(name)}/switches`, { method: "PUT", body: JSON.stringify(body) }),
   saveProtocol: (name: string, body: { description: string; steps: ProtocolStepDef[] }) =>
     api<ProtocolDef>(`/api/v1/assistant/protocols/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(body) }),
   deleteProtocol: (name: string) =>

@@ -1,0 +1,25 @@
+{
+  "configured": true,
+  "house_watts": 1250.0,
+  "solar_watts": null,
+  "house_meter": null,
+  "power": [
+    {
+      "entity_id": "sensor.dishwasher_power",
+      "name": "Dishwasher power",
+      "watts": 1800.0
+    },
+    {
+      "entity_id": "sensor.house_power",
+      "name": "House power",
+      "watts": 1250.0
+    }
+  ],
+  "meters": [
+    {
+      "entity_id": "sensor.office_plug_energy",
+      "name": "Office plug energy",
+      "kwh": 1.52
+    }
+  ]
+}

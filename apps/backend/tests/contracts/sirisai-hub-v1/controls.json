@@ -1,0 +1,37 @@
+{
+  "configured": true,
+  "guest_mode": false,
+  "controls": [
+    {
+      "entity_id": "cover.garage_door",
+      "name": "cover.garage_door",
+      "kind": "garage",
+      "state": "closed",
+      "brightness_pct": null,
+      "confirm": "Open cover.garage_door?"
+    },
+    {
+      "entity_id": "lock.front_door",
+      "name": "lock.front_door",
+      "kind": "lock",
+      "state": "locked",
+      "brightness_pct": null,
+      "confirm": "Unlock lock.front_door?"
+    },
+    {
+      "entity_id": "light.kitchen",
+      "name": "light.kitchen",
+      "kind": "light",
+      "state": "on",
+      "brightness_pct": null,
+      "confirm": null
+    }
+  ],
+  "scenes": [
+    {
+      "id": "siris:1",
+      "name": "Wind down",
+      "source": "siris"
+    }
+  ]
+}

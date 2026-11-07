@@ -18,5 +18,7 @@
       "when": "night",
       "undo": null
     }
-  ]
+  ],
+  "active": true,
+  "notify": true
 }

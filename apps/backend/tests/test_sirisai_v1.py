@@ -79,6 +79,8 @@ class FakeSirisAI:
             return httpx.Response(200, json=example("protocol_deleted"))
         if path == "/siris/hub/v1/protocols/lockdown":
             return httpx.Response(200, json=example("protocol_preview"))
+        if path == "/siris/hub/v1/protocols/lockdown/switches":
+            return httpx.Response(200, json={"name": "lockdown", **{"active": True, "notify": True}, **json.loads(request.content)})
         if path == "/siris/hub/v1/protocols/lockdown/run":
             if not json.loads(request.content).get("confirmed"):
                 return httpx.Response(409, json={"detail": {"message": "confirm first", "preview": example("protocol_preview")}})
@@ -195,6 +197,10 @@ def test_protocols_are_edited_through_sirisai(client, ai) -> None:
     assert client.put("/api/v1/assistant/protocols/movie_night", json={"steps": []}, headers=AUTH).status_code == 422
     assert client.put("/api/v1/assistant/protocols/a%20b", json=save, headers=AUTH).status_code in (404, 422)
     assert client.delete("/api/v1/assistant/protocols/movie_night", headers=AUTH).json()["deleted"] is True
+    # 7.9: switched off, and its notifications (SirisAI 5.11); only what's set is sent.
+    off = client.put("/api/v1/assistant/protocols/lockdown/switches", json={"active": False}, headers=AUTH)
+    assert off.json() == {"name": "lockdown", "active": False, "notify": True}
+    assert json.loads(next(r for r in reversed(ai.requests) if r.url.path.endswith("/switches")).content) == {"active": False}
 
 
 def test_inbox_merges_sirisai_and_sirisos_items(client, ai, monkeypatch) -> None:

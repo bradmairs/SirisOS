@@ -124,7 +124,9 @@ async def messages(hub: Any, now: datetime) -> list[dict[str, Any]]:
         due_tasks = []
     cal = await calendar.events(hub, today, today + timedelta(days=1))
     bed, bed_text = None, None
-    if now.hour >= 18:
+    # 7.9: SirisAI already said it (its "Time to wind down" alert): one wind-down a night, not two.
+    sirisai_said = f"sirisai-wind-down:{today.isoformat()}" in store.sent()
+    if now.hour >= 18 and not sirisai_said:
         try:
             b = (await health.overview(hub)).get("bedtime") or {}
             bed, bed_text = b.get("bedtime"), b.get("text")

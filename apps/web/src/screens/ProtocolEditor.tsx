@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowDown, ArrowUp, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, Bell, BellOff, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { assistant } from "../api/hub";
 import { refreshResource, useResource } from "../api/resource";
 import type { ProtocolCatalogue, ProtocolDef, ProtocolStepDef } from "../api/types";
@@ -73,10 +73,11 @@ export function ProtocolsManager() {
         <ul className="items">
           {cat.protocols.map((p) => (
             <li key={p.name} className="item">
-              <span className="item__text">
-                <div className="item__title">{protocolLabel(p.name)} {p.builtin ? <span className="chip">Built-in</span> : p.customised ? <span className="chip">Your version</span> : null}</div>
+              <span className={`item__text ${p.active === false ? "protocol--off" : ""}`}>
+                <div className="item__title">{protocolLabel(p.name)} {p.active === false ? <span className="chip">Off</span> : null} {p.builtin ? <span className="chip">Built-in</span> : p.customised ? <span className="chip">Your version</span> : null}</div>
                 <div className="item__subtitle">{p.description || p.steps.map((s) => describeStep(s, cat)).join(" · ")}</div>
               </span>
+              <ProtocolSwitches p={p} onChanged={() => { res.reload(true).catch(() => undefined); refreshResource("sirisai:widgets"); }} />
               <button type="button" className="icon-link" onClick={() => setEditing(p)} aria-label={`Edit ${protocolLabel(p.name)}`} title="Edit">
                 <Pencil size={15} aria-hidden="true" />
               </button>
@@ -94,6 +95,42 @@ export function ProtocolsManager() {
         <ProtocolSheet catalogue={cat} protocol={editing === "new" ? null : editing} onClose={() => setEditing(null)} onChanged={changed} />
       )}
     </Glass>
+  );
+}
+
+/** 7.9: on or off (off: it never runs, by hand or by itself, and isn't offered), and notifications on or off. */
+function ProtocolSwitches({ p, onChanged }: { p: ProtocolDef; onChanged: () => void }) {
+  const [active, setActive] = useState(p.active !== false);
+  const [notify, setNotify] = useState(p.notify !== false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { setActive(p.active !== false); setNotify(p.notify !== false); }, [p.active, p.notify]);
+  const label = protocolLabel(p.name);
+  async function flip(change: { active?: boolean; notify?: boolean }) {
+    setBusy(true); setError(null);
+    const was = { active, notify };
+    if (change.active !== undefined) setActive(change.active);
+    if (change.notify !== undefined) setNotify(change.notify);
+    try {
+      await assistant.switchProtocol(p.name, change);
+      onChanged();
+    } catch (e) {
+      setActive(was.active); setNotify(was.notify);
+      setError(e instanceof Error ? e.message.replace(/^SirisAI: /, "") : "Couldn't change it.");
+    } finally { setBusy(false); }
+  }
+  return (
+    <span className="protocol__switches">
+      <button type="button" role="switch" aria-checked={notify} disabled={busy || !active} className={`icon-link protocol__bell ${notify ? "" : "muted"}`}
+        aria-label={`Notifications for ${label}`} title={notify ? "Notifications on" : "Notifications off"} onClick={() => flip({ notify: !notify })}>
+        {notify ? <Bell size={15} aria-hidden="true" /> : <BellOff size={15} aria-hidden="true" />}
+      </button>
+      <button type="button" role="switch" aria-checked={active} disabled={busy} className={`toggle ${active ? "toggle--on" : ""}`}
+        aria-label={`${label} ${active ? "on" : "off"}`} title={active ? "On: it can run" : "Off: it won't run or be offered"} onClick={() => flip({ active: !active })}>
+        <span className="toggle__knob" aria-hidden="true" />
+      </button>
+      {error && <span className="tone-critical" role="alert" style={{ fontSize: 12 }}>{error}</span>}
+    </span>
   );
 }
 
