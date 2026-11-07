@@ -181,6 +181,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.4: Work made visual: day ring, task tiles, week bars, focus timer, work app tiles, CPD rings and logging, recent work notes as cards, desktop grid
 7.5: work wrap-up at home time (carry-over, first thing, CPD, to Siris), chartership progress trend, ask about this page, tasks and SirisGym in search with filters, the week in the review notification
 7.61: discarding a SirisGym workout runs the finish Shortcut too (stops the Watch); the Shortcut gets finished or discarded as input
+7.8: SirisGym first-use fixes: weights carry down to the next sets, decimal weights type properly, edit a saved workout, a workout-in-progress bar on every page
 
 ## Terminal (ADR 113)
 

@@ -13,7 +13,9 @@ export interface Effort {
   timeline?: [string, number, number][];
 }
 export interface EntryLog { exercise: string; sets: SetLog[]; note?: string; group?: string | null }
-export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean; review?: "" | "real" | "wrong" }
+export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean; review?: "" | "real" | "wrong";
+  /** On the phone only (7.8): a saved workout reopened to correct it. Finishing re-saves it (same id) with its own times. */
+  editing?: boolean }
 export type Progression = "double" | "linear" | "percent";
 export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string; group?: string | null; progression?: Progression; percents?: number[] }
 /** `weekdays`: 0 = Monday … 6 = Sunday (6.94); empty: in turn. */
@@ -211,6 +213,18 @@ export const shortcuts = {
     return true;
   },
 };
+
+/** A set changed (7.8): a new weight carries down to the sets after it that aren't ticked yet and were empty or
+ * following it (same weight as it had), as in Strong or JEFIT, so typing 60 on set 1 fills sets 2 and 3. Warm-ups don't carry. */
+export function changeSet(sets: SetLog[], si: number, patch: Partial<SetLog>): SetLog[] {
+  const old = sets[si];
+  const carry = "weight" in patch && patch.weight != null && old.type !== "warmup";
+  return sets.map((x, j) => {
+    if (j === si) return { ...x, ...patch };
+    if (carry && j > si && !x.done && x.type === old.type && (x.weight == null || x.weight === old.weight)) return { ...x, weight: patch.weight };
+    return x;
+  });
+}
 
 /** The workout in progress lives on this phone until it's finished (gyms are often out of signal). */
 const ACTIVE = "sirisos.gym.active";

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { clearResources } from "../api/resource";
 import { e1rm, plates, saveActive, shortcuts, type Gym } from "../api/gym";
 import { jsonResponse, mockFetch, signIn } from "../test/helpers";
@@ -417,5 +417,58 @@ describe("<GymWorkoutScreen />", () => {
     const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/sessions")!.init.body));
     expect(sent.entries[0].sets).toEqual([{ weight: 82.5, reps: 8, done: true, type: "normal", at: expect.any(String) }]);  // the time it was ticked (6.96)
     expect(window.localStorage.getItem("sirisos.gym.active")).toBeNull();
+  });
+});
+
+describe("SirisGym 7.8: first-use fixes", () => {
+  it("carries a typed weight down to the sets that follow it", async () => {
+    const { changeSet } = await import("../api/gym");
+    const sets = [{ weight: null, reps: 6, done: false, type: "warmup" as const }, { weight: null, reps: 6, done: false, type: "normal" as const },
+      { weight: null, reps: 6, done: false, type: "normal" as const }, { weight: 70, reps: 6, done: true, type: "normal" as const }];
+    const next = changeSet(sets, 1, { weight: 60 });
+    expect(next.map((x) => x.weight)).toEqual([null, 60, 60, 70]);  // not the warm-up before, not a ticked set
+    expect(changeSet(next, 1, { weight: 62.5 }).map((x) => x.weight)).toEqual([null, 62.5, 62.5, 70]);  // follows a change too
+    expect(changeSet([{ ...sets[1], weight: 60 }, { ...sets[2], weight: 55 }], 0, { weight: 65 })[1].weight).toBe(55);  // set on purpose: kept
+  });
+
+  it("edits a saved workout in place", async () => {
+    signIn();
+    saveActive(null);
+    const saved = { id: "s1", title: "Push", started_at: "2026-11-07T06:00:00Z", ended_at: "2026-11-07T07:00:00Z", entries: [
+      { exercise: "bench-press", name: "Bench Press", sets: [{ weight: 60, reps: 6, done: true, type: "normal" }] }],
+      summary: { id: "s1", title: "Push", date: "2026-11-07", started_at: "2026-11-07T06:00:00Z", minutes: 60, sets: 1, exercises: 1, volume: 360, names: [] }, records: [] };
+    const calls = mockFetch({
+      "/api/v1/gym/sessions/s1": () => jsonResponse(saved),
+      "/api/v1/gym/sessions": (_u, init) => (init?.method === "POST" ? jsonResponse({ summary: saved.summary, records: [] }) : jsonResponse({ sessions: [saved.summary] })),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/gym?view=history"]}><Routes><Route path="/gym" element={<GymScreen />} /><Route path="/gym/workout" element={<GymWorkoutScreen />} /></Routes></MemoryRouter>);
+    await user.click(await screen.findByText(/360 kg/));
+    await user.click(await screen.findByRole("button", { name: /Edit/ }));
+    expect(await screen.findByText(/Editing a saved workout/)).toBeInTheDocument();
+    const bench = screen.getByRole("region", { name: "Bench Press" });
+    await user.clear(within(bench).getByLabelText("Set 1 weight"));
+    await user.type(within(bench).getByLabelText("Set 1 weight"), "62.5");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => expect(calls.some((c) => c.url === "/api/v1/gym/sessions" && c.init.method === "POST")).toBe(true));
+    const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/sessions" && c.init.method === "POST")!.init.body));
+    expect(sent).toMatchObject({ id: "s1", ended_at: "2026-11-07T07:00:00Z" });
+    expect(sent.editing).toBeUndefined();
+    expect(sent.entries[0].sets[0].weight).toBe(62.5);
+    expect(calls.some((c) => c.url.includes("/gym/rest"))).toBe(false);
+  });
+
+  it("shows a workout in progress on other pages", async () => {
+    const { WorkoutBar } = await import("../components/WorkoutBar");
+    saveActive({ id: "w1", title: "Push", started_at: new Date(Date.now() - 20 * 60000).toISOString(), entries: [
+      { exercise: "bench-press", sets: [{ weight: 60, reps: 6, done: true, type: "normal" }] }] });
+    const { unmount } = render(<MemoryRouter initialEntries={["/work"]}><WorkoutBar /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Workout in progress: Push. Carry on" })).toHaveAttribute("href", "/gym/workout");
+    expect(screen.getByText("20 min · 1 set")).toBeInTheDocument();
+    unmount();
+    render(<MemoryRouter initialEntries={["/gym/workout"]}><WorkoutBar /></MemoryRouter>);
+    expect(screen.queryByRole("link", { name: /Carry on/ })).not.toBeInTheDocument();
+    saveActive(null);
   });
 });

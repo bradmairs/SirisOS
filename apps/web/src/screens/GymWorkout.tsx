@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeftRight, Check, Link2, Mic, Plus, Timer, Trash2, Trophy, X } from "lucide-react";
-import { e1rm, gym, loadActive, parseSpoken, plates, saveActive, shortcuts, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
+import { changeSet, e1rm, gym, loadActive, parseSpoken, plates, saveActive, shortcuts, type Exercise, type GymRecord, type Plan, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { brain } from "../api/hub";
 import { micUnavailableReason, startRecording } from "../api/voice";
+import { DecimalInput } from "../components/DecimalInput";
 import { Glass } from "../components/Glass";
 import { ExercisePicker, ExerciseSheet, kg, useGym } from "./Gym";
 import { Sheet } from "../components/Sheet";
@@ -47,7 +48,7 @@ export function GymWorkoutScreen() {
   const byId = new Map((g?.exercises ?? []).map((e) => [e.id, e] as const));
   const update = (next: Session) => { setS(next); saveActive(next); };
   const setSet = (ei: number, si: number, patch: Partial<SetLog>) =>
-    update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) } : e)) });
+    update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch) } : e)) });
   const restFor = (exercise: string) => plan?.exercises.find((p) => p.exercise === exercise)?.rest_s ?? g?.settings.rest_s ?? 90;
   const here = g?.settings.gyms?.find((x) => x.id === s.gym) ?? (g ? { bar: g.settings.bar, plates: g.settings.plates } : undefined);
   /** In a superset, rest comes after the last exercise of the group (6.7). */
@@ -106,6 +107,12 @@ export function GymWorkoutScreen() {
 
   /** Discarding stops the Watch too (7.61): the finish Shortcut runs, told "discarded", then comes back to SirisGym. */
   function discard() {
+    if (s?.editing) {
+      if (!window.confirm("Stop editing? The saved workout stays as it was.")) return;
+      saveActive(null);
+      navigate("/gym?view=history");
+      return;
+    }
     if (!window.confirm("Discard this workout?")) return;
     gym.stopRest().catch(() => {});
     saveActive(null);
@@ -114,10 +121,15 @@ export function GymWorkoutScreen() {
 
   async function finish() {
     if (!s) return;
-    const final: Session = { ...s, ended_at: new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length) };
+    const { editing, ...rest } = s;
+    const final: Session = { ...rest, ended_at: editing ? (s.ended_at ?? new Date().toISOString()) : new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length) };
     if (!final.entries.length) { setInfo("Tick at least one set first, or discard it."); return; }
     const undone = s.entries.reduce((n, e) => n + e.sets.filter((x) => !x.done).length, 0);
     if (undone && !window.confirm(`${undone} set${undone === 1 ? " isn't" : "s aren't"} ticked, and won't be saved. Finish anyway?`)) return;
+    if (editing) {  // a correction: save it over the old one, nothing to stop on the Watch
+      try { setDone(await gym.finish(final)); saveActive(null); } catch (e) { setInfo(e instanceof Error ? e.message : "Couldn't save it."); }
+      return;
+    }
     gym.stopRest().catch(() => {});
     try {
       const r = await gym.finish(final);
@@ -140,11 +152,11 @@ export function GymWorkoutScreen() {
       <div className="gym-top">
         <div>
           <h1 className="gym-top__title">{s.title}</h1>
-          <span className="muted">{Math.floor(elapsed / 3600) ? `${Math.floor(elapsed / 3600)}:` : ""}{String(Math.floor(elapsed / 60) % 60).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")} · {doneSets} sets</span>
+          {s.editing ? <span className="muted">Editing a saved workout · {doneSets} sets</span> : <span className="muted">{Math.floor(elapsed / 3600) ? `${Math.floor(elapsed / 3600)}:` : ""}{String(Math.floor(elapsed / 60) % 60).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")} · {doneSets} sets</span>}
         </div>
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="button" aria-label="Log a set by voice" aria-pressed={listening} disabled={listening} onClick={voice}><Mic size={16} aria-hidden="true" />{listening ? " Listening…" : ""}</button>
-          <button type="button" className="button button--primary" onClick={finish}>Finish</button>
+          <button type="button" className="button button--primary" onClick={finish}>{s.editing ? "Save" : "Finish"}</button>
         </div>
       </div>
       {info && <p className="tone-warning" role="status">{info}</p>}
@@ -196,7 +208,7 @@ export function GymWorkoutScreen() {
         <button type="button" className="button" onClick={() => setPicking(true)}><Plus size={14} aria-hidden="true" /> Add an exercise</button>
         <textarea className="field" rows={2} placeholder="Notes (how it felt, the gym, anything)" aria-label="Workout notes" value={s.note ?? ""} onChange={(e) => update({ ...s, note: e.target.value })} />
         <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} onClick={discard}>
-          <Trash2 size={14} aria-hidden="true" /> Discard
+          {s.editing ? <><X size={14} aria-hidden="true" /> Stop editing</> : <><Trash2 size={14} aria-hidden="true" /> Discard</>}
         </button>
       </div>
       {rest && (
@@ -250,8 +262,8 @@ function SetTable({ ex, sets, last, unit, settings, onChange, onRemove }: {
             <span className="muted gym-sets__prev">{prev ? (prev.weight ? `${prev.weight}×${prev.reps ?? "–"}` : prev.seconds ? `${prev.seconds}s` : `${prev.reps ?? "–"}`) : "–"}</span>
             {kind === "weight" || kind === "bodyweight" ? (
               <>
-                <input className="field gym-sets__in" inputMode="decimal" aria-label={`Set ${label} weight`} value={x.weight ?? ""} placeholder={prev?.weight ? String(prev.weight) : kind === "bodyweight" ? "0" : ""}
-                  onFocus={() => kind === "weight" && ex?.equipment === "barbell" && setPlatesFor(i)} onChange={(e) => onChange(i, { weight: e.target.value === "" ? null : Number(e.target.value) })} />
+                <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} weight`} value={x.weight} placeholder={prev?.weight ? String(prev.weight) : kind === "bodyweight" ? "0" : ""}
+                  onFocus={() => kind === "weight" && ex?.equipment === "barbell" && setPlatesFor(i)} onValue={(v) => onChange(i, { weight: v })} />
                 <input className="field gym-sets__in" inputMode="numeric" aria-label={`Set ${label} reps`} value={x.reps ?? ""} placeholder={prev?.reps ? String(prev.reps) : ""}
                   onChange={(e) => onChange(i, { reps: e.target.value === "" ? null : Number(e.target.value) })} />
               </>
@@ -259,14 +271,16 @@ function SetTable({ ex, sets, last, unit, settings, onChange, onRemove }: {
               <><span /><input className="field gym-sets__in" inputMode="numeric" aria-label={`Set ${label} seconds`} value={x.seconds ?? ""} onChange={(e) => onChange(i, { seconds: e.target.value === "" ? null : Number(e.target.value) })} /></>
             ) : (
               <>
-                <input className="field gym-sets__in" inputMode="decimal" aria-label={`Set ${label} minutes`} value={x.seconds != null ? x.seconds / 60 : ""} onChange={(e) => onChange(i, { seconds: e.target.value === "" ? null : Math.round(Number(e.target.value) * 60) })} />
-                <input className="field gym-sets__in" inputMode="decimal" aria-label={`Set ${label} km`} value={x.km ?? ""} onChange={(e) => onChange(i, { km: e.target.value === "" ? null : Number(e.target.value) })} />
+                <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} minutes`} value={x.seconds != null ? x.seconds / 60 : null} onValue={(v) => onChange(i, { seconds: v == null ? null : Math.round(v * 60) })} />
+                <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} km`} value={x.km} onValue={(v) => onChange(i, { km: v })} />
               </>
             )}
             <button type="button" className={`gym-sets__done ${x.done ? "gym-sets__done--on" : ""}`} aria-pressed={x.done} aria-label={`Set ${label} done`}
               onClick={() => {
                 const fill: Partial<SetLog> = { done: !x.done, at: !x.done ? new Date().toISOString() : null };
-                if (!x.done && x.weight == null && prev?.weight) fill.weight = prev.weight;
+                // An empty weight takes the set above's (7.8), or last time's.
+                const above = sets.slice(0, i).reverse().find((y) => y.type === x.type && y.weight != null);
+                if (!x.done && x.weight == null && (above?.weight ?? prev?.weight)) fill.weight = above?.weight ?? prev!.weight;
                 if (!x.done && x.reps == null && prev?.reps) fill.reps = prev.reps;
                 onChange(i, fill);
               }}><Check size={16} aria-hidden="true" /></button>

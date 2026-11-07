@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePageContext } from "../api/pageContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
+import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
 import { gym, loadActive, newId, saveActive, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session } from "../api/gym";
+import { DecimalInput } from "../components/DecimalInput";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
@@ -338,6 +339,18 @@ function RecentList({ g, items }: { g: Gym; items?: Gym["recent"] }) {
 function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose: () => void }) {
   const res = useResource(`gym:session:${id}`, () => gym.session(id), {});
   const s = res.data;
+  const navigate = useNavigate();
+  const [blocked, setBlocked] = useState(false);
+  /** Correct a saved workout (7.8): it opens in the workout screen, and Save puts it back in place of the old one. */
+  const edit = () => {
+    if (!s) return;
+    if (loadActive()) { setBlocked(true); return; }
+    saveActive({ id: s.id, title: s.title, started_at: s.started_at, ended_at: s.ended_at ?? null, routine_id: s.routine_id ?? null, day: s.day ?? null,
+      gym: s.gym ?? null, deload: s.deload, note: s.note ?? "", bodyweight: s.bodyweight ?? null, review: s.review,
+      entries: s.entries.map(({ exercise, sets, note, group }) => ({ exercise, sets, note, group })), editing: true });
+    onClose();
+    navigate("/gym/workout");
+  };
   return (
     <Sheet label="Workout" onClose={onClose}>
       {!s ? <div className="skeleton" style={{ height: 160 }} /> : (
@@ -364,9 +377,13 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
               <p className="muted" style={{ margin: 0, fontSize: 14 }}>{e.sets.filter((x) => x.done).map((x) => x.weight ? `${x.weight}×${x.reps ?? "–"}` : x.seconds ? `${x.seconds}s` : `${x.reps ?? "–"} reps`).join(", ")}</p>
             </div>
           ))}
-          <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} onClick={async () => { if (window.confirm("Delete this workout?")) { await gym.deleteSession(id); onClose(); window.location.reload(); } }}>
-            <Trash2 size={14} aria-hidden="true" /> Delete
-          </button>
+          {blocked && <p className="tone-warning" role="alert" style={{ margin: 0, fontSize: 13 }}>Finish or discard the workout in progress first.</p>}
+          <div className="row" style={{ gap: 12 }}>
+            <button type="button" className="chip chip--button" onClick={edit}><Pencil size={13} aria-hidden="true" /> Edit</button>
+            <button type="button" className="icon-link" onClick={async () => { if (window.confirm("Delete this workout?")) { await gym.deleteSession(id); onClose(); window.location.reload(); } }}>
+              <Trash2 size={14} aria-hidden="true" /> Delete
+            </button>
+          </div>
         </div>
       )}
     </Sheet>
@@ -421,8 +438,8 @@ function HeatmapCard() {
   const weeks = new Set(days.filter((d) => d.date >= cells[0]?.iso).map((d) => d.date)).size;
   return (
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="The last year">
-      <header className="widget__head"><Flame aria-hidden="true" /><span>The last year</span><span className="widget__source">{weeks} workouts</span></header>
-      <div className="gym-heat" role="img" aria-label={`${weeks} workouts in the last year`}>
+      <header className="widget__head"><Flame aria-hidden="true" /><span>The last year</span><span className="widget__source">{weeks} day{weeks === 1 ? "" : "s"} trained</span></header>
+      <div className="gym-heat" role="img" aria-label={`${weeks} day${weeks === 1 ? "" : "s"} trained in the last year`}>
         {cells.map((c) => <span key={c.iso} className={`gym-heat__day gym-heat__day--${c.level}`} title={c.title} />)}
       </div>
     </Glass>
@@ -917,8 +934,8 @@ function BodyCard() {
         <div className="gym-measure">
           <label className="gym-setting">Date<input className="field" type="date" value={m.date} onChange={(e) => setM({ ...m, date: e.target.value })} /></label>
           {keys.map(([k, label]) => (
-            <label key={k} className="gym-setting">{label} (cm)<input className="field" inputMode="decimal" aria-label={`${label} (cm)`} value={(m[k] as number | undefined) ?? ""}
-              onChange={(e) => setM({ ...m, [k]: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+            <label key={k} className="gym-setting">{label} (cm)<DecimalInput className="field" aria-label={`${label} (cm)`} value={m[k] as number | null | undefined}
+              onValue={(v) => setM({ ...m, [k]: v })} /></label>
           ))}
           <button type="button" className="button button--primary" onClick={save}>Save measurements</button>
         </div>
