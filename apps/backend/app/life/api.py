@@ -106,7 +106,7 @@ async def speed(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     return {"timings": timings or {"stages": {}, "recent": []}, "jobs": jobs or []}
 
 
-# -- things, people and news (7.6, SirisAI 4.9) --------------------------------
+# -- things, people and news (7.7, SirisAI 5.0) --------------------------------
 
 
 @router.get("/things")

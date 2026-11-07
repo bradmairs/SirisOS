@@ -1119,7 +1119,7 @@ h3.note__heading { font-size: 17px; }
 .search__filters { display: flex; gap: 6px; overflow-x: auto; padding: 4px 6px 8px; scrollbar-width: none; }
 .search__filters .chip { flex: none; }
 
-/* -- Charts (7.6): ink for text, series colour only on marks ---------------- */
+/* -- Charts (7.7): ink for text, series colour only on marks ---------------- */
 :root {
   --chart-grid: rgba(124, 147, 166, 0.22);
   --chart-grid-strong: rgba(124, 147, 166, 0.45);
@@ -1172,7 +1172,7 @@ h3.note__heading { font-size: 17px; }
 .rank-bars__bar { height: 16px; border-radius: 0 4px 4px 0; flex: none; max-width: calc(100% - 70px); }
 .rank-bars__value { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* -- Budget (7.6) --------------------------------------------------------------- */
+/* -- Budget (7.7) --------------------------------------------------------------- */
 .budget .page-head { flex-wrap: wrap; gap: 10px; }
 .segmented { display: inline-flex; padding: 3px; border-radius: var(--r-pill); background: var(--glass-fill); border: 1px solid var(--hairline); }
 .segmented__item { border: 0; background: transparent; color: var(--ink-2); padding: 6px 12px; border-radius: var(--r-pill); font: inherit; font-size: 14px; cursor: pointer; }
@@ -1211,7 +1211,7 @@ h3.note__heading { font-size: 17px; }
   .budget-line__goal .field { width: 100%; }
 }
 
-/* -- Today timeline (7.6) ------------------------------------------------------- */
+/* -- Today timeline (7.7) ------------------------------------------------------- */
 .timeline__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .timeline__row { display: grid; grid-template-columns: 44px 22px 1fr; align-items: center; gap: 8px; padding: 5px 0; font-size: 14px; position: relative; }
 .timeline__row--past { opacity: 0.55; }

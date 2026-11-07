@@ -8,9 +8,9 @@ import { tasks } from "./tasks";
  * survives closing the app; photos over about 1.5 MB aren't kept. */
 export type Item = { kind: "task"; text: string } | { kind: "capture"; body: Parameters<typeof brain.capture>[0] }
   | { kind: "gym"; session: import("./gym").Session }
-  /** 7.6: a health log (water, mood, a symptom) made with no connection. */
+  /** 7.7: a health log (water, mood, a symptom) made with no connection. */
   | { kind: "health_log"; log: { kind: string; amount?: number; text?: string } }
-  /** 7.6: "Got it" or dismiss on an inbox item. Approvals are never queued:
+  /** 7.7: "Got it" or dismiss on an inbox item. Approvals are never queued:
    * by the time they'd send, things may have changed. */
   | { kind: "inbox"; id: string; action: "acknowledge" | "dismiss" };
 export type Pending = Item & { at: string };

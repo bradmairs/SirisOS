@@ -11,7 +11,7 @@ const ICON: Record<Entry["kind"], typeof CalendarClock> = { event: CalendarClock
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** Everything about today in one list (7.6): the calendar and tasks by time,
+/** Everything about today in one list (7.7): the calendar and tasks by time,
  * then what's coming in the next few days (bills, birthdays, a trip). */
 export function buildDay(now: Date, src: {
   events?: { summary: string; start: string }[]; tasks?: { id: string; title: string; due: string | null; time: string | null; group: string }[];

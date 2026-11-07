@@ -41,7 +41,7 @@ export const life = {
   speed: () => api<Speed>(`${L}/speed`),
 };
 
-/** Things you own and people (7.6, SirisAI 4.9). */
+/** Things you own and people (7.7, SirisAI 5.0). */
 export interface Thing {
   id: number; name: string; brand: string; model: string; room: string; bought: string | null; price: number | null; shop: string;
   warranty_until: string | null; manual: string; notes: string; document_id: number | null; warranty_days_left?: number; under_warranty?: boolean;

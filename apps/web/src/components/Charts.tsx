@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 
-/** Small SVG charts (7.6) drawn to one spec: thin marks with rounded data
+/** Small SVG charts (7.7) drawn to one spec: thin marks with rounded data
  * ends, 2px surface gaps between touching marks, hairline grids, text in ink
  * colours (never the series colour), a legend wherever there's more than one
  * series, and a hover/focus tooltip on every mark. No chart library. */

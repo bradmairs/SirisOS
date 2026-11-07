@@ -1,4 +1,4 @@
-"""The budget (SirisOS 7.6): income, then where it goes, in sections:
+"""The budget (SirisOS 7.7): income, then where it goes, in sections:
 expenses (bills and the fixed costs), savings (with goals) and spending
 (the day-to-day). Each line has an amount and how often it comes or goes
 (weekly, fortnightly, monthly, quarterly, yearly), so everything can be

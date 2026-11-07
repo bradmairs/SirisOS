@@ -1,4 +1,4 @@
-"""The budget (7.6): saved whole, cleaned, totalled per month, with a monthly
+"""The budget (7.7): saved whole, cleaned, totalled per month, with a monthly
 history; subscriptions from SirisAI's bills become expense lines."""
 
 from __future__ import annotations

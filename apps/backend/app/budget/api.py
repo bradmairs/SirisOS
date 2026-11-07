@@ -1,4 +1,4 @@
-"""The budget (7.6). See service.py.
+"""The budget (7.7). See service.py.
 
     GET  /api/v1/budget              income, the three sections, monthly totals and history
     PUT  /api/v1/budget              the whole budget (income and sections), saved as one

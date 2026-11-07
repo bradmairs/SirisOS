@@ -106,7 +106,7 @@ export const health = {
   sources: (day: string) => api<Sources>(`/api/v1/health/sources?day=${day}`),
   get: () => api<Health>("/api/v1/health"),
   today: () => api<{ readiness: Readiness | null; energy?: Energy | null }>("/api/v1/health/today"),
-  /** Kept on the phone and sent later when there's no connection (7.6). */
+  /** Kept on the phone and sent later when there's no connection (7.7). */
   log: async (kind: LogKind, amount?: number, text?: string): Promise<{ logged: unknown; queued?: boolean }> => {
     try {
       return await api<{ logged: unknown }>("/api/v1/health/log", json({ kind, amount, text: text ?? "" }));

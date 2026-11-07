@@ -112,7 +112,7 @@ export function useInbox() {
     try {
       result = action === "dismiss" ? await inbox.dismiss(item.id) : await inbox.act(item.id, action, pin);
     } catch (e) {
-      // Offline (7.6): "Got it" and dismiss wait on the phone; approvals never do.
+      // Offline (7.7): "Got it" and dismiss wait on the phone; approvals never do.
       if ((action === "dismiss" || action === "acknowledge") && unreachable(e) && keep({ kind: "inbox", id: item.id, action })) {
         const items = state.items.filter((i) => i.id !== item.id);
         set({ items, counts: countsOf(items) });

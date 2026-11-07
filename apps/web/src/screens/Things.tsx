@@ -14,7 +14,7 @@ function warranty(t: Thing): { text: string; tone?: "good" | "warning" | "critic
   return { text: `✓ Under warranty until ${day(t.warranty_until)}`, tone: "good" };
 }
 
-/** What you own, its warranty and its manual (7.6, SirisAI 4.9). Receipts added under Life admin fill this in too. */
+/** What you own, its warranty and its manual (7.7, SirisAI 5.0). Receipts added under Life admin fill this in too. */
 export function ThingsCard() {
   const [q, setQ] = useState("");
   const { data, reload } = useResource(`things:${q}`, () => things.list(q), { staleMs: 30_000 });
@@ -93,7 +93,7 @@ function when(p: Person): string {
   return bits.join(" · ");
 }
 
-/** Birthdays, anniversaries, gift ideas and catching up (7.6, SirisAI 4.9). */
+/** Birthdays, anniversaries, gift ideas and catching up (7.7, SirisAI 5.0). */
 export function PeopleCard() {
   const { data, reload } = useResource("people", () => people.list(), { staleMs: 60_000 });
   const [form, setForm] = useState({ name: "", birthday: "", relation: "" });

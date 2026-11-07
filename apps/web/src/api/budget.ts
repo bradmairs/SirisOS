@@ -1,6 +1,6 @@
 import { api } from "./client";
 
-/** The budget (7.6): income, then where it goes, in three sections. Every
+/** The budget (7.7): income, then where it goes, in three sections. Every
  * line has an amount and how often, so the whole plan can be shown per week,
  * fortnight, month or year. */
 export type Every = "weekly" | "fortnightly" | "monthly" | "quarterly" | "yearly";

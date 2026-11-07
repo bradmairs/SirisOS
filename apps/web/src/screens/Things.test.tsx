@@ -5,7 +5,7 @@ import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { clearResources } from "../api/resource";
 import { PeopleCard, ThingsCard } from "./Things";
 
-describe("Things & people (7.6)", () => {
+describe("Things & people (7.7)", () => {
   it("lists things with their warranty and adds one", async () => {
     signIn();
     clearResources();

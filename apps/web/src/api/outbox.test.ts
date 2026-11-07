@@ -28,7 +28,7 @@ describe("outbox (6.3)", () => {
   });
 });
 
-describe("offline actions (7.6)", () => {
+describe("offline actions (7.7)", () => {
   it("keeps a health log made offline and sends it later", async () => {
     signIn();
     const { health } = await import("./health");
