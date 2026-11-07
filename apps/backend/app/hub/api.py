@@ -312,6 +312,17 @@ async def protocol_save(name: SafeName, body: ProtocolSave, connector: SirisAICo
     return await _forward(connector, "PUT", f"/siris/hub/v1/protocols/{name}", json=body.model_dump())
 
 
+class ProtocolSwitches(BaseModel):
+    active: bool | None = None
+    notify: bool | None = None
+
+
+@router.put("/assistant/protocols/{name}/switches", tags=["assistant"])
+async def protocol_switches(name: SafeName, body: ProtocolSwitches, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """7.9: turn a protocol on or off (off: it never runs or gets offered), and its notifications (SirisAI 5.11)."""
+    return await _forward(connector, "PUT", f"/siris/hub/v1/protocols/{name}/switches", json=body.model_dump(exclude_none=True))
+
+
 @router.delete("/assistant/protocols/{name}", tags=["assistant"])
 async def protocol_delete(name: SafeName, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """Delete yours; a built-in you'd changed comes back."""

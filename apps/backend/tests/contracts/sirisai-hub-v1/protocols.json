@@ -58,7 +58,9 @@
           "when": null,
           "undo": null
         }
-      ]
+      ],
+      "active": true,
+      "notify": true
     },
     {
       "name": "guest",
@@ -76,7 +78,9 @@
           "when": null,
           "undo": null
         }
-      ]
+      ],
+      "active": true,
+      "notify": true
     },
     {
       "name": "guest_off",
@@ -93,7 +97,9 @@
           "when": null,
           "undo": null
         }
-      ]
+      ],
+      "active": true,
+      "notify": true
     },
     {
       "name": "lockdown",
@@ -142,7 +148,36 @@
           "when": "night",
           "undo": null
         }
-      ]
+      ],
+      "active": true,
+      "notify": true
+    },
+    {
+      "name": "wind_down",
+      "description": "Bedtime's coming: lights down to a third, a reminder to put the phone away.",
+      "builtin": true,
+      "customised": false,
+      "steps": [
+        {
+          "tool": "home_assistant_call_service",
+          "arguments": {
+            "domain": "light",
+            "service": "turn_on",
+            "entity_id": {
+              "select": {
+                "domain": "light",
+                "state": "on"
+              }
+            },
+            "brightness_pct": 30
+          },
+          "label": "Dim the lights that are on",
+          "when": null,
+          "undo": null
+        }
+      ],
+      "active": true,
+      "notify": true
     }
   ],
   "actions": {

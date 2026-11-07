@@ -1,0 +1,29 @@
+{
+  "start": "2026-10-12",
+  "end": "2026-10-19",
+  "guest_mode": false,
+  "events": [
+    {
+      "title": "Bin night",
+      "start": "2026-10-12",
+      "end": "2026-10-13",
+      "all_day": true,
+      "location": null,
+      "calendar": "Home",
+      "attendees": []
+    },
+    {
+      "title": "Stormwater webinar (IPWEA)",
+      "start": "2026-10-14T12:00:00+11:00",
+      "end": "2026-10-14T13:30:00+11:00",
+      "all_day": false,
+      "location": "Online",
+      "calendar": "Work",
+      "attendees": [
+        "dana.lee@example.com",
+        "brad@example.com"
+      ]
+    }
+  ],
+  "unavailable": false
+}

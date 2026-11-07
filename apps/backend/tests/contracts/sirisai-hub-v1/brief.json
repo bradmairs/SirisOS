@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-10T02:23:00.950268+00:00",
+  "generated_at": "2026-11-05T20:14:40.844224+00:00",
   "guest_mode": false,
   "hidden": [],
   "weather": {
@@ -25,7 +25,8 @@
       "end": "2026-10-10",
       "all_day": true,
       "location": null,
-      "calendar": "Home"
+      "calendar": "Home",
+      "attendees": []
     },
     {
       "title": "Site visit, Werribee",
@@ -33,7 +34,8 @@
       "end": "2026-10-09T12:00:00+11:00",
       "all_day": false,
       "location": "Werribee",
-      "calendar": "Work"
+      "calendar": "Work",
+      "attendees": []
     }
   ],
   "todo": [
@@ -93,13 +95,11 @@
   ],
   "energy": {
     "configured": true,
-    "cheap_now": true,
-    "reasons": [
-      "inside the cheap window 00:00-06:00"
-    ],
+    "cheap_now": false,
+    "reasons": [],
     "solar_watts": null,
     "price": null,
-    "next_cheap_window": null,
+    "next_cheap_window": "2026-11-06T00:00:00+00:00",
     "waiting_jobs": 0
   },
   "brain": {

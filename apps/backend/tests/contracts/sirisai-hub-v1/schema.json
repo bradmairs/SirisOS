@@ -69,6 +69,9 @@
     "presence": {
       "$ref": "#/$defs/Presence"
     },
+    "presence_phones_request": {
+      "$ref": "#/$defs/PresenceDevices"
+    },
     "reminders": {
       "$ref": "#/$defs/ReminderList"
     },
@@ -84,6 +87,12 @@
     "health_days": {
       "$ref": "#/$defs/HealthDays"
     },
+    "health_overview": {
+      "$ref": "#/$defs/HealthOverview"
+    },
+    "health_workouts": {
+      "$ref": "#/$defs/HealthWorkouts"
+    },
     "controls": {
       "$ref": "#/$defs/Controls"
     },
@@ -95,6 +104,15 @@
     },
     "network": {
       "$ref": "#/$defs/Network"
+    },
+    "network_block_request": {
+      "$ref": "#/$defs/NetworkBlockRequest"
+    },
+    "network_block": {
+      "$ref": "#/$defs/NetworkBlockResult"
+    },
+    "energy_usage": {
+      "$ref": "#/$defs/EnergyUsage"
     }
   },
   "$defs": {
@@ -116,7 +134,7 @@
             }
           ],
           "default": null,
-          "description": "For a triage reply's 'send': the reply as edited, instead of the draft.",
+          "description": "For a triage reply's 'send': the reply as edited, instead of the draft. For a new device's 'name': the name to give it.",
           "title": "Body"
         },
         "pin": {
@@ -1293,6 +1311,31 @@
       "title": "EmailWith",
       "type": "object"
     },
+    "EnergyMeter": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kwh": {
+          "description": "The meter's reading, a total that only goes up (kWh; Wh converted).",
+          "title": "Kwh",
+          "type": "number"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name",
+        "kwh"
+      ],
+      "title": "EnergyMeter",
+      "type": "object"
+    },
     "EnergySummary": {
       "additionalProperties": false,
       "properties": {
@@ -1359,6 +1402,76 @@
         "cheap_now"
       ],
       "title": "EnergySummary",
+      "type": "object"
+    },
+    "EnergyUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "description": "Home Assistant is set up.",
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "house_watts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The whole house now: SIRISAI_ENERGY_GRID_ENTITY_ID, else none.",
+          "title": "House Watts"
+        },
+        "solar_watts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SIRISAI_ENERGY_SOLAR_ENTITY_ID right now.",
+          "title": "Solar Watts"
+        },
+        "house_meter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SIRISAI_ENERGY_METER_ENTITY_ID: the whole house's kWh meter, if set.",
+          "title": "House Meter"
+        },
+        "power": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PowerSensor"
+          },
+          "title": "Power",
+          "type": "array"
+        },
+        "meters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EnergyMeter"
+          },
+          "title": "Meters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "configured"
+      ],
+      "title": "EnergyUsage",
       "type": "object"
     },
     "Forecast": {
@@ -1576,6 +1689,265 @@
       "title": "HealthMetric",
       "type": "object"
     },
+    "HealthOverview": {
+      "additionalProperties": false,
+      "description": "Everything the Health section shows (SirisAI 3.51; SirisOS 5.8 reads it\ninstead of keeping its own store). The sections are open objects so they\ncan grow without a v2; see app/health/overview.py and scores.py.",
+      "properties": {
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "today": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Today"
+        },
+        "available": {
+          "default": false,
+          "title": "Available",
+          "type": "boolean"
+        },
+        "sources": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Sources",
+          "type": "object"
+        },
+        "readiness": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "score 0-100, band (Primed/Steady/Recover), advice, early, contributors, summary; locked (kept as it was this morning, 3.62) and locked_at",
+          "title": "Readiness"
+        },
+        "readiness_recent": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The last mornings' kept readiness (4.06), oldest first: [{date, score, band}], for SirisGym's deload check",
+          "title": "Readiness Recent"
+        },
+        "strain": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Strain 0-21 (4.03): today, target [lo, hi] from readiness, status, workouts [{name, start, minutes, strain}], week [{date, strain}], max_hr, advice",
+          "title": "Strain"
+        },
+        "sleep_week": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The week's sleep report (4.03): nights, average, need, debt, bedtime_spread_min, short_nights, best, worst, factors, tip",
+          "title": "Sleep Week"
+        },
+        "setup": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Health Auto Export set up right (4.03): connected, metrics and workouts (what the last exports looked like), problems (each names the setting to change)",
+          "title": "Setup"
+        },
+        "energy": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Today's energy (3.62): now and start (0-100), wake, timeline [{time, value}], spent {awake, activity, stress}, regained, summary, estimated",
+          "title": "Energy"
+        },
+        "sleep": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "need, last_night (hours, stages, start, end), score, debt_7d, bedtime_spread_min, average_7d, nights",
+          "title": "Sleep"
+        },
+        "activity": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "steps, energy, exercise, load (ratio, zone), series, workouts",
+          "title": "Activity"
+        },
+        "vitals": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vitals"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "latest, trend (smoothed), per_week, goal_kg, to_go_kg, weeks_to_goal, series",
+          "title": "Weight"
+        },
+        "getting_sick": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set when temperature, resting heart rate and HRV point to illness: level 'likely' (two days running) or 'early' (today, 3.82)",
+          "title": "Getting Sick"
+        },
+        "trends": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This week against your last 30 days (3.82): key, label, unit, week, baseline, change_pct, direction (up/down/steady), good",
+          "title": "Trends"
+        },
+        "logged": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Today's water, caffeine, drinks, mood, and the week's notes (symptoms, supplements, meals)",
+          "title": "Logged"
+        },
+        "insights": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Findings like 'after a late meeting you sleep 40 min less'",
+          "title": "Insights"
+        },
+        "bedtime": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tonight's suggested bedtime and why",
+          "title": "Bedtime"
+        }
+      },
+      "required": [
+        "guest_mode"
+      ],
+      "title": "HealthOverview",
+      "type": "object"
+    },
     "HealthSummary": {
       "additionalProperties": false,
       "properties": {
@@ -1597,6 +1969,38 @@
         }
       },
       "title": "HealthSummary",
+      "type": "object"
+    },
+    "HealthWorkouts": {
+      "additionalProperties": false,
+      "description": "Workouts, newest first (SirisAI 3.51): for SirisOS's training plan\n(what was actually run, race predictions, heart-rate zones).",
+      "properties": {
+        "guest_mode": {
+          "title": "Guest Mode",
+          "type": "boolean"
+        },
+        "workouts": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "date, name, start, minutes, km, kcal, avg_hr, max_hr, source",
+          "title": "Workouts"
+        }
+      },
+      "required": [
+        "guest_mode"
+      ],
+      "title": "HealthWorkouts",
       "type": "object"
     },
     "HubInfo": {
@@ -1815,6 +2219,12 @@
           "title": "Configured",
           "type": "boolean"
         },
+        "device_alerts": {
+          "default": false,
+          "description": "SirisAI raises its own new-device alerts (3.83), so other apps needn't.",
+          "title": "Device Alerts",
+          "type": "boolean"
+        },
         "guest_mode": {
           "title": "Guest Mode",
           "type": "boolean"
@@ -1864,6 +2274,41 @@
         "checked_at"
       ],
       "title": "Network",
+      "type": "object"
+    },
+    "NetworkBlockRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked": {
+          "description": "True blocks the client; false lets it back in.",
+          "title": "Blocked",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "blocked"
+      ],
+      "title": "NetworkBlockRequest",
+      "type": "object"
+    },
+    "NetworkBlockResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The client's MAC address.",
+          "title": "Id",
+          "type": "string"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "blocked"
+      ],
+      "title": "NetworkBlockResult",
       "type": "object"
     },
     "NetworkNode": {
@@ -1941,6 +2386,32 @@
           "description": "Bytes per second it's sending now.",
           "title": "Tx Bps",
           "type": "number"
+        },
+        "named": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A client with a name set in UniFi (3.83).",
+          "title": "Named"
+        },
+        "first_seen": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When UniFi first saw this client, epoch seconds (3.83).",
+          "title": "First Seen"
         }
       },
       "required": [
@@ -2071,6 +2542,31 @@
       "title": "ParcelSummary",
       "type": "object"
     },
+    "PowerSensor": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "watts": {
+          "description": "Power right now, in watts (kW sensors are converted).",
+          "title": "Watts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name",
+        "watts"
+      ],
+      "title": "PowerSensor",
+      "type": "object"
+    },
     "Presence": {
       "additionalProperties": false,
       "properties": {
@@ -2110,12 +2606,76 @@
           "default": null,
           "description": "When that state began (an arrival or a departure); null until there's been a change since tracking started.",
           "title": "Since"
+        },
+        "phones": {
+          "description": "The phones that count as someone home (4.4): home only while any is connected, away once all have gone.",
+          "items": {
+            "$ref": "#/$defs/PresencePhone"
+          },
+          "title": "Phones",
+          "type": "array"
         }
       },
       "required": [
         "home"
       ],
       "title": "Presence",
+      "type": "object"
+    },
+    "PresenceDevices": {
+      "additionalProperties": false,
+      "properties": {
+        "added": {
+          "description": "The phones added from SirisOS, on top of SIRISAI_PRESENCE_DEVICE_NAMES.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Added",
+          "type": "array"
+        }
+      },
+      "required": [
+        "added"
+      ],
+      "title": "PresenceDevices",
+      "type": "object"
+    },
+    "PresencePhone": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "The UniFi client name (matched ignoring case, spaces and punctuation).",
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "description": "settings: SIRISAI_PRESENCE_DEVICE_NAMES; added: from SirisOS.",
+          "enum": [
+            "settings",
+            "added"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "home": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Connected at the last check; null before one.",
+          "title": "Home"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "title": "PresencePhone",
       "type": "object"
     },
     "ProtocolCatalogue": {
@@ -2190,6 +2750,18 @@
           },
           "title": "Steps",
           "type": "array"
+        },
+        "active": {
+          "default": true,
+          "description": "5.11: off, it doesn't run (by hand or by itself) and isn't offered.",
+          "title": "Active",
+          "type": "boolean"
+        },
+        "notify": {
+          "default": true,
+          "description": "5.11: off, nothing about it goes to the phone, and its notify steps are skipped.",
+          "title": "Notify",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2283,6 +2855,18 @@
           },
           "title": "Steps",
           "type": "array"
+        },
+        "active": {
+          "default": true,
+          "description": "5.11: off, it doesn't run (by hand or by itself) and isn't offered.",
+          "title": "Active",
+          "type": "boolean"
+        },
+        "notify": {
+          "default": true,
+          "description": "5.11: off, nothing about it goes to the phone, and its notify steps are skipped.",
+          "title": "Notify",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2760,6 +3344,59 @@
           ],
           "default": null,
           "title": "Checked At"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SIRISAI_UPDATE_MODE: notify, auto or off (4.03).",
+          "title": "Mode"
+        },
+        "updater_running": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "deploy/updater.sh has checked in within 5 minutes (4.03); false: run make auto-update on the server.",
+          "title": "Updater Running"
+        },
+        "waiting": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The version an update has been asked for and the updater hasn't finished (4.03).",
+          "title": "Waiting"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the last update went: state, detail, version (the updater's status.json).",
+          "title": "Last"
         }
       },
       "required": [

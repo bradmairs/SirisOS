@@ -283,6 +283,9 @@ export interface SirisProtocol {
   description: string;
   builtin: boolean;
   steps: string[];
+  /** 7.9 (SirisAI 5.11): off, it never runs or gets offered; notify off, nothing about it reaches the phone. */
+  active?: boolean;
+  notify?: boolean;
 }
 
 /** One step of a protocol, as the editor reads and saves it (SirisAI 2.91). */
@@ -303,6 +306,10 @@ export interface ProtocolDef {
   /** Your version of a built-in: deleting it brings the original back. */
   customised: boolean;
   steps: ProtocolStepDef[];
+  /** 7.9 (SirisAI 5.11): on, it can run; off, it never runs or gets offered. */
+  active?: boolean;
+  /** 7.9: off, nothing about it reaches the phone, and its own notify steps are skipped. */
+  notify?: boolean;
 }
 
 export interface ProtocolCatalogue {

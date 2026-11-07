@@ -1,0 +1,16 @@
+{
+  "guest_mode": false,
+  "workouts": [
+    {
+      "date": "2026-11-05",
+      "name": "Outdoor Run",
+      "start": "2026-11-05 06:40:00 +1100",
+      "minutes": 32.0,
+      "km": 6.1,
+      "kcal": 410.0,
+      "avg_hr": 148.0,
+      "max_hr": 171.0,
+      "source": "health_auto_export"
+    }
+  ]
+}

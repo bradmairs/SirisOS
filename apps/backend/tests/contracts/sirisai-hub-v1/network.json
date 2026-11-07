@@ -1,0 +1,91 @@
+{
+  "configured": true,
+  "device_alerts": true,
+  "guest_mode": false,
+  "checked_at": "2026-10-24T10:00:00+00:00",
+  "wan": {
+    "rx_bps": 1250000.0,
+    "tx_bps": 90000.0,
+    "isp": "Aussie Broadband"
+  },
+  "nodes": [
+    {
+      "id": "aa:00",
+      "name": "Cloud Gateway Ultra",
+      "kind": "gateway",
+      "model": "UCGULTRA",
+      "wired": null,
+      "online": true,
+      "uplink": null,
+      "rx_bps": 1300000.0,
+      "tx_bps": 95000.0,
+      "named": null,
+      "first_seen": null
+    },
+    {
+      "id": "aa:01",
+      "name": "Office switch",
+      "kind": "switch",
+      "model": "USWFlexMini",
+      "wired": null,
+      "online": true,
+      "uplink": null,
+      "rx_bps": 20.0,
+      "tx_bps": 30.0,
+      "named": null,
+      "first_seen": null
+    },
+    {
+      "id": "aa:02",
+      "name": "Lounge AP",
+      "kind": "access_point",
+      "model": "U7Pro",
+      "wired": null,
+      "online": false,
+      "uplink": "aa:01",
+      "rx_bps": 5000.0,
+      "tx_bps": 1000.0,
+      "named": null,
+      "first_seen": null
+    },
+    {
+      "id": "bb:01",
+      "name": "gaming-pc",
+      "kind": "client",
+      "model": null,
+      "wired": true,
+      "online": true,
+      "uplink": "aa:01",
+      "rx_bps": 800000.0,
+      "tx_bps": 40000.0,
+      "named": false,
+      "first_seen": null
+    },
+    {
+      "id": "bb:02",
+      "name": "Brad's iPhone",
+      "kind": "client",
+      "model": null,
+      "wired": false,
+      "online": true,
+      "uplink": "aa:02",
+      "rx_bps": 5000.0,
+      "tx_bps": 1000.0,
+      "named": true,
+      "first_seen": null
+    },
+    {
+      "id": "bb:03",
+      "name": "Sonos",
+      "kind": "client",
+      "model": null,
+      "wired": true,
+      "online": true,
+      "uplink": null,
+      "rx_bps": 0.0,
+      "tx_bps": 0.0,
+      "named": false,
+      "first_seen": null
+    }
+  ]
+}

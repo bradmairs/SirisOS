@@ -127,3 +127,26 @@ describe("<ProtocolsManager />", () => {
     expect(describeStep({ tool: "set_guest_mode", arguments: { on: true, hours: 12 } })).toBe("Guest mode on for 12 h");
   });
 });
+
+describe("Protocol switches (7.9)", () => {
+  it("turns a protocol off, and its notifications off", async () => {
+    const user = userEvent.setup();
+    signIn();
+    clearResources();
+    const cat = withEntities();
+    const calls = mockFetch({
+      "/api/v1/assistant/protocols/lockdown/switches": (_u, init) => jsonResponse({ name: "lockdown", active: true, notify: true, ...JSON.parse(String(init.body)) }),
+      "/api/v1/assistant/protocols": () => jsonResponse(cat),
+    });
+    render(<MemoryRouter><ProtocolsManager /></MemoryRouter>);
+    const on = await screen.findByRole("switch", { name: "Lock down on" });
+    expect(on).toHaveAttribute("aria-checked", "true");
+    await user.click(screen.getByRole("switch", { name: "Notifications for Lock down" }));
+    await waitFor(() => expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/lockdown/switches"))!.init.body))).toEqual({ notify: false }));
+    expect(screen.getByRole("switch", { name: "Notifications for Lock down" })).toHaveAttribute("aria-checked", "false");
+    await user.click(on);
+    await waitFor(() => expect(calls.filter((c) => c.url.endsWith("/lockdown/switches")).map((c) => JSON.parse(String(c.init.body)))).toEqual([{ notify: false }, { active: false }]));
+    expect(screen.getByRole("switch", { name: "Lock down off" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("switch", { name: "Notifications for Lock down" })).toBeDisabled();  // nothing to notify about while it's off
+  });
+});

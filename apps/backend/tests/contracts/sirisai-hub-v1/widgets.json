@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-09T07:41:23.437372+00:00",
+  "generated_at": "2026-11-07T11:18:59.372908+00:00",
   "guest_mode": false,
   "hidden": [],
   "car": {
@@ -31,7 +31,7 @@
     "reasons": [],
     "solar_watts": null,
     "price": null,
-    "next_cheap_window": "2026-10-10T00:00:00+00:00",
+    "next_cheap_window": "2026-11-08T00:00:00+00:00",
     "waiting_jobs": 0
   },
   "protocols": [
@@ -43,7 +43,9 @@
         "Lock every lock",
         "Close garage doors and gates",
         "All lights on (deterrent)"
-      ]
+      ],
+      "active": true,
+      "notify": true
     },
     {
       "name": "away",
@@ -54,7 +56,19 @@
         "Media off",
         "Lock every lock",
         "Close garage doors and gates"
-      ]
+      ],
+      "active": true,
+      "notify": true
+    },
+    {
+      "name": "wind_down",
+      "description": "Bedtime's coming: lights down to a third, a reminder to put the phone away.",
+      "builtin": true,
+      "steps": [
+        "Dim the lights that are on"
+      ],
+      "active": true,
+      "notify": true
     },
     {
       "name": "guest",
@@ -62,7 +76,9 @@
       "builtin": true,
       "steps": [
         "Guest mode on"
-      ]
+      ],
+      "active": true,
+      "notify": true
     },
     {
       "name": "guest_off",
@@ -70,7 +86,9 @@
       "builtin": true,
       "steps": [
         "Guest mode off"
-      ]
+      ],
+      "active": true,
+      "notify": true
     }
   ],
   "last_protocol": null,
@@ -79,8 +97,8 @@
     "summary": "In the last 24 hours I took 1 action on my own.",
     "items": [
       {
-        "time": "2026-10-09T07:41:23.412639+00:00",
-        "local_time": "07:41",
+        "time": "2026-11-07T11:18:59.351560+00:00",
+        "local_time": "11:18",
         "what": "Restarted plex",
         "why": "self-healing: watched container 'plex' is down",
         "tool": "docker_restart_container",

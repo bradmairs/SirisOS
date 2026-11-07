@@ -1,0 +1,17 @@
+{
+  "guest_mode": false,
+  "days": [
+    {
+      "date": "2026-11-04",
+      "metrics": {}
+    },
+    {
+      "date": "2026-11-05",
+      "metrics": {
+        "sleep_hours": 7.1,
+        "steps": 9120.0,
+        "running_km": 5.2
+      }
+    }
+  ]
+}

@@ -2,7 +2,8 @@
 
     GET    /api/v1/push/key              the VAPID public key for pushManager.subscribe()
     GET    /api/v1/push/subscriptions    this server's devices (labels, topics, last delivered and last error; no keys)
-    POST   /api/v1/push/subscribe        add or update this device: {endpoint, keys, label, topics}
+    POST   /api/v1/push/subscribe        add or update this device: {endpoint, keys, label, topics, device?, replaces?}
+                                         (7.9: the same install, or the endpoint it replaces, isn't kept twice)
     POST   /api/v1/push/unsubscribe      {endpoint}
     POST   /api/v1/push/test             {endpoint}: send this device a test notification
 
@@ -71,7 +72,7 @@ class Endpoint(BaseModel):
 
 def _public(sub: store.Subscription, health: dict[str, Any] | None = None) -> dict[str, Any]:
     h = (health if health is not None else store.health()).get(sub.endpoint) or {}
-    return {"endpoint": sub.endpoint, "label": sub.label, "topics": sub.topics, "created_at": sub.created_at,
+    return {"endpoint": sub.endpoint, "label": sub.label, "topics": sub.topics, "created_at": sub.created_at, "device": sub.device,
             "last_ok": h.get("last_ok"), "last_error": h.get("last_error"), "last_error_at": h.get("last_error_at"),
             "failing": store.failing(sub, h)}
 
@@ -87,9 +88,15 @@ def subscriptions() -> dict[str, Any]:
     return {"subscriptions": [_public(s, health) for s in store.subscriptions()]}
 
 
+class Subscribe(store.Subscription):
+    replaces: str | None = Field(default=None, max_length=2000)  # this install's previous endpoint (7.9)
+
+
 @router.post("/subscribe")
-def subscribe(sub: store.Subscription) -> dict[str, Any]:
-    return _public(store.upsert(sub))
+def subscribe(body: Subscribe) -> dict[str, Any]:
+    replaces = body.replaces
+    sub = store.Subscription.model_validate(body.model_dump(exclude={"replaces"}))
+    return _public(store.upsert(sub, replaces))
 
 
 @router.post("/unsubscribe")

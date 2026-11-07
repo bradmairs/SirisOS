@@ -1240,3 +1240,12 @@ h3.note__heading { font-size: 17px; }
 .workout-bar__text { flex: 1; min-width: 0; display: grid; font-size: 14px; }
 .workout-bar__text strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .workout-bar__go { flex: none; font-weight: 600; font-size: 14px; color: var(--accent); }
+/* 7.9: protocol switches (on/off, and notifications) */
+.protocol__switches { display: inline-flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.protocol--off { opacity: 0.55; }
+.toggle { position: relative; flex: none; width: 42px; height: 24px; border-radius: 999px; border: 0; padding: 0; cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 18%, transparent); transition: background 0.2s; }
+.toggle--on { background: var(--accent); }
+.toggle__knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.toggle--on .toggle__knob { transform: translateX(18px); }
+.toggle:disabled, .protocol__bell:disabled { opacity: 0.5; cursor: default; }

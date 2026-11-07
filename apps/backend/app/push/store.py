@@ -36,6 +36,9 @@ class Subscription(BaseModel):
     label: str = Field(default="", max_length=80)
     topics: list[Topic] = Field(default_factory=lambda: list(TOPICS))
     created_at: str = ""
+    # 7.9: this install of SirisOS (a random id the app keeps), so a new subscription from it replaces its old one
+    # instead of the phone getting everything twice.
+    device: str = Field(default="", max_length=64)
     # 2 from 5.2 ("home"), 3 from 6.3 ("nudges"), 4 from 6.9 ("gym"); older ones are upgraded on load.
     v: int = 4
 
@@ -108,9 +111,15 @@ def _save(subs: list[Subscription]) -> None:
     json_store.write(_subs_path(), {"subscriptions": [s.model_dump() for s in subs]})
 
 
-def upsert(sub: Subscription) -> Subscription:
-    subs = [s for s in subscriptions() if s.endpoint != sub.endpoint]
+def upsert(sub: Subscription, replaces: str | None = None) -> Subscription:
+    """Add or update a device. Its own earlier subscriptions go: the same install (`device`) or the endpoint it
+    says it replaces (7.9), so one phone is one device and gets each notification once."""
     old = next((s for s in subscriptions() if s.endpoint == sub.endpoint), None)
+    gone = [s.endpoint for s in subscriptions() if s.endpoint != sub.endpoint
+            and ((sub.device and s.device == sub.device) or (replaces and s.endpoint == replaces))]
+    for endpoint in gone:
+        remove(endpoint)
+    subs = [s for s in subscriptions() if s.endpoint != sub.endpoint]
     sub.created_at = old.created_at if old else datetime.now(timezone.utc).isoformat(timespec="seconds")
     _save(subs + [sub])
     return sub

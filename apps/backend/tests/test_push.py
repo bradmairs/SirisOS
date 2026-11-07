@@ -110,7 +110,7 @@ def test_subscribe_list_and_unsubscribe():
     sub = browser.subscription() | {"topics": ["apps", "brief"]}
     assert client.post("/api/v1/push/subscribe", headers=_auth(), json=sub).status_code == 200
     listed = client.get("/api/v1/push/subscriptions", headers=_auth()).json()["subscriptions"]
-    assert listed == [{"endpoint": sub["endpoint"], "label": "iPhone", "topics": ["apps", "brief"], "created_at": listed[0]["created_at"],
+    assert listed == [{"endpoint": sub["endpoint"], "label": "iPhone", "topics": ["apps", "brief"], "created_at": listed[0]["created_at"], "device": "",
                        "last_ok": None, "last_error": None, "last_error_at": None, "failing": False}]
     assert "keys" not in listed[0]
     # Plain http endpoints are refused.
@@ -214,3 +214,47 @@ def test_a_quiet_device_gets_a_weekly_check_in(monkeypatch):
     assert asyncio.run(notifier.check_in(now + timedelta(days=8))) == 1
     assert received[0]["title"] == "SirisOS notifications are working"
     assert store.health()[store.subscriptions()[0].endpoint]["last_ok"]  # recorded, so it's quiet for another week
+
+
+def test_one_install_is_one_device_so_nothing_arrives_twice():
+    """7.9: a phone that subscribed again (a new endpoint) used to keep its old one too and got everything twice."""
+    client = TestClient(app)
+    first = Browser().subscription("https://web.push.apple.com/old") | {"device": "install-1"}
+    second = Browser().subscription("https://web.push.apple.com/new") | {"device": "install-1"}
+    other = Browser().subscription("https://web.push.apple.com/doms") | {"device": "install-2"}
+    for sub in (first, other, second):
+        assert client.post("/api/v1/push/subscribe", headers=_auth(), json=sub).status_code == 200
+    assert sorted(s.endpoint for s in store.subscriptions()) == ["https://web.push.apple.com/doms", "https://web.push.apple.com/new"]
+    # An older subscription without an install id goes when the app says it replaces it.
+    legacy = Browser().subscription("https://web.push.apple.com/legacy")
+    client.post("/api/v1/push/subscribe", headers=_auth(), json=legacy)
+    client.post("/api/v1/push/subscribe", headers=_auth(), json=second | {"replaces": legacy["endpoint"]})
+    assert "https://web.push.apple.com/legacy" not in [s.endpoint for s in store.subscriptions()]
+
+
+def test_one_wind_down_a_night(monkeypatch):
+    """7.9: SirisAI's "Time to wind down" and SirisOS's bedtime nudge were both pushed."""
+    from app.nudges import service as nudges
+
+    now = datetime(2026, 11, 7, 21, 55, tzinfo=notifier.zone())
+    item = {"id": "ai:wd", "severity": "attention", "source": "health", "title": "Time to wind down", "body": "Bed by 22:22"}
+
+    async def inbox(hub):
+        return {"items": [item]}
+
+    async def bedtime(hub):
+        return {"bedtime": {"bedtime": "22:22", "text": "Bed by 22:22"}}
+
+    from app.health import service as health
+    monkeypatch.setattr(notifier.attention, "inbox", inbox)
+    monkeypatch.setattr(health, "overview", bedtime)
+    msgs = asyncio.run(notifier.collect(hub_service.Hub({}), now))
+    assert [m["title"] for m in msgs if "wind" in m["title"].lower()] == ["Time to wind down"]
+    # The other way round: SirisOS's nudge went first, so SirisAI's alert isn't pushed again (it stays in the inbox).
+    store.mark_sent([f"nudge:{now.date().isoformat()}:wind-down"])
+    import json as _json
+    sent_path = store._sent_path()
+    kept = [k for k in _json.loads(sent_path.read_text())["keys"] if not k.startswith("sirisai-wind-down")]
+    sent_path.write_text(_json.dumps({"keys": kept}))
+    msgs = asyncio.run(notifier.collect(hub_service.Hub({}), now))
+    assert not [m for m in msgs if "wind" in m["title"].lower() and m["key"] not in store.sent()]  # sent ones are skipped at delivery

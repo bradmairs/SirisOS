@@ -1,0 +1,13 @@
+{
+  "days": [
+    {
+      "date": "2026-10-09",
+      "conditions": "Slight rain",
+      "high_c": 19.0,
+      "low_c": 9.0,
+      "rain_chance_percent": 70.0,
+      "precipitation_mm": 4.2
+    }
+  ],
+  "unavailable": false
+}

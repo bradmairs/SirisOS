@@ -1,3 +1,4 @@
+import { syncPush } from "./api/push";
 import { WorkoutBar } from "./components/WorkoutBar";
 import { AskAbout } from "./components/AskAbout";
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
@@ -165,6 +166,8 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
   const [sheetFor, setSheetFor] = useState<string | null>(null);
   const sheetApp = sheetFor ? apps?.find((a) => a.id === sheetFor) : undefined;
   useEffect(warmScreens, []);
+  // 7.9: keep this install registered once for notifications (see syncPush).
+  useEffect(() => { syncPush().catch(() => undefined); }, []);
 
   return (
     <div className="frame">
