@@ -1,3 +1,4 @@
+import { WorkoutBar } from "./components/WorkoutBar";
 import { AskAbout } from "./components/AskAbout";
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -189,6 +190,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
       </header>
       <AskAbout variant="fab" />
       <main className="shell">
+        <WorkoutBar />
         <Suspense fallback={<ScreenFallback />}>
         <Routes>
           <Route path="/" element={<HomeOrApproval />} />

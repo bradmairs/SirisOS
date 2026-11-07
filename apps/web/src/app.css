@@ -1234,3 +1234,9 @@ h3.note__heading { font-size: 17px; }
 .handwriting__page img { width: 100%; height: auto; display: block; }
 .handwriting__text { min-height: 220px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
 .budget .button { max-width: 100%; white-space: normal; text-align: left; }
+/* 7.8: a workout in progress, on every page */
+.workout-bar { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; padding: 10px 14px; border-radius: 16px; text-decoration: none; color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 16%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.workout-bar__text { flex: 1; min-width: 0; display: grid; font-size: 14px; }
+.workout-bar__text strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.workout-bar__go { flex: none; font-weight: 600; font-size: 14px; color: var(--accent); }
