@@ -79,6 +79,10 @@ class FakeSirisAI:
             return httpx.Response(200, json=example("protocol_deleted"))
         if path == "/siris/hub/v1/protocols/lockdown":
             return httpx.Response(200, json=example("protocol_preview"))
+        if path == "/siris/hub/v1/tracking":
+            body = json.loads(request.content) if request.method == "PUT" else None
+            return httpx.Response(200, json={"containers": [{"name": "open-webui", "state": "exited", "status": "Exited (0)",
+                                                             "tracked": body is None or body["tracked"]}], "untracked": []})
         if path == "/siris/hub/v1/protocols/lockdown/switches":
             return httpx.Response(200, json={"name": "lockdown", **{"active": True, "notify": True}, **json.loads(request.content)})
         if path == "/siris/hub/v1/protocols/lockdown/run":
@@ -273,3 +277,12 @@ def test_every_contract_example_is_present() -> None:
     names = {p.stem for p in CONTRACT.glob("*.json")}
     assert {"schema", "brief", "widgets", "search", "attention", "attention_event", "attention_act", "info",
             "protocol_preview", "protocol_run", "camera_look", "llm_complete"} <= names
+
+
+def test_stop_tracking_goes_through_to_sirisai(client, ai) -> None:
+    """8.4: a container removed on purpose is switched off (SirisAI 5.51)."""
+    assert client.get("/api/v1/assistant/tracking", headers=AUTH).json()["containers"][0]["tracked"] is True
+    off = client.put("/api/v1/assistant/tracking", json={"name": "open-webui", "tracked": False}, headers=AUTH)
+    assert off.status_code == 200 and off.json()["containers"][0]["tracked"] is False
+    assert json.loads(next(r for r in reversed(ai.requests) if r.method == "PUT").content) == {"kind": "container", "name": "open-webui", "tracked": False, "why": ""}
+    assert client.put("/api/v1/assistant/tracking", json={"kind": "device", "name": "x", "tracked": False}, headers=AUTH).status_code == 422

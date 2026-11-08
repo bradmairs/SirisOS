@@ -312,6 +312,25 @@ async def protocol_save(name: SafeName, body: ProtocolSave, connector: SirisAICo
     return await _forward(connector, "PUT", f"/siris/hub/v1/protocols/{name}", json=body.model_dump())
 
 
+class TrackingChange(BaseModel):
+    kind: Literal["container"] = "container"
+    name: str = Field(min_length=1, max_length=120)
+    tracked: bool
+    why: str = Field(default="", max_length=200)
+
+
+@router.get("/assistant/tracking", tags=["assistant"])
+async def tracking_list(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """8.4: what SirisAI watches (Docker's containers, tracked or not) and what it's been told to stop tracking (SirisAI 5.51)."""
+    return await _forward(connector, "GET", "/siris/hub/v1/tracking")
+
+
+@router.put("/assistant/tracking", tags=["assistant"])
+async def tracking_change(body: TrackingChange, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Stop tracking something removed on purpose (no more "it's down" alerts), or track it again."""
+    return await _forward(connector, "PUT", "/siris/hub/v1/tracking", json=body.model_dump())
+
+
 class ProtocolSwitches(BaseModel):
     active: bool | None = None
     notify: bool | None = None
