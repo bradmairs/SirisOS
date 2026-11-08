@@ -98,4 +98,21 @@ describe("<BudgetScreen />", () => {
     await waitFor(() => expect(localStorage.getItem("sirisos.budget.draft")).not.toBeNull(), { timeout: 3000 });
     expect(await screen.findByText(/saved on this device/)).toBeInTheDocument();
   });
+
+  it("folds Expenses, Savings and Spending away to their totals, and remembers it (8.22)", async () => {
+    signIn();
+    mockFetch({ "/api/v1/budget": () => jsonResponse(PLAN) });
+    const user = userEvent.setup();
+    const { unmount } = render(<BudgetScreen />);
+    await screen.findByLabelText("Rent amount");
+    await user.click(screen.getByRole("button", { name: "Hide Expenses" }));
+    expect(screen.queryByLabelText("Rent amount")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show Expenses" })).toHaveAttribute("aria-expanded", "false");
+    unmount();
+    render(<BudgetScreen />);
+    expect(await screen.findByRole("button", { name: "Show Expenses" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show Expenses" }));
+    expect(screen.getByLabelText("Rent amount")).toBeInTheDocument();
+    window.localStorage.removeItem("sirisos.budget.folded");
+  });
 });

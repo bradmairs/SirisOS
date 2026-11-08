@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useResource } from "../api/resource";
 import { life, type Bill, type Doc, type FromEmail, type Trip } from "../api/life";
 import { Glass } from "../components/Glass";
+import { categoryOf, LatestThenGrouped } from "../components/Grouped";
 import { ReceiptView } from "./ReceiptView";
 
 function day(iso: string) {
@@ -142,8 +143,8 @@ export function ReceiptsCard() {
       {(receipts.length > 0 || q) && <input className="field" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a receipt" aria-label="Find a receipt" />}
       {q && list.data && receipts.length === 0 && <p className="muted" style={{ margin: 0, fontSize: 14 }}>Nothing matches.</p>}
       {receipts.length > 0 && (
-        <ul className="items">
-          {receipts.map((d) => (
+        <LatestThenGrouped items={receipts} label="receipts" latest={q ? Number.MAX_SAFE_INTEGER : 5} newest={(a, b) => b.added_at.localeCompare(a.added_at)}
+          category={(d) => categoryOf(d.title, d.sender)} render={(d) => (
             <li key={d.id}>
               <button type="button" className="item item--button" aria-expanded={open === d.id} onClick={() => setOpen(open === d.id ? null : d.id)}>
                 <span className="item__text">
@@ -153,8 +154,7 @@ export function ReceiptsCard() {
               </button>
               {open === d.id && <div style={{ padding: "4px 12px 12px" }}><ReceiptView id={d.id} onRemoved={() => { setOpen(null); void list.reload(true); }} /></div>}
             </li>
-          ))}
-        </ul>
+          )} />
       )}
     </Glass>
   );
