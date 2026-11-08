@@ -25,6 +25,11 @@ export interface YearGoals {
   goals: YearGoal[];
   /** January, and no goals yet for this year. */
   set_them: boolean;
+  /** 8.3: SirisAI is asking to set this year's goals (January, until you say they're set). */
+  setting_due?: boolean;
+  /** 8.3: SirisAI is asking to review this year's goals (December, or a missed one in January). */
+  review_due?: boolean;
+  reviewed?: boolean;
 }
 
 export const KIND_LABEL: Record<GoalKind, string> = {
@@ -39,7 +44,12 @@ export const KIND_LABEL: Record<GoalKind, string> = {
 
 const G = "/api/v1/goals";
 
+export interface GoalsPrompt { kind: "set" | "review"; year: number; goals: number }
+
 export const goals = {
+  prompt: () => api<{ prompt: GoalsPrompt | null }>(`${G}/prompt`),
+  markSet: (year: number) => api<{ prompt: GoalsPrompt | null }>(`${G}/set?year=${year}`, { method: "POST" }),
+  review: (year: number, carry: string[]) => api<{ carried: YearGoal[]; into: number }>(`${G}/review?year=${year}`, json({ carry })),
   get: (year: number) => api<YearGoals>(`${G}?year=${year}`),
   add: (year: number, goal: { title: string; kind: GoalKind; target?: number | null; unit?: string }) => api<YearGoal>(`${G}?year=${year}`, json(goal)),
   change: (year: number, id: string, changes: Partial<Pick<YearGoal, "title" | "target" | "progress" | "done" | "notes" | "unit">>) =>

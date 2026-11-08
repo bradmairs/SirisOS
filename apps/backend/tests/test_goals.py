@@ -83,13 +83,15 @@ def test_counted_and_done_goals(setup):
         service.update(2026, "nope", {"done": True})
 
 
-def test_january_asks_once_until_goals_are_set(setup):
+def test_january_asks_until_you_say_the_goals_are_set(setup):
     assert service.push_message(datetime(2027, 2, 1)) == []
     msg = service.push_message(datetime(2027, 1, 1, 9))
-    assert msg[0]["key"] == "goals:2027" and msg[0]["url"] == "/year"
+    assert msg[0]["key"] == "goals:set:2027" and msg[0]["url"] == "/year"  # one notification: the key doesn't change all month
     assert overview(2027, date(2027, 1, 3))["set_them"] is True
     service.add(2027, service.Goal(title="Get chartered"))
-    assert service.push_message(datetime(2027, 1, 2)) == [] and overview(2027, date(2027, 1, 3))["set_them"] is False
+    assert overview(2027, date(2027, 1, 3))["set_them"] is False and overview(2027, date(2027, 1, 3))["setting_due"] is True  # 8.3
+    service.mark("set", 2027)
+    assert service.push_message(datetime(2027, 1, 2)) == [] and overview(2027, date(2027, 1, 3))["setting_due"] is False
 
 
 def test_api(setup):
@@ -102,3 +104,51 @@ def test_api(setup):
     assert body["year"] == 2026 and body["goals"][0]["value"] == 3
     assert client.delete(f"/api/v1/goals/{made['id']}?year=2026", headers=AUTH).status_code == 204
     assert client.delete(f"/api/v1/goals/{made['id']}?year=2026", headers=AUTH).status_code == 404
+
+
+def test_sirisai_asks_to_set_goals_all_january_until_you_say(setup, monkeypatch, tmp_path):
+    from datetime import date
+
+    from app.goals import service
+
+    monkeypatch.setenv("SIRISOS_GOALS_PATH", str(tmp_path / "goals.json"))
+    assert service.prompt(date(2027, 1, 3)) == {"kind": "set", "year": 2027, "goals": 0}
+    service.add(2027, service.Goal(title="Run 1000 km", kind="running_km", target=1000))
+    assert service.prompt(date(2027, 1, 28))["goals"] == 1, "still asking with goals in, until you say"
+    service.mark("set", 2027)
+    assert service.prompt(date(2027, 1, 29)) is None
+    assert service.prompt(date(2027, 6, 1)) is None
+
+
+def test_december_asks_for_a_review_and_carries_the_unfinished(setup, monkeypatch, tmp_path):
+    from datetime import date
+
+    from app.goals import service
+
+    monkeypatch.setenv("SIRISOS_GOALS_PATH", str(tmp_path / "goals.json"))
+    keep = service.add(2026, service.Goal(title="Read 12 books", kind="count", target=12, progress=7))
+    done = service.add(2026, service.Goal(title="Get chartered", kind="done", done=True))
+    service.add(2027, service.Goal(title="Read 12 books", kind="count", target=12))
+    assert service.prompt(date(2026, 12, 2)) == {"kind": "review", "year": 2026, "goals": 2}
+    assert service.prompt(date(2027, 1, 2))["kind"] == "review", "a missed December review is asked for in January first"
+    other = service.add(2026, service.Goal(title="Learn Spanish", kind="done"))
+    moved = service.carry(2026, [keep.id, other.id, done.id])
+    assert [g.title for g in moved] == ["Get chartered", "Learn Spanish"] or [g.title for g in moved] == ["Learn Spanish", "Get chartered"]
+    titles = [g.title for g in service.goals(2027)]
+    assert titles.count("Read 12 books") == 1, "one already there isn't doubled"
+    fresh = next(g for g in service.goals(2027) if g.title == "Learn Spanish")
+    assert not fresh.done and fresh.notes.startswith("Carried from 2026")
+    service.mark("review", 2026)
+    assert service.prompt(date(2026, 12, 20)) is None
+    assert service.goals(2026)[0].title == "Read 12 books", "the old year is left as it was"
+
+
+def test_the_review_route_carries_only_whats_picked(setup, monkeypatch, tmp_path):
+    client = TestClient(app)
+    monkeypatch.setenv("SIRISOS_GOALS_PATH", str(tmp_path / "goals2.json"))
+    a = service.add(2026, service.Goal(title="Swim", kind="done"))
+    service.add(2026, service.Goal(title="Paint", kind="done"))
+    r = client.post("/api/v1/goals/review?year=2026", headers=AUTH, json={"carry": [a.id]})
+    assert r.status_code == 200 and [g["title"] for g in r.json()["carried"]] == ["Swim"] and r.json()["into"] == 2027
+    assert client.post("/api/v1/goals/set?year=2027", headers=AUTH).status_code == 200
+    assert "set:2027" in service._marks() and "review:2026" in service._marks()

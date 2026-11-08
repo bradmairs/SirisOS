@@ -103,6 +103,9 @@ select.field { appearance: none; }
 .brain-map__bar { display: flex; align-items: center; gap: 4px; margin: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px; padding: 4px 6px 4px 18px; }
 .brain-map__bar > * { position: relative; z-index: 2; }
 .brain-map__title { font-weight: 650; }
+.brain-map__note { margin: 0 12px 8px; font-size: 14px; }
+/* 8.3: on desktop the full-screen map starts right of the menu, so the menu doesn't cover the map's search and filters. */
+@media (min-width: 960px) { .brain-map--full { left: 304px; } }
 body.no-scroll { overflow: hidden; }
 
 /* ------------------------------------------------------------ frame & menu */
@@ -942,6 +945,7 @@ h3.note__heading { font-size: 17px; }
 .gym-rest__bar span { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
 .receipt-frame { width: 100%; height: 60vh; border: 1px solid color-mix(in srgb, var(--ink-3) 25%, transparent); border-radius: 12px; background: #fff; }
 .receipt-image { max-width: 100%; height: auto; border-radius: 12px; background: #fff; align-self: flex-start; }
+.goals__ask { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .grouped__head { margin: 10px 0 2px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink-2, inherit); }
 .receipt-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; max-height: 60vh; overflow: auto; }
 .gym-advice { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
