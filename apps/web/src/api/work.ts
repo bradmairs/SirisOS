@@ -13,6 +13,8 @@ export interface WorkDay {
     minimums?: { category: string; label: string; hours: number; minimum: number; short: number }[] } | null;
   week?: { days: { date: string; weekday: string; done: number; focus_min: number }[]; done_today: number; focus_today: number };
   apps?: { id: string; name: string; url: string; icon: string | null; note: string }[];
+  /** 8.21: the focus timer's lengths and the Apps and tools tiles (`apps` null: automatic). */
+  settings?: WorkSettings;
   notes?: { title: string; path: string; type: string; as_of: string; tags: string[]; excerpt: string }[] | null;
   /** The end-of-work wrap-up (7.5): due from 15 minutes before home time, unless done. */
   wrapup?: { due: boolean; saved: WorkWrapUpSaved | null; next_workday: string };
@@ -33,7 +35,10 @@ export interface Chartership {
 
 export type CpdCategory = "area" | "risk" | "business" | "other";
 
+export interface WorkSettings { focus_min: number; break_min: number; apps: string[] | null; calculators: boolean; career: boolean }
+
 export const work = {
+  settings: (s: Partial<WorkSettings>) => api<WorkSettings>("/api/v1/work/settings", { method: "PUT", body: JSON.stringify(s) }),
   get: () => api<WorkDay>("/api/v1/work"),
   focus: (minutes: number) => api<{ today: number }>("/api/v1/work/focus", { method: "POST", body: JSON.stringify({ minutes }) }),
   todoDone: () => api<{ ok: boolean }>("/api/v1/work/todo-done", { method: "POST" }),

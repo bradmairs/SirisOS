@@ -86,6 +86,6 @@ async def finish(title: str, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
 def add_task(title: str, body: NewTask) -> dict[str, Any]:
     """Plain words like the Tasks screen ("send levels friday"); the project's
     name goes in the notes, so it shows on this page."""
-    task = tasks.parse(body.text)
+    task = tasks.due_today_unless_said(tasks.parse(body.text))
     task.notes = (task.notes + " · " if task.notes else "") + f"Project: {title}"
     return tasks.add(task).model_dump()

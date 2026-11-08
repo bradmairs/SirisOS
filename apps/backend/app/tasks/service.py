@@ -109,6 +109,13 @@ def parse(text: str, on: date | None = None) -> store.Task:
     return store.Task(title=title[:1].upper() + title[1:], due=due.isoformat() if due else None, time=at, repeat=repeat, created_at=store.now())
 
 
+def due_today_unless_said(task: store.Task, on: date | None = None) -> store.Task:
+    """A new task with no date is for today (8.21): set a date, or clear it for "someday", to change that."""
+    if task.due is None:
+        task.due = (on or today()).isoformat()
+    return task
+
+
 # -- the list ----------------------------------------------------------------------
 
 # Words that make an unlabelled task work (4.9): Home shows work tasks in work hours, the rest after.

@@ -52,7 +52,7 @@ def run(monkeypatch, tmp_path):
     ("Add a task to call the plumber Friday", "Call the plumber", "2026-10-30", None),
     ("remind me to put the bins out tonight", "Put the bins out", "2026-10-23", "19:00"),
     ("add task send levels to Dana tomorrow at 9am", "Send levels to Dana", "2026-10-24", "09:00"),
-    ("todo: renew rego", "Renew rego", None, None),
+    ("todo: renew rego", "Renew rego", "2026-10-23", None),  # 8.3: today unless it says when
 ])
 def test_tasks(run, text, title, due, at):
     r = run(text)
@@ -92,5 +92,5 @@ def test_api(monkeypatch, tmp_path):
     monkeypatch.setenv("SIRISOS_TASKS_PATH", str(tmp_path / "tasks.json"))
     client = TestClient(app)
     assert client.post("/api/v1/command", json={"text": "todo: x"}).status_code == 401
-    assert client.post("/api/v1/command", headers=AUTH, json={"text": "todo: buy milk"}).json()["reply"] == "Added: Buy milk."
+    assert client.post("/api/v1/command", headers=AUTH, json={"text": "todo: buy milk"}).json()["reply"] == "Added: Buy milk, today."
     assert client.post("/api/v1/command", headers=AUTH, json={"text": ""}).status_code == 422

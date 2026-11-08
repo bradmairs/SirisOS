@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"], dependencies=[Depends
 class NewTask(BaseModel):
     text: str | None = Field(default=None, max_length=400, description="Free text like 'remind me to pay rego on Friday'.")
     title: str | None = Field(default=None, max_length=300)
+    # 8.21: a new task is due today unless it says when, or `due` is sent: a date, or null for no date ("someday").
     due: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     repeat: store.Repeat = "none"
@@ -61,12 +62,14 @@ def add_task(body: NewTask) -> dict[str, Any]:
     if body.text and body.text.strip():
         task = service.parse(body.text)
         task.area = body.area
+        if "due" in body.model_fields_set:
+            task.due = body.due
     elif body.title and body.title.strip():
         task = store.Task(title=body.title.strip(), due=body.due, time=body.time, repeat=body.repeat, notes=body.notes, area=body.area)
     else:
         raise HTTPException(status_code=422, detail="Give the task a title.")
-    if task.repeat != "none" and not task.due:
-        task.due = service.today().isoformat()
+    if "due" not in body.model_fields_set or task.repeat != "none":
+        service.due_today_unless_said(task)
     return service.add(task).model_dump()
 
 

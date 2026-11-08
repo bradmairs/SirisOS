@@ -139,6 +139,23 @@ def _load() -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+DEFAULT_SETTINGS: dict[str, Any] = {"focus_min": 25, "break_min": 5, "apps": None, "calculators": True, "career": True}
+
+
+def settings() -> dict[str, Any]:
+    """The Work page's own settings (8.21): focus and break lengths, and which apps the Apps and tools tiles show
+    (`apps` None: automatic, from the Links group named Work and work-sounding names)."""
+    saved = _load().get("settings") or {}
+    return {**DEFAULT_SETTINGS, **{k: v for k, v in saved.items() if k in DEFAULT_SETTINGS}}
+
+
+def save_settings(changes: dict[str, Any]) -> dict[str, Any]:
+    doc = _load()
+    doc["settings"] = {**settings(), **{k: v for k, v in changes.items() if k in DEFAULT_SETTINGS}}
+    json_store.write(_path(), doc)
+    return settings()
+
+
 def add_focus(day: date, minutes: int) -> int:
     doc = _load()
     focus = doc.setdefault("focus", {})
@@ -181,15 +198,17 @@ WORK_APP = re.compile(r"\b(gvw|goulburn|cmp|timesheets?|sirispm|pm|archive|engin
 
 
 def apps() -> list[dict[str, Any]]:
-    """Work apps for the tiles: links in a group named Work, or named like a work app (GVW, CMP, Timesheet, SirisPM, Archive)."""
+    """Work apps for the tiles: the ones you picked (8.21), in your order; else links in a group named Work, or named
+    like a work app (GVW, CMP, Timesheet, SirisPM, Archive)."""
     from app.links import store as links
 
-    out = []
-    for g in links.load().groups:
-        for link in g.links:
-            if "work" in g.name.lower() or WORK_APP.search(f"{link.name} {link.note}"):
-                out.append({"id": link.id, "name": link.name, "url": link.url, "icon": link.icon, "note": link.note})
-    return out[:12]
+    every = [(g, link) for g in links.load().groups for link in g.links]
+    tile = lambda link: {"id": link.id, "name": link.name, "url": link.url, "icon": link.icon, "note": link.note}  # noqa: E731
+    picked = settings().get("apps")
+    if isinstance(picked, list):
+        by_id = {link.id: link for _, link in every}
+        return [tile(by_id[i]) for i in picked if i in by_id][:24]
+    return [tile(link) for g, link in every if "work" in g.name.lower() or WORK_APP.search(f"{link.name} {link.note}")][:12]
 
 
 async def _recent_notes(hub: Hub) -> list[dict[str, Any]] | None:
@@ -214,7 +233,7 @@ async def dashboard(hub: Hub, at: datetime) -> dict[str, Any]:
     )
     pr.pop("projects", None)
     return {"date": day.isoformat(), "local_time": at.isoformat(timespec="minutes"), "hours": hours(at), "tasks": tk, **pr,
-            "week": week(day), "apps": apps(), "notes": notes,
+            "week": week(day), "apps": apps(), "settings": settings(), "notes": notes,
             "wrapup": {"due": wrapup_due(at), "saved": wrapup_saved(day), "next_workday": next_workday(day).isoformat()},
             "engineering": _engineering(), "cpd": _cpd(day), "chartership": _chartership(day)}
 
