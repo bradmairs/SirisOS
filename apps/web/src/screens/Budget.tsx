@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mail, PiggyBank, Plus, Table2, Trash2, Wallet } from "lucide-react";
+import { ChevronDown, ChevronUp, Mail, PiggyBank, Plus, Table2, Trash2, Wallet } from "lucide-react";
 import {
   EMPTY, EVERY, PRESETS, SECTIONS, SECTION_HINT, SECTION_LABEL, budget, goals, money, monthly, newLine, per, rule503020,
   savingsProjection, totals, type Budget, type Every, type Line, type Period, type Section,
@@ -68,6 +68,8 @@ function LineRows({ lines, section, onChange, currency }: {
   );
 }
 
+const FOLDED = "sirisos.budget.folded";
+
 function Tile({ label, value, tone, sub, color }: { label: string; value: string; tone?: "good" | "critical"; sub?: string; color?: string }) {
   return (
     <div className="budget-tile">
@@ -79,6 +81,14 @@ function Tile({ label, value, tone, sub, color }: { label: string; value: string
 }
 
 export function BudgetScreen() {
+  // 8.22: Expenses, Savings and Spending fold away to their total; remembered on this device.
+  const [folded, setFolded] = useState<Set<string>>(() => { try { return new Set(JSON.parse(window.localStorage.getItem(FOLDED) ?? "[]") as string[]); } catch { return new Set(); } });
+  const fold = (s: string) => setFolded((f) => {
+    const next = new Set(f);
+    if (next.has(s)) next.delete(s); else next.add(s);
+    try { window.localStorage.setItem(FOLDED, JSON.stringify([...next])); } catch { /* fine */ }
+    return next;
+  });
   const [plan, setPlan] = useState<Plan | null>(null);
   const [history, setHistory] = useState<Budget["history"]>([]);
   const [period, setPeriod] = useState<Period>("month");
@@ -273,7 +283,11 @@ export function BudgetScreen() {
               <span className="chart-swatch" style={{ background: COLOR[s] }} aria-hidden="true" />
               <span>{SECTION_LABEL[s]}</span>
               <span className="widget__source">{show(t[s])} {noun}</span>
+              <button type="button" className="icon-link" aria-expanded={!folded.has(s)} aria-label={`${folded.has(s) ? "Show" : "Hide"} ${SECTION_LABEL[s]}`} onClick={() => fold(s)}>
+                {folded.has(s) ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
+              </button>
             </header>
+            {!folded.has(s) && <>
             <p className="muted" style={{ margin: 0, fontSize: 13 }}>{SECTION_HINT[s]}</p>
             <LineRows lines={plan.sections[s]} section={s} currency={c} onChange={(lines) => change({ ...plan, sections: { ...plan.sections, [s]: lines } })} />
             {s === "expenses" && (
@@ -291,6 +305,7 @@ export function BudgetScreen() {
                 {billNote && <span className="muted" role="status" style={{ marginLeft: 8, fontSize: 13 }}>{billNote}</span>}
               </div>
             )}
+            </>}
           </Glass>
         ))}
       </div>

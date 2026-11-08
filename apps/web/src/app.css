@@ -942,6 +942,7 @@ h3.note__heading { font-size: 17px; }
 .gym-rest__bar span { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
 .receipt-frame { width: 100%; height: 60vh; border: 1px solid color-mix(in srgb, var(--ink-3) 25%, transparent); border-radius: 12px; background: #fff; }
 .receipt-image { max-width: 100%; height: auto; border-radius: 12px; background: #fff; align-self: flex-start; }
+.grouped__head { margin: 10px 0 2px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink-2, inherit); }
 .receipt-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; max-height: 60vh; overflow: auto; }
 .gym-advice { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
 .gym-muscles { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

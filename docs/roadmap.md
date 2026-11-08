@@ -189,6 +189,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.1: Receipts kept with the email and attachments, linked from Things; the Gmail Receipts folder read in full (SirisAI 5.31)
 8.2: The receipt itself first (SirisAI 5.41), new and deleted projects, SirisAI's version checked properly, section names capitalised, Home controls above the 3D model
 8.21: New tasks default to today (date on the Add bar and each task), focus and break lengths, pick the Work apps
+8.22: Things and receipts show the latest 5, then everything by category; Budget sections fold away
 
 ## Terminal (ADR 113)
 

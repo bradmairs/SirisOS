@@ -3,6 +3,7 @@ import { Cake, Gift, Package, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
 import { people, things, type Person, type Thing } from "../api/life";
 import { Glass } from "../components/Glass";
+import { categoryOf, LatestThenGrouped } from "../components/Grouped";
 import { Sheet } from "../components/Sheet";
 import { ReceiptView } from "./ReceiptView";
 
@@ -15,6 +16,9 @@ function warranty(t: Thing): { text: string; tone?: "good" | "warning" | "critic
   if (left <= 30) return { text: `⚠ Warranty ends in ${left} day${left === 1 ? "" : "s"}`, tone: "warning" };
   return { text: `✓ Under warranty until ${day(t.warranty_until)}`, tone: "good" };
 }
+
+/** Newest first: by when it was bought, then by when it was added. */
+const newestThing = (a: Thing, b: Thing) => (b.bought ?? "").localeCompare(a.bought ?? "") || b.id - a.id;
 
 /** What you own, its warranty and its manual (7.7, SirisAI 5.0). Receipts added under Life Admin fill this in too. */
 export function ThingsCard() {
@@ -62,8 +66,9 @@ export function ThingsCard() {
       {data && data.length === 0 ? (
         <p className="muted" style={{ margin: 0, fontSize: 14 }}>{q ? "Nothing matches." : "Nothing yet. Receipts from your email or added under Life Admin show up here."}</p>
       ) : (
-        <ul className="items">
-          {(data ?? []).map((t) => {
+        <LatestThenGrouped items={data ?? []} label="things" newest={newestThing} category={(t) => categoryOf(t.name, t.brand, t.model, t.shop)}
+          latest={q ? Number.MAX_SAFE_INTEGER : 5}
+          render={(t) => {
             const w = warranty(t);
             return (
               <li key={t.id} className="item">
@@ -85,8 +90,7 @@ export function ThingsCard() {
                 </button>
               </li>
             );
-          })}
-        </ul>
+          }} />
       )}
       {receipt != null && <Sheet label="Receipt" onClose={() => setReceipt(null)}><ReceiptView id={receipt} /></Sheet>}
     </Glass>
