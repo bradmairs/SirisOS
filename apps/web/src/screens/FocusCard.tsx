@@ -170,7 +170,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
         ) : (
           <>
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>Two minutes: tick off what's done, log any CPD, pick tomorrow's top 3.</p>
-            <div className="row"><Link to="/wrapup" className="button button--small button--primary"><MoonStar size={14} aria-hidden="true" /> Wrap up</Link></div>
+            <div className="row"><Link to="/wrapup" className="button button--small button--primary"><MoonStar size={14} aria-hidden="true" /> Wrap Up</Link></div>
           </>
         )}
         {upcoming.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 14 }}>Tonight: {upcoming.slice(0, 2).map((e) => `${e.title} at ${at(e.start)}`).join(" · ")}</p>}

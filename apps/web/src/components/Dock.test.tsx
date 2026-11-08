@@ -13,23 +13,23 @@ describe("the tab bar", () => {
     }
   });
 
-  it("makes the fourth the brief in the morning, Wrap up from wind down, Links otherwise", () => {
+  it("makes the fourth the brief in the morning, Wrap Up from wind down, Links otherwise", () => {
     expect(labels({ phase: "morning", home: true })[3]).toBe("Brief");
-    expect(labels({ phase: "winddown", home: true })[3]).toBe("Wrap up");
-    expect(labels({ phase: "night", home: true })[3]).toBe("Wrap up");
+    expect(labels({ phase: "winddown", home: true })[3]).toBe("Wrap Up");
+    expect(labels({ phase: "night", home: true })[3]).toBe("Wrap Up");
     expect(labels({ phase: "work", home: true })[3]).toBe("Links");
     expect(labels({ phase: "evening", home: true })[3]).toBe("Links");
   });
 
-  it("makes the fifth Work at work (7.2), Smart home at home, Tasks out, Career when it can't tell", () => {
+  it("makes the fifth Work at work (7.2), Smart Home at home, Tasks out, Career when it can't tell", () => {
     expect(labels({ phase: "work", home: true })[4]).toBe("Work");     // even working from home
-    expect(labels({ phase: "evening", home: true })[4]).toBe("Smart home");
+    expect(labels({ phase: "evening", home: true })[4]).toBe("Smart Home");
     expect(labels({ phase: "weekend", home: false })[4]).toBe("Tasks");
     expect(labels({ phase: "evening", home: null })[4]).toBe("Career");
   });
 
   it("uses what you picked in Times of day over the automatic choice", () => {
-    expect(labels({ phase: "evening", home: true, dock: { fourth: "/review", fifth: "auto" } })).toEqual(["Home", "SirisAI", "Siris", "Review", "Smart home"]);
+    expect(labels({ phase: "evening", home: true, dock: { fourth: "/review", fifth: "auto" } })).toEqual(["Home", "SirisAI", "Siris", "Review", "Smart Home"]);
     expect(labels({ phase: "work", home: true, dock: { fourth: "auto", fifth: "/engineering" } })[4]).toBe("Engineering");
     expect(labels({ phase: "work", home: true, dock: { fourth: "/nope", fifth: "auto" } })).toHaveLength(4);   // an unknown screen is left out
   });
@@ -64,7 +64,7 @@ describe("gym time on the tab bar", () => {
 });
 
 describe("tab badges", () => {
-  it("dots Siris when the brain has things waiting, and Smart home when the house needs you", () => {
+  it("dots Siris when the brain has things waiting, and Smart Home when the house needs you", () => {
     expect(dockBadges([], 0)).toEqual({});
     expect(dockBadges([], 3)).toEqual({ "/brain": "3 waiting in the brain" });
     const items = [

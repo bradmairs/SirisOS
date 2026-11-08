@@ -48,7 +48,7 @@ function isGarage(entity: unknown): boolean {
 
 const whenLabel = (w: ProtocolStepDef["when"]) => (typeof w === "string" ? WHEN.find((x) => x.value === w)?.label : w ? `Only when ${w.entity} is ${w.state ?? `not ${w.not_state}`}` : null);
 
-/** Smart home: every protocol, to change, and a way to make new ones (4.91). What's saved is
+/** Smart Home: every protocol, to change, and a way to make new ones (4.91). What's saved is
  *  what Home's Protocols card and Siris in chat use. */
 export function ProtocolsManager() {
   const res = useResource<ProtocolCatalogue>("sirisai:protocols", () => assistant.protocols(), { staleMs: 30_000 });

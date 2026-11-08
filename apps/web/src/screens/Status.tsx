@@ -24,7 +24,7 @@ export function StatusScreen() {
   const { data, error, loading, reload } = useResource("hub:status", () => systemStatus.get(), { refreshMs: 60_000, persist: true });
   const test = useResource("hub:selftest", () => selfTest.last(), { staleMs: 10 * 60_000, persist: true }).data?.last;
   useEffect(() => {
-    document.title = "System status · SirisOS";
+    document.title = "System Status · SirisOS";
   }, []);
   const apps = data?.apps ?? [];
   const down = apps.filter((a) => a.status.state === "down").length;
@@ -35,7 +35,7 @@ export function StatusScreen() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">{data ? (down ? `${down} down` : degraded ? `${degraded} need${degraded === 1 ? "s" : ""} a look` : "Everything's up") : "Checking…"}</p>
-          <h1 className="page-head__title">System status</h1>
+          <h1 className="page-head__title">System Status</h1>
         </div>
         <Glass as="button" shape="pill" interactive className="button button--icon" onClick={() => reload(true).catch(() => undefined)} aria-label="Check again">
           <RefreshCw className={loading ? "spin" : ""} aria-hidden="true" />
@@ -145,7 +145,9 @@ function UpkeepCard() {
                   : u.available ? `${u.latest} is out` : "Up to date"}
                 {u.last?.state ? ` · last update: ${u.last.state}${u.last.version ? ` (${u.last.version})` : ""}` : ""}
               </div>
-              {u.updater_running === false && (
+              {u.mode === "off" ? (
+                <div className="item__subtitle">Updates are deployed by hand, so SirisAI doesn't check for them itself.</div>
+              ) : u.updater_running === false && (
                 <div className="item__subtitle tone-warning">The updater isn't running on the server, so updates can't install themselves. Once, in SirisAI's deploy folder: <code>make update</code> (it installs the updater too, from SirisAI 4.5)</div>
               )}
             </span>

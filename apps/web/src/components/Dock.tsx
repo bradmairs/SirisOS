@@ -22,8 +22,8 @@ const tab = (to: string): Tab => ({ ...SCREENS[to], label: SHORT[to] ?? SCREENS[
 /**
  * The tab bar follows where you are and the part of the day (4.94, 4.95). The first three are
  * always Home, SirisAI and Siris. Unless you've picked them in Times of day:
- * - the fourth is the brief in the morning, Wrap up from wind down, and Links otherwise;
- * - the fifth is Work in work hours (8:00 to 4:30 on weekdays; 7.2), Smart home when you're home,
+ * - the fourth is the brief in the morning, Wrap Up from wind down, and Links otherwise;
+ * - the fifth is Work in work hours (8:00 to 4:30 on weekdays; 7.2), Smart Home when you're home,
  *   Tasks when you're out, and Career when SirisAI can't tell.
  * - from 6 to 8 am, SirisGym takes the fifth (or the fourth, if you've picked the fifth; 6.97).
  * With "Changes with the time of day" off it's Links and Career all day.
@@ -53,7 +53,7 @@ export function gymTime(at: Date): boolean {
 const HOME_SOURCE = /intruder|presence|departure|home_assistant|camera|frigate|protocol|doorbell|garage|lock/i;
 
 /** Which tabs have something waiting (4.95): Siris when the brain's inbox has notes to sort or a
- *  brain item is open, Smart home when the house wants you. */
+ *  brain item is open, Smart Home when the house wants you. */
 export function dockBadges(items: Pick<InboxItem, "source" | "app">[], brainInbox: number): Record<string, string> {
   const badges: Record<string, string> = {};
   const brainItems = items.filter((i) => i.source === "second-brain").length;

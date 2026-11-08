@@ -102,7 +102,7 @@ export function AppHealthWidget({ apps, delay }: { apps: HubApp[]; delay?: numbe
           ))}
         </ul>
       )}
-      <Link to="/status" className="widget__more">System status →</Link>
+      <Link to="/status" className="widget__more">System Status →</Link>
     </Card>
   );
 }

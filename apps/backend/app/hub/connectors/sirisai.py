@@ -38,7 +38,8 @@ class SirisAIConnector(Connector):
         status = await self.get_json(client, "/siris/status")
         if isinstance(status, dict) and not status.get("llm_provider"):
             raise ConnectorError("Running, but no LLM provider is configured", state="degraded")
-        return status.get("llm_provider") if isinstance(status, dict) else None
+        # Its version (8.2): this was the model provider ("ollama"), which the setup check then read as a version.
+        return str(status.get("version") or "") or None if isinstance(status, dict) else None
 
     async def hud(self, client: httpx.AsyncClient) -> dict[str, Any]:
         return await self.get_json(client, "/siris/hud/summary")

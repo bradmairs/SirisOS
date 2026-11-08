@@ -1,2 +1,2 @@
 /** The SirisOS version, kept in step with /VERSION by scripts/bump-version.sh. */
-export const APP_VERSION = "8.1";
+export const APP_VERSION = "8.2";

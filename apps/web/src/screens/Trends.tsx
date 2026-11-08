@@ -24,7 +24,7 @@ export function TrendsScreen() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">{data ? `${monthName(data.months[0].month, "long")} – ${monthName(data.months[11].month, "long")}` : "The last 12 months"}</p>
-          <h1 className="page-head__title">Your year</h1>
+          <h1 className="page-head__title">Your Year</h1>
         </div>
         <button type="button" className="button button--small" aria-pressed={table} onClick={() => setTable((t) => !t)}>
           <Table2 size={14} aria-hidden="true" /> {table ? "Charts" : "Table"}

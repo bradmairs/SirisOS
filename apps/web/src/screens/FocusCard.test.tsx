@@ -31,11 +31,11 @@ describe("<FocusCard />", () => {
 
   it("offers the wrap-up in the evening, then tomorrow's top 3 once it's done", () => {
     const { unmount } = show(ctx({ phase: "evening" }));
-    expect(screen.getByRole("link", { name: /Wrap up/ })).toHaveAttribute("href", "/wrapup");
+    expect(screen.getByRole("link", { name: /Wrap Up/ })).toHaveAttribute("href", "/wrapup");
     unmount();
     show(ctx({ phase: "evening", wrapped_up: true, tomorrow_top3: ["Call Dana"] }));
     expect(screen.getByRole("region", { name: "This evening" })).toHaveTextContent("Call Dana");
-    expect(screen.queryByRole("link", { name: /Wrap up/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Wrap Up/ })).not.toBeInTheDocument();
   });
 
   it("leads a weekend with what's on and the weather outside", () => {

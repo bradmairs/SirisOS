@@ -187,6 +187,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 7.91: SirisGym reads weight from the daily health records (400 days, not the slow 70-day overview); Data sync shows the last weight received
 8.0: Receipts in email fill in Things (SirisAI 5.21), read-only, with a script to connect Gmail
 8.1: Receipts kept with the email and attachments, linked from Things; the Gmail Receipts folder read in full (SirisAI 5.31)
+8.2: The receipt itself first (SirisAI 5.41), new and deleted projects, SirisAI's version checked properly, section names capitalised, Home controls above the 3D model
 
 ## Terminal (ADR 113)
 

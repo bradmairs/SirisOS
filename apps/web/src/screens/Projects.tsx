@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
-import { CalendarDays, CheckCircle2, Circle, FolderKanban, Link2, Plus } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { CalendarDays, CheckCircle2, Circle, FolderKanban, Link2, Plus, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
 import { dueWords, FINISHED, projects, type ProjectPage, type ProjectSummary } from "../api/projects";
 import { dueLabel, tasks, type TaskItem } from "../api/tasks";
@@ -9,7 +9,34 @@ import { useShowMore } from "../components/ShowMore";
 
 /** Every Siris project: what's due, what's gone quiet, open tasks (4.0). */
 export function ProjectsScreen() {
-  const { data, error, loading } = useResource("siris-projects", () => projects.list(), { staleMs: 60_000, persist: true });
+  const { data, error, loading, reload } = useResource("siris-projects", () => projects.list(), { staleMs: 60_000, persist: true });
+  const navigate = useNavigate();
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ title: "", about: "", due: "" });
+  const [problem, setProblem] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleted, setDeleted] = useState<string | null>(() => { try { return window.sessionStorage.getItem("sirisos.project.deleted"); } catch { return null; } });
+  async function create(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setProblem(null);
+    try {
+      const made = await projects.create({ title: form.title.trim(), about: form.about.trim() || undefined, due: form.due || undefined });
+      await reload(true).catch(() => undefined);
+      navigate(`/projects/${encodeURIComponent(made.title)}`);
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function undo() {
+    if (!deleted) return;
+    await projects.restore(deleted).catch((err) => setProblem(err instanceof Error ? err.message : String(err)));
+    try { window.sessionStorage.removeItem("sirisos.project.deleted"); } catch { /* fine */ }
+    setDeleted(null);
+    await reload(true).catch(() => undefined);
+  }
   useEffect(() => {
     document.title = "Projects · SirisOS";
   }, []);
@@ -23,7 +50,22 @@ export function ProjectsScreen() {
           <p className="page-head__eyebrow">{data ? `${active.length} active` : "Siris"}</p>
           <h1 className="page-head__title">Projects</h1>
         </div>
+        <button type="button" className="button button--small button--primary" onClick={() => setAdding(!adding)}>{adding ? "Cancel" : <><Plus size={14} aria-hidden="true" /> New project</>}</button>
       </header>
+      {deleted && (
+        <p className="muted" role="status" style={{ margin: "12px 6px 0" }}>Deleted "{deleted}". It's in Siris' deleted notes. <button type="button" className="icon-link" onClick={undo}>Undo</button></p>
+      )}
+      {adding && (
+        <Glass as="form" className="widget" style={{ minHeight: 0, marginTop: 16 }} aria-label="New project" onSubmit={create}>
+          <input className="field" required maxLength={120} placeholder="Name (e.g. Kitchen renovation)" aria-label="Name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <textarea className="field" rows={3} maxLength={4000} placeholder="What it's about, and what done looks like" aria-label="What it's about" value={form.about} onChange={(e) => setForm({ ...form, about: e.target.value })} />
+          <label className="row" style={{ gap: 8, alignItems: "center" }}><span className="muted">Due</span>
+            <input className="field" type="date" aria-label="Due" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} /></label>
+          {problem && <p className="tone-critical" role="alert" style={{ margin: 0 }}>{problem}</p>}
+          <button type="submit" className="button button--small button--primary" style={{ alignSelf: "flex-start" }} disabled={saving || !form.title.trim()}>{saving ? "Saving…" : "Create in Siris"}</button>
+        </Glass>
+      )}
+      {problem && !adding && <p className="tone-critical" role="alert" style={{ margin: "12px 6px 0" }}>{problem}</p>}
       {error && !data && <div className="error-banner" role="alert">{error}</div>}
       {!data && loading && <div className="skeleton" style={{ height: 200, marginTop: 16 }} />}
       {data && !data.available && <p className="muted" style={{ margin: "16px 6px" }}>Siris isn't reachable right now (SirisAI 2.25 or later lists projects).</p>}
@@ -89,6 +131,19 @@ export function ProjectScreen() {
     await tasks.done(t).catch((err) => setNote(err.message));
     await reload(true).catch(() => undefined);
   }
+  const navigate = useNavigate();
+  async function remove() {
+    if (!window.confirm(`Delete "${title}"? Its note goes to Siris' deleted notes, and you can undo it.`)) return;
+    setBusy(true);
+    try {
+      await projects.remove(title);
+      try { window.sessionStorage.setItem("sirisos.project.deleted", title); } catch { /* fine */ }
+      navigate("/projects");
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  }
   async function finish() {
     setBusy(true);
     try {
@@ -113,6 +168,11 @@ export function ProjectScreen() {
       {error && !data && <div className="error-banner" role="alert">{error}</div>}
       {!data && loading && <div className="skeleton" style={{ height: 240, marginTop: 16 }} />}
       {data && <ProjectBody page={data} text={text} setText={setText} busy={busy} add={add} tick={tick} finish={finish} note={note} />}
+      {data && (
+        <button type="button" className="icon-link" style={{ margin: "16px 6px 0" }} disabled={busy} onClick={remove}>
+          <Trash2 size={14} aria-hidden="true" /> Delete project
+        </button>
+      )}
     </>
   );
 }

@@ -564,3 +564,18 @@ def test_handwriting_review_proxies(client, monkeypatch):
         assert client.get("/api/v1/brain/handwriting").status_code == 401
     finally:
         reset_hub({})
+
+
+def test_sirisais_version_is_its_version_not_its_model():
+    import asyncio
+
+    from app.hub.connectors.sirisai import SirisAIConnector
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"version": "5.41", "llm_provider": "ollama"})
+
+    async def go() -> str | None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            return await SirisAIConnector({"SIRISAI_URL": "http://ai", "SIRISAI_API_KEY": "k"}).check(c)
+
+    assert asyncio.run(go()) == "5.41"

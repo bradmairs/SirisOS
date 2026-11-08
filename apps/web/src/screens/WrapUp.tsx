@@ -113,7 +113,7 @@ export function WrapUpScreen() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">{data ? new Date(`${data.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) : "Today"}</p>
-          <h1 className="page-head__title">Wrap up</h1>
+          <h1 className="page-head__title">Wrap Up</h1>
         </div>
         {finished && <button type="button" className="button button--small" onClick={() => setEditing(true)}><PenLine size={14} aria-hidden="true" /> Change</button>}
       </header>

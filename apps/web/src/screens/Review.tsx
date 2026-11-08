@@ -25,7 +25,7 @@ export function ReviewScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = "Weekly review · SirisOS";
+    document.title = "Weekly Review · SirisOS";
   }, []);
   useEffect(() => {
     if (data && focus === null) setFocus(data.saved?.focus ?? "");
@@ -51,7 +51,7 @@ export function ReviewScreen() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">{data ? `Week of ${dayName(data.week_of)}` : "This week"}</p>
-          <h1 className="page-head__title">Weekly review</h1>
+          <h1 className="page-head__title">Weekly Review</h1>
         </div>
       </header>
       <div className="stack" style={{ marginTop: 16 }}>
