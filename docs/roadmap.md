@@ -191,6 +191,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.21: New tasks default to today (date on the Add bar and each task), focus and break lengths, pick the Work apps
 8.22: Things and receipts show the latest 5, then everything by category; Budget sections fold away
 8.3: SirisAI asks on Home to set goals all January and review them all December (unfinished carry over); delete notes from the mind map (engine 2.39); full-screen map clears the menu
+8.4: What SirisAI watches on System status: switch off a container removed on purpose so its 'down' alerts stop (SirisAI 5.51)
 
 ## Terminal (ADR 113)
 

@@ -8,6 +8,7 @@ import { AccessCheckCard } from "./AccessCheck";
 import { SetupCard } from "./SetupCard";
 import { BackupsCard } from "./BackupsCard";
 import { SpeedCard } from "./SpeedCard";
+import { WatchedCard } from "./WatchedCard";
 import { hueFor, iconFor } from "../components/icons";
 
 function when(epoch: number) {
@@ -47,6 +48,7 @@ export function StatusScreen() {
         <SetupCard />
         <AccessCheckCard />
         <UpkeepCard />
+        <WatchedCard />
         <BackupsCard />
         <SpeedCard />
         {apps.map((a) => <AppCard key={a.id} app={a} />)}
