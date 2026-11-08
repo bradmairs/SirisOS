@@ -114,7 +114,7 @@ async def run(hub: Hub, text: str, today: date | None = None) -> dict[str, Any]:
         return {"intent": "cpd", "reply": f"I'll remind you tomorrow to log {hours:g} hour{'s' if hours != 1 else ''} for {what} in Engineers Australia.",
                 "link": "/career?view=cpd", "task": task.model_dump()}
     if TASK.match(text):
-        task = tasks.parse(TASK.sub("", text, count=1), today)
+        task = tasks.due_today_unless_said(tasks.parse(TASK.sub("", text, count=1), today), today)
         tasks.add(task)
         return {"intent": "task", "reply": f"Added: {task.title}{_when(task, today)}.", "link": "/tasks", "task": task.model_dump()}
     if m := WHATS_ON.match(text):

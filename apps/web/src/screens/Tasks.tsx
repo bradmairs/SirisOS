@@ -68,6 +68,10 @@ export function TaskRow({ task, onChanged, compact }: { task: TaskItem; onChange
           <button type="button" className="icon-link" disabled={busy} onClick={() => setSnoozing(true)} aria-label={`Snooze ${task.title}`} title="Later">
             <AlarmClock size={15} aria-hidden="true" />
           </button>
+          {task.source === "sirisos" && !compact && (
+            <input type="date" className="task__date" disabled={busy} value={task.due ?? ""} aria-label={`Due date for ${task.title}`} title="Change the date, or clear it for no date"
+              onChange={(e) => { const next = e.target.value || null; run(async () => { await tasks.update(task.id, { due: next }); return next ? `“${task.title}” is due ${dueLabel({ due: next, time: null, group: "later" })}` : `“${task.title}” has no date now`; }); }} />
+          )}
           {task.source === "sirisos" && !compact && task.area && (
             <button type="button" className={`chip chip--button task__area${task.area_set ? "" : " task__area--guess"}`} disabled={busy}
               aria-label={`${task.title}: ${task.area}${task.area_set ? "" : " (a guess)"}. Make it ${task.area === "work" ? "personal" : "work"}`}
@@ -107,6 +111,12 @@ function Group({ group, items, onChanged }: { group: TaskGroup; items: TaskItem[
 }
 
 /** The few things to get done (2.9; only SirisOS's own since 4.4, not Siris notes or reminders). */
+/** Today on this device, as YYYY-MM-DD. */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function TasksScreen() {
   const res = useTasks();
   const data = res.data ?? null;
@@ -114,6 +124,9 @@ export function TasksScreen() {
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // 8.21: a new task is for today. Change the date, or clear it for no date; words like "Friday" still count while it's untouched.
+  const [due, setDue] = useState(localToday);
+  const [dueSet, setDueSet] = useState(false);
 
   useEffect(() => {
     document.title = "Tasks · SirisOS";
@@ -130,8 +143,10 @@ export function TasksScreen() {
     setAdding(true);
     setError(null);
     try {
-      const made = await tasks.add({ text: text.trim() });
+      const made = await tasks.add(dueSet ? { text: text.trim(), due: due || null } : { text: text.trim() });
       setText("");
+      setDue(localToday());
+      setDueSet(false);
       changed(`Added “${made.title}”${made.due ? `, ${dueLabel({ due: made.due, time: made.time, group: "later" })}` : ""}${made.repeat !== "none" ? `, repeats ${made.repeat}` : ""}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't add it.");
@@ -153,6 +168,8 @@ export function TasksScreen() {
         <Plus aria-hidden="true" />
         <input className="ask-bar__input" placeholder="Add a task, like “pay rego Friday”" value={text}
           onChange={(e) => setText(e.target.value)} aria-label="Add a task" />
+        <input type="date" className="task__date" value={due} aria-label="Due (clear it for no date)" title="Due today unless you change it; clear it for no date"
+          onChange={(e) => { setDue(e.target.value); setDueSet(true); }} />
         <button type="submit" className="button button--small button--primary" disabled={adding || !text.trim()}>{adding ? "Adding…" : "Add"}</button>
       </Glass>
       {note && <p className="tone-good suggest__done" role="status" style={{ marginTop: 10 }}><Check size={14} aria-hidden="true" /> {note}</p>}

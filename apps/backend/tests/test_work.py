@@ -126,3 +126,18 @@ def test_the_work_wrap_up_carries_tasks_to_the_next_workday_and_tells_siris(monk
     assert [s["text"] for s in sent] == ["Friday 6 November 2026: At work: Finished the RFI response."]
     assert service.wrapup_saved(friday.date())["first"] == "Call the contractor"
     assert not service.wrapup_due(friday) and service.wrapup_push(friday) == []
+
+
+def test_settings_change_the_focus_times_and_pick_the_apps(monkeypatch, tmp_path):
+    from app.links import store as links
+
+    monkeypatch.setenv("SIRISOS_WORK_PATH", str(tmp_path / "work.json"))
+    doc = links.LinksDocument.model_validate({"groups": [{"id": "g", "name": "Tools", "links": [
+        {"id": "a", "name": "Timesheet", "url": "https://t.example"}, {"id": "b", "name": "Maps", "url": "https://m.example"}]}]})
+    monkeypatch.setattr(links, "load", lambda: doc)
+    assert service.settings()["focus_min"] == 25 and [a["id"] for a in service.apps()] == ["a"]  # automatic: work-sounding names
+    service.save_settings({"focus_min": 50, "break_min": 10, "apps": ["b", "a", "gone"], "career": False})
+    assert service.settings() == {"focus_min": 50, "break_min": 10, "apps": ["b", "a", "gone"], "calculators": True, "career": False}
+    assert [a["id"] for a in service.apps()] == ["b", "a"], "your order; a link that's gone is skipped"
+    service.save_settings({"apps": None})
+    assert [a["id"] for a in service.apps()] == ["a"]

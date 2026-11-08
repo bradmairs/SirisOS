@@ -162,3 +162,14 @@ def test_a_task_with_a_time_is_pushed_once(ai):
     assert t.id in {x.id for x in store.load().tasks}
 
 
+
+
+def test_a_new_task_is_for_today_unless_you_say(client):
+    today = service.today().isoformat()
+    assert client.post("/api/v1/tasks", headers=AUTH, json={"text": "buy milk"}).json()["due"] == today
+    assert client.post("/api/v1/tasks", headers=AUTH, json={"title": "Sort the shed"}).json()["due"] == today
+    assert client.post("/api/v1/tasks", headers=AUTH, json={"text": "call Mum tomorrow"}).json()["due"] != today
+    assert client.post("/api/v1/tasks", headers=AUTH, json={"text": "read a book", "due": None}).json()["due"] is None
+    assert client.post("/api/v1/tasks", headers=AUTH, json={"text": "pay rego", "due": "2027-01-05"}).json()["due"] == "2027-01-05"
+    made = client.post("/api/v1/tasks", headers=AUTH, json={"text": "water plants"}).json()
+    assert client.patch(f"/api/v1/tasks/sirisos:{made['id']}", headers=AUTH, json={"due": None}).json()["due"] is None

@@ -6,6 +6,7 @@
     POST /api/v1/work/todo-done   a work-note to-do ticked on the Work page, for the week's chart
     POST /api/v1/work/cpd      {title, hours, category, date?, provider?}: log CPD
     POST /api/v1/work/wrapup   {done, carry[], first, note, cpd?}: the end-of-work wrap-up (7.5)
+    PUT  /api/v1/work/settings {focus_min?, break_min?, apps? (link ids, or null for automatic), calculators?, career?} (8.21)
 """
 
 from __future__ import annotations
@@ -33,6 +34,20 @@ async def work(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
 
 class Focus(BaseModel):
     minutes: int = Field(ge=1, le=240)
+
+
+class WorkSettings(BaseModel):
+    focus_min: int | None = Field(default=None, ge=5, le=180)
+    break_min: int | None = Field(default=None, ge=1, le=60)
+    apps: list[str] | None = Field(default=None, max_length=24)
+    calculators: bool | None = None
+    career: bool | None = None
+
+
+@router.put("/settings")
+def put_settings(body: WorkSettings) -> dict[str, Any]:
+    changes = body.model_dump(exclude_unset=True)
+    return service.save_settings({k: v for k, v in changes.items() if v is not None or k == "apps"})
 
 
 @router.post("/focus")

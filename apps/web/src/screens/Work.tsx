@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePageContext } from "../api/pageContext";
 import { Link, useSearchParams } from "react-router-dom";
-import { Award, BriefcaseBusiness, GraduationCap, Sunset, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer } from "lucide-react";
+import { ArrowDown, ArrowUp, Award, BriefcaseBusiness, Settings2, X, GraduationCap, Sunset, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer } from "lucide-react";
 import { brain } from "../api/hub";
 import { links, type LinkStatus } from "../api/links";
 import { useResource } from "../api/resource";
 import { tasks, type TaskItem } from "../api/tasks";
 import type { BrainHit } from "../api/types";
-import { dayFraction, span, work, type Chartership, type CpdCategory, type WorkDay } from "../api/work";
+import { dayFraction, span, work, type Chartership, type CpdCategory, type WorkDay, type WorkSettings } from "../api/work";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
@@ -68,10 +68,10 @@ export function WorkScreen() {
         <div className="work-grid">
           {showWrap && <WrapUpCard w={w} onSaved={reload} />}
           <DayCard w={w} />
-          <FocusCard onLogged={reload} />
+          <FocusCard settings={w.settings} onLogged={reload} />
           <WorkTasksCard w={w} onChange={reload} />
           <WeekCard w={w} />
-          <AppsCard w={w} />
+          <AppsCard w={w} onChange={reload} />
           <CpdCard w={w} onChange={reload} />
           {w.chartership && <ChartershipCard c={w.chartership} />}
           <TodosCard w={w} onChange={reload} />
@@ -202,24 +202,28 @@ function WeekCard({ w }: { w: WorkDay }) {
 
 const FOCUS_KEY = "sirisos.work.focus";
 type FocusState = { mode: "focus" | "break"; ends: number | null; left: number; sessions: number; day: string };
-const LEN = { focus: 25 * 60, break: 5 * 60 };
 const todayKey = () => new Date().toISOString().slice(0, 10);
+type Lengths = { focus: number; break: number };
 
-function loadFocus(): FocusState {
+function loadFocus(len: Lengths): FocusState {
   try {
     const s = JSON.parse(window.localStorage.getItem(FOCUS_KEY) ?? "null") as FocusState | null;
     if (s && s.day === todayKey()) return s;
   } catch { /* fresh */ }
-  return { mode: "focus", ends: null, left: LEN.focus, sessions: 0, day: todayKey() };
+  return { mode: "focus", ends: null, left: len.focus, sessions: 0, day: todayKey() };
 }
 
-/** 3. A 25/5 focus timer as a ring. A finished focus block adds 25 minutes to today's focus time. Survives leaving the page. */
-function FocusCard({ onLogged }: { onLogged: () => void }) {
-  const [s, setS] = useState<FocusState>(loadFocus);
+/** 3. A focus timer as a ring: 25/5 unless you change it (8.21). A finished focus block adds its minutes to today's focus time. Survives leaving the page. */
+function FocusCard({ settings, onLogged }: { settings?: WorkSettings; onLogged: () => void }) {
+  const len: Lengths = { focus: (settings?.focus_min ?? 25) * 60, break: (settings?.break_min ?? 5) * 60 };
+  const [s, setS] = useState<FocusState>(() => loadFocus(len));
   const [, tick] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ focus: String(len.focus / 60), break: String(len.break / 60) });
+  const [problem, setProblem] = useState<string | null>(null);
   const logged = useRef(false);
   const save = (next: FocusState) => { setS(next); try { window.localStorage.setItem(FOCUS_KEY, JSON.stringify(next)); } catch { /* fine */ } };
-  const left = s.ends ? Math.max(0, Math.round((s.ends - Date.now()) / 1000)) : s.left;
+  const left = s.ends ? Math.max(0, Math.round((s.ends - Date.now()) / 1000)) : Math.min(s.left, len[s.mode]);
   useEffect(() => {
     if (!s.ends) return;
     const t = window.setInterval(() => tick((n) => n + 1), 500);
@@ -229,27 +233,52 @@ function FocusCard({ onLogged }: { onLogged: () => void }) {
     if (!s.ends || left > 0 || logged.current) return;
     logged.current = true;
     if (s.mode === "focus") {
-      work.focus(25).then(onLogged).catch(() => {});
+      work.focus(Math.round(len.focus / 60)).then(onLogged).catch(() => {});
       try { navigator.vibrate?.(200); } catch { /* fine */ }
-      save({ ...s, mode: "break", ends: null, left: LEN.break, sessions: s.sessions + 1 });
+      save({ ...s, mode: "break", ends: null, left: len.break, sessions: s.sessions + 1 });
     } else {
-      save({ ...s, mode: "focus", ends: null, left: LEN.focus });
+      save({ ...s, mode: "focus", ends: null, left: len.focus });
     }
   }, [left, s.ends]);  // eslint-disable-line react-hooks/exhaustive-deps
   const start = () => { logged.current = false; save({ ...s, ends: Date.now() + left * 1000 }); };
   const pause = () => save({ ...s, ends: null, left });
-  const reset = () => save({ ...s, ends: null, left: LEN[s.mode] });
+  const reset = () => save({ ...s, ends: null, left: len[s.mode] });
+  async function saveLengths(e: FormEvent) {
+    e.preventDefault();
+    const focus = Number(form.focus), rest = Number(form.break);
+    if (!(focus >= 5 && focus <= 180) || !(rest >= 1 && rest <= 60)) { setProblem("Focus 5 to 180 minutes, break 1 to 60."); return; }
+    try {
+      await work.settings({ focus_min: Math.round(focus), break_min: Math.round(rest) });
+      setProblem(null);
+      setEditing(false);
+      if (!s.ends) save({ ...s, left: (s.mode === "focus" ? Math.round(focus) : Math.round(rest)) * 60 });
+      onLogged();
+    } catch (err) { setProblem(err instanceof Error ? err.message : String(err)); }
+  }
   const mm = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
   return (
     <Glass as="section" className="widget work-focus" style={{ minHeight: 0 }} aria-label="Focus timer">
-      <header className="widget__head"><Timer aria-hidden="true" /><span>{s.mode === "focus" ? "Focus" : "Break"}</span><span className="widget__source">{s.sessions} done today</span></header>
+      <header className="widget__head"><Timer aria-hidden="true" /><span>{s.mode === "focus" ? "Focus" : "Break"}</span>
+        <span className="widget__source">{s.sessions} done today</span>
+        <button type="button" className="icon-link" aria-label="Change the focus and break times" aria-expanded={editing} onClick={() => setEditing(!editing)}><Settings2 size={14} aria-hidden="true" /></button>
+      </header>
+      {editing && (
+        <form className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }} onSubmit={saveLengths} aria-label="Focus and break times">
+          <label className="row" style={{ gap: 6, alignItems: "center" }}>Focus
+            <input className="field" type="number" min={5} max={180} style={{ width: 72 }} aria-label="Focus minutes" value={form.focus} onChange={(e) => setForm({ ...form, focus: e.target.value })} /> min</label>
+          <label className="row" style={{ gap: 6, alignItems: "center" }}>Break
+            <input className="field" type="number" min={1} max={60} style={{ width: 64 }} aria-label="Break minutes" value={form.break} onChange={(e) => setForm({ ...form, break: e.target.value })} /> min</label>
+          <button type="submit" className="button button--small button--primary">Save</button>
+          {problem && <span className="tone-critical" role="alert" style={{ fontSize: 13 }}>{problem}</span>}
+        </form>
+      )}
       <div className="work-focus__body">
-        <Ring value={1 - left / LEN[s.mode]} size={120} stroke={10} tone={s.mode === "focus" ? "accent" : "good"} label={`${s.mode}: ${mm} left`}>
+        <Ring value={1 - left / len[s.mode]} size={120} stroke={10} tone={s.mode === "focus" ? "accent" : "good"} label={`${s.mode}: ${mm} left`}>
           <strong className="work-ring__big" role="timer">{mm}</strong><span className="muted">{s.mode === "focus" ? "focus" : "break"}</span>
         </Ring>
         <div className="work-focus__controls">
           {s.ends ? <button type="button" className="button" onClick={pause}><Pause size={14} aria-hidden="true" /> Pause</button>
-            : <button type="button" className="button button--primary" onClick={start}><Play size={14} aria-hidden="true" /> {left === LEN[s.mode] ? "Start" : "Resume"}</button>}
+            : <button type="button" className="button button--primary" onClick={start}><Play size={14} aria-hidden="true" /> {left === len[s.mode] ? "Start" : "Resume"}</button>}
           <button type="button" className="chip chip--button" onClick={reset} aria-label="Reset the timer"><RotateCcw size={12} aria-hidden="true" /> Reset</button>
           <span className="work-focus__dots" aria-label={`${s.sessions} focus blocks today`}>
             {Array.from({ length: Math.max(4, s.sessions) }, (_, i) => <span key={i} className={i < s.sessions ? "on" : ""} />)}
@@ -260,31 +289,94 @@ function FocusCard({ onLogged }: { onLogged: () => void }) {
   );
 }
 
-/** 5. Tiles for the work apps (links in a group named Work, or named GVW, CMP, Timesheet, SirisPM, Archive…), with whether each answers. */
-function AppsCard({ w }: { w: WorkDay }) {
+/** 5. Tiles for the work apps: the ones you pick (8.21), or automatically the links in a group named Work (or named GVW, CMP,
+ * Timesheet, SirisPM, Archive…), with whether each answers. */
+function AppsCard({ w, onChange }: { w: WorkDay; onChange: () => void }) {
   const apps = w.apps ?? [];
+  const set = w.settings;
   const status = useResource<Record<string, LinkStatus>>("links:status", () => links.status(), { staleMs: 60_000, enabled: apps.length > 0 });
+  const [editing, setEditing] = useState(false);
   return (
     <Glass as="section" className="widget work-apps" style={{ minHeight: 0 }} aria-label="Work apps">
-      <header className="widget__head"><BriefcaseBusiness aria-hidden="true" /><span>Apps and tools</span></header>
-      <div className="work-app-grid">
-        {apps.map((a) => {
-          const st = status.data?.[a.id];
-          return (
-            <a key={a.id} className="work-app" href={a.url} target="_blank" rel="noreferrer" title={a.note || a.url}>
-              {a.icon ? <img src={a.icon} alt="" className="work-app__icon" /> : <span className="work-app__icon work-app__letter" aria-hidden="true">{a.name.slice(0, 1)}</span>}
-              <span className="work-app__name">{a.name}</span>
-              {st && <span className={`work-app__state ${st.up ? "dot-good" : "dot-critical"}`} aria-label={st.up ? "Up" : "Not answering"} />}
-              <ExternalLink size={11} className="work-app__out" aria-hidden="true" />
-            </a>
-          );
-        })}
-        <Link to="/engineering" className="work-app"><span className="work-app__icon work-app__glyph" aria-hidden="true"><Calculator size={20} /></span><span className="work-app__name">Calculators</span></Link>
-        <Link to="/career" className="work-app"><span className="work-app__icon work-app__glyph" aria-hidden="true"><Award size={20} /></span><span className="work-app__name">Career</span></Link>
-      </div>
-      {!apps.length && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Put your work apps in a Links group called Work (or name them GVW, CMP, Timesheet…) and they appear here.</p>}
+      <header className="widget__head"><BriefcaseBusiness aria-hidden="true" /><span>Apps and tools</span>
+        <button type="button" className="button button--small" style={{ marginLeft: "auto" }} aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
+      </header>
+      {editing ? <AppsEditor w={w} onSaved={() => { setEditing(false); onChange(); }} /> : (
+        <>
+          <div className="work-app-grid">
+            {apps.map((a) => {
+              const st = status.data?.[a.id];
+              return (
+                <a key={a.id} className="work-app" href={a.url} target="_blank" rel="noreferrer" title={a.note || a.url}>
+                  {a.icon ? <img src={a.icon} alt="" className="work-app__icon" /> : <span className="work-app__icon work-app__letter" aria-hidden="true">{a.name.slice(0, 1)}</span>}
+                  <span className="work-app__name">{a.name}</span>
+                  {st && <span className={`work-app__state ${st.up ? "dot-good" : "dot-critical"}`} aria-label={st.up ? "Up" : "Not answering"} />}
+                  <ExternalLink size={11} className="work-app__out" aria-hidden="true" />
+                </a>
+              );
+            })}
+            {set?.calculators !== false && <Link to="/engineering" className="work-app"><span className="work-app__icon work-app__glyph" aria-hidden="true"><Calculator size={20} /></span><span className="work-app__name">Calculators</span></Link>}
+            {set?.career !== false && <Link to="/career" className="work-app"><span className="work-app__icon work-app__glyph" aria-hidden="true"><Award size={20} /></span><span className="work-app__name">Career</span></Link>}
+          </div>
+          {!apps.length && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{set?.apps ? "No apps picked: tap Edit to choose some." : "Tap Edit to pick apps from your Links, or put them in a Links group called Work (or name them GVW, CMP, Timesheet…)."}</p>}
+        </>
+      )}
       {w.engineering.current && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Engineering project: <strong>{w.engineering.current.name}</strong></p>}
     </Glass>
+  );
+}
+
+/** Pick the tiles from your Links, in order; add or take away Calculators and Career; or go back to automatic. */
+function AppsEditor({ w, onSaved }: { w: WorkDay; onSaved: () => void }) {
+  const all = useResource("links:doc", () => links.get(), { staleMs: 60_000 });
+  const [picked, setPicked] = useState<string[]>(() => (w.apps ?? []).map((a) => a.id));
+  const [extras, setExtras] = useState({ calculators: w.settings?.calculators !== false, career: w.settings?.career !== false });
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const byId = new Map((all.data?.groups ?? []).flatMap((g) => g.links.map((l) => [l.id, l] as const)));
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const move = (i: number, by: number) => setPicked((p) => { const n = [...p]; const j = i + by; if (j < 0 || j >= n.length) return p; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  async function save(apps: string[] | null) {
+    setBusy(true);
+    try { await work.settings({ apps, ...extras }); onSaved(); }
+    catch (err) { setProblem(err instanceof Error ? err.message : String(err)); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      {picked.length > 0 && (
+        <ol className="items" aria-label="Shown, in order">
+          {picked.map((id, i) => (
+            <li key={id} className="item">
+              <span className="item__text"><span className="item__title">{byId.get(id)?.name ?? id}</span></span>
+              <button type="button" className="icon-link" aria-label={`Move ${byId.get(id)?.name ?? id} up`} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={14} aria-hidden="true" /></button>
+              <button type="button" className="icon-link" aria-label={`Move ${byId.get(id)?.name ?? id} down`} disabled={i === picked.length - 1} onClick={() => move(i, 1)}><ArrowDown size={14} aria-hidden="true" /></button>
+              <button type="button" className="icon-link" aria-label={`Take ${byId.get(id)?.name ?? id} off`} onClick={() => toggle(id)}><X size={14} aria-hidden="true" /></button>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!all.data && <div className="skeleton" style={{ height: 80 }} aria-busy="true" />}
+      {(all.data?.groups ?? []).map((g) => (
+        <fieldset key={g.id} className="work-apps__group">
+          <legend className="muted">{g.name}</legend>
+          {g.links.map((l) => (
+            <label key={l.id} className="row" style={{ gap: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={picked.includes(l.id)} onChange={() => toggle(l.id)} /> {l.name}
+            </label>
+          ))}
+        </fieldset>
+      ))}
+      <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+        <label className="row" style={{ gap: 6, alignItems: "center" }}><input type="checkbox" checked={extras.calculators} onChange={(e) => setExtras({ ...extras, calculators: e.target.checked })} /> Calculators</label>
+        <label className="row" style={{ gap: 6, alignItems: "center" }}><input type="checkbox" checked={extras.career} onChange={(e) => setExtras({ ...extras, career: e.target.checked })} /> Career</label>
+      </div>
+      {problem && <p className="tone-critical" role="alert" style={{ margin: 0 }}>{problem}</p>}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="button button--small button--primary" disabled={busy} onClick={() => save(picked)}>Save</button>
+        <button type="button" className="chip chip--button" disabled={busy} onClick={() => save(null)}>Back to automatic</button>
+      </div>
+    </div>
   );
 }
 
