@@ -14,7 +14,7 @@ describe("Projects (8.2)", () => {
     signIn();
     const calls = mockFetch({
       "/api/v1/siris-projects/Kitchen": () => jsonResponse({ title: "Kitchen", status: "active", areas: [], about: "", links: [], backlinks: [], tasks: [], meetings: [], deadline: null }),
-      "/api/v1/siris-projects": (url, init) => init?.method === "POST" ? jsonResponse({ title: "Kitchen" }) : jsonResponse({ projects: [], available: true }),
+      "/api/v1/siris-projects": (_url, init) => init?.method === "POST" ? jsonResponse({ title: "Kitchen" }) : jsonResponse({ projects: [], available: true }),
     });
     render(<MemoryRouter initialEntries={["/projects"]}><Routes><Route path="/projects" element={<ProjectsScreen />} /><Route path="/projects/:title" element={<p>Opened</p>} /></Routes></MemoryRouter>);
     await userEvent.click(await screen.findByRole("button", { name: /New project/ }));
@@ -26,7 +26,7 @@ describe("Projects (8.2)", () => {
 
   it("says when the name's taken", async () => {
     signIn();
-    mockFetch({ "/api/v1/siris-projects": (url, init) => init?.method === "POST" ? jsonResponse({ detail: "Siris already has a note called 'Kitchen'." }, 409) : jsonResponse({ projects: [], available: true }) });
+    mockFetch({ "/api/v1/siris-projects": (_url, init) => init?.method === "POST" ? jsonResponse({ detail: "Siris already has a note called 'Kitchen'." }, 409) : jsonResponse({ projects: [], available: true }) });
     render(<MemoryRouter><ProjectsScreen /></MemoryRouter>);
     await userEvent.click(await screen.findByRole("button", { name: /New project/ }));
     await userEvent.type(screen.getByLabelText("Name"), "Kitchen");
@@ -39,7 +39,7 @@ describe("Projects (8.2)", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const calls = mockFetch({
       "/api/v1/siris-projects/Kitchen/restore": () => jsonResponse({ action: "restore" }),
-      "/api/v1/siris-projects/Kitchen": (url, init) => init?.method === "DELETE" ? jsonResponse({ action: "delete" })
+      "/api/v1/siris-projects/Kitchen": (_url, init) => init?.method === "DELETE" ? jsonResponse({ action: "delete" })
         : jsonResponse({ title: "Kitchen", status: "active", aliases: [], path: null, names: ["Kitchen"], about: "", areas: [], source: null, updated: null, links: [], backlinks: [],
           deadline: null, days_idle: null, tasks: [], meetings: { upcoming: [], recent: [] }, guest_mode: false, unavailable: [] }),
       "/api/v1/siris-projects": () => jsonResponse({ projects: [], available: true }),
