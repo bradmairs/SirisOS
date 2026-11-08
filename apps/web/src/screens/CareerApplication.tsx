@@ -138,7 +138,7 @@ function Readiness({ view }: { view: ApplicationView }) {
           <ul className="career-app__prepare">{r.prepare.map((p) => <li key={p.id} className="career-wrap">{p.q} <span className="muted">(E{p.elements.join(", E")})</span></li>)}</ul>
         </>
       )}
-      <p className="muted career-app__note">Track it on <Link to="/year" className="brief-link">Your year</Link> with a "Chartered application ready" goal.</p>
+      <p className="muted career-app__note">Track it on <Link to="/year" className="brief-link">Your Year</Link> with a "Chartered application ready" goal.</p>
       {r.elements && r.elements.length > 0 && <EvidenceStrength elements={r.elements} counts={r.strength} />}
     </Glass>
   );

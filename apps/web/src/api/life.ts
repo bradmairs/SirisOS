@@ -1,12 +1,14 @@
 import { api, json, request } from "./client";
 
-/** Life admin and reply speed from SirisAI 4.6 (SirisOS 7.3). */
+/** Life Admin and reply speed from SirisAI 4.6 (SirisOS 7.3). */
 export interface Due { date: string; what: string; amount: number | null }
 export interface Doc {
   id: number; added_at: string; filename: string; title: string; kind: string; sender: string;
   summary: string; due: Due[]; note_title: string | null; text?: string; reminders?: number;
   /** The originals of a kept receipt: the email and its attachments (SirisAI 5.31). */
   files?: string[];
+  /** Which file is the receipt itself: the invoice PDF, a photo, or the email (SirisAI 5.41). */
+  receipt_file?: string | null;
 }
 export interface Bill {
   id: number; kind: "renewal" | "trial_ending" | "price_rise" | "bill_due"; service: string; subject: string;

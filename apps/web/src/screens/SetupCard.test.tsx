@@ -8,7 +8,7 @@ import { SetupCard } from "./SetupCard";
 
 const items = [
   { id: "sirisai", title: "SirisAI", area: "SirisAI", state: "on", detail: "Connected, version 3.11.", fix: "", settings: [], link: null },
-  { id: "unifi", title: "UniFi network", area: "Smart home", state: "off", detail: "No live network.", fix: "In SirisAI, set the gateway's address and an API key.", settings: ["SIRISAI_UNIFI_BASE_URL", "SIRISAI_UNIFI_API_KEY"], link: "/house?view=network" },
+  { id: "unifi", title: "UniFi network", area: "Smart Home", state: "off", detail: "No live network.", fix: "In SirisAI, set the gateway's address and an API key.", settings: ["SIRISAI_UNIFI_BASE_URL", "SIRISAI_UNIFI_API_KEY"], link: "/house?view=network" },
   { id: "health", title: "Apple Health", area: "You", state: "problem", detail: "A key is made, but nothing has arrived in two days.", fix: "Open Health Auto Export.", settings: [], link: "/training#health" },
 ];
 

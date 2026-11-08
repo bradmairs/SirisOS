@@ -252,14 +252,14 @@ export function TravelCard() {
 
 export function LifeScreen() {
   useEffect(() => {
-    document.title = "Life admin · SirisOS";
+    document.title = "Life Admin · SirisOS";
   }, []);
   return (
     <>
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">From SirisAI</p>
-          <h1 className="page-head__title">Life admin</h1>
+          <h1 className="page-head__title">Life Admin</h1>
         </div>
       </header>
       <div className="stack" style={{ marginTop: 16 }}>

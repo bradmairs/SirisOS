@@ -70,7 +70,7 @@ export function HouseScreen() {
   dragged.current = (ids, dx, dz) => save(moved(where, ids, dx, dz, placements));
 
   useEffect(() => {
-    document.title = "Smart home · SirisOS";
+    document.title = "Smart Home · SirisOS";
     let gone = false;
     import("../house/scene").then(({ createHouseScene }) => {
       if (gone || !holder.current) return;
@@ -127,9 +127,14 @@ export function HouseScreen() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">{HOUSE.address}</p>
-          <h1 className="page-head__title">Smart home</h1>
+          <h1 className="page-head__title">Smart Home</h1>
         </div>
       </header>
+
+      {/* Off the main Home page since 4.8 (Siri and the Home app do this day to day); kept here, above the model since 8.2. */}
+      <div className="stack" style={{ marginTop: 16, marginBottom: 16 }}>
+        <HomeControlsWidget onHousePage />
+      </div>
 
       <div className="house__bar" role="toolbar" aria-label="Floors">
         <Layers size={16} className="muted" aria-hidden="true" />
@@ -187,8 +192,6 @@ export function HouseScreen() {
       </div>
 
       <div className="stack" style={{ marginTop: 16 }}>
-        {/* Off the main Home page since 4.8 (Siri and the Home app do this day to day); kept here. */}
-        <HomeControlsWidget onHousePage />
         <MaintenanceCard />
         <AppliancesCard />
         <ProtocolsManager />

@@ -149,7 +149,7 @@ export function HomeTimes({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <p className="muted" style={{ margin: "12px 0 0", fontSize: 13 }}>
             Whatever you pick, Home server, Siris apps and Power only show when they need you (the server always on weekends), and the
             car in the evening only when it needs charging. While you're out, Home goes last and protocols are hidden. On the tab
-            bar, Automatic is the brief in the morning and Wrap up from wind down (else Links), then Career at work, Smart home at
+            bar, Automatic is the brief in the morning and Wrap Up from wind down (else Links), then Career at work, Smart Home at
             home and Tasks when you're out.
           </p>
           {error && <div className="error-banner" role="alert" style={{ marginTop: 10 }}>{error}</div>}

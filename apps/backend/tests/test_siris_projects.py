@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import json
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -23,6 +25,13 @@ asked: list[str] = []
 def handler(request: httpx.Request) -> httpx.Response:
     path = request.url.path
     asked.append(str(request.url))
+    if path == "/siris/brain/projects" and request.method == "POST":
+        body = json.loads(request.content)
+        if body["title"] == "Home Lab Rebuild":
+            return httpx.Response(409, json={"detail": "Siris already has a note called 'Home Lab Rebuild'."})
+        return httpx.Response(200, json={"title": body["title"], "action": "created"})
+    if path in ("/siris/brain/delete", "/siris/brain/restore"):
+        return httpx.Response(200, json={"title": json.loads(request.content)["title"], "action": path.rsplit("/", 1)[-1]})
     if path == "/siris/brain/projects":
         return httpx.Response(200, json={"projects": [
             {"title": "Akaroa Upgrade", "status": "done", "aliases": [], "path": "01-Projects/Akaroa Upgrade.md"},
@@ -134,3 +143,16 @@ def test_without_sirisai(client, monkeypatch):
     monkeypatch.setattr(hub_service, "transport", httpx.MockTransport(lambda r: httpx.Response(404)))
     reset_hub(ENV)
     assert client.get("/api/v1/siris-projects", headers=AUTH).json() == {"projects": [], "available": False}
+
+
+def test_a_new_project_goes_to_siris_and_a_taken_name_is_refused(client):
+    r = client.post("/api/v1/siris-projects", headers=AUTH, json={"title": "Kitchen", "about": "New benches", "due": "2027-03-01"})
+    assert r.status_code == 200 and r.json()["title"] == "Kitchen"
+    taken = client.post("/api/v1/siris-projects", headers=AUTH, json={"title": "Home Lab Rebuild"})
+    assert taken.status_code == 409 and "already" in taken.json()["detail"]
+    assert client.post("/api/v1/siris-projects", headers=AUTH, json={"title": "x", "due": "soon"}).status_code == 422
+
+
+def test_deleting_a_project_can_be_undone_and_is_never_permanent(client):
+    assert client.delete("/api/v1/siris-projects/Kitchen", headers=AUTH).json()["action"] == "delete"
+    assert client.post("/api/v1/siris-projects/Kitchen/restore", headers=AUTH).json()["action"] == "restore"

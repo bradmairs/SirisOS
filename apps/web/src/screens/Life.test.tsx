@@ -7,7 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { BillsCard, DocumentsCard, ReceiptsCard, TravelCard } from "./Life";
 import { SpeedCard } from "./SpeedCard";
 
-describe("Life admin (7.3)", () => {
+describe("Life Admin (7.3)", () => {
   it("adds a letter and says what's due", async () => {
     signIn();
     clearResources();

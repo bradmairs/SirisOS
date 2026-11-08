@@ -39,7 +39,7 @@ describe("<FitnessWidget />", () => {
   });
 });
 
-describe("System status upkeep", () => {
+describe("System Status upkeep", () => {
   it("shows backups, the update and certificates", async () => {
     signIn();
     mockFetch({

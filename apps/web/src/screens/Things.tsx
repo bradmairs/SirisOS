@@ -16,7 +16,7 @@ function warranty(t: Thing): { text: string; tone?: "good" | "warning" | "critic
   return { text: `✓ Under warranty until ${day(t.warranty_until)}`, tone: "good" };
 }
 
-/** What you own, its warranty and its manual (7.7, SirisAI 5.0). Receipts added under Life admin fill this in too. */
+/** What you own, its warranty and its manual (7.7, SirisAI 5.0). Receipts added under Life Admin fill this in too. */
 export function ThingsCard() {
   const [q, setQ] = useState("");
   const { data, reload } = useResource(`things:${q}`, () => things.list(q), { staleMs: 30_000 });
@@ -60,7 +60,7 @@ export function ThingsCard() {
       )}
       <input className="field" type="search" placeholder="Find (e.g. dishwasher)" aria-label="Find a thing" value={q} onChange={(e) => setQ(e.target.value)} />
       {data && data.length === 0 ? (
-        <p className="muted" style={{ margin: 0, fontSize: 14 }}>{q ? "Nothing matches." : "Nothing yet. Receipts from your email or added under Life admin show up here."}</p>
+        <p className="muted" style={{ margin: 0, fontSize: 14 }}>{q ? "Nothing matches." : "Nothing yet. Receipts from your email or added under Life Admin show up here."}</p>
       ) : (
         <ul className="items">
           {(data ?? []).map((t) => {
@@ -155,14 +155,14 @@ export function PeopleCard() {
 
 export function ThingsScreen() {
   useEffect(() => {
-    document.title = "Things & people · SirisOS";
+    document.title = "Things & People · SirisOS";
   }, []);
   return (
     <>
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">From SirisAI</p>
-          <h1 className="page-head__title">Things &amp; people</h1>
+          <h1 className="page-head__title">Things &amp; People</h1>
         </div>
       </header>
       <div className="stack" style={{ marginTop: 16 }}>

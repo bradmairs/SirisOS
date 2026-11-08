@@ -34,6 +34,9 @@ export const projects = {
   list: () => api<{ projects: ProjectSummary[]; available: boolean }>(P),
   get: (title: string) => api<ProjectPage>(`${P}/${encodeURIComponent(title)}`),
   finish: (title: string) => api<{ action: string }>(`${P}/${encodeURIComponent(title)}/done`, { method: "POST" }),
+  create: (p: { title: string; about?: string; due?: string }) => api<{ title: string }>(P, json(p)),
+  remove: (title: string) => api<unknown>(`${P}/${encodeURIComponent(title)}`, { method: "DELETE" }),
+  restore: (title: string) => api<unknown>(`${P}/${encodeURIComponent(title)}/restore`, { method: "POST" }),
   addTask: (title: string, text: string) => api<{ id: string; title: string }>(`${P}/${encodeURIComponent(title)}/tasks`, json({ text })),
 };
 
