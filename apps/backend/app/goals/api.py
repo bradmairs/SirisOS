@@ -4,6 +4,9 @@
     POST   /api/v1/goals?year=          {title, kind, target?, unit?, notes?}
     PATCH  /api/v1/goals/{id}?year=     {title?, target?, progress?, done?, notes?}
     DELETE /api/v1/goals/{id}?year=
+    GET    /api/v1/goals/prompt             (8.3) what SirisAI asks on Home: set this year's goals, or review a year's
+    POST   /api/v1/goals/set?year=          (8.3) "I've set my goals": the January prompt stops
+    POST   /api/v1/goals/review?year=       (8.3) {carry: [ids]}: finish the review; those goals start again next year
 """
 
 from __future__ import annotations
@@ -34,6 +37,29 @@ class Change(BaseModel):
 
 def _year(year: int | None) -> int:
     return year or tasks.today().year
+
+
+class Review(BaseModel):
+    carry: list[str] = Field(default_factory=list, max_length=100)
+
+
+@router.get("/prompt")
+def goals_prompt() -> dict[str, Any]:
+    return {"prompt": service.prompt(tasks.today())}
+
+
+@router.post("/set")
+def goals_set(year: int | None = Year) -> dict[str, Any]:
+    service.mark("set", _year(year))
+    return {"prompt": service.prompt(tasks.today())}
+
+
+@router.post("/review")
+def goals_review(body: Review, year: int | None = Year) -> dict[str, Any]:
+    y = _year(year)
+    moved = service.carry(y, body.carry)
+    service.mark("review", y)
+    return {"carried": [g.model_dump() for g in moved], "into": y + 1, "prompt": service.prompt(tasks.today())}
 
 
 @router.get("")

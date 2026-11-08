@@ -11,8 +11,12 @@ A goal is one of:
 - **done or not**: e.g. "Get chartered".
 
 Each one says whether it's on track: how far along it is against how far
-through the year it is. In January, while the new year has no goals, the
-page offers to set them and a phone notification says so once.
+through the year it is.
+
+8.3: SirisAI asks on Home all through January to set the year's goals, until you
+say they're set; and all through December to review them, until you finish the
+review, where what isn't done carries into the next year. A December review
+missed is asked for first thing in January. Each also sends one notification.
 """
 
 from __future__ import annotations
@@ -158,14 +162,67 @@ async def overview(hub: Hub, year: int | None = None, today: date | None = None)
             state = "on_track" if pct >= through * 100 - 5 else "behind"
         out.append({**g.model_dump(), "value": value, "percent": pct, "state": state,
                     "source": MEASURED[g.kind][1] if g.kind in MEASURED else None})
+    asked = prompt(today)
     return {"year": year, "today": today.isoformat(), "through_year": round(through * 100), "goals": out,
-            "set_them": not items and today.year == year and today.month == 1}
+            "set_them": not items and today.year == year and today.month == 1,
+            "setting_due": bool(asked and asked["kind"] == "set" and asked["year"] == year),
+            "review_due": bool(asked and asked["kind"] == "review" and asked["year"] == year),
+            "reviewed": f"review:{year}" in _marks()}
+
+
+MARKS = "_marks"  # in goals.json beside the years: "set:2027" / "review:2026" -> when you said so
+
+
+def _marks() -> dict[str, str]:
+    found = _load().get(MARKS)
+    return found if isinstance(found, dict) else {}
+
+
+def mark(kind: Literal["set", "review"], year: int) -> dict[str, str]:
+    doc = _load()
+    marks = dict(_marks())
+    marks[f"{kind}:{year}"] = datetime.now().isoformat(timespec="seconds")
+    doc[MARKS] = marks
+    json_store.write(_path(), doc)
+    return marks
+
+
+def prompt(today: date) -> dict[str, Any] | None:
+    """What SirisAI asks on Home about goals today: review a year (December, or a missed one in January), else set the new one (January)."""
+    marks = _marks()
+    if today.month == 12 and f"review:{today.year}" not in marks:
+        return {"kind": "review", "year": today.year, "goals": len(goals(today.year))}
+    if today.month == 1:
+        last = today.year - 1
+        if goals(last) and f"review:{last}" not in marks:
+            return {"kind": "review", "year": last, "goals": len(goals(last))}
+        if f"set:{today.year}" not in marks:
+            return {"kind": "set", "year": today.year, "goals": len(goals(today.year))}
+    return None
+
+
+def carry(year: int, ids: list[str]) -> list[Goal]:
+    """The goals picked from `year`, started afresh in the next one. One already there by name isn't doubled."""
+    nxt = goals(year + 1)
+    have = {g.title.casefold() for g in nxt}
+    moved = []
+    for g in goals(year):
+        if g.id in ids and g.title.casefold() not in have:
+            fresh = Goal(title=g.title, kind=g.kind, target=g.target, unit=g.unit, notes=(f"Carried from {year}. " + g.notes).strip()[:1000])
+            nxt.append(fresh)
+            moved.append(fresh)
+    _save(year + 1, nxt)
+    return moved
 
 
 def push_message(now: datetime) -> list[dict[str, Any]]:
-    """Once in January, while the new year has no goals."""
-    if now.month != 1 or goals(now.year):
+    """One notification for each prompt: setting the year's goals, and reviewing them."""
+    asked = prompt(now.date())
+    if asked is None:
         return []
-    return [{"key": f"goals:{now.year}", "topic": "brief", "title": f"Set your goals for {now.year}",
+    if asked["kind"] == "review":
+        return [{"key": f"goals:review:{asked['year']}", "topic": "brief", "title": f"Review your {asked['year']} goals",
+                 "body": "See how the year went, and carry what you didn't finish into the next one.", "url": f"/year?review={asked['year']}", "urgency": "normal"}]
+    return [{"key": f"goals:set:{asked['year']}", "topic": "brief", "title": f"Set your goals for {asked['year']}",
              "body": "A few things to aim for this year. SirisOS tracks the running, CPD and journal ones for you.",
              "url": "/year", "urgency": "normal"}]

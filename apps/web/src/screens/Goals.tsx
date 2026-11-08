@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Check, ChevronLeft, ChevronRight, Minus, Plus, Target, Trash2 } from "lucide-react";
-import { useResource } from "../api/resource";
+import { Check, ChevronLeft, ChevronRight, Minus, Plus, Sparkles, Target, Trash2 } from "lucide-react";
+import { refreshResource, useResource } from "../api/resource";
 import { goals, KIND_LABEL, type GoalKind, type YearGoal } from "../api/goals";
 import { Glass } from "../components/Glass";
 
@@ -16,11 +16,14 @@ const num = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : v.toLocal
 
 /** The year's goals, set each January (4.4). Running, CPD, journal and tasks count themselves. */
 export function GoalsCard({ thisYear }: { thisYear: number }) {
-  const [year, setYear] = useState(thisYear);
+  // ?review=2026 (SirisAI's prompt on Home) opens that year.
+  const asked = Number(new URLSearchParams(window.location.search).get("review")) || null;
+  const [year, setYear] = useState(asked && asked <= thisYear ? asked : thisYear);
   const { data, reload, error } = useResource(`goals:${year}`, () => goals.get(year), { staleMs: 5 * 60_000, persist: year === thisYear });
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [reviewed, setReviewed] = useState<string | null>(null);
 
   async function run(work: () => Promise<unknown>) {
     setBusy(true);
@@ -60,8 +63,50 @@ export function GoalsCard({ thisYear }: { thisYear: number }) {
       )}
       {showForm ? <NewGoal year={year} busy={busy} onAdd={(g) => run(async () => { await goals.add(year, g); setAdding(false); })} onCancel={list.length ? () => setAdding(false) : undefined} />
         : <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}><Plus size={14} aria-hidden="true" /> Add a goal</button>}
+      {data?.setting_due && list.length > 0 && (
+        <div className="goals__ask">
+          <p style={{ margin: 0 }}><Sparkles size={14} aria-hidden="true" /> Got everything you want for {year}? Say so and SirisAI stops asking.</p>
+          <button type="button" className="button button--small button--primary" disabled={busy}
+            onClick={() => run(async () => { await goals.markSet(year); refreshResource("goals:prompt"); })}>I've set my {year} goals</button>
+        </div>
+      )}
+      {data?.review_due && <GoalsReview year={year} items={list} busy={busy} onDone={(carry) => run(async () => {
+        const r = await goals.review(year, carry);
+        refreshResource("goals:prompt");
+        setProblem(null);
+        setReviewed(r.carried.length ? `Review done: ${r.carried.length} carried into ${r.into}.` : "Review done.");
+      })} />}
+      {reviewed && <p className="tone-good" role="status" style={{ margin: 0, fontSize: 14 }}>{reviewed}</p>}
       {problem && <p className="tone-critical" role="alert" style={{ margin: 0, fontSize: 14 }}>{problem}</p>}
     </Glass>
+  );
+}
+
+/** The year's review (8.3): what wasn't finished is ticked to carry into next year; untick anything to let it go. */
+function GoalsReview({ year, items, busy, onDone }: { year: number; items: YearGoal[]; busy: boolean; onDone: (carry: string[]) => void }) {
+  const open = items.filter((g) => g.state !== "done");
+  const [carry, setCarry] = useState<string[]>(() => open.map((g) => g.id));
+  const done = items.length - open.length;
+  return (
+    <div className="goals__ask" aria-label={`Review of ${year}`}>
+      <p style={{ margin: 0 }}><Sparkles size={14} aria-hidden="true" /> {items.length ? `${done} of ${items.length} done in ${year}.` : `No goals were set for ${year}.`}
+        {open.length ? ` Carry the rest into ${year + 1}?` : ""}</p>
+      {open.length > 0 && (
+        <ul className="items" aria-label="Not finished">
+          {open.map((g) => (
+            <li key={g.id} className="item">
+              <label className="row" style={{ gap: 8, alignItems: "center" }}>
+                <input type="checkbox" checked={carry.includes(g.id)} onChange={() => setCarry((c) => (c.includes(g.id) ? c.filter((x) => x !== g.id) : [...c, g.id]))} />
+                {g.title}{g.percent != null ? <span className="muted"> · {g.percent}%</span> : null}
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className="button button--small button--primary" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => onDone(carry)}>
+        {carry.length ? `Finish the review and carry ${carry.length} into ${year + 1}` : "Finish the review"}
+      </button>
+    </div>
   );
 }
 

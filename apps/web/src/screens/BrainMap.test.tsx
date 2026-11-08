@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrainMap } from "./BrainMap";
@@ -29,5 +29,25 @@ describe("<BrainMap />", () => {
     mockFetch({ "/api/v1/brain/map.html": () => jsonResponse({ detail: "SirisAI: No second brain configured. Set SIRISAI_BRAIN_PATH." }, 404) });
     render(<BrainMap />);
     expect(await screen.findByText(/SIRISAI_BRAIN_PATH/)).toBeInTheDocument();
+  });
+});
+
+describe("Deleting from the mind map (8.3)", () => {
+  it("deletes what the map asks for after a confirm, offers undo, and ignores messages from anywhere else", async () => {
+    signIn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const calls = mockFetch({
+      "/api/v1/brain/map.html": () => new Response(PAGE, { headers: { "Content-Type": "text/html" } }),
+      "/api/v1/brain/delete": () => jsonResponse({ title: "Old idea", deleted: true }),
+      "/api/v1/brain/restore": () => jsonResponse({ title: "Old idea", restored: true }),
+    });
+    render(<BrainMap />);
+    const frame = (await screen.findByTitle("Siris mind map")) as HTMLIFrameElement;
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "siris-map:delete", title: "Not from the map" }, source: window }));
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "siris-map:delete", title: "Old idea" }, source: frame.contentWindow }));
+    expect(await screen.findByText(/Deleted "Old idea"/)).toBeInTheDocument();
+    expect(calls.filter((c) => c.url.endsWith("/brain/delete")).map((c) => c.init.body)).toEqual([JSON.stringify({ title: "Old idea", permanent: false })]);
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/brain/restore"))).toBe(true));
   });
 });

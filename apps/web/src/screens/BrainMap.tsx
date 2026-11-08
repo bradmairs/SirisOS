@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Maximize2, Minimize2, RotateCw } from "lucide-react";
 import { brain } from "../api/hub";
 import { Glass } from "../components/Glass";
@@ -13,6 +13,39 @@ export function BrainMap() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [version, setVersion] = useState(0);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [gone, setGone] = useState<{ title: string; error?: string } | null>(null);
+
+  // 8.3: the map's "Delete note" asks here (it has no key of its own). Only a message from our own map counts; it's
+  // confirmed, deleted the way Siris' Manage does (restorable), and the map is drawn again without it.
+  useEffect(() => {
+    const onMessage = async (e: MessageEvent) => {
+      if (!frameRef.current || e.source !== frameRef.current.contentWindow) return;
+      const data = e.data as { type?: string; title?: unknown };
+      if (data?.type !== "siris-map:delete" || typeof data.title !== "string" || !data.title.trim()) return;
+      const title = data.title.slice(0, 200);
+      if (!window.confirm(`Delete "${title}" from Siris? It goes to Siris' deleted notes, and you can undo it.`)) return;
+      try {
+        await brain.remove(title);
+        setGone({ title });
+        setVersion((v) => v + 1);
+      } catch (err) {
+        setGone({ title, error: err instanceof Error ? err.message : String(err) });
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+  const undo = async () => {
+    if (!gone) return;
+    try { await brain.restore(gone.title); setGone(null); setVersion((v) => v + 1); }
+    catch (err) { setGone({ ...gone, error: err instanceof Error ? err.message : String(err) }); }
+  };
+  const note = gone && (
+    <p className={gone.error ? "tone-critical brain-map__note" : "muted brain-map__note"} role={gone.error ? "alert" : "status"}>
+      {gone.error ? `Couldn't delete "${gone.title}": ${gone.error}` : <>Deleted "{gone.title}". <button type="button" className="icon-link" onClick={undo}>Undo</button></>}
+    </p>
+  );
 
   useEffect(() => {
     let live = true;
@@ -48,7 +81,7 @@ export function BrainMap() {
         <div className="skeleton brain-map__frame" />
       )
     ) : (
-      <iframe className="brain-map__frame" title="Siris mind map" srcDoc={html} sandbox="allow-scripts allow-popups" />
+      <iframe ref={frameRef} className="brain-map__frame" title="Siris mind map" srcDoc={html} sandbox="allow-scripts allow-popups" />
     );
 
   const controls = (
@@ -76,6 +109,7 @@ export function BrainMap() {
           <span className="spacer" />
           {controls}
         </Glass>
+        {note}
         {frame}
       </div>
     );
@@ -88,6 +122,7 @@ export function BrainMap() {
         <span className="spacer" />
         {controls}
       </div>
+      {note}
       {frame}
     </Glass>
   );
