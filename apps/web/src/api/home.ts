@@ -93,7 +93,7 @@ export const DOCK_CHOICES: { value: string; label: string }[] = [
   { value: "auto", label: "Automatic" }, { value: "/work", label: "Work" }, { value: "/links", label: "Links" }, { value: "/career", label: "Career" },
   { value: "/house", label: "Smart Home" }, { value: "/tasks", label: "Tasks" }, { value: "/wrapup", label: "Wrap Up" },
   { value: "/brief", label: "Today's brief" }, { value: "/projects", label: "Projects" }, { value: "/engineering", label: "Engineering" },
-  { value: "/review", label: "Weekly Review" }, { value: "/year", label: "Your Year" }, { value: "/status", label: "System Status" }, { value: "/training", label: "Training" }, { value: "/health", label: "Health" },
+  { value: "/review", label: "Weekly Review" }, { value: "/year", label: "Your Year" }, { value: "/status", label: "System Status" }, { value: "/fitness", label: "Fitness" }, { value: "/health", label: "Health" },
 ];
 export const AUTO_DOCK: Record<DayPhase, DockSlots> = {
   morning: { fourth: "auto", fifth: "auto" }, work: { fourth: "auto", fifth: "auto" }, weekend: { fourth: "auto", fifth: "auto" },

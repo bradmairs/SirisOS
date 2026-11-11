@@ -96,12 +96,6 @@ export function HomeTimes({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 onWeekday={(v) => setTime("weekday", key, v)} onWeekend={(v) => setTime("weekend", key, v)} />
             ))}
           </div>
-          <label className="row times__leave">
-            <span className="times__label">Leave for places early by</span>
-            <input type="number" className="field times__input" min={0} max={180} step={5} value={plan.leave_minutes} aria-label="Minutes before an event to leave"
-              onChange={(e) => setPlan({ ...plan, leave_minutes: Math.max(0, Math.min(180, Number(e.target.value) || 0)) })} />
-            <span className="muted">min</span>
-          </label>
           {PARTS.map(({ phase, label }) => {
             const hidden = plan.hidden[phase] ?? [];
             const showing = DAY_WIDGETS.filter((w) => !hidden.includes(w.id)).length;

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
+import { AskAbout } from "./AskAbout";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -21,7 +22,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/life", label: "Life Admin", Icon: FileText, end: false, dock: false },
   { to: "/budget", label: "Budget", Icon: Wallet, end: false, dock: false },
   { to: "/things", label: "Things & People", Icon: Package, end: false, dock: false },
-  { to: "/training", label: "Training", Icon: Footprints, end: false, dock: false },
+  { to: "/fitness", label: "Fitness", Icon: Footprints, end: false, dock: false },
   { to: "/gym", label: "SirisGym", Icon: Dumbbell, end: false, dock: false },
   { to: "/assistant", label: "SirisAI", Icon: Sparkles, end: false },
   { to: "/brain", label: "Siris", Icon: Brain, end: false },
@@ -30,6 +31,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/engineering", label: "Engineering", Icon: Ruler, end: false, dock: false },
   { to: "/career", label: "Career", Icon: Award, end: false },
   { to: "/status", label: "System Status", Icon: Activity, end: false, dock: false },
+  { to: "/homelab", label: "Home Lab", Icon: Network, end: false, dock: false },
   { to: "/terminal", label: "Terminal", Icon: SquareTerminal, end: false, dock: false },
   { to: "/security", label: "Security", Icon: ShieldCheck, end: false, dock: false },
 ];
@@ -97,6 +99,7 @@ export function Sidebar({
             <span>Quick capture</span>
           </button>
         )}
+        <AskAbout variant="sidebar" />
 
         <nav className="sidebar__nav" aria-label="Screens">
           {NAV.map(({ to, label, Icon, end }) => (

@@ -859,7 +859,7 @@ h3.note__heading { font-size: 17px; }
 .maint__h { margin: 10px 0 0; font-size: 14px; }
 .maint__form { gap: 10px; }
 .maint__room { display: grid; gap: 6px; margin-top: 6px; }
-.widget__head .icon-link.widget__source { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; flex-direction: row; }
+.widget__head .icon-link.widget__source { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; flex-direction: row; width: auto; padding: 0 8px; border-radius: 999px; }  /* 8.5: a text button sizes to its words, not the 32px of a round icon button */
 
 /* Training (5.5) */
 .training__weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -1115,13 +1115,10 @@ h3.note__heading { font-size: 17px; }
 .work-note-card__text { font-size: 13px; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .work-note-card__when { font-size: 11px; color: var(--ink-3); }
 
-/* 7.5: ask Siris about this page. The topbar button on phones, a pill at the bottom right on desktop. */
-.ask-fab { display: none !important; }
-@media (min-width: 960px) {
-  .shell { padding-bottom: 96px; }
-  .ask-fab { display: inline-flex !important; position: fixed; right: 28px; bottom: 24px; z-index: 24; align-items: center; gap: 8px;
-    padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--ink); border: 0; cursor: pointer; }
-}
+/* 7.5: ask Siris about this page: the topbar button on phones, in the sidebar on desktop (8.5). */
+
+/* 8.5: a Home section whose cards all have nothing to show (the evening's empty "Home") isn't drawn. */
+section:has(> .widget-grid:empty) { display: none; }
 .ask-about { position: fixed; inset: 0; z-index: 60; display: grid; place-items: end center; padding: var(--gutter); padding-bottom: calc(var(--safe-bottom) + 24px); }
 @media (min-width: 960px) { .ask-about { place-items: end end; padding: 24px 28px; } }
 .ask-about__scrim { position: absolute; inset: 0; background: color-mix(in srgb, #000 30%, transparent); }
@@ -1233,16 +1230,6 @@ h3.note__heading { font-size: 17px; }
   .budget-line:has(.budget-line__goal) { grid-template-columns: 1fr 1fr; }
 }
 .budget-line__goal label > span { white-space: nowrap; flex: none; }
-/* Handwriting to check (7.6): the page beside its reading, side by side when there's room. */
-.handwriting { grid-column: 1 / -1; }
-.handwriting__count { margin-left: auto; font-size: 12px; }
-.handwriting__odd { gap: 4px; flex-wrap: wrap; }
-.handwriting__pair { display: grid; grid-template-columns: 1fr; gap: 10px; }
-@media (min-width: 760px) { .handwriting__pair { grid-template-columns: 1fr 1fr; } }
-.handwriting__page { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto;
-  border-radius: 12px; background: #fff; padding: 6px; }
-.handwriting__page img { width: 100%; height: auto; display: block; }
-.handwriting__text { min-height: 220px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
 .budget .button { max-width: 100%; white-space: normal; text-align: left; }
 /* 7.8: a workout in progress, on every page */
 .workout-bar { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; padding: 10px 14px; border-radius: 16px; text-decoration: none; color: var(--ink);
@@ -1259,3 +1246,37 @@ h3.note__heading { font-size: 17px; }
 .toggle__knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
 .toggle--on .toggle__knob { transform: translateX(18px); }
 .toggle:disabled, .protocol__bell:disabled { opacity: 0.5; cursor: default; }
+/* 8.5: Home Lab diagram */
+.lab__scroll { overflow-x: auto; padding-bottom: 4px; }
+.lab__svg { display: block; margin: 0 auto; }
+.lab__edge { fill: none; stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 2; }
+.lab__edge--guess { stroke-dasharray: 5 5; stroke: color-mix(in srgb, var(--ink) 30%, transparent); }
+.lab__node { cursor: pointer; outline: none; }
+.lab__box { fill: color-mix(in srgb, var(--ink) 6%, transparent); stroke: color-mix(in srgb, var(--ink) 18%, transparent); stroke-width: 1; }
+.lab__node:hover .lab__box, .lab__node:focus-visible .lab__box { stroke: var(--accent); }
+.lab__box--internet { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.lab__box--server, .lab__box--nas { fill: color-mix(in srgb, var(--accent) 9%, transparent); }
+.lab__label { display: flex; align-items: center; gap: 8px; height: 100%; color: var(--ink); }
+.lab__label svg { flex: none; color: var(--accent); }
+.lab__text { display: grid; min-width: 0; line-height: 1.2; }
+.lab__text strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab__text span { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab__dot--on { fill: var(--good); }
+.lab__dot--off { fill: var(--critical, #f87171); }
+.lab__clients { margin: 8px 0 0; font-size: 13px; text-align: center; }
+.lab__tree { display: none; }
+@media (max-width: 699px) {
+  .lab__scroll { display: none; }
+  .lab__tree { display: block; }
+}
+.lab__tree ul { list-style: none; margin: 0; padding: 0; }
+.lab__tree ul ul { margin-left: 14px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.lab__tree li { margin-top: 8px; }
+.lab__tree-node { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; text-align: left; color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 6%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); cursor: pointer; }
+.lab__tree-node--guess { border-style: dashed; }
+.lab__tree-node svg { flex: none; color: var(--accent); }
+.lab__tree-node .lab__text { flex: 1; }
+.lab__tree-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.lab__tree-dot.lab__dot--on { background: var(--good); }
+.lab__tree-dot.lab__dot--off { background: var(--critical, #f87171); }

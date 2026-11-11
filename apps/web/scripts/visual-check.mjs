@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/training", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things"];
+const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things", "/homelab"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -79,7 +79,18 @@ const workFixture = {
     next: "Add a second piece of evidence: a project or task where you did this",
     weakest: [{ id: "1.1", title: "Deal with ethical issues", strength: "none" }, { id: "2.3", title: "Develop safe and sustainable solutions", strength: "thin" }] },
 };
+const lab = { clients: { total: 34, online: 21 }, sources: { network: true, servers: true, docker: true }, nodes: [
+  { id: "internet", label: "Internet", kind: "internet", parent: null, online: true, found: "built in" },
+  { id: "own:modem", label: "NBN modem", kind: "modem", parent: "internet", online: null, found: "you", model: "Arris CM8200" },
+  { id: "net:gw", label: "UDM Pro", kind: "gateway", parent: "own:modem", online: true, found: "network", model: "UniFi Dream Machine Pro" },
+  { id: "net:sw", label: "USW 24 PoE", kind: "switch", parent: "net:gw", online: true, found: "network", parent_guessed: true },
+  { id: "net:ap1", label: "U6 Lite hallway", kind: "access_point", parent: "net:sw", online: true, found: "network", parent_guessed: true },
+  { id: "net:ap2", label: "U6 Lite garage", kind: "access_point", parent: "net:sw", online: false, found: "network", parent_guessed: true },
+  { id: "server:unraid", label: "unraid", kind: "server", parent: "net:sw", online: null, found: "terminal", detail: "192.168.0.100" },
+  { id: "docker", label: "Docker", kind: "docker", parent: "server:unraid", online: true, found: "sirisai", detail: "41 of 43 containers running", parent_guessed: true },
+  { id: "own:ups", label: "Eaton UPS", kind: "ups", parent: "net:sw", online: null, found: "you" }] };
 const FIXTURES = [
+  ["/api/v1/homelab", lab],
   ["/api/v1/budget", budgetFixture],
   ["/api/v1/life/things", thingsFixture],
   ["/api/v1/life/people", peopleFixture],

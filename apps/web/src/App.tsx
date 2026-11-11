@@ -56,6 +56,7 @@ const Career = lazy(() => loadCareer().then((m) => ({ default: m.Career })));
 const ProjectsScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectsScreen })));
 const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectScreen })));
 const HouseScreen = lazy(() => loadHouse().then((m) => ({ default: m.HouseScreen })));
+const HomeLabScreen = lazy(() => import("./screens/HomeLab").then((m) => ({ default: m.HomeLabScreen })));
 const TrainingScreen = lazy(() => loadTraining().then((m) => ({ default: m.TrainingScreen })));
 const GymScreen = lazy(() => loadGym().then((m) => ({ default: m.GymScreen })));
 const WorkScreen = lazy(() => loadWork().then((m) => ({ default: m.WorkScreen })));
@@ -191,7 +192,6 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Search size={20} aria-hidden="true" />
         </button>
       </header>
-      <AskAbout variant="fab" />
       <main className="shell">
         <WorkoutBar />
         <Suspense fallback={<ScreenFallback />}>
@@ -205,13 +205,15 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/career" element={<Career />} />
           <Route path="/inbox" element={<InboxScreen />} />
           <Route path="/status" element={<StatusScreen />} />
+          <Route path="/homelab" element={<HomeLabScreen />} />
           <Route path="/security" element={<SecurityScreen />} />
           <Route path="/terminal" element={<TerminalScreen />} />
           <Route path="/tasks" element={<TasksScreen />} />
           <Route path="/projects" element={<ProjectsScreen />} />
           <Route path="/year" element={<TrendsScreen />} />
           <Route path="/house" element={<HouseScreen />} />
-          <Route path="/training" element={<TrainingScreen />} />
+          <Route path="/fitness" element={<TrainingScreen />} />
+          <Route path="/training" element={<Navigate to="/fitness" replace />} />
           <Route path="/work" element={<WorkScreen />} />
           <Route path="/gym" element={<GymScreen />} />
           <Route path="/gym/workout" element={<GymWorkoutScreen />} />

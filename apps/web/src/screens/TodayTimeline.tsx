@@ -79,7 +79,7 @@ export function TodayTimeline({ events }: { events?: { summary: string; start: s
   return (
     <Glass as="section" className="widget timeline" aria-label="Today">
       <header className="widget__head"><CalendarClock aria-hidden="true" /><span>Today</span>
-        <span className="muted" style={{ marginLeft: "auto", fontSize: 13 }}>{now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</span>
+        <span className="widget__source">{now.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</span>
       </header>
       {empty ? <p className="muted" style={{ margin: 0 }}>{data ? "Nothing in the calendar or on your list today." : "Loading…"}</p> : (
         <ul className="timeline__list">

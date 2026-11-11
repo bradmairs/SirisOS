@@ -3,7 +3,7 @@ import { readEvents } from "./sse";
 import { readNdjson, type VoiceEvent } from "./voice";
 import type {
   HomeControls,
-  BrainDeleted, BrainDeleteResult, BrainHit, HandwritingPage, BrainInsights, BrainNote, CameraLook, ChatEvent, ConversationSummary, HubApp, Hud, Inbox, InboxEvent, InboxItem,
+  BrainDeleted, BrainDeleteResult, BrainHit, BrainInsights, BrainNote, CameraLook, ChatEvent, ConversationSummary, HubApp, Hud, Inbox, InboxEvent, InboxItem,
   PendingToolCall, ProtocolCatalogue, ProtocolDef, ProtocolPreview, ProtocolRunResult, ProtocolStepDef, SirisMemory, SirisWidgets,
 } from "./types";
 
@@ -40,16 +40,6 @@ export const brain = {
     api<{ action: "edited" | "unchanged"; title: string; path: string; links_added: string[]; version: string }>("/api/v1/brain/edit", json({ title, body, version: version ?? null })),
   purge: (title: string) => api<BrainDeleteResult>("/api/v1/brain/purge", json({ title })),
   deleted: () => api<BrainDeleted[]>("/api/v1/brain/deleted"),
-  /** Handwritten pages to check, the likeliest misreadings first (7.6). */
-  handwriting: (limit = 20) => api<HandwritingPage[]>(`/api/v1/brain/handwriting?limit=${limit}`),
-  /** Part `n` of a handwritten page, drawn from OneNote, and how many parts it has. */
-  handwritingImage: async (title: string, n = 1) => {
-    const r = await request(`/api/v1/brain/handwriting/image?title=${encodeURIComponent(title)}&n=${n}`);
-    return { blob: await r.blob(), parts: Number(r.headers.get("X-Page-Parts") || "1") };
-  },
-  /** Right as it is (no text), or Brad's correction replaces the transcription. */
-  handwritingCheck: (title: string, text = "") =>
-    api<{ action: "checked" | "corrected"; title: string }>("/api/v1/brain/handwriting/check", json({ title, text })),
   capture: (body: { text?: string; url?: string; title?: string; tags?: string[]; image?: string }) =>
     api<{ saved: boolean; title: string; action?: string }>("/api/v1/brain/capture", json(body)),
   /** A voice memo to text, through SirisAI's speech-to-text. */

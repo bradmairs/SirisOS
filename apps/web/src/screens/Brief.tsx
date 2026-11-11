@@ -203,10 +203,10 @@ export function BriefView({ onClose, day }: { onClose?: () => void; day?: string
               </Glass>
             )}
             {brief.training && (
-              <Card title="Training" Icon={Footprints}>
+              <Card title="Fitness" Icon={Footprints}>
                 <p style={{ margin: 0, fontSize: 15 }}>{brief.training.title}</p>
                 {brief.training.why && <p className={brief.training.changed ? "tone-warning" : "muted"} style={{ margin: 0, fontSize: 13 }}>{brief.training.changed ? "Changed because: " : ""}{brief.training.why}</p>}
-                <Link to="/training" className="brief-link">Training</Link>
+                <Link to="/fitness" className="brief-link">Fitness</Link>
               </Card>
             )}
             {(wx?.today || wx?.now) && (

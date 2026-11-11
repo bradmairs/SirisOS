@@ -533,39 +533,6 @@ def test_memories_list_and_delete_proxies(client, apps):
     assert client.delete("/api/v1/memories/7").status_code == 401
 
 
-def test_handwriting_review_proxies(client, monkeypatch):
-    seen = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append((request.method, request.url.path, dict(request.url.params), request.content))
-        if request.url.path == "/siris/brain/handwriting":
-            return httpx.Response(200, json=[{"title": "Site Visit", "score": 6.5, "odd_words": ["meroh"], "text": "rear Meroh"}])
-        if request.url.path == "/siris/brain/handwriting/image":
-            if request.url.params["title"] == "Unknown":
-                return httpx.Response(404, json={"detail": "No OneNote page is known for that note."})
-            return httpx.Response(200, content=b"\x89PNG fake", headers={"content-type": "image/png", "x-page-parts": "2"})
-        if request.url.path == "/siris/brain/handwriting/check":
-            body = json.loads(request.content)
-            return httpx.Response(200, json={"action": "corrected" if body["text"] else "checked", "title": body["title"]})
-        return httpx.Response(404, json={"detail": "Not Found"})
-
-    monkeypatch.setattr(service, "transport", httpx.MockTransport(handler))
-    reset_hub(ENV)
-    try:
-        assert client.get("/api/v1/brain/handwriting?limit=5", headers=AUTH).json()[0]["odd_words"] == ["meroh"]
-        assert seen[-1][2] == {"limit": "5"}
-        image = client.get("/api/v1/brain/handwriting/image?title=Site%20Visit&n=2", headers=AUTH)
-        assert image.status_code == 200 and image.content == b"\x89PNG fake"
-        assert image.headers["content-type"] == "image/png" and image.headers["x-page-parts"] == "2"
-        assert client.get("/api/v1/brain/handwriting/image?title=Unknown", headers=AUTH).status_code == 404
-        checked = client.post("/api/v1/brain/handwriting/check", headers=AUTH, json={"title": "Site Visit", "text": "rear Moutere"})
-        assert checked.json() == {"action": "corrected", "title": "Site Visit"}
-        assert client.post("/api/v1/brain/handwriting/check", headers=AUTH, json={"title": "Site Visit"}).json()["action"] == "checked"
-        assert client.get("/api/v1/brain/handwriting").status_code == 401
-    finally:
-        reset_hub({})
-
-
 def test_sirisais_version_is_its_version_not_its_model():
     import asyncio
 

@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { WidgetBoundary } from "../components/WidgetBoundary";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
 import { hub } from "../api/hub";
@@ -306,7 +307,7 @@ export function Home() {
           <section key={title} aria-label={title}>
             <h2 className="section-title">{title}</h2>
             <div className="widget-grid">
-              {slots.shown.map((slot) => <Fragment key={slot.id}>{slot.node}</Fragment>)}
+              {slots.shown.map((slot) => <WidgetBoundary key={slot.id} name={slot.id}>{slot.node}</WidgetBoundary>)}
             </div>
           </section>
         ),

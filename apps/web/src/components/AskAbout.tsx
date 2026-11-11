@@ -13,7 +13,7 @@ function titleFor(pathname: string): string {
 }
 
 /** 7.5: ask Siris about the page you're on. The page's own summary (usePageContext) goes with the question. */
-export function AskAbout({ variant }: { variant: "fab" | "topbar" }) {
+export function AskAbout({ variant }: { variant: "sidebar" | "topbar" }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -33,10 +33,11 @@ export function AskAbout({ variant }: { variant: "fab" | "topbar" }) {
   };
   return (
     <>
-      {variant === "fab" ? (
-        <Glass as="button" shape="pill" interactive className="ask-fab" onClick={() => setOpen(true)} aria-label={`Ask Siris about ${title}`}>
-          <Sparkles size={17} aria-hidden="true" /><span>Ask about this</span>
-        </Glass>
+      {variant === "sidebar" ? (
+        // 8.5: in the sidebar on desktop, not floating over the cards.
+        <button type="button" className="sidebar__search" onClick={() => setOpen(true)} aria-label={`Ask Siris about ${title}`}>
+          <Sparkles size={16} aria-hidden="true" /><span>Ask about this page</span>
+        </button>
       ) : (
         <button type="button" className="icon-link topbar__ask" onClick={() => setOpen(true)} aria-label={`Ask Siris about ${title}`}>
           <Sparkles size={19} aria-hidden="true" />

@@ -466,8 +466,12 @@ a {
   text-transform: uppercase;
 }
 
-.widget__head svg { width: 16px; height: 16px; }
+.widget__head svg { width: 16px; height: 16px; flex: none; }
+/* 8.5: the card's name never gives way (the Today card's read "TODA / Y" beside a long date); what's beside it does. */
+.widget__head > svg + span { flex: none; white-space: nowrap; }
 .widget__head .widget__source { margin-left: auto; color: var(--ink-3); font-weight: 500; text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+/* 8.5: plain text beside the name gives way (it ends in "…"); buttons and links don't. */
+.widget__head span.widget__source { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .widget__head .widget__source:hover { color: var(--ink); }
 
 .metrics {

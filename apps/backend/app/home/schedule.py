@@ -86,7 +86,7 @@ def _default_hidden() -> dict[str, list[str]]:
 
 # Screens the tab bar's last two buttons can be (4.95), or "auto".
 DOCK_CHOICES = ("auto", "/work", "/links", "/career", "/house", "/tasks", "/wrapup", "/brief", "/projects", "/engineering",
-                "/review", "/year", "/status", "/training", "/health")
+                "/review", "/year", "/status", "/fitness", "/health")
 
 
 class DockSlots(BaseModel):
@@ -96,6 +96,8 @@ class DockSlots(BaseModel):
     @field_validator("fourth", "fifth")
     @classmethod
     def _choice(cls, v: str) -> str:
+        if v == "/training":  # 8.5: Training is now Fitness
+            v = "/fitness"
         if v not in DOCK_CHOICES:
             raise ValueError(f"the tab bar can show {', '.join(DOCK_CHOICES)}")
         return v

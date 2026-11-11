@@ -70,7 +70,7 @@ describe("Home through the day", () => {
     const card = await screen.findByRole("region", { name: "Tomorrow" });
     expect(card).toHaveTextContent("Site visit");
     expect(card).toHaveTextContent("Werribee");
-    expect(card).toHaveTextContent("leave by");
+    expect(card).not.toHaveTextContent("leave by");  // 8.5: iOS does travel time from where you are
     expect(card).toHaveTextContent("Tomorrow: 19°");
     expect(await screen.findByRole("region", { name: "Learned today" })).toHaveTextContent("Pump Station 4");
     expect(screen.getByRole("region", { name: "Quick capture" })).toBeInTheDocument();
@@ -125,11 +125,11 @@ describe("Home through the day", () => {
     expect(screen.queryByRole("region", { name: "Tesla" })).not.toBeInTheDocument();
   });
 
-  it("says when to leave in the morning for an event with a place", async () => {
+  it("shows a morning event's place, but no fixed-margin leave time (8.5)", async () => {
     const start = inMinutes(90);
     renderAt("morning", { events: [{ title: "Dentist", start: local(start), all_day: false, location: "Northcote" }] });
     const card = await screen.findByRole("region", { name: "This morning" });
-    const leave = new Date(start.getTime() - 30 * 60_000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    expect(card).toHaveTextContent(`leave by ${leave}`);
+    expect(card).toHaveTextContent("Northcote");
+    expect(card).not.toHaveTextContent("leave by");
   });
 });
