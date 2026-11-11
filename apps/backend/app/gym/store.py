@@ -73,6 +73,8 @@ class Session(BaseModel):
     # The Watch's verdict per exercise id (7.1), kept from SirisAI's analysis: effort 0-10, peak and average heart
     # rate, recovery between sets and how long heart rate took to settle. Read by what to lift and the rest timer.
     effort: dict[str, dict[str, float | None]] = Field(default_factory=dict)
+    # Saved while SirisAI couldn't be reached (8.6): sent again, and analysed, once it answers.
+    ai_pending: bool = False
     _held: bool | None = PrivateAttr(default=None)
 
 
@@ -139,6 +141,7 @@ class Settings(BaseModel):
     plates: list[float] = Field(default_factory=lambda: list(PLATES), max_length=16)
     increment: float = Field(default=2.5, gt=0, le=20)
     rest_s: int = Field(default=90, ge=0, le=900)
+    rest_between_s: int = Field(default=120, ge=0, le=900)  # after an exercise's last set, before the next exercise (8.6)
     gyms: list[GymProfile] = Field(default_factory=list, max_length=10)
     current_gym: str | None = Field(default=None, max_length=40)
     warmups: bool = True
@@ -149,6 +152,7 @@ class Settings(BaseModel):
     # iPhone Shortcuts to run when a workout starts and finishes (6.92), e.g. one that starts the Watch workout.
     shortcut_start: str = Field(default="", max_length=80)
     shortcut_finish: str = Field(default="", max_length=80)
+    shortcut_rest: str = Field(default="", max_length=80)  # gets the rest in seconds, e.g. to start a Clock timer: a Live Activity (8.6)
     # Protein (6.93): grams per kg of bodyweight, on rest days and training days.
     learn_rest: bool = True  # rest timer set from how long your heart rate takes to settle (7.1)
     protein_rest: float = Field(default=1.6, ge=0.5, le=3.5)
@@ -215,6 +219,19 @@ class Video(BaseModel):
     type: str = Field(default="video/mp4", max_length=40)
 
 
+class MergeRecord(BaseModel):
+    """A merge, kept so it can be undone (8.6): the exercise that went, and each touched workout's entries for the two as they were."""
+    id: str = Field(default_factory=new_id, max_length=40)
+    at: str = Field(max_length=40)
+    source: CustomExercise
+    into: str = Field(max_length=60)
+    into_name: str = Field(default="", max_length=80)
+    # session id -> [(position in the workout, the entry as it was)] for the two exercises
+    before: dict[str, list[tuple[int, EntryLog]]] = Field(default_factory=dict)
+    routines: list[tuple[str, int, int]] = Field(default_factory=list)  # (routine id, day, position) that pointed at the source
+    sets_moved: int = 0
+
+
 class GymDoc(BaseModel):
     exercises: list[CustomExercise] = Field(default_factory=list)
     routines: list[Routine] = Field(default_factory=list)
@@ -224,6 +241,8 @@ class GymDoc(BaseModel):
     photos: list[Photo] = Field(default_factory=list)
     niggles: list[Niggle] = Field(default_factory=list)
     videos: list[Video] = Field(default_factory=list)
+    merges: list[MergeRecord] = Field(default_factory=list, max_length=200)  # undoable merges (8.6), newest last
+    not_duplicates: list[list[str]] = Field(default_factory=list, max_length=500)  # pairs you've said aren't the same (8.6)
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
     import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it

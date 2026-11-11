@@ -193,6 +193,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.3: SirisAI asks on Home to set goals all January and review them all December (unfinished carry over); delete notes from the mind map (engine 2.39); full-screen map clears the menu
 8.4: What SirisAI watches on System status: switch off a container removed on purpose so its 'down' alerts stop (SirisAI 5.51)
 8.5: Home Lab diagram, Training becomes Fitness (with Health's activity), drag sheets down to close, away-mode choice, no leave-by times, no OneNote handwriting check, wind-down desktop fixes
+8.6: SirisGym list: start stays in the Home Screen app, weights don't drop a digit, rest timer kept and chimes in-app, 2 min between exercises, Clock-timer rest Shortcut, Finish at the bottom, reorder, unmerge and not-the-same, workouts kept offline and resent to SirisAI
 
 ## Terminal (ADR 113)
 
