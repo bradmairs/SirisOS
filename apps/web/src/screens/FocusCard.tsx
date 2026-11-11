@@ -18,12 +18,6 @@ function eventsOf(ctx: HomeContext, hud: Hud["next_events"] | undefined): DayEve
   return (hud ?? []).map((e) => ({ title: e.summary, start: e.start, all_day: !e.start.includes("T"), location: null }));
 }
 
-/** When to head off for an event with a place: its start less the leave margin. */
-function leaveBy(e: DayEvent, minutes: number | undefined): string | null {
-  if (!e.location || !timed(e) || !minutes) return null;
-  return at(new Date(new Date(e.start).getTime() - minutes * 60_000).toISOString());
-}
-
 function until(iso: string, now: Date): string {
   const mins = Math.round((new Date(iso).getTime() - now.getTime()) / 60_000);
   if (mins <= 0) return "now";
@@ -44,13 +38,13 @@ function Weather({ w, label }: { w: DayWeather | null | undefined; label: string
   );
 }
 
-function EventLine({ e, leave, prefix = "" }: { e: DayEvent; leave?: number; prefix?: string }) {
-  const go = leaveBy(e, leave);
+// 8.5: no "leave by": it was the event's start less a fixed margin, not from where you are; iOS's calendar
+// travel-time alerts do it properly.
+function EventLine({ e, prefix = "" }: { e: DayEvent; prefix?: string }) {
   return (
     <p style={{ margin: 0 }}>
       {prefix}<strong>{e.title}</strong> {timed(e) ? <>at {at(e.start)}</> : <span className="muted">all day</span>}
       {e.location && <span className="muted"> · <MapPin size={12} aria-hidden="true" /> {e.location}</span>}
-      {go && <span className="focus__leave"> · leave by {go}</span>}
     </p>
   );
 }
@@ -103,7 +97,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
     return (
       <Glass as="section" className="widget widget--wide focus-card" aria-label="This morning">
         <header className="widget__head"><Sunrise aria-hidden="true" /><span>This morning</span></header>
-        {first ? <EventLine e={first} leave={ctx.leave_minutes} prefix="First up: " /> : <p className="muted" style={{ margin: 0 }}>Nothing on the calendar this morning.</p>}
+        {first ? <EventLine e={first} prefix="First up: " /> : <p className="muted" style={{ margin: 0 }}>Nothing on the calendar this morning.</p>}
         <Weather w={ctx.weather_today} label="Today" />
         {ctx.top3.length > 0 && (
           <>
@@ -142,7 +136,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
         {/* What's still to come: all-day plans, then the rest by time. */}
         {(() => {
           const left = todays.filter((e) => !timed(e) || upcoming.includes(e));
-          return left.length > 0 ? left.slice(0, 4).map((e) => <EventLine key={`${e.title}-${e.start}`} e={e} leave={ctx.leave_minutes} />)
+          return left.length > 0 ? left.slice(0, 4).map((e) => <EventLine key={`${e.title}-${e.start}`} e={e} />)
             : <p className="muted" style={{ margin: 0 }}>{todays.length ? "Nothing else planned today." : "Nothing planned. A free day."}</p>;
         })()}
         <Weather w={ctx.weather_today} label="Outside today" />
@@ -182,7 +176,7 @@ export function FocusCard({ ctx, events: hudEvents, parcels = 0, inbox = 0, now 
     <Glass as="section" className="widget widget--wide focus-card focus--quiet" aria-label="Tomorrow">
       <header className="widget__head"><MoonStar aria-hidden="true" /><span>Tomorrow</span></header>
       {ctx.phase === "night" && <p className="focus__clock" aria-label="Now">{now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>}
-      {firstTomorrow ? <EventLine e={firstTomorrow} leave={ctx.leave_minutes} prefix="First: " /> : <p className="muted" style={{ margin: 0 }}>Nothing on first thing.</p>}
+      {firstTomorrow ? <EventLine e={firstTomorrow} prefix="First: " /> : <p className="muted" style={{ margin: 0 }}>Nothing on first thing.</p>}
       {ctx.phase === "winddown" && (
         <>
           <Weather w={ctx.weather_tomorrow} label="Tomorrow" />

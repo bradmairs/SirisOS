@@ -51,7 +51,7 @@ export function FitnessWidget({ delay = 0 }: { delay?: number }) {
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         {data.runs} run{data.runs === 1 ? "" : "s"} · {data.exercise_minutes} min exercise{data.steps_avg ? ` · ${data.steps_avg.toLocaleString()} steps a day` : ""}
-        {" · "}<Link to="/training" className="brief-link">Training</Link>
+        {" · "}<Link to="/fitness" className="brief-link">Fitness</Link>
       </p>
       {editing && (
         <form className="row" style={{ gap: 8 }} onSubmit={save}>

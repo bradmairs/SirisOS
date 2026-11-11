@@ -81,3 +81,27 @@ describe("the import log", () => {
     expect(screen.getByText(/· 401 · 48 KB/)).toBeInTheDocument();
   });
 });
+
+
+describe("Fitness (8.5): running and activity", () => {
+  it("shows Apple Health's activity on its own tab, moved from Health", async () => {
+    const { default: fixture } = await import("./__health_fixture.json");
+    const { userEvent } = await import("@testing-library/user-event").then((m) => ({ userEvent: m.default }));
+    const { jsonResponse, mockFetch, signIn } = await import("../test/helpers");
+    const { clearResources } = await import("../api/resource");
+    signIn();
+    clearResources();
+    mockFetch({
+      "/api/v1/health/goals": () => jsonResponse({ goals: [] }),
+      "/api/v1/health": () => jsonResponse(fixture),
+      "/api/v1/training": () => jsonResponse(none),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><TrainingScreen /></MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "Fitness" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Running" })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("tab", { name: "Activity" }));
+    expect(await screen.findByText("Outdoor Run")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Training load" })).toBeInTheDocument();
+  });
+});

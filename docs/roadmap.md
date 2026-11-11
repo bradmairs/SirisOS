@@ -192,6 +192,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.22: Things and receipts show the latest 5, then everything by category; Budget sections fold away
 8.3: SirisAI asks on Home to set goals all January and review them all December (unfinished carry over); delete notes from the mind map (engine 2.39); full-screen map clears the menu
 8.4: What SirisAI watches on System status: switch off a container removed on purpose so its 'down' alerts stop (SirisAI 5.51)
+8.5: Home Lab diagram, Training becomes Fitness (with Health's activity), drag sheets down to close, away-mode choice, no leave-by times, no OneNote handwriting check, wind-down desktop fixes
 
 ## Terminal (ADR 113)
 

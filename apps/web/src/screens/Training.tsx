@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CalendarPlus, Copy, Footprints, HeartPulse, Trophy } from "lucide-react";
 import { DISTANCES, training, type Race, type Training } from "../api/training";
 import { useResource } from "../api/resource";
+import { health, type Health } from "../api/health";
+import { FitnessView } from "./Health";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
@@ -21,7 +23,7 @@ export function TodaysRunWidget() {
   return (
     <Glass as="section" className="widget" aria-label="Today's run">
       <header className="widget__head"><Footprints aria-hidden="true" /><span>Today's run</span>
-        <Link to="/training" className="widget__source">{t.plan.days_to_go} days to {t.plan.race.name}</Link></header>
+        <Link to="/fitness" className="widget__source">{t.plan.days_to_go} days to {t.plan.race.name}</Link></header>
       <div className="item__title career-wrap">{t.session ? t.session.title : t.recovery.level === "rest" ? "Rest today" : "No run planned today"}</div>
       {t.recovery.notes.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{t.recovery.notes.join(" · ")}</p>}
       {t.this_week && <p className="muted" style={{ margin: 0, fontSize: 13 }}>This week: {t.this_week.done_km ?? 0} of {t.this_week.km} km</p>}
@@ -29,12 +31,40 @@ export function TodaysRunWidget() {
   );
 }
 
+/** Fitness (8.5, was Training): running (the race plan) and activity (Apple Health's training load, steps and
+ *  workouts, moved here from Health). */
 export function TrainingScreen() {
+  const [params, setParams] = useSearchParams();
+  const view = params.get("view") === "activity" ? "activity" : "running";
+  useEffect(() => { document.title = "Fitness · SirisOS"; }, []);
+  return (
+    <>
+      <PageHead eyebrow={view === "running" ? "Running" : "Activity"} title="Fitness" />
+      <div className="row career-views" role="tablist" aria-label="Fitness views">
+        {([["running", "Running"], ["activity", "Activity"]] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={view === id} className={`chip chip--button ${view === id ? "chip--active" : ""}`}
+            onClick={() => setParams(id === "running" ? {} : { view: id }, { replace: true })}>{label}</button>
+        ))}
+      </div>
+      {view === "running" ? <RunningView /> : <ActivityView />}
+    </>
+  );
+}
+
+function ActivityView() {
+  const res = useResource<Health>("health", () => health.get(), { refreshMs: 10 * 60_000, staleMs: 60_000, persist: true });
+  const h = res.data;
+  if (!h && res.error) return <div className="error-banner" role="alert" style={{ marginTop: 16 }}>{res.error}</div>;
+  if (!h) return <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />;
+  if (!h.available) return <p className="muted" style={{ marginTop: 16 }}>No activity data yet: set up Apple Health on <Link to="/health?view=sync" className="brief-link">Health → Data sync</Link>.</p>;
+  return <div className="stack" style={{ marginTop: 16 }}><FitnessView h={h} /></div>;
+}
+
+function RunningView() {
   const res = useResource<Training>("training", () => training.get(), { staleMs: 60_000, persist: true });
   const t = res.data;
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { document.title = "Training · SirisOS"; }, []);
 
   async function save(r: Race | null) {
     try {
@@ -48,7 +78,6 @@ export function TrainingScreen() {
 
   return (
     <>
-      <PageHead eyebrow="Running" title="Training" />
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="stack" style={{ marginTop: 16 }}>
         {t && !t.plan && !editing && (

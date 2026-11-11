@@ -37,8 +37,7 @@ describe("<HealthScreen />", () => {
     await user.hover(within(nights).getAllByRole("listitem")[0]);
     expect(screen.getByText(/· need 7h 30m/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Fitness" }));
-    expect(await screen.findByText("Outdoor Run")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Fitness" })).not.toBeInTheDocument();  // 8.5: on the Fitness page now
     await user.click(screen.getByRole("tab", { name: "Vitals" }));
     expect(await screen.findByRole("region", { name: "VO₂ max" })).toBeInTheDocument();
   });
@@ -68,9 +67,6 @@ describe("<HealthScreen />", () => {
     expect(screen.getByRole("region", { name: "Weight" })).toHaveTextContent("79.8 kg");
     expect(screen.getByRole("region", { name: "Weight" })).toHaveTextContent("3.8 kg to go, about 15 weeks");
     expect(screen.getByText(/After a meeting past 8pm you sleep 38 minutes less/)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Fitness" }));
-    expect(await screen.findByText(/behind: 32 a week to make it/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Log" }));
     expect(await screen.findByText("0.75 L")).toBeInTheDocument();

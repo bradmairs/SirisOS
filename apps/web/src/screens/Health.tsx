@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Activity, BatteryMedium, BedDouble, Database, Dumbbell, Gauge, HeartPulse, Lightbulb, Moon, NotebookPen, Flame, Scale, Target, ThermometerSun, TrendingUp } from "lucide-react";
 import { BAND_TONE, health, kJ, type Energy, type Goal, type SleepWeek, type Strain, type Health, type LogKind, type Point, type Readiness, type Trend, type Vital } from "../api/health";
 import { useResource } from "../api/resource";
@@ -7,7 +7,8 @@ import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { HealthSyncCard } from "./HealthSync";
 
-const VIEWS = [{ id: "today", label: "Today" }, { id: "sleep", label: "Sleep" }, { id: "fitness", label: "Fitness" }, { id: "vitals", label: "Vitals" },
+// 8.5: Fitness (activity, training load, workouts) moved to the Fitness page, with running.
+const VIEWS = [{ id: "today", label: "Today" }, { id: "sleep", label: "Sleep" }, { id: "vitals", label: "Vitals" },
   { id: "log", label: "Log" }, { id: "data", label: "Data" }, { id: "sync", label: "Data sync" }] as const;
 type View = (typeof VIEWS)[number]["id"];
 const day = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -114,6 +115,7 @@ export function HealthScreen() {
   const [params, setParams] = useSearchParams();
   const view = (VIEWS.find((v) => v.id === params.get("view"))?.id ?? "today") as View;
   useEffect(() => { document.title = "Health · SirisOS"; }, []);
+  if (params.get("view") === "fitness") return <Navigate to="/fitness?view=activity" replace />;  // 8.5: moved
   const h = res.data;
   return (
     <>
@@ -140,7 +142,6 @@ export function HealthScreen() {
         <div className="stack" style={{ marginTop: 16 }}>
           {view === "today" && <TodayView h={h} />}
           {view === "sleep" && <SleepView h={h} />}
-          {view === "fitness" && <FitnessView h={h} />}
           {view === "vitals" && <VitalsView h={h} />}
           {view === "log" && <LogView h={h} onChange={() => res.reload?.()} />}
         </div>
@@ -199,8 +200,8 @@ function TodayView({ h }: { h: Health }) {
       {h.trends && h.trends.length > 0 && <TrendsCard trends={h.trends} />}
       <div className="widget-grid">
         <Tile title="Sleep" Icon={BedDouble} to="/health?view=sleep" big={hm(h.sleep.last_night?.hours)} sub={h.sleep.score != null ? `Sleep score ${h.sleep.score} · need ${hm(h.sleep.need)}` : `You need about ${hm(h.sleep.need)}`} />
-        <Tile title="Training load" Icon={Dumbbell} to="/health?view=fitness" big={h.activity.load.ratio != null ? h.activity.load.ratio.toFixed(2) : "–"} sub={h.activity.load.zone ? `This week against the last four: ${h.activity.load.zone}` : "Needs a few weeks of exercise data"} />
-        <Tile title="Today" Icon={Activity} to="/health?view=fitness" big={h.activity.steps != null ? Math.round(h.activity.steps).toLocaleString() : "–"} sub={`steps · ${Math.round(h.activity.exercise_minutes ?? 0)} min exercise · ${kJ(h.activity.active_energy_kcal).toLocaleString()} kJ`} />
+        <Tile title="Training load" Icon={Dumbbell} to="/fitness?view=activity" big={h.activity.load.ratio != null ? h.activity.load.ratio.toFixed(2) : "–"} sub={h.activity.load.zone ? `This week against the last four: ${h.activity.load.zone}` : "Needs a few weeks of exercise data"} />
+        <Tile title="Today" Icon={Activity} to="/fitness?view=activity" big={h.activity.steps != null ? Math.round(h.activity.steps).toLocaleString() : "–"} sub={`steps · ${Math.round(h.activity.exercise_minutes ?? 0)} min exercise · ${kJ(h.activity.active_energy_kcal).toLocaleString()} kJ`} />
         {h.bedtime && <Tile title="Tonight" Icon={Moon} to="/health?view=sleep" big={h.bedtime.bedtime} sub={h.bedtime.text} />}
         {h.weight && <Tile title="Weight" Icon={Scale} to="/health?view=vitals" big={`${h.weight.trend.toFixed(1)} kg`}
           sub={`Trend, ${h.weight.per_week >= 0 ? "+" : ""}${h.weight.per_week.toFixed(2)} kg a week${h.weight.to_go_kg != null ? ` · ${h.weight.to_go_kg} kg to go${h.weight.weeks_to_goal ? `, about ${h.weight.weeks_to_goal} weeks` : ""}` : ""}`} />}
@@ -358,7 +359,8 @@ function SleepView({ h }: { h: Health }) {
   );
 }
 
-function FitnessView({ h }: { h: Health }) {
+/** Activity: training load, steps and workouts from Apple Health (on the Fitness page since 8.5). */
+export function FitnessView({ h }: { h: Health }) {
   const a = h.activity;
   return (
     <>
@@ -378,7 +380,7 @@ function FitnessView({ h }: { h: Health }) {
         <Bars points={a.steps_series} label="Steps each day" unit="" format={(v) => Math.round(v).toLocaleString()} />
       </Glass>
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Workouts">
-        <header className="widget__head"><Dumbbell aria-hidden="true" /><span>Workouts</span><Link to="/training" className="widget__source">Training</Link></header>
+        <header className="widget__head"><Dumbbell aria-hidden="true" /><span>Workouts</span><Link to="/fitness" className="widget__source">Running</Link></header>
         {a.workouts.length ? (
           <ul className="items">
             {a.workouts.map((w) => (
