@@ -651,3 +651,16 @@ def test_a_jefit_export_imports_only_logged_exercises_on_their_melbourne_day(cli
     thu = client.get("/api/v1/gym/sessions/import-20261105", headers=AUTH).json()
     assert [e["name"] for e in thu["entries"]] == ["Barbell Curl", "Machine Tricep Extension"]
     assert list(tmp_path.glob("gym.before-jefit.*.json"))
+
+
+def test_sirisai_reads_sessions_with_the_service_key_but_never_writes(client, monkeypatch):
+    key = "g" * 32
+    service_auth = {"Authorization": f"Bearer {key}"}
+    monkeypatch.setenv("SIRISOS_SERVICE_KEY", key)
+    client.post("/api/v1/gym/sessions", headers=AUTH, json=session("s9", "2026-11-02", [(80, 8)]))
+    listed = client.get("/api/v1/gym/sessions?month=2026-11", headers=service_auth)
+    assert listed.status_code == 200 and listed.json()["sessions"][0]["id"] == "s9"
+    one = client.get("/api/v1/gym/sessions/s9?watch=false", headers=service_auth).json()
+    assert one["watch"] is None and one["entries"][0]["sets"][1]["weight"] == 80
+    assert client.post("/api/v1/gym/sessions", headers=service_auth, json=session("s10", "2026-11-03", [(80, 8)])).status_code == 403
+    assert client.delete("/api/v1/gym/sessions/s9", headers=service_auth).status_code == 403
