@@ -1,6 +1,6 @@
 import { api, json } from "./client";
 
-export type GoalKind = "running_km" | "cpd_hours" | "journal_days" | "tasks_done" | "chartered_ready" | "count" | "done";
+export type GoalKind = "running_km" | "cpd_hours" | "journal_days" | "tasks_done" | "chartered_ready" | "lift" | "count" | "done";
 
 export interface YearGoal {
   id: string;
@@ -33,6 +33,7 @@ export interface YearGoals {
 }
 
 export const KIND_LABEL: Record<GoalKind, string> = {
+  lift: "A lift: SirisGym's best estimated 1RM this year (kg)",
   running_km: "Running (km, counted for you)",
   cpd_hours: "CPD hours (counted for you)",
   journal_days: "Journal days (counted for you)",
@@ -51,7 +52,7 @@ export const goals = {
   markSet: (year: number) => api<{ prompt: GoalsPrompt | null }>(`${G}/set?year=${year}`, { method: "POST" }),
   review: (year: number, carry: string[]) => api<{ carried: YearGoal[]; into: number }>(`${G}/review?year=${year}`, json({ carry })),
   get: (year: number) => api<YearGoals>(`${G}?year=${year}`),
-  add: (year: number, goal: { title: string; kind: GoalKind; target?: number | null; unit?: string }) => api<YearGoal>(`${G}?year=${year}`, json(goal)),
+  add: (year: number, goal: { title: string; kind: GoalKind; target?: number | null; unit?: string; exercise?: string }) => api<YearGoal>(`${G}?year=${year}`, json(goal)),
   change: (year: number, id: string, changes: Partial<Pick<YearGoal, "title" | "target" | "progress" | "done" | "notes" | "unit">>) =>
     api<YearGoal>(`${G}/${encodeURIComponent(id)}?year=${year}`, { ...json(changes), method: "PATCH" }),
   remove: (year: number, id: string) => api<void>(`${G}/${encodeURIComponent(id)}?year=${year}`, { method: "DELETE" }),

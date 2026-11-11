@@ -199,7 +199,23 @@ def suggest(doc: GymDoc, plan: PlanExercise, gym_id: str | None = None) -> dict[
             out = {"weight": per_set[0], "reps": hi, "per_set": per_set, "training_max": tm,
                    "why": f"{', '.join(f'{p:.0%}' for p in shares[:plan.sets])} of your training max ({tm:g}, 90% of your best estimated 1RM)."}
         return {**out, "last_note": note}
+    kind = (exercises(doc).get(plan.exercise) or {}).get("kind", "weight")
+    if kind == "time":  # 8.7: held for seconds, not lifted
+        secs = [x["seconds"] for x in prev if x.get("seconds")]
+        if not secs:
+            return {"weight": None, "reps": hi, "why": f"No history yet: hold each set for {lo} to {hi} seconds.", "last_note": note}
+        best = max(secs)
+        why = (f"Every set reached {hi} s last time: hold a little longer, or make it harder." if all(s >= hi for s in secs)
+               else f"Last time up to {best:g} s: aim for {hi} s on every set.")
+        return {"weight": None, "reps": hi, "seconds": best, "why": why, "last_note": note}
     weights = [x["weight"] for x in prev if x.get("weight")]
+    if not weights and kind == "bodyweight":
+        reps_done = [x["reps"] for x in prev if x.get("reps")]
+        if reps_done:
+            why = (f"Every set reached {hi} reps: add a little weight, or slow the reps down." if all(r >= hi for r in reps_done)
+                   else f"Last time {', '.join(str(r) for r in reps_done)} reps: aim for {hi} on every set.")
+            return {"weight": None, "reps": hi, "why": why, "last_note": note}
+        return {"weight": None, "reps": hi, "why": f"No history yet: aim for {lo} to {hi} reps a set.", "last_note": note}
     if not weights:
         return {"weight": None, "reps": hi, "why": "No history yet: pick a weight you could lift for the top of the range.", "last_note": note}
     top = max(weights)
@@ -258,18 +274,25 @@ def _note(doc: GymDoc, session_id: str, exercise: str) -> str | None:
     return (e.note or None) if e else None
 
 
+WARMUP_GAP = 10  # kg: a warm-up at least this much above the one before
+
+
 def warmups(doc: GymDoc, exercise: str, target: float | None, gym_id: str | None = None) -> list[dict[str, Any]]:
     """Warm-up sets up to a working weight: the empty bar, then the settings' steps; ones too close to the bar or the work are left out."""
     st = doc.settings
     ex = exercises(doc).get(exercise) or {}
-    if not st.warmups or not target or ex.get("kind", "weight") != "weight":
+    barbell = ex.get("equipment") in ("barbell", "ez bar", "trap bar", "smith")
+    # 8.7: barbell lifts only. Machines, cables and dumbbells (calf raises at 46, 69 and 92 kg; three sets before a
+    # 12.5 kg split squat) were getting as many warm-ups as a squat.
+    if not st.warmups or not target or ex.get("kind", "weight") != "weight" or not barbell:
         return []
     gym = st.gym(gym_id)
-    barbell = ex.get("equipment") in ("barbell", "ez bar", "trap bar", "smith")
     out: list[dict[str, Any]] = [{"weight": gym.bar, "reps": 10}] if barbell and target > gym.bar * 1.5 else []
     for step in st.warmup_steps:
         w = loadable(doc, exercise, target * step.percent, gym_id)
         if (barbell and w <= gym.bar) or w <= 0 or w >= target or any(abs(o["weight"] - w) < 1e-6 for o in out):
+            continue
+        if out and w - out[-1]["weight"] < WARMUP_GAP:  # 8.7: 20 then 25 kg before a 60 kg squat is a set for nothing
             continue
         out.append({"weight": w, "reps": step.reps})
     return out
@@ -367,7 +390,40 @@ def summary(doc: GymDoc, s: Session) -> dict[str, Any]:
     sets = sum(len(working(e.sets)) for e in s.entries)
     return {"id": s.id, "title": s.title, "date": _day(s.started_at), "started_at": s.started_at, "minutes": minutes, "sets": sets,
             "exercises": len([e for e in s.entries if working(e.sets)]), "volume": round(sum(volume(e.sets) for e in s.entries), 1),
-            "names": [exercises(doc).get(e.exercise, {}).get("name", e.exercise) for e in s.entries][:8], "held": held(s)}
+            "names": [exercises(doc).get(e.exercise, {}).get("name", e.exercise) for e in s.entries][:8], "held": held(s), "feel": s.feel}
+
+
+def recent_max(doc: GymDoc, today: date, days: int = 365) -> dict[str, float]:
+    """The heaviest working set of each exercise in the last `days` (8.7), for the typo check while logging."""
+    since = (today - timedelta(days=days)).isoformat()
+    out: dict[str, float] = {}
+    for s in counted(doc):
+        if _day(s.started_at) < since:
+            continue
+        for e in s.entries:
+            for x in working(e.sets):
+                if x.weight and x.weight > out.get(e.exercise, 0):
+                    out[e.exercise] = x.weight
+    return out
+
+
+def best_e1rm(doc: GymDoc, exercise: str) -> float | None:
+    found = [r["e1rm"] for r in history(doc, exercise) if r["e1rm"]]
+    return max(found) if found else None
+
+
+def compare(doc: GymDoc, s: Session) -> dict[str, Any] | None:
+    """This workout against the last one of the same routine day, or else the last with the same title (8.7)."""
+    def same(o: Session) -> bool:
+        if s.routine_id and o.routine_id == s.routine_id and o.day == s.day:
+            return True
+        return not s.routine_id and o.title == s.title
+    before = [o for o in counted(doc) if o.id != s.id and o.started_at < s.started_at and same(o)]
+    if not before:
+        return None
+    prev, now = summary(doc, before[-1]), summary(doc, s)
+    return {"date": prev["date"], "title": prev["title"], "sets": now["sets"] - prev["sets"], "volume": round(now["volume"] - prev["volume"], 1),
+            "minutes": (now["minutes"] - prev["minutes"]) if now["minutes"] is not None and prev["minutes"] is not None else None}
 
 
 def trained_title(doc: GymDoc, entries: list[EntryLog]) -> str:

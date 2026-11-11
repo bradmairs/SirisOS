@@ -35,7 +35,7 @@ from app.tasks import service as tasks
 from app.tasks import store as task_store
 from app.trends import log
 
-Kind = Literal["running_km", "cpd_hours", "journal_days", "tasks_done", "chartered_ready", "count", "done"]
+Kind = Literal["running_km", "cpd_hours", "journal_days", "tasks_done", "chartered_ready", "count", "done", "lift"]
 MEASURED: dict[str, tuple[str, str]] = {
     "running_km": ("km", "Running"),
     "cpd_hours": ("h", "CPD hours"),
@@ -54,6 +54,7 @@ class Goal(BaseModel):
     progress: float = Field(default=0, ge=0, le=1_000_000)  # "count" goals only
     done: bool = False  # "done" goals only
     notes: str = Field(default="", max_length=1000)
+    exercise: str | None = Field(default=None, max_length=60)  # "lift" goals (8.7): a SirisGym exercise's best estimated 1RM this year
 
 
 def _path():
@@ -78,6 +79,8 @@ def _save(year: int, items: list[Goal]) -> None:
 def add(year: int, goal: Goal) -> Goal:
     if goal.kind in MEASURED and not goal.unit:
         goal.unit = MEASURED[goal.kind][0]
+    if goal.kind == "lift" and not goal.unit:
+        goal.unit = "kg"
     _save(year, [*goals(year), goal])
     return goal
 
@@ -150,7 +153,7 @@ async def overview(hub: Hub, year: int | None = None, today: date | None = None)
         if g.kind == "done":
             value, pct = (1.0 if g.done else 0.0), (100 if g.done else 0)
         else:
-            value = counts.get(g.kind) if g.kind in MEASURED else g.progress
+            value = (lift_best(g.exercise, year) if g.kind == "lift" else counts.get(g.kind) if g.kind in MEASURED else g.progress)
             pct = None if value is None or not g.target else min(100, round(value / g.target * 100))
         if g.kind == "done":
             state = "done" if g.done else "open"
@@ -161,7 +164,7 @@ async def overview(hub: Hub, year: int | None = None, today: date | None = None)
         else:
             state = "on_track" if pct >= through * 100 - 5 else "behind"
         out.append({**g.model_dump(), "value": value, "percent": pct, "state": state,
-                    "source": MEASURED[g.kind][1] if g.kind in MEASURED else None})
+                    "source": MEASURED[g.kind][1] if g.kind in MEASURED else "SirisGym" if g.kind == "lift" else None})
     asked = prompt(today)
     return {"year": year, "today": today.isoformat(), "through_year": round(through * 100), "goals": out,
             "set_them": not items and today.year == year and today.month == 1,
@@ -213,6 +216,16 @@ def carry(year: int, ids: list[str]) -> list[Goal]:
             moved.append(fresh)
     _save(year + 1, nxt)
     return moved
+
+
+def lift_best(exercise: str | None, year: int) -> float | None:
+    """The best estimated 1RM of a SirisGym exercise in `year` (8.7), for a goal like "Bench 120 kg"."""
+    if not exercise:
+        return None
+    from app.gym import service as gym, store as gym_store
+
+    rows = [r["e1rm"] for r in gym.history(gym_store.load(), exercise) if r["e1rm"] and r["date"].startswith(str(year))]
+    return max(rows) if rows else 0.0
 
 
 def push_message(now: datetime) -> list[dict[str, Any]]:

@@ -51,6 +51,7 @@ describe("The workout (7.1)", () => {
     render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
     expect(await screen.findByText("Swapped to spare your knee. (instead of Back Squat)")).toBeInTheDocument();
     expect(screen.getByText(/Rest 150 s, not 90: Your heart rate took about 150 s/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More for Leg Press" }));  // 8.7: behind ⋯
     await userEvent.upload(screen.getByLabelText("Film a set of Leg Press"), new File(["x"], "set.mp4", { type: "video/mp4" }));
     await vi.waitFor(() => expect(screen.getByText("Filmed")).toBeInTheDocument());
     const up = calls.find((c) => c.url.endsWith("/api/v1/gym/videos"));

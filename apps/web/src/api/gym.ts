@@ -15,7 +15,9 @@ export interface Effort {
 export interface EntryLog { exercise: string; sets: SetLog[]; note?: string; group?: string | null }
 export interface Session { id: string; title: string; started_at: string; ended_at?: string | null; routine_id?: string | null; day?: number | null; entries: EntryLog[]; note?: string; bodyweight?: number | null; gym?: string | null; deload?: boolean; review?: "" | "real" | "wrong";
   /** On the phone only (7.8): a saved workout reopened to correct it. Finishing re-saves it (same id) with its own times. */
-  editing?: boolean }
+  editing?: boolean;
+  /** How it felt, 1 (awful) to 5 (great), tapped after finishing (8.7). */
+  feel?: number | null }
 export type Progression = "double" | "linear" | "percent";
 export interface PlanExercise { exercise: string; sets: number; reps: string; rest_s: number; note?: string; group?: string | null; progression?: Progression; percents?: number[] }
 /** `weekdays`: 0 = Monday … 6 = Sunday (6.94); empty: in turn. */
@@ -31,7 +33,7 @@ export interface GymSettings {
   /** 8.6: rest after an exercise's last set, and a Shortcut given each rest's seconds (e.g. a Clock timer, for a Live Activity). */
   rest_between_s?: number; shortcut_rest?: string;
 }
-export interface Suggest { weight: number | null; reps: number; why: string; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null; watch_effort?: number }
+export interface Suggest { weight: number | null; reps: number; why: string; seconds?: number; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null; watch_effort?: number }
 export type Area = "shoulder" | "elbow" | "wrist" | "lower back" | "knee";
 export const AREAS: Area[] = ["shoulder", "elbow", "wrist", "lower back", "knee"];
 export interface Niggle { id: string; area: Area; note: string; started: string; healed?: string | null }
@@ -42,15 +44,22 @@ export interface Fitness { weight: number; first: string; latest: string; times:
 export interface HeatDay { date: string; volume: number; sets: number; muscles: string[] }
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[];
   /** Imported, and too big to be one workout (7.0): left out of records and stats until you say it's real. */
-  held?: boolean }
+  held?: boolean; feel?: number | null }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number; schedule?: WeekSchedule | null } | null;
   recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number; cardio_min?: number; cardio_km?: number; cardio_sessions?: number };
   streak_weeks: number; total_sessions: number; niggles?: Niggle[];
   held?: Summary[]; muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
+  /** 8.7: each exercise's heaviest working set in the last year (the typo check), how recovered each muscle is,
+   * how many routine exercises could link to your history, and sessions set aside with a start that wasn't a time. */
+  recent_max?: Record<string, number>; recovery?: Recovery[]; links?: number; quarantined?: number;
 }
+export interface Recovery { muscle: string; last: string | null; hours: number | null; ready: number | null }
+export interface HistoryLink { exercise: string; name: string; sessions: number; options: { id: string; name: string; sessions: number; equipment: string | null }[] }
+export interface ExerciseFix { id: string; name: string; sessions: number; now: { kind: Kind; equipment: string; primary: string }; change: Partial<{ kind: Kind; equipment: string; primary: string }> }
+export interface Compare { date: string; title: string; sets: number; volume: number; minutes: number | null }
 export interface MuscleWeek { muscle: string; sets: number; target: [number, number]; status: "under" | "in range" | "over" }
-export interface Deload { active: boolean; until: string | null; suggest: boolean; why: string[] }
+export interface Deload { active: boolean; until: string | null; suggest: boolean; why: string[]; snoozed_until?: string | null }
 export interface Watch { name: string; start: string; minutes: number | null; avg_hr: number | null; max_hr: number | null; kj: number | null }
 export interface Strength { bodyweight: number | null; lifts: { exercise: string; name: string; best: number; date: string; this_year: number | null; last_year: number | null; ratio: number | null; level: string | null }[] }
 export interface YearStats { sessions: number; hours: number; sets: number; volume: number }
@@ -59,7 +68,9 @@ export interface YearReview extends YearStats {
   muscles: { muscle: string; sets: number }[]; best: { exercise: string; name: string; e1rm: number; date: string }[];
 }
 export interface Plan { routine: string; day: number; title: string; gym?: string; deload?: boolean; readiness?: { score: number | null; band: string } | null; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[];
-  niggle?: { area: string; swap: string | null; name?: string; why: string; from: string | null }; rest_learned?: { seconds: number; planned: number; why: string } })[] }
+  niggle?: { area: string; swap: string | null; name?: string; why: string; from: string | null }; rest_learned?: { seconds: number; planned: number; why: string };
+  /** 8.7: your best estimated 1RM (a new one gets a badge as you log) and heaviest set in the last year (the typo check). */
+  best_e1rm?: number | null; recent_max?: number | null })[] }
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
 export interface ExerciseDetail {
   exercise: Exercise;
@@ -119,7 +130,17 @@ export const gym = {
   warmups: (exercise: string, weight: number, gymId?: string) =>
     api<{ warmups: { weight: number; reps: number }[] }>(`${G}/warmups?exercise=${encodeURIComponent(exercise)}&weight=${weight}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
   heatmap: (days = 371) => api<{ days: HeatDay[] }>(`${G}/heatmap?days=${days}`),
-  finish: (s: Session) => api<{ summary: Summary; records: GymRecord[]; ai_pending?: boolean }>(`${G}/sessions`, json(s)),
+  finish: (s: Session) => api<{ summary: Summary; records: GymRecord[]; ai_pending?: boolean; compare?: Compare | null }>(`${G}/sessions`, json(s)),
+  feel: (id: string, feel: number) => api<{ id: string; feel: number }>(`${G}/sessions/${encodeURIComponent(id)}/feel`, json({ feel })),
+  fixSets: (id: string, exercise: string, sets: { weight: number | null; reps: number | null; seconds?: number | null; km?: number | null }[]) =>
+    api<{ summary: Summary; records: GymRecord[] }>(`${G}/sessions/${encodeURIComponent(id)}/sets`, { method: "PUT", body: JSON.stringify({ exercise, sets }) }),
+  changeExercise: (id: string, changes: Partial<Pick<Exercise, "name" | "primary" | "secondary" | "equipment" | "kind">>) =>
+    api<Exercise>(`${G}/exercises/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(changes) }),
+  exerciseFixes: () => api<{ fixes: ExerciseFix[] }>(`${G}/exercise-fixes`),
+  applyFixes: (ids: string[], keep = false) => api<{ changed?: number; kept?: number; fixes: ExerciseFix[] }>(`${G}/exercise-fixes`, json({ ids, keep })),
+  links: () => api<{ links: HistoryLink[] }>(`${G}/links`),
+  link: (source: string, into: string | null) => api<{ changed: number; links: HistoryLink[] }>(`${G}/links`, json(into ? { source, into } : { source, keep: true })),
+  deloadLater: () => api<Deload>(`${G}/deload`, json({ on: false, later: true })),
   sessions: (month?: string) => api<{ sessions: Summary[] }>(`${G}/sessions${month ? `?month=${month}` : ""}`),
   session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[]; watch?: Watch | null }>(`${G}/sessions/${id}`),
   build: (b: BuildRequest) => api<Built>(`${G}/builder`, json(b)),
