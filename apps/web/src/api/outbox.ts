@@ -39,9 +39,12 @@ function write(items: Pending[]): boolean {
   }
 }
 
-/** The connection dropped or the phone is offline, as opposed to SirisOS saying no. */
+/** The connection dropped or the phone is offline, as opposed to SirisOS saying no. A 502, 503 or 504 (or Cloudflare's
+ * 520-524) is the way in answering for SirisOS while it's down (8.6): that's unreachable too, not a no, so what's waiting
+ * is kept rather than thrown away. */
 export function unreachable(e: unknown): boolean {
-  return (e instanceof ApiError && e.status === 0) || (typeof navigator !== "undefined" && navigator.onLine === false);
+  if (e instanceof ApiError && (e.status === 0 || [502, 503, 504].includes(e.status) || (e.status >= 520 && e.status <= 524))) return true;
+  return typeof navigator !== "undefined" && navigator.onLine === false;
 }
 
 /** Keep it for later; false when it can't be kept (storage full, or a big photo). */
@@ -91,9 +94,11 @@ export function flush(): Promise<number> {
   return flushing;
 }
 
-/** Flush when the connection comes back or the app comes to the front. */
+/** Flush when the connection comes back or the app comes to the front, and every minute while something's waiting
+ * (8.6): with signal but SirisOS down, nothing else would say it's back. */
 export function startOutbox(): void {
   if (typeof window === "undefined") return;
+  window.setInterval(() => { if (waiting()) void flush(); }, 60_000);
   window.addEventListener("online", () => void flush());
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && waiting()) void flush();

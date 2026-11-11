@@ -62,8 +62,8 @@ describe("SirisGym 6.7", () => {
   it("rests after the superset's last exercise, and records effort and a note", async () => {
     signIn();
     saveActive({ id: "w2", title: "Push", started_at: new Date().toISOString(), entries: [
-      { exercise: "bench-press", group: "A", sets: [{ weight: 80, reps: 8, done: false, type: "normal" }] },
-      { exercise: "barbell-row", group: "A", sets: [{ weight: 60, reps: 10, done: false, type: "normal" }] }] });
+      { exercise: "bench-press", group: "A", sets: [{ weight: 80, reps: 8, done: false, type: "normal" }, { weight: 80, reps: 8, done: false, type: "normal" }] },
+      { exercise: "barbell-row", group: "A", sets: [{ weight: 60, reps: 10, done: false, type: "normal" }, { weight: 60, reps: 10, done: false, type: "normal" }] }] });
     mockFetch({ "/api/v1/gym": () => jsonResponse({ ...GYM, exercises: [...GYM.exercises,
       { id: "barbell-row", name: "Barbell Row", primary: "back", secondary: [], equipment: "barbell", kind: "weight", custom: false }] }) });
     const user = userEvent.setup();
@@ -396,7 +396,7 @@ describe("<GymWorkoutScreen />", () => {
   it("logs a set from last time, starts the rest timer, and finishes with the records", async () => {
     signIn();
     saveActive({ id: "w1", title: "Push, pull, legs: Push", started_at: new Date().toISOString(),
-      entries: [{ exercise: "bench-press", sets: [{ weight: 82.5, reps: null, done: false, type: "normal" }] }] });
+      entries: [{ exercise: "bench-press", sets: [{ weight: 82.5, reps: null, done: false, type: "normal" }, { weight: 82.5, reps: null, done: false, type: "normal" }] }] });
     window.sessionStorage.setItem("sirisos.gym.plan.w1", JSON.stringify({ routine: "r1", day: 0, title: "Push", exercises: [
       { exercise: "bench-press", sets: 1, reps: "5-8", rest_s: 120, name: "Bench Press", kind: "weight", last: [{ weight: 80, reps: 8, done: true, type: "normal" }],
         suggest: { weight: 82.5, reps: 5, why: "Last time every set at 80 reached 8: add 2.5." } }] }));
@@ -410,9 +410,11 @@ describe("<GymWorkoutScreen />", () => {
     expect(await screen.findByText(/add 2.5/)).toBeInTheDocument();
     expect(screen.getByText("80×8")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Set 1 done" }));
-    expect(screen.getByRole("timer", { name: "Rest" })).toHaveTextContent("120 s");
+    expect(screen.getByRole("timer", { name: "Rest" })).toHaveTextContent("2:00");
     expect(screen.getByRole("textbox", { name: "Set 1 reps" })).toHaveValue("8");  // filled from last time
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);  // set 2 isn't ticked
     await user.click(screen.getByRole("button", { name: "Finish" }));
+    confirm.mockRestore();
     expect(await screen.findByText("Bench Press: heaviest ever, 82.5")).toBeInTheDocument();
     const sent = JSON.parse(String(calls.find((c) => c.url === "/api/v1/gym/sessions")!.init.body));
     expect(sent.entries[0].sets).toEqual([{ weight: 82.5, reps: 8, done: true, type: "normal", at: expect.any(String) }]);  // the time it was ticked (6.96)

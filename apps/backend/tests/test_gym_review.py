@@ -168,3 +168,62 @@ def test_a_stall_is_recent_not_against_a_best_from_years_ago():
     flat = [bench(f"2026-10-{d:02d}", 100) for d in range(1, 10)]
     assert coach._stalled(store.GymDoc(sessions=flat), today) == ["Bench Press"]
     assert coach._stalled(store.GymDoc(sessions=flat), date(2027, 6, 1)) == [], "a lift you've stopped doing isn't stalled"
+
+
+def test_a_merge_can_be_undone_and_the_pair_isnt_suggested_again(client):
+    a, b = mine("Seated Tricep Press"), mine("Seated Triceps Press")
+    both = imported("2026-01-01", 3, exercise=b.id)
+    both.entries.insert(0, store.EntryLog(exercise=a.id, sets=[store.SetLog(weight=10, reps=5)] * 2, note="mine"))
+    only = imported("2026-01-02", 4, exercise=a.id)
+    untouched = imported("2026-01-03", 2, exercise=b.id)
+    routine = store.Routine(name="R", days=[store.RoutineDay(name="D", exercises=[store.PlanExercise(exercise=a.id)])])
+    saved(both, only, untouched, exercises=[a, b], routines=[routine])
+    assert client.post("/api/v1/gym/merge", json={"source": a.id, "into": b.id}).status_code == 200
+
+    merges = client.get("/api/v1/gym/merges").json()["merges"]
+    assert [(m["from_name"], m["into_name"], m["sets_moved"], m["workouts"]) for m in merges] == [("Seated Tricep Press", "Seated Triceps Press", 6, 2)]
+    r = client.post(f"/api/v1/gym/merges/{merges[0]['id']}/undo")
+    assert r.status_code == 200 and r.json()["sets_back"] == 6
+    doc = store.load()
+    assert {e.id for e in doc.exercises} == {a.id, b.id}
+    assert [[(e.exercise, len(e.sets)) for e in s.entries] for s in doc.sessions] == [[(a.id, 2), (b.id, 3)], [(a.id, 4)], [(b.id, 2)]]
+    assert doc.sessions[0].entries[0].note == "mine"
+    assert doc.routines[0].days[0].exercises[0].exercise == a.id
+    assert client.get("/api/v1/gym/merges").json()["merges"] == []
+    assert client.get("/api/v1/gym/duplicates").json()["duplicates"] == []  # undone means they're not the same
+    assert client.post(f"/api/v1/gym/merges/{merges[0]['id']}/undo").status_code == 404
+
+
+def test_a_pair_you_say_isnt_the_same_isnt_suggested_again(client):
+    a, b = mine("Cable V Bar Pull Down"), mine("Cable V Bar Pulldown")
+    saved(imported("2026-01-01", 5, exercise=b.id), exercises=[a, b])
+    found = client.get("/api/v1/gym/duplicates").json()["duplicates"]
+    assert len(found) == 1
+    r = client.post("/api/v1/gym/duplicates/dismiss", json={"source": found[0]["from"], "into": found[0]["into"]})
+    assert r.status_code == 200 and r.json()["duplicates"] == []
+    assert store.load().not_duplicates == [[a.id, b.id]]
+
+
+def test_a_workout_saved_while_sirisai_is_down_goes_when_its_back(client, monkeypatch):
+    up = {"ok": False}
+    sent: list[str] = []
+
+    async def fake_post(hub, path, **kw):
+        if not up["ok"]:
+            raise RuntimeError("SirisAI unreachable")
+        sent.append(path)
+        return {}
+
+    monkeypatch.setattr(gym_api.sirisai_api, "post", fake_post)
+    body = {"id": "w1", "title": "Push", "started_at": "2026-11-10T07:00:00+00:00", "ended_at": "2026-11-10T08:00:00+00:00", "entries": [
+        {"exercise": "bench-press", "sets": [{"weight": 80, "reps": 8, "done": True, "at": "2026-11-10T07:05:00"}]}]}
+    r = client.post("/api/v1/gym/sessions", json=body)
+    assert r.status_code == 200 and r.json()["ai_pending"] is True
+    assert store.load().sessions[0].ai_pending
+
+    hub = object()
+    assert asyncio.run(gym_api.resend_pending(hub)) == 0  # still down: kept for later
+    up["ok"] = True
+    assert asyncio.run(gym_api.resend_pending(hub)) == 1
+    assert "/siris/health/gym/session" in sent and not store.load().sessions[0].ai_pending
+    assert asyncio.run(gym_api.resend_pending(hub)) == 0  # nothing left

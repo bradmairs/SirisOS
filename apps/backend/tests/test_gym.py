@@ -228,6 +228,7 @@ def health(monkeypatch):
     async def fake_send(hub, doc, day):
         from app.gym import coach
         state["sent"].append(coach.as_workouts(doc, day))
+        return True
 
     async def fake_workouts(hub, days=42):
         return state["workouts"]

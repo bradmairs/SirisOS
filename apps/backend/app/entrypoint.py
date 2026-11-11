@@ -129,7 +129,10 @@ async def lifespan(application):
         from app.hub import watch
 
         if watch.enabled():
+            from app.gym import api as gym_api
+
             tasks.append(asyncio.create_task(watch.loop(get_hub)))
+            tasks.append(asyncio.create_task(gym_api.resend_loop(get_hub)))  # workouts SirisAI missed (8.6)
         if selftest.enabled():
             tasks.append(asyncio.create_task(selftest.loop()))
         try:

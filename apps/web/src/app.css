@@ -943,6 +943,9 @@ h3.note__heading { font-size: 17px; }
 .gym-rest__time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 44px; }
 .gym-rest__bar { flex: 1; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 25%, transparent); overflow: hidden; }
 .gym-rest__bar span { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
+/* 8.6: rest's over, on screen until the next tap (a push isn't shown while the app's open). */
+.gym-rest--over { border-color: var(--accent); }
+.gym-rest__next { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .receipt-frame { width: 100%; height: 60vh; border: 1px solid color-mix(in srgb, var(--ink-3) 25%, transparent); border-radius: 12px; background: #fff; }
 .receipt-image { max-width: 100%; height: auto; border-radius: 12px; background: #fff; align-self: flex-start; }
 .goals__ask { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); }

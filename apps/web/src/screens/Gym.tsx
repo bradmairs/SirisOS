@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePageContext } from "../api/pageContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Activity, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, newId, saveActive, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, moveEntry, newId, saveActive, savePlan, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type MergeDone, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session } from "../api/gym";
 import { DecimalInput } from "../components/DecimalInput";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
@@ -49,11 +49,12 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
         }),
       ],
     })) };
-    try { window.sessionStorage.setItem(`sirisos.gym.plan.${s.id}`, JSON.stringify(p)); } catch { /* fine */ }
+    savePlan(s.id, p);
   }
   saveActive(s);
   // A Shortcut first (e.g. start the Watch's strength workout), which comes back to the workout (6.92).
-  if (!shortcuts.run(shortcut, "/gym/workout")) navigate("/gym/workout");
+  navigate("/gym/workout");
+  shortcuts.run(shortcut, "/gym/workout");
 }
 
 /** What's on SirisGym, in a few lines for "Ask about this page" (7.5). */
@@ -645,6 +646,11 @@ function RoutineEditor({ g, start, onClose, onSaved }: { g: Gym; start: Routine;
                 <input className="field" type="number" min={1} max={20} aria-label="Sets" value={e.sets} onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, sets: Number(ev.target.value) || 1 } : x)) })} />
                 <span className="muted">×</span>
                 <input className="field" aria-label="Reps" value={e.reps} onChange={(ev) => setDay(i, { ...d, exercises: d.exercises.map((x, j) => (j === k ? { ...x, reps: ev.target.value } : x)) })} />
+                {/* Reorder (8.6) */}
+                <button type="button" className="icon-link" disabled={k === 0} aria-label={`Move ${g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise} up`} title="Move up"
+                  onClick={() => setDay(i, { ...d, exercises: moveEntry(d.exercises, k, k - 1) })}><ArrowUp size={14} aria-hidden="true" /></button>
+                <button type="button" className="icon-link" disabled={k === d.exercises.length - 1} aria-label={`Move ${g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise} down`} title="Move down"
+                  onClick={() => setDay(i, { ...d, exercises: moveEntry(d.exercises, k, k + 1) })}><ArrowDown size={14} aria-hidden="true" /></button>
                 <button type="button" className="icon-link" aria-label="Remove" onClick={() => setDay(i, { ...d, exercises: d.exercises.filter((_, j) => j !== k) })}><Trash2 size={14} aria-hidden="true" /></button>
                 <div className="row gym-plan-row__more">
                   <select className="field" aria-label={`How ${g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise} progresses`} value={e.progression ?? "double"}
@@ -735,20 +741,39 @@ function ExercisesView({ g, onChange }: { g: Gym; onChange: () => void }) {
 /** Exercises that look the same (7.0): merge one into the other, and its history comes along. A copy is saved first. */
 function DuplicatesCard({ onChange }: { onChange: () => void }) {
   const res = useResource("gym:duplicates", () => gym.duplicates(), { staleMs: 60_000 });
+  const done = useResource("gym:merges", () => gym.merges(), { staleMs: 60_000 });
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const found = res.data?.duplicates ?? [];
+  const merges = done.data?.merges ?? [];
+  /** They aren't the same (8.6): not suggested again. */
+  const notSame = async (d: Duplicate) => {
+    setBusy(true);
+    try { res.mutate?.(await gym.notSame(d.from, d.into)); setMsg(`${d.from_name} and ${d.into_name} stay apart.`); }
+    catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't save that."); } finally { setBusy(false); }
+  };
+  /** Unmerge (8.6): the exercise and its sets come back, and the pair isn't suggested again. */
+  const unmerge = async (m: MergeDone) => {
+    if (!window.confirm(`Unmerge ${m.from_name} from ${m.into_name}? Its ${m.sets_moved} sets go back to it.`)) return;
+    setBusy(true);
+    try {
+      const r = await gym.unmerge(m.id);
+      setMsg(`${r.name} is back, with ${r.sets_back} sets from ${r.workouts} workouts.`);
+      await Promise.all([res.reload?.(true), done.reload?.(true)]);
+      onChange();
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't unmerge it."); } finally { setBusy(false); }
+  };
   const merge = async (d: Duplicate) => {
     if (!window.confirm(`Merge ${d.from_name} into ${d.into_name}? Its ${d.from_sets} sets move across and routines follow.`)) return;
     setBusy(true);
     try {
       const r = await gym.merge(d.from, d.into);
-      setMsg(`${d.from_name} is now ${d.into_name}: ${r.sets_moved} sets from ${r.workouts} workouts moved.`);
-      await res.reload?.(true);
+      setMsg(`${d.from_name} is now ${d.into_name}: ${r.sets_moved} sets from ${r.workouts} workouts moved. Undo it under Merged.`);
+      await Promise.all([res.reload?.(true), done.reload?.(true)]);
       onChange();
     } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't merge them."); } finally { setBusy(false); }
   };
-  if (!found.length && !msg) return null;
+  if (!found.length && !merges.length && !msg) return null;
   return (
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Duplicate exercises">
       <header className="widget__head"><ListPlus aria-hidden="true" /><span>{found.length ? `${found.length} that look the same` : "Duplicate exercises"}</span></header>
@@ -759,10 +784,29 @@ function DuplicatesCard({ onChange }: { onChange: () => void }) {
               <span className="item__title">{d.from_name}</span>
               <span className="item__subtitle" style={{ whiteSpace: "normal" }}>{d.from_sets} sets, into {d.into_name} ({d.into_sets} sets){d.sure ? "" : ". Check these are the same"}</span>
             </span>
-            <button type="button" className="chip chip--button" disabled={busy} onClick={() => merge(d)}>Merge</button>
+            <div className="row" style={{ gap: 6, flex: "none" }}>
+              <button type="button" className="chip chip--button" disabled={busy} onClick={() => merge(d)}>Merge</button>
+              <button type="button" className="chip chip--button" disabled={busy} aria-label={`${d.from_name} and ${d.into_name} aren't the same`} onClick={() => notSame(d)}>Not the same</button>
+            </div>
           </li>
         ))}
       </ul>
+      {merges.length > 0 && (
+        <details>
+          <summary className="muted" style={{ fontSize: 13 }}>Merged ({merges.length})</summary>
+          <ul className="items" aria-label="Merged exercises">
+            {merges.map((m) => (
+              <li key={m.id} className="item">
+                <span className="item__text">
+                  <span className="item__title">{m.from_name}</span>
+                  <span className="item__subtitle">into {m.into_name} · {m.sets_moved} sets · {m.at.slice(0, 10)}</span>
+                </span>
+                <button type="button" className="chip chip--button" disabled={busy} aria-label={`Unmerge ${m.from_name}`} onClick={() => unmerge(m)}>Unmerge</button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {msg && <p role="status" className="muted" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
     </Glass>
   );
@@ -856,6 +900,7 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Training settings">
         <header className="widget__head"><Settings2 aria-hidden="true" /><span>Training</span></header>
         <label className="gym-setting">Rest between sets (s)<input className="field" type="number" min={0} max={900} value={s.rest_s} onChange={(e) => setS({ ...s, rest_s: Number(e.target.value) || 0 })} /></label>
+        <label className="gym-setting">Rest between exercises (s)<input className="field" type="number" min={0} max={900} value={s.rest_between_s ?? 120} onChange={(e) => setS({ ...s, rest_between_s: Number(e.target.value) || 0 })} /></label>
         <label className="gym-setting">Weight step (kg)<input className="field" type="number" step={0.25} min={0.25} max={20} value={s.increment} onChange={(e) => setS({ ...s, increment: Number(e.target.value) || 2.5 })} /></label>
         <label className="gym-setting">iPhone Shortcut to run when a workout starts
           <input className="field" placeholder="e.g. SirisGym Start (empty: none)" value={s.shortcut_start ?? ""} onChange={(e) => setS({ ...s, shortcut_start: e.target.value })} /></label>
@@ -864,7 +909,10 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
         {!!s.shortcut_start?.trim() && !s.shortcut_finish?.trim() && (
           <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 12 }}>With a start Shortcut but no finish one, the Watch workout keeps running after you finish or discard here. Name a Shortcut that ends it.</p>
         )}
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. The finish one gets "finished" or "discarded" as its input, and should end the Watch workout. It runs on iPhone, then comes straight back here.</p>
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and kJ are recorded and matched to the session. The finish one gets "finished" or "discarded" as its input, and should end the Watch workout. It runs on iPhone. In Safari it comes straight back; from the Home Screen app, tap ◀ SirisOS at the top left (a link back would open Safari instead, without your workout).</p>
+        <label className="gym-setting">…and for each rest, given its seconds (e.g. to start a Clock timer, which shows on the lock screen and Dynamic Island)
+          <input className="field" placeholder="e.g. SirisGym Rest (empty: none)" value={s.shortcut_rest ?? ""} onChange={(e) => setS({ ...s, shortcut_rest: e.target.value })} /></label>
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>A web app can't put up a Live Activity itself; only iPhone apps can. A Clock timer can: make a Shortcut that takes the input as seconds and runs Start Timer. Each rest then opens Shortcuts for a moment; from the Home Screen app, tap ◀ SirisOS at the top left to come back.</p>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.learn_rest ?? true} onChange={(e) => setS({ ...s, learn_rest: e.target.checked })} /> Set the rest timer from how long my heart rate takes to settle (needs the Watch)</label>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (

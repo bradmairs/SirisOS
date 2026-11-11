@@ -28,6 +28,8 @@
     GET    /api/v1/gym/swap?exercise=&gym=   (6.93) other exercises for the same job
     GET    /api/v1/gym/sessions/{id}/effort  (6.96) the Watch's heart rate lined up with each set, from SirisAI
     GET    /api/v1/gym/duplicates; POST /api/v1/gym/merge {source, into}   (7.0) exercises that look the same, and merging one into the other
+    POST   /api/v1/gym/duplicates/dismiss {source, into}   (8.6) they aren't the same: don't suggest them again
+    GET    /api/v1/gym/merges; POST /api/v1/gym/merges/{id}/undo   (8.6) merges you can undo, and undoing one
     POST   /api/v1/gym/sessions/{id}/review {verdict}   (7.0) an imported day too big to be one workout: real, wrong, or not looked at yet
     GET    /api/v1/gym/morning               (7.0) today's plan for the morning card
     GET    /api/v1/gym/coach                 (7.0) the week's one or two changes, from SirisAI
@@ -327,24 +329,60 @@ def get_heatmap(days: int = Query(default=371, ge=7, le=3700)) -> dict[str, Any]
     return {"days": service.heatmap(store.load(), tasks.today(), days)}
 
 
-async def _send_session(hub: Hub, doc: store.GymDoc, s: store.Session) -> None:
-    """The session with each set's time goes to SirisAI (6.96), which links it to the Watch workout and works out the effort."""
+async def _send_session(hub: Hub, doc: store.GymDoc, s: store.Session) -> bool:
+    """The session with each set's time goes to SirisAI (6.96), which links it to the Watch workout and works out the effort.
+    False when SirisAI couldn't be reached."""
     if not any(x.at for e in s.entries for x in e.sets):
-        return
+        return True
     try:
         await sirisai_api.post(hub, "/siris/health/gym/session", json=coach.timeline(doc, s), timeout=8.0)
+        return True
     except Exception as exc:  # noqa: BLE001
         log.info("Couldn't send the session to SirisAI: %s", exc)
+        return False
 
 
-async def _send_day(hub: Hub, doc: store.GymDoc, day: str) -> None:
+async def _send_day(hub: Hub, doc: store.GymDoc, day: str) -> bool:
     """The day's gym sessions go to SirisAI as workouts (6.8), so strain and the training load count them,
-    and a training summary (6.9) so chat and voice can answer about it."""
+    and a training summary (6.9) so chat and voice can answer about it. False when SirisAI couldn't be reached."""
     try:
         await sirisai_api.post(hub, "/siris/health/metrics", json=coach.as_workouts(doc, day), headers={"X-Health-Source": "sirisgym"}, timeout=8.0)
         await sirisai_api.post(hub, "/siris/health/gym", json=coach.for_sirisai(doc, tasks.today()), timeout=8.0)
+        return True
     except Exception as exc:  # noqa: BLE001 - the workout is saved either way
         log.info("Couldn't send the gym day to SirisAI: %s", exc)
+        return False
+
+
+async def resend_pending(hub: Hub) -> int:
+    """Workouts saved while SirisAI was down go again (8.6), oldest first; stops at the first that still can't.
+    Returns how many went."""
+    doc = store.load()
+    sent = 0
+    for s in sorted((x for x in doc.sessions if x.ai_pending), key=lambda x: x.started_at):
+        if not (await _send_day(hub, doc, service.day_of(s.started_at)) and await _send_session(hub, doc, s)):
+            break
+        fresh = store.load()  # it may have changed while we waited on SirisAI
+        for x in fresh.sessions:
+            if x.id == s.id:
+                x.ai_pending = False
+        store.save(fresh)
+        sent += 1
+    return sent
+
+
+RESEND_EVERY_S = 300
+
+
+async def resend_loop(get_hub: Any) -> None:
+    """Every five minutes, send SirisAI what it missed while it was down (8.6)."""
+    while True:
+        try:
+            if any(s.ai_pending for s in store.load().sessions):
+                await resend_pending(get_hub())
+        except Exception as exc:  # noqa: BLE001 - keep trying
+            log.warning("Couldn't resend workouts to SirisAI: %s", exc)
+        await asyncio.sleep(RESEND_EVERY_S)
 
 
 @router.post("/sessions")
@@ -359,9 +397,14 @@ async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict
     body.gym = body.gym or doc.settings.current_gym
     doc.sessions.append(body)
     store.save(doc)
-    await _send_day(hub, doc, service.day_of(body.started_at))
-    await _send_session(hub, doc, body)
-    return {"summary": service.summary(doc, body), "records": service.new_records(doc, body)}
+    sent = await _send_day(hub, doc, service.day_of(body.started_at)) and await _send_session(hub, doc, body)
+    if not sent:  # saved here; SirisAI gets it, and analyses it, when it's back (8.6)
+        body.ai_pending = True
+        store.save(doc)
+    elif body.ai_pending:
+        body.ai_pending = False
+        store.save(doc)
+    return {"summary": service.summary(doc, body), "records": service.new_records(doc, body), "ai_pending": body.ai_pending}
 
 
 @router.get("/sessions")
@@ -429,6 +472,33 @@ def merge(body: MergeRequest) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     store.backup("before-merge")
+    store.save(doc)
+    return out
+
+
+@router.post("/duplicates/dismiss")
+def dismiss_duplicate(body: MergeRequest) -> dict[str, Any]:
+    """These two aren't the same (8.6): they won't be suggested as a pair again."""
+    doc = store.load()
+    tidy.not_same(doc, body.source, body.into)
+    store.save(doc)
+    return {"duplicates": tidy.duplicates(doc)}
+
+
+@router.get("/merges")
+def list_merges() -> dict[str, Any]:
+    return {"merges": tidy.merges(store.load())}
+
+
+@router.post("/merges/{merge_id}/undo")
+def undo_merge(merge_id: str) -> dict[str, Any]:
+    """Unmerge (8.6): the exercise and its sets come back. A copy of the file is kept first."""
+    doc = store.load()
+    try:
+        out = tidy.unmerge(doc, merge_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    store.backup("before-unmerge")
     store.save(doc)
     return out
 
