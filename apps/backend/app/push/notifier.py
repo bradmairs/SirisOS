@@ -103,6 +103,25 @@ def task_messages(now: datetime) -> list[dict[str, Any]]:
             for t in due]
 
 
+GYM_WEEK_HOUR = 18
+
+
+def gym_week_message(now: datetime) -> list[dict[str, Any]]:
+    """Sunday evening (8.7): the gym week in one notification, for a week with a workout in it or a routine to follow."""
+    if now.weekday() != 6 or now.hour < GYM_WEEK_HOUR:
+        return []
+    from app.gym import coach as gym_coach
+    from app.gym import store as gym_store
+
+    doc = gym_store.load()
+    if not doc.sessions:
+        return []
+    msg = gym_coach.weekly_message(doc, now.date())
+    if not msg:
+        return []
+    return [message(f"gym:week:{now.date().isoformat()}", "brief", msg["title"], msg["body"], "/gym")]
+
+
 async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     """Every notification that applies right now, sent or not."""
     out: list[dict[str, Any]] = []
@@ -159,6 +178,10 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         out += await nudges.messages(hub, now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: nudges unavailable: %s", exc)
+    try:
+        out += gym_week_message(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: gym week unavailable: %s", exc)
     try:
         out += career_messages(career_store.load(), now.date())
     except Exception as exc:  # noqa: BLE001

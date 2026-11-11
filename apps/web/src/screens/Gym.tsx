@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePageContext } from "../api/pageContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Activity, ArrowDown, ArrowUp, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Repeat, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
 import { gym, loadActive, moveEntry, newId, saveActive, savePlan, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type MergeDone, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session } from "../api/gym";
 import { DecimalInput } from "../components/DecimalInput";
@@ -9,6 +9,7 @@ import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 import { BackupsCard, FitnessLine, GymCoachCard, NigglesCard, VideosCard } from "./GymCards";
+import { EditExerciseSheet, ExerciseFixesCard, FixSetsForm, LinkHistoryCard, RecoveryCard, repeatWorkout } from "./GymReview";
 
 /** SirisGym (6.5; renamed and given its importer in 6.6): start today's workout, routines, history and the exercises with your records. */
 const VIEWS = [{ id: "today", label: "Today" }, { id: "routines", label: "Routines" }, { id: "history", label: "History" }, { id: "progress", label: "Progress" }, { id: "exercises", label: "Exercises" },
@@ -107,6 +108,7 @@ export function GymScreen() {
 function DeloadCard({ d, onChange }: { d: NonNullable<Gym["deload"]>; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const set = async (on: boolean) => { setBusy(true); try { await gym.deload(on); onChange(); } finally { setBusy(false); } };
+  const later = async () => { setBusy(true); try { await gym.deloadLater(); onChange(); } finally { setBusy(false); } };
   return (
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Deload">
       <header className="widget__head"><BatteryLow aria-hidden="true" /><span>{d.active ? "Deload week" : "Time for a lighter week?"}</span></header>
@@ -115,8 +117,12 @@ function DeloadCard({ d, onChange }: { d: NonNullable<Gym["deload"]>; onChange: 
       ) : (
         <p style={{ margin: 0 }}>{d.why.map((w) => w[0].toUpperCase() + w.slice(1)).join(". ")}. A week at half the sets and 10% lighter usually brings the numbers back up.</p>
       )}
-      <button type="button" className={`button ${d.active ? "" : "button--primary"}`} style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => set(!d.active)}>
-        {d.active ? "End the deload" : "Start a deload week"}</button>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className={`button ${d.active ? "" : "button--primary"}`} disabled={busy} onClick={() => set(!d.active)}>
+          {d.active ? "End the deload" : "Start a deload week"}</button>
+        {/* 8.7: it kept asking every day; "Not now" puts it away for four weeks. */}
+        {!d.active && <button type="button" className="chip chip--button" disabled={busy} onClick={later}>Not now</button>}
+      </div>
     </Glass>
   );
 }
@@ -190,6 +196,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
       )}
       {g.deload && (g.deload.active || g.deload.suggest) && <DeloadCard d={g.deload} onChange={onChange} />}
       {(g.niggles ?? []).length > 0 && <NigglesCard niggles={g.niggles!} onChange={onChange} />}
+      {(g.links ?? 0) > 0 && <LinkHistoryCard onChange={onChange} />}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">
         <header className="widget__head"><Play aria-hidden="true" /><span>Today's workout</span></header>
         {g.settings.gyms.length > 1 && (
@@ -229,6 +236,11 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="button" disabled={busy || !!active} onClick={() => go()}>Empty workout</button>
           <button type="button" className="button" disabled={busy || !!active} onClick={() => go(undefined, undefined, "Cardio")}><HeartPulse size={14} aria-hidden="true" /> Cardio</button>
+          {g.recent[0] && (
+            <button type="button" className="button" disabled={busy || !!active} title={`Again: ${g.recent[0].title}, ${fmtDay(g.recent[0].date)}`}
+              onClick={async () => { setBusy(true); try { const why = await repeatWorkout(navigate, g.recent[0].id, g.settings.shortcut_start); if (why) window.alert(why); } finally { setBusy(false); } }}>
+              <Repeat size={14} aria-hidden="true" /> Repeat last</button>
+          )}
         </div>
       </Glass>
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="This week">
@@ -275,6 +287,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
           </ul>
         )}
       </Glass>
+      {(g.recovery ?? []).length > 0 && <RecoveryCard recovery={g.recovery!} />}
       <GymCoachCard />
       {!(g.niggles ?? []).length && <NigglesCard niggles={[]} onChange={onChange} />}
       <FuelAndTimeCard />
@@ -342,6 +355,7 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
   const s = res.data;
   const navigate = useNavigate();
   const [blocked, setBlocked] = useState(false);
+  const again = async () => { const why = await repeatWorkout(navigate, id); if (why) setBlocked(true); else onClose(); };
   /** Correct a saved workout (7.8): it opens in the workout screen, and Save puts it back in place of the old one. */
   const edit = () => {
     if (!s) return;
@@ -380,6 +394,7 @@ function SessionSheet({ id, unit, onClose }: { id: string; unit: string; onClose
           ))}
           {blocked && <p className="tone-warning" role="alert" style={{ margin: 0, fontSize: 13 }}>Finish or discard the workout in progress first.</p>}
           <div className="row" style={{ gap: 12 }}>
+            <button type="button" className="chip chip--button" onClick={again}><Repeat size={13} aria-hidden="true" /> Do this again</button>
             <button type="button" className="chip chip--button" onClick={edit}><Pencil size={13} aria-hidden="true" /> Edit</button>
             <button type="button" className="icon-link" onClick={async () => { if (window.confirm("Delete this workout?")) { await gym.deleteSession(id); onClose(); window.location.reload(); } }}>
               <Trash2 size={14} aria-hidden="true" /> Delete
@@ -717,6 +732,7 @@ function ExercisesView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const shown = g.exercises.filter((e) => (!muscle || e.primary === muscle) && (!q || e.name.toLowerCase().includes(q.toLowerCase())));
   return (
     <>
+    <ExerciseFixesCard onChange={onChange} />
     <DuplicatesCard onChange={onChange} />
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Exercises">
       <header className="widget__head"><Dumbbell aria-hidden="true" /><span>{g.exercises.length} exercises</span>
@@ -731,7 +747,7 @@ function ExercisesView({ g, onChange }: { g: Gym; onChange: () => void }) {
             <span className="item__title">{e.name}</span><span className="item__subtitle">{e.primary}{e.secondary.length ? ` (+ ${e.secondary.join(", ")})` : ""} · {e.equipment}</span></button></li>
         ))}
       </ul>
-      {open && <ExerciseSheet id={open} unit={g.settings.unit} onClose={() => setOpen(null)} />}
+      {open && <ExerciseSheet id={open} unit={g.settings.unit} onClose={() => setOpen(null)} onChanged={onChange} />}
       {adding && <NewExercise onClose={() => setAdding(false)} onSaved={() => { setAdding(false); onChange(); }} />}
     </Glass>
     </>
@@ -834,15 +850,21 @@ function NewExercise({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 }
 
 /** One exercise: records, a chart of estimated 1RM, and every time you've done it. */
-export function ExerciseSheet({ id, unit, onClose }: { id: string; unit: string; onClose: () => void }) {
+export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; unit: string; onClose: () => void; onChanged?: () => void }) {
   const res = useResource<ExerciseDetail>(`gym:exercise:${id}`, () => gym.exercise(id), {});
   const d = res.data;
+  const [fixing, setFixing] = useState<string | null>(null);  // a workout whose sets of this are being corrected (8.7)
+  const [editing, setEditing] = useState(false);
+  // A set far above the rest is likely a typo (8.7): it gets a mark, and Fix.
+  const typical = d ? [...d.history.map((h) => h.e1rm ?? 0)].filter(Boolean).sort((a, b) => a - b)[Math.floor(d.history.filter((h) => h.e1rm).length / 2)] ?? 0 : 0;
   return (
     <Sheet label="Exercise" onClose={onClose}>
       {!d ? <div className="skeleton" style={{ height: 160 }} /> : (
         <div className="stack" style={{ gap: 10 }}>
           <h2 className="sheet__title">{d.exercise.name}</h2>
-          <p className="muted" style={{ margin: 0 }}>{d.exercise.primary}{d.exercise.secondary.length ? `, with ${d.exercise.secondary.join(", ")}` : ""} · {d.exercise.equipment}</p>
+          <p className="muted" style={{ margin: 0 }}>{d.exercise.primary}{d.exercise.secondary.length ? `, with ${d.exercise.secondary.join(", ")}` : ""} · {d.exercise.equipment}
+            {d.exercise.custom && <> · <button type="button" className="icon-link" onClick={() => setEditing(true)}><Pencil size={12} aria-hidden="true" /> Edit</button></>}</p>
+          {editing && <EditExerciseSheet exercise={d.exercise} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void res.reload?.(true); onChanged?.(); }} />}
           {!d.history.length && <p className="muted" style={{ margin: 0 }}>Not done yet.</p>}
           {d.history.length > 0 && (
             <>
@@ -857,10 +879,19 @@ export function ExerciseSheet({ id, unit, onClose }: { id: string; unit: string;
               <E1rmChart series={d.series} />
               {d.fitness && <FitnessLine f={d.fitness} />}
               <ul className="items" aria-label="History">
-                {d.history.map((h) => (
-                  <li key={h.session} className="item"><span className="item__text"><span className="item__title">{fmtDay(h.date)}</span>
-                    <span className="item__subtitle">{h.sets.map((x) => (x.weight ? `${x.weight}×${x.reps ?? "–"}` : x.seconds ? `${x.seconds}s` : `${x.reps ?? "–"}`)).join(", ")}{h.e1rm ? ` · est. 1RM ${h.e1rm}` : ""}</span></span></li>
-                ))}
+                {d.history.map((h) => {
+                  const odd = !!typical && !!h.e1rm && h.e1rm > typical * 1.6;
+                  return (
+                    <li key={h.session} className="item gym-history">
+                      <span className="item__text"><span className="item__title">{fmtDay(h.date)}{odd && <span className="tone-warning" style={{ fontSize: 12 }}> · looks like a typo</span>}</span>
+                        <span className="item__subtitle">{h.sets.map((x) => (x.weight ? `${x.weight}×${x.reps ?? "–"}` : x.seconds ? `${x.seconds}s` : `${x.reps ?? "–"}`)).join(", ")}{h.e1rm ? ` · est. 1RM ${h.e1rm}` : ""}</span>
+                        {fixing === h.session && <FixSetsForm session={h.session} exercise={id} sets={h.sets} onCancel={() => setFixing(null)}
+                          onDone={() => { setFixing(null); void res.reload?.(true); onChanged?.(); }} />}
+                      </span>
+                      {fixing !== h.session && <button type="button" className={`chip chip--button ${odd ? "chip--active" : ""}`} aria-label={`Fix the sets on ${fmtDay(h.date)}`} onClick={() => setFixing(h.session)}>Fix</button>}
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}

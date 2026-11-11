@@ -56,6 +56,11 @@ class EntryLog(BaseModel):
     group: str | None = Field(default=None, max_length=2)  # superset letter (6.7): rest comes after the group
 
 
+def parse_when(value: str) -> datetime:
+    """A session time as saved: ISO 8601, with "Z" for UTC from the phone."""
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 class Session(BaseModel):
     id: str = Field(default_factory=new_id, max_length=40)
     title: str = Field(default="Workout", max_length=80)
@@ -75,7 +80,30 @@ class Session(BaseModel):
     effort: dict[str, dict[str, float | None]] = Field(default_factory=dict)
     # Saved while SirisAI couldn't be reached (8.6): sent again, and analysed, once it answers.
     ai_pending: bool = False
+    feel: int | None = Field(default=None, ge=1, le=5)  # how it felt, 1 (awful) to 5 (great), tapped after finishing (8.7)
     _held: bool | None = PrivateAttr(default=None)
+
+    @field_validator("started_at")
+    @classmethod
+    def _started(cls, v: str) -> str:
+        # 8.7: a start that isn't a time used to be saved, and then every gym page failed to load.
+        try:
+            parse_when(v)
+        except ValueError as exc:
+            raise ValueError("started_at must be a date and time, like 2026-11-11T07:00:00+11:00") from exc
+        return v
+
+    @model_validator(mode="after")
+    def _ended(self) -> "Session":
+        # An end that isn't a time, or is before the start, is dropped rather than giving a negative length.
+        if self.ended_at:
+            try:
+                start, end = parse_when(self.started_at), parse_when(self.ended_at)
+                if (end.tzinfo is None) != (start.tzinfo is None) or end < start:
+                    self.ended_at = None
+            except (ValueError, TypeError):
+                self.ended_at = None
+        return self
 
 
 Progression = Literal["double", "linear", "percent"]
@@ -155,6 +183,9 @@ class Settings(BaseModel):
     shortcut_rest: str = Field(default="", max_length=80)  # gets the rest in seconds, e.g. to start a Clock timer: a Live Activity (8.6)
     # Protein (6.93): grams per kg of bodyweight, on rest days and training days.
     learn_rest: bool = True  # rest timer set from how long your heart rate takes to settle (7.1)
+    deload_snoozed_until: str | None = Field(default=None, max_length=10)  # "Not now" on the deload card (8.7)
+    links_kept: list[str] = Field(default_factory=list, max_length=200)  # routine exercises you said aren't the same as an old one (8.7)
+    fixes_kept: list[str] = Field(default_factory=list, max_length=500)  # your exercises whose suggested tidy-up you turned down (8.7)
     protein_rest: float = Field(default=1.6, ge=0.5, le=3.5)
     protein_training: float = Field(default=2.0, ge=0.5, le=3.5)
 
@@ -246,6 +277,8 @@ class GymDoc(BaseModel):
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
     import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it
+    # Sessions whose start wasn't a time (8.7), kept as they were rather than breaking every page or being deleted.
+    quarantined: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
 
 
 HELD_SETS = 60
@@ -414,11 +447,27 @@ def restore(name: str) -> dict[str, Any]:
     return {"restored": name, "sessions": len(raw.get("sessions") or []), "saved_current_as": kept}
 
 
+def _valid_start(s: Any) -> bool:
+    try:
+        parse_when(str((s or {}).get("started_at") or ""))
+        return True
+    except ValueError:
+        return False
+
+
 def load() -> GymDoc:
     raw = json_store.read(_path(), None)
     if not isinstance(raw, dict):
         return GymDoc()
-    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, "import_titles": False, **to_si(raw)})
+    raw = to_si(raw)
+    bad = [s for s in raw.get("sessions") or [] if not _valid_start(s)]
+    if bad:  # 8.7: set aside, never lost
+        raw["sessions"] = [s for s in raw.get("sessions") or [] if _valid_start(s)]
+        raw["quarantined"] = [*(raw.get("quarantined") or []), *bad][-200:]
+    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, "import_titles": False, **raw})
+    if bad:
+        backup("before-quarantine")
+        save(doc)
     if not doc.import_times_local:
         moved = local_import_times(doc)
         doc.import_times_local = True

@@ -73,6 +73,8 @@ describe("SirisGym 6.7", () => {
     expect(screen.queryByRole("timer", { name: "Rest" })).not.toBeInTheDocument();  // straight to the row
     await user.click(within(bench).getByRole("button", { name: "Set 1 effort (RPE)" }));
     await user.click(within(bench).getByRole("button", { name: "Set 1 effort (RPE)" }));
+    await user.click(within(bench).getByRole("button", { name: "More for Bench Press" }));  // 8.7: the note box opens from ⋯
+    await user.click(within(bench).getByRole("button", { name: "Note" }));
     await user.type(within(bench).getByRole("textbox", { name: "Note for Bench Press" }), "Elbows in");
     await user.click(within(screen.getByRole("region", { name: "Barbell Row" })).getByRole("button", { name: "Set 1 done" }));
     expect(screen.getByRole("timer", { name: "Rest" })).toBeInTheDocument();
@@ -270,7 +272,8 @@ describe("SirisGym 6.93", () => {
     });
     const user = userEvent.setup();
     render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
-    await user.click(await screen.findByRole("button", { name: "Swap Bench Press" }));
+    await user.click(await screen.findByRole("button", { name: "More for Bench Press" }));  // 8.7: behind ⋯
+    await user.click(screen.getByRole("button", { name: "Swap Bench Press" }));
     await user.click(await screen.findByRole("button", { name: /Dumbbell Bench Press/ }));
     const kept = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
     expect(kept.entries[0]).toMatchObject({ exercise: "db-bench-press", sets: [{ weight: 34, reps: null, done: false }] });

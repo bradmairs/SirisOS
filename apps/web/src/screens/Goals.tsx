@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Check, ChevronLeft, ChevronRight, Minus, Plus, Sparkles, Target, Trash2 } from "lucide-react";
 import { refreshResource, useResource } from "../api/resource";
+import { gym } from "../api/gym";
 import { goals, KIND_LABEL, type GoalKind, type YearGoal } from "../api/goals";
 import { Glass } from "../components/Glass";
 
@@ -149,16 +150,19 @@ function GoalRow({ goal: g, busy, through, onChange, onRemove }: {
   );
 }
 
-function NewGoal({ year, busy, onAdd, onCancel }: { year: number; busy: boolean; onAdd: (g: { title: string; kind: GoalKind; target?: number | null; unit?: string }) => void; onCancel?: () => void }) {
+function NewGoal({ year, busy, onAdd, onCancel }: { year: number; busy: boolean; onAdd: (g: { title: string; kind: GoalKind; target?: number | null; unit?: string; exercise?: string }) => void; onCancel?: () => void }) {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<GoalKind>("done");
   const [target, setTarget] = useState("");
   const [unit, setUnit] = useState("");
+  const [exercise, setExercise] = useState("");
+  // A lift goal (8.7) counts the best estimated 1RM of one of SirisGym's exercises this year.
+  const lifts = useResource("gym", () => gym.get(), { staleMs: 60_000, enabled: kind === "lift" });
   const needsTarget = kind !== "done";
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim() || (needsTarget && !(Number(target) > 0))) return;
-    onAdd({ title: title.trim(), kind, target: needsTarget ? Number(target) : null, ...(kind === "count" && unit.trim() ? { unit: unit.trim() } : {}) });
+    if (!title.trim() || (needsTarget && !(Number(target) > 0)) || (kind === "lift" && !exercise)) return;
+    onAdd({ title: title.trim(), kind, target: needsTarget ? Number(target) : null, ...(kind === "count" && unit.trim() ? { unit: unit.trim() } : {}), ...(kind === "lift" ? { exercise } : {}) });
   }
   return (
     <form className="goals__form" onSubmit={submit} aria-label={`New goal for ${year}`}>
@@ -172,8 +176,14 @@ function NewGoal({ year, busy, onAdd, onCancel }: { year: number; busy: boolean;
           {kind === "count" && <input className="field" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Unit, e.g. books" aria-label="Unit" />}
         </div>
       )}
+      {kind === "lift" && (
+        <select className="field" value={exercise} onChange={(e) => setExercise(e.target.value)} aria-label="Which lift">
+          <option value="">Which lift?</option>
+          {(lifts.data?.exercises ?? []).filter((x) => x.kind === "weight").map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+        </select>
+      )}
       <div className="row" style={{ gap: 6 }}>
-        <button type="submit" className="button button--small button--primary" disabled={busy || !title.trim() || (needsTarget && !(Number(target) > 0))}>Add goal</button>
+        <button type="submit" className="button button--small button--primary" disabled={busy || !title.trim() || (needsTarget && !(Number(target) > 0)) || (kind === "lift" && !exercise)}>Add goal</button>
         {onCancel && <button type="button" className="button button--small" onClick={onCancel}>Cancel</button>}
       </div>
     </form>

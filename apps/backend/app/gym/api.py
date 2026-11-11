@@ -35,6 +35,11 @@
     GET    /api/v1/gym/coach                 (7.0) the week's one or two changes, from SirisAI
     GET    /api/v1/gym/protein               (6.93) today's protein against a target from bodyweight
     POST   /api/v1/gym/schedule {day, minutes, dry_run}   (6.93) a free slot for the gym, then into the calendar
+    POST   /api/v1/gym/sessions/{id}/feel {feel}           (8.7) how it felt, 1-5
+    PUT    /api/v1/gym/sessions/{id}/sets {exercise, sets}  (8.7) correct one exercise's working sets in a saved workout
+    PUT    /api/v1/gym/exercises/{id}                      (8.7) change one of your own exercises (name, muscles, equipment, kind)
+    GET    /api/v1/gym/exercise-fixes; POST /api/v1/gym/exercise-fixes {ids, keep?}   (8.7) your imported exercises' tidy-up
+    GET    /api/v1/gym/links; POST /api/v1/gym/links {source, into?, keep?}          (8.7) the routine linked to your history
   6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
   /plan adjusts for readiness and a deload week; a saved session goes to SirisAI for strain; a session
   shows the Apple Watch workout that overlaps it.
@@ -54,6 +59,7 @@ from pydantic import BaseModel, Field
 import asyncio
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 
 from app.auth import require_user
 from app.gym import builder, coach, importer, service, store, templates, tidy, watch
@@ -151,12 +157,17 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "deload": coach.deload(doc, today, _low(h)),
         "niggles": [n.model_dump() for n in coach.active_niggles(doc)],
         "readiness": {k: (h.get("readiness") or {}).get(k) for k in ("score", "band")} if h.get("readiness") else None,
+        "recent_max": service.recent_max(doc, today),  # 8.7: the typo check while logging
+        "recovery": coach.recovery(doc, datetime.now(timezone.utc)),
+        "links": len(tidy.history_links(doc)),
+        "quarantined": len(doc.quarantined),
     }
 
 
 class DeloadRequest(BaseModel):
     on: bool = True
     days: int = Field(default=7, ge=1, le=14)
+    later: bool = False  # 8.7: "Not now": don't suggest one for four weeks
 
 
 @router.post("/deload")
@@ -165,6 +176,10 @@ def set_deload(body: DeloadRequest) -> dict[str, Any]:
     from datetime import timedelta
 
     doc = store.load()
+    if body.later:
+        doc.settings.deload_snoozed_until = (tasks.today() + timedelta(days=27)).isoformat()
+        store.save(doc)
+        return coach.deload(doc, tasks.today())
     doc.settings.deload_until = (tasks.today() + timedelta(days=body.days - 1)).isoformat() if body.on else None
     store.save(doc)
     return coach.deload(doc, tasks.today())
@@ -199,6 +214,93 @@ def add_exercise(body: store.CustomExercise) -> dict[str, Any]:
     doc.exercises.append(body)
     store.save(doc)
     return body.model_dump()
+
+
+class ExerciseChange(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    primary: str | None = Field(default=None, max_length=20)
+    secondary: list[str] | None = Field(default=None, max_length=6)
+    equipment: str | None = Field(default=None, max_length=20)
+    kind: store.Kind | None = None
+
+
+def _change_exercise(doc: store.GymDoc, exercise_id: str, changes: dict[str, Any]) -> store.CustomExercise:
+    from app.gym import library
+
+    found = next((e for e in doc.exercises if e.id == exercise_id), None)
+    if found is None:
+        raise _missing("exercise of yours")
+    if changes.get("primary") and changes["primary"] not in library.MUSCLES or any(m not in library.MUSCLES for m in changes.get("secondary") or []):
+        raise HTTPException(status_code=422, detail=f"Muscles are: {', '.join(library.MUSCLES)}.")
+    if changes.get("equipment") and changes["equipment"] not in library.EQUIPMENT:
+        raise HTTPException(status_code=422, detail=f"Equipment is one of: {', '.join(library.EQUIPMENT)}.")
+    for k, v in changes.items():
+        if v is not None:
+            setattr(found, k, v)
+    return found
+
+
+@router.put("/exercises/{exercise_id}")
+def change_exercise(exercise_id: str, body: ExerciseChange) -> dict[str, Any]:
+    """Change one of your own exercises (8.7). Its sets stay as they are."""
+    doc = store.load()
+    found = _change_exercise(doc, exercise_id, body.model_dump(exclude_none=True))
+    store.save(doc)
+    return found.model_dump()
+
+
+@router.get("/exercise-fixes")
+def get_exercise_fixes() -> dict[str, Any]:
+    return {"fixes": tidy.exercise_fixes(store.load())}
+
+
+class FixesRequest(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=500)
+    keep: bool = False  # True: they're right as they are, stop suggesting
+
+
+@router.post("/exercise-fixes")
+def apply_exercise_fixes(body: FixesRequest) -> dict[str, Any]:
+    """Apply the suggested tidy-up to these exercises (a copy of the file first), or say they're right as they are."""
+    doc = store.load()
+    if body.keep:
+        doc.settings.fixes_kept = [*doc.settings.fixes_kept, *[i for i in body.ids if i not in doc.settings.fixes_kept]][-500:]
+        store.save(doc)
+        return {"kept": len(body.ids), "fixes": tidy.exercise_fixes(doc)}
+    wanted = {f["id"]: f["change"] for f in tidy.exercise_fixes(doc) if f["id"] in body.ids}
+    store.backup("before-exercise-fixes")
+    for i, change in wanted.items():
+        _change_exercise(doc, i, change)
+    store.save(doc)
+    return {"changed": len(wanted), "fixes": tidy.exercise_fixes(doc)}
+
+
+@router.get("/links")
+def get_links() -> dict[str, Any]:
+    return {"links": tidy.history_links(store.load())}
+
+
+class LinkRequest(BaseModel):
+    source: str = Field(max_length=60)
+    into: str | None = Field(default=None, max_length=60)
+    keep: bool = False  # True: it's its own exercise, stop asking
+
+
+@router.post("/links")
+def set_link(body: LinkRequest) -> dict[str, Any]:
+    """Point the routine's exercise at the one your history is under (8.7), or say it's different."""
+    doc = store.load()
+    if body.keep or not body.into:
+        if body.source not in doc.settings.links_kept:
+            doc.settings.links_kept = [*doc.settings.links_kept, body.source][-200:]
+        changed = 0
+    else:
+        try:
+            changed = tidy.link(doc, body.source, body.into)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    store.save(doc)
+    return {"changed": changed, "links": tidy.history_links(doc)}
 
 
 @router.delete("/exercises/{exercise_id}")
@@ -293,6 +395,7 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
     i = service.next_day(doc, r.id, tasks.today()) if day is None else min(day, len(r.days) - 1)
     d = r.days[i]
     names = service.exercises(doc)
+    maxes = service.recent_max(doc, tasks.today())
     out = []
     warmed: set[str] = set()
     for p in d.exercises:
@@ -313,6 +416,7 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
             warmed.add(ex.get("primary", ""))
         out.append({**p.model_dump(), "sets": sets, "name": ex.get("name", p.exercise), "kind": ex.get("kind", "weight"), "equipment": ex.get("equipment"),
                     "last": service.last(doc, p.exercise), "suggest": sug, "warmups": warm, **extra,
+                    "best_e1rm": service.best_e1rm(doc, p.exercise), "recent_max": maxes.get(p.exercise),
                     **({"rest_s": learned["seconds"]} if learned else {})})
     band = (h.get("readiness") or {}).get("band")
     return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out, "deload": deloading,
@@ -387,8 +491,18 @@ async def resend_loop(get_hub: Any) -> None:
 
 @router.post("/sessions")
 async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    if store.parse_when(body.started_at).replace(tzinfo=None) > datetime.now() + timedelta(days=1):
+        raise HTTPException(status_code=422, detail="That workout starts in the future: check the phone's date.")
     doc = store.load()
+    known = service.exercises(doc)
+    for e in body.entries:  # 8.7: an exercise SirisGym doesn't know is kept as one of yours, to name later, not saved as a bare id
+        if e.exercise not in known:
+            doc.exercises.append(store.CustomExercise(id=e.exercise, name=e.exercise.replace("-", " ").replace("_", " ").strip().title()[:80] or "Exercise",
+                                                      primary="full body"))
+            known = service.exercises(doc)
     was = next((s for s in doc.sessions if s.id == body.id), None)
+    if body.feel is None and was is not None:
+        body.feel = was.feel
     if was and was.effort and not body.effort:
         body.effort = was.effort  # the Watch's verdict is kept on the server; the phone doesn't send it back
     doc.sessions = [s for s in doc.sessions if s.id != body.id]
@@ -404,7 +518,58 @@ async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict
     elif body.ai_pending:
         body.ai_pending = False
         store.save(doc)
-    return {"summary": service.summary(doc, body), "records": service.new_records(doc, body), "ai_pending": body.ai_pending}
+    return {"summary": service.summary(doc, body), "records": service.new_records(doc, body), "ai_pending": body.ai_pending,
+            "compare": service.compare(doc, body)}
+
+
+class Feel(BaseModel):
+    feel: int = Field(ge=1, le=5)
+
+
+@router.post("/sessions/{session_id}/feel")
+def session_feel(session_id: str, body: Feel) -> dict[str, Any]:
+    doc = store.load()
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    if s is None:
+        raise _missing("session")
+    s.feel = body.feel
+    store.save(doc)
+    return {"id": session_id, "feel": s.feel}
+
+
+class FixedSet(BaseModel):
+    weight: float | None = Field(default=None, ge=0, le=2000)
+    reps: int | None = Field(default=None, ge=0, le=1000)
+    seconds: int | None = Field(default=None, ge=0, le=86400)
+    km: float | None = Field(default=None, ge=0, le=1000)
+
+
+class FixSets(BaseModel):
+    exercise: str = Field(max_length=60)
+    sets: list[FixedSet] = Field(min_length=1, max_length=200)
+
+
+@router.put("/sessions/{session_id}/sets")
+async def fix_sets(session_id: str, body: FixSets, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Correct one exercise's working sets in a saved workout (8.7), in order, e.g. a 210 kg squat that was 21 or 70.
+    Warm-ups and the rest of the workout stay as they were."""
+    doc = store.load()
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    if s is None:
+        raise _missing("session")
+    entry = next((e for e in s.entries if e.exercise == body.exercise and service.working(e.sets)), None)
+    if entry is None:
+        raise _missing("exercise in that workout")
+    work = [x for x in entry.sets if x.done and x.type != "warmup"]
+    if len(work) != len(body.sets):
+        raise HTTPException(status_code=422, detail=f"That workout has {len(work)} working sets of it, not {len(body.sets)}.")
+    for x, fixed in zip(work, body.sets):
+        for k, v in fixed.model_dump().items():
+            setattr(x, k, v)
+    s._held = None
+    store.save(doc)
+    await _send_day(hub, doc, service.day_of(s.started_at))
+    return {"summary": service.summary(doc, s), "records": service.new_records(doc, s)}
 
 
 @router.get("/sessions")

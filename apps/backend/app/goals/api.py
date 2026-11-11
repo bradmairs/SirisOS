@@ -69,6 +69,8 @@ async def list_goals(year: int | None = Year, hub: Hub = Depends(get_hub)) -> di
 
 @router.post("")
 def add_goal(goal: service.Goal, year: int | None = Year) -> dict[str, Any]:
+    if goal.kind == "lift" and not goal.exercise:
+        raise HTTPException(status_code=422, detail="Pick the lift from SirisGym's exercises.")
     if goal.kind != "done" and not goal.target:
         raise HTTPException(status_code=422, detail="Give the goal a number to reach, e.g. 1000 km.")
     return service.add(_year(year), goal).model_dump()

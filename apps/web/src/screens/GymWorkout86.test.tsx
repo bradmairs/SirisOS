@@ -99,7 +99,8 @@ describe("SirisGym 8.6: the workout", () => {
       "/api/v1/gym/rest": () => jsonResponse({}), "/api/v1/gym": () => jsonResponse(GYM) });
     const user = userEvent.setup();
     render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
-    await user.click(await screen.findByRole("button", { name: "Move Barbell Row up" }));
+    await user.click(await screen.findByRole("button", { name: "More for Barbell Row" }));  // 8.7: behind ⋯
+    await user.click(screen.getByRole("button", { name: "Move Barbell Row up" }));
     expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(["Barbell Row", "Bench Press"]);
     vi.spyOn(window, "confirm").mockReturnValue(true);
     await user.click(screen.getByRole("button", { name: "Finish the workout" }));

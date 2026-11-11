@@ -54,7 +54,9 @@ def muscles(doc: GymDoc, today: date) -> list[dict[str, Any]]:
             continue
         lo, hi = (targets.get(m) or MUSCLE_TARGET)[:2]
         n = week.get(m, 0.0)
-        out.append({"muscle": m, "sets": n, "target": [lo, hi], "status": "under" if n < lo else "over" if n > hi else "in range"})
+        # 8.7: "under" against how far through the week it is, so it doesn't say every muscle is behind on a Wednesday.
+        due = lo * (today.weekday() + 1) / 7
+        out.append({"muscle": m, "sets": n, "target": [lo, hi], "status": "under" if n < due else "over" if n > hi else "in range"})
     return out
 
 
@@ -97,7 +99,54 @@ def deload(doc: GymDoc, today: date, low_mornings: int = 0) -> dict[str, Any]:
         why.append(f"{n} weeks of training in a row without a lighter week")
     if low_mornings >= 3:
         why.append(f"readiness has been low on {low_mornings} of the last five mornings")
-    return {"active": active, "until": doc.settings.deload_until if active else None, "suggest": bool(why) and not active, "why": why}
+    snoozed = bool(doc.settings.deload_snoozed_until and doc.settings.deload_snoozed_until >= today.isoformat())
+    return {"active": active, "until": doc.settings.deload_until if active else None, "suggest": bool(why) and not active and not snoozed, "why": why,
+            "snoozed_until": doc.settings.deload_snoozed_until if snoozed else None}
+
+
+RECOVERY_HOURS = {"chest": 48, "back": 48, "shoulders": 48, "biceps": 36, "triceps": 36, "forearms": 24, "abs": 24,
+                  "quads": 72, "hamstrings": 72, "glutes": 72, "calves": 36}
+
+
+def recovery(doc: GymDoc, now: datetime) -> list[dict[str, Any]]:
+    """Each muscle: when it was last trained (main muscle, at least two working sets), and how recovered it is by the
+    usual rule of thumb (8.7): about 24-36 h for small muscles, 48 h for the upper body, 72 h for the legs."""
+    names = service.exercises(doc)
+    last: dict[str, datetime] = {}
+    for s in reversed(counted(doc)):
+        when = _aware(s.started_at)
+        if when is None:
+            continue
+        for e in s.entries:
+            m = (names.get(e.exercise) or {}).get("primary")
+            if m in RECOVERY_HOURS and m not in last and len(service.working(e.sets)) >= 2:
+                last[m] = when
+        if len(last) == len(RECOVERY_HOURS):
+            break
+    out = []
+    for m, need in RECOVERY_HOURS.items():
+        when = last.get(m)
+        hours = round((now - when).total_seconds() / 3600) if when else None
+        ready = None if hours is None else min(100, max(0, round(hours / need * 100)))
+        out.append({"muscle": m, "last": when.isoformat() if when else None, "hours": hours, "ready": ready})
+    return out
+
+
+def weekly_message(doc: GymDoc, today: date) -> dict[str, Any] | None:
+    """Sunday's gym week in one notification (8.7): workouts, records, what's short, and the first workout of next week."""
+    start = today - timedelta(days=today.weekday())
+    week = [s for s in counted(doc) if start.isoformat() <= service.day_of(s.started_at) <= today.isoformat()]
+    records = sum(len(service.new_records(doc, s)) for s in week)
+    short = [m["muscle"] for m in muscles(doc, today) if m["status"] == "under"][:4]
+    bits = [f"{len(week)} workout{'' if len(week) == 1 else 's'}" + (f", {records} record{'' if records == 1 else 's'}" if records else "")]
+    if short and week:
+        bits.append(f"Short of sets: {', '.join(short)}")
+    active = next((r for r in doc.routines if r.active), None)
+    if active and active.days:
+        sched = service.schedule(doc, active.id, today + timedelta(days=1))
+        if sched and sched.get("next"):
+            bits.append(f"Next: {active.days[sched['next']['day']].name} on {sched['next']['weekday']}")
+    return {"title": f"Your gym week: {bits[0]}", "body": ". ".join(bits[1:]) + ("." if len(bits) > 1 else "")}
 
 
 def adjust(plan: PlanExercise, sug: dict[str, Any], doc: GymDoc, readiness: dict[str, Any] | None, deloading: bool) -> tuple[int, dict[str, Any]]:
