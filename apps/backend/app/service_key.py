@@ -36,6 +36,9 @@ SERVICE_ROUTES: list[tuple[str, re.Pattern[str]]] = [
     # The Career record, for SirisAI's career_cpd_status and career_chartership_status (ADR 111).
     ("GET", re.compile(r"^/api/v1/career$")),
     ("GET", re.compile(r"^/api/v1/career/overview$")),
+    # SirisGym's workouts, for SirisAI's gym_sessions ("what did I do on Monday", "my last leg day"). Read only.
+    ("GET", re.compile(r"^/api/v1/gym/sessions$")),
+    ("GET", re.compile(r"^/api/v1/gym/sessions/[A-Za-z0-9_-]{1,40}$")),
 ]
 
 _warned_short = False

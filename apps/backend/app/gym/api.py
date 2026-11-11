@@ -372,7 +372,9 @@ def sessions(month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$")) 
 
 
 @router.get("/sessions/{session_id}")
-async def session(session_id: str, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+async def session(session_id: str, hub: Hub = Depends(get_hub), watch: bool = True) -> dict[str, Any]:
+    """One workout in full. `watch=false` skips finding its Watch workout (SirisAI asks
+    that way: it has the heart rate itself, and the lookup would call back into it)."""
     from app.health import service as health
 
     doc = store.load()
@@ -380,11 +382,13 @@ async def session(session_id: str, hub: Hub = Depends(get_hub)) -> dict[str, Any
     if s is None:
         raise _missing("session")
     names = service.exercises(doc)
-    try:
-        watch = coach.watch_for(s, await asyncio.wait_for(health.workouts(hub, 400), timeout=6))
-    except Exception:  # noqa: BLE001
-        watch = None
-    return {**s.model_dump(), "summary": service.summary(doc, s), "records": service.new_records(doc, s), "watch": watch,
+    found = None
+    if watch:
+        try:
+            found = coach.watch_for(s, await asyncio.wait_for(health.workouts(hub, 400), timeout=6))
+        except Exception:  # noqa: BLE001
+            found = None
+    return {**s.model_dump(), "summary": service.summary(doc, s), "records": service.new_records(doc, s), "watch": found,
             "entries": [{**e.model_dump(), "name": names.get(e.exercise, {}).get("name", e.exercise)} for e in s.entries]}
 
 
