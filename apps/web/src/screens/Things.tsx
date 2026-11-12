@@ -17,6 +17,13 @@ function warranty(t: Thing): { text: string; tone?: "good" | "warning" | "critic
   return { text: `✓ Under warranty until ${day(t.warranty_until)}`, tone: "good" };
 }
 
+/** The return window (8.9, SirisAI 5.94): shown while it's open. */
+function returnBy(t: Thing): { text: string; tone?: "warning" } | null {
+  if (!t.return_until || (t.return_days_left ?? -1) < 0) return null;
+  const left = t.return_days_left ?? 0;
+  return { text: left === 0 ? "Last day to return it: today" : `Can go back until ${day(t.return_until)} (${left} day${left === 1 ? "" : "s"})`, tone: left <= 3 ? "warning" : undefined };
+}
+
 /** Newest first: by when it was bought, then by when it was added. */
 const newestThing = (a: Thing, b: Thing) => (b.bought ?? "").localeCompare(a.bought ?? "") || b.id - a.id;
 
@@ -27,6 +34,8 @@ export function ThingsCard() {
   const [adding, setAdding] = useState(false);
   const [receipt, setReceipt] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", brand: "", bought: "", warranty_months: "", manual: "", room: "" });
+  const [returning, setReturning] = useState<number | null>(null);
+  const recent = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);  // only bought lately: older ones can't go back  // the thing whose return date is being set (8.9)
   const [error, setError] = useState<string | null>(null);
 
   async function add(e: FormEvent) {
@@ -78,12 +87,21 @@ export function ThingsCard() {
                     {[t.room, t.bought ? `bought ${day(t.bought)}` : "", t.price != null ? `$${t.price.toFixed(2)}` : ""].filter(Boolean).join(" · ")}
                   </div>
                   <div className={`item__subtitle${w.tone ? ` tone-${w.tone}` : ""}`}>{w.text}</div>
+                  {(() => { const r = returnBy(t); return r ? <div className={`item__subtitle${r.tone ? ` tone-${r.tone}` : ""}`}>{r.text}</div> : null; })()}
+                  {returning === t.id && (
+                    <label className="row item__subtitle" style={{ gap: 6 }}>Return by
+                      <input className="field" type="date" aria-label={`Return ${t.name} by`} defaultValue={t.return_until ?? ""}
+                        onChange={async (e) => { await things.update(t.id, { return_until: e.target.value || null }); setReturning(null); await reload(true); }} /></label>
+                  )}
                   {t.manual && (/^https?:/.test(t.manual)
                     ? <a className="item__subtitle" href={t.manual} target="_blank" rel="noreferrer">Manual</a>
                     : <div className="item__subtitle">Manual: {t.manual}</div>)}
                 </span>
                 {t.document_id != null && (
                   <button type="button" className="chip chip--button" aria-expanded={receipt === t.document_id} onClick={() => setReceipt(receipt === t.document_id ? null : t.document_id)}>Receipt</button>
+                )}
+                {returning !== t.id && t.bought && t.bought >= recent && (t.return_until == null || (t.return_days_left ?? -1) >= 0) && (
+                  <button type="button" className="chip chip--button" aria-label={`Set when ${t.name} can be returned by`} onClick={() => setReturning(t.id)}>Return by</button>
                 )}
                 <button type="button" className="icon-link" aria-label={`Remove ${t.name}`} onClick={async () => { await things.remove(t.id); await reload(true); }}>
                   <Trash2 size={16} aria-hidden="true" />

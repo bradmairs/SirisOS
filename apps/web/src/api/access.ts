@@ -21,7 +21,7 @@ interface ServerView {
 
 const NETWORK: Record<ServerView["network"], string> = {
   home: "the home network",
-  vpn: "your VPN (Tailscale)",
+  vpn: "your VPN",
   internet: "the internet",
   unknown: "an address SirisOS can't place",
 };

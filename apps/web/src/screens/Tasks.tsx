@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { keep, unreachable } from "../api/outbox";
 import { AlarmClock, BrainCircuit, Briefcase, Check, Circle, House, ListTodo, Plus, Repeat2, Sparkles, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
 import { dueLabel, GROUP_LABEL, tasks, type TaskGroup, type TaskItem, type TaskList } from "../api/tasks";
@@ -38,7 +39,12 @@ export function TaskRow({ task, onChanged, compact }: { task: TaskItem; onChange
     <li className={`item task${task.group === "overdue" ? " task--late" : ""}`}>
       <button type="button" className="task__tick" disabled={busy} aria-label={`Done: ${task.title}`}
         onClick={() => run(async () => {
-          const r = await tasks.done(task);
+          let r: Awaited<ReturnType<typeof tasks.done>>;
+          try { r = await tasks.done(task); } catch (e) {
+            // No signal (8.9): ticked on the phone, and sent when SirisOS is back.
+            if (unreachable(e) && task.source !== "reminder" && keep({ kind: "task_done", task })) return `Done: ${task.title} (saved on this phone; it goes when SirisOS is back)`;
+            throw e;
+          }
           return r.action === "repeated" ? `“${task.title}” is next due ${dueLabel({ due: r.next_due ?? null, time: null, group: "later" })}` : `Done: ${task.title}`;
         })}>
         {busy ? <Check size={18} aria-hidden="true" /> : <Circle size={18} aria-hidden="true" />}
@@ -143,7 +149,16 @@ export function TasksScreen() {
     setAdding(true);
     setError(null);
     try {
-      const made = await tasks.add(dueSet ? { text: text.trim(), due: due || null } : { text: text.trim() });
+      let made: Awaited<ReturnType<typeof tasks.add>>;
+      try { made = await tasks.add(dueSet ? { text: text.trim(), due: due || null } : { text: text.trim() }); } catch (err) {
+        if (unreachable(err) && keep(dueSet ? { kind: "task", text: text.trim(), due: due || null } : { kind: "task", text: text.trim() })) {
+          setText("");
+          setDueSet(false);
+          changed(`Saved “${text.trim()}” on this phone: it's added when SirisOS is back.`);
+          return;
+        }
+        throw err;
+      }
       setText("");
       setDue(localToday());
       setDueSet(false);

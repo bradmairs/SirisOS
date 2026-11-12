@@ -220,14 +220,27 @@ async def ai_items(hub: Hub) -> list[dict[str, Any]] | None:
 
 
 def backup_items() -> list[dict[str, Any]]:
-    """SirisOS's own backup failing or going stale (3.7); nothing before the first one."""
+    """SirisOS's own backup failing or going stale (3.7); nothing before the first one. 8.9: the off-server copy, and
+    the weekly restore check."""
     from app.backup import service as backup
 
     s = backup.status()
-    if not s["enabled"] or not (s["error"] or (s["stale"] and s["newest"])):
-        return []
     day = datetime.now(timezone.utc).date().isoformat()
-    return [{
+    extra = []
+    copy, checked = s.get("copy"), s.get("check")
+    if s["enabled"] and copy and s["newest"] and (copy["error"] or copy["stale"]):
+        extra.append({"key": f"backup:copy:{day}", "kind": "alert", "severity": "attention",
+                      "title": "The backup copy off the server isn't up to date",
+                      "body": copy["error"] or f"Nothing new in {copy['folder']} for over a day. Is the NAS mounted?",
+                      "source": "backups", "app": "SirisOS", "url": "/status"})
+    if checked and not checked["ok"] and checked.get("name"):
+        extra.append({"key": f"backup:check:{checked['name']}", "kind": "alert", "severity": "attention",
+                      "title": "A backup didn't pass its restore check",
+                      "body": f"{checked['name']}: {'; '.join(checked['problems'][:3])}. Make a new one (Status → Backups) and check it.",
+                      "source": "backups", "app": "SirisOS", "url": "/status"})
+    if not s["enabled"] or not (s["error"] or (s["stale"] and s["newest"])):
+        return extra
+    return extra + [{
         "key": f"backup:{'error' if s['error'] else 'stale'}:{day}",
         "kind": "alert",
         "severity": "attention",
@@ -266,10 +279,16 @@ async def os_items(hub: Hub) -> list[dict[str, Any]]:
     from app import selftest
     from app.hub import watch
 
+    from app.machine import service as machine
+
     apps = await hub.apps(with_widgets=True)
     silent = watch.items()
+    try:
+        server = machine.items(await machine.status()) if machine.enabled() else []
+    except Exception:  # noqa: BLE001 - the server check never stops the inbox
+        server = []
     mine = [i for i in own_items(apps) if not (silent and i["key"].startswith("app:sirisai:"))]  # the one alert says it better
-    return [from_os(i) for i in mine + silent + backup_items() + push_items() + selftest.items() if f"os:{i['key']}" not in dismissed]
+    return [from_os(i) for i in mine + silent + server + backup_items() + push_items() + selftest.items() if f"os:{i['key']}" not in dismissed]
 
 
 async def inbox(hub: Hub) -> dict[str, Any]:

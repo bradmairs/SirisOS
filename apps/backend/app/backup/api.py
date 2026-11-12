@@ -30,6 +30,12 @@ def list_backups() -> dict[str, Any]:
     return {**service.status(), "backups": service.backups()}
 
 
+@router.post("/check")
+async def check_backup() -> dict[str, Any]:
+    """Check the newest backup would restore (8.9); weekly by itself."""
+    return await asyncio.to_thread(service.check)
+
+
 @router.post("")
 async def make_backup() -> dict[str, Any]:
     try:

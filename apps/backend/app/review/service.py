@@ -6,6 +6,8 @@
 - **Going quiet**: Siris projects nobody has touched in three weeks.
 - **Next week's crunch points**: busy days (4+ meetings, or meetings that
   overlap), tasks and project deadlines due.
+- **Goals** (8.9): the year's goals that are behind where they should be by now, and the ones done.
+- **Overdue**: tasks past their due date, to move or drop.
 - **What matters next week**: one note, saved to Siris (tagged
   `weekly-review`) and shown on the This week screen.
 
@@ -127,6 +129,8 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
         },
         "chartership": _chartership(),
         "gym": _gym_week(monday, today),
+        "goals": await _goals(hub, today),
+        "overdue": [{"id": t.get("id"), "title": t.get("title") or t.get("text"), "due": t.get("due")} for t in listing["groups"].get("overdue", [])][:10],
         "sleep": await _sleep_week(hub),
         "saved": saved(monday),
     }
@@ -159,6 +163,21 @@ def _gym_week(monday: date, today: date) -> dict[str, Any] | None:
             "volume": round(sum(gym.summary(doc, s)["volume"] for s in week)), "records": records[:6],
             "under": [m["muscle"] for m in coach.muscles(doc, today) if m["status"] == "under"][:5] if week else [],
             "deload": coach.deload(doc, today)["suggest"]}
+
+
+async def _goals(hub: Hub, today: date) -> dict[str, Any] | None:
+    """The year's goals (8.9): which are behind the pace for this time of year, and which are done."""
+    try:
+        from app.goals import service as goals
+
+        g = await goals.overview(hub, today.year, today)
+    except Exception:  # noqa: BLE001 - one section never stops the review
+        return None
+    if not g["goals"]:
+        return None
+    pick = lambda state: [{"title": x["title"], "percent": x["percent"]} for x in g["goals"] if x["state"] == state]  # noqa: E731
+    return {"through_year": g["through_year"], "behind": pick("behind")[:6], "on_track": len(pick("on_track")), "done": pick("done")[:6],
+            "total": len(g["goals"])}
 
 
 def _chartership() -> dict[str, Any] | None:
@@ -202,7 +221,13 @@ def push_message(now: datetime) -> list[dict[str, Any]]:
     if saved(week_of(local.date())[0]):
         return []
     numbers = week_numbers(local.date())
-    body = (f"{numbers}. " if numbers else "") + "Five minutes: how the week went, and what matters next week."
+    overdue = 0
+    try:
+        overdue = sum(1 for t in task_store.load().tasks if not t.done_at and t.due and t.due < local.date().isoformat())
+    except Exception:  # noqa: BLE001
+        pass
+    body = (f"{numbers}. " if numbers else "") + (f"{overdue} overdue task{'s' * (overdue != 1)} to sort. " if overdue else "") \
+        + "Five minutes: how the week went, your goals, and what matters next week."
     return [{"key": f"review:{local.date().isoformat()}", "topic": "brief", "title": "Your weekly review",
              "body": body, "url": "/review", "urgency": "normal"}]
 
@@ -220,7 +245,7 @@ def week_numbers(today: date) -> str:
         pass
     gym = _gym_week(monday, today)
     if gym and gym["sessions"]:
-        parts.append(f"{gym['sessions']} workout{'s' * (gym['sessions'] != 1)}")
+        parts.append(f"{gym['sessions']} workout{'s' * (gym['sessions'] != 1)}" + (f" ({len(gym['records'])} record{'s' * (len(gym['records']) != 1)})" if gym["records"] else ""))
     try:
         from app.work import service as work
 

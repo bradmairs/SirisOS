@@ -199,10 +199,7 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         out += gym_measure_message(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: gym measurements unavailable: %s", exc)
-    try:
-        out += gym_week_message(now)
-    except Exception as exc:  # noqa: BLE001
-        logger.info("Push: gym week unavailable: %s", exc)
+    # 8.9: the gym week is part of the Sunday review's push and page now, so it isn't a push of its own.
     try:
         out += career_messages(career_store.load(), now.date())
     except Exception as exc:  # noqa: BLE001

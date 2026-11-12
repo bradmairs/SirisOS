@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ServerCard } from "./ServerCard";
 import { Activity, HardDrive, RefreshCw } from "lucide-react";
 import { useResource } from "../api/resource";
 import { selfTest, systemStatus, type AppHealth } from "../api/status";
@@ -49,6 +50,7 @@ export function StatusScreen() {
         <AccessCheckCard />
         <UpkeepCard />
         <WatchedCard />
+        <ServerCard />
         <BackupsCard />
         <SpeedCard />
         {apps.map((a) => <AppCard key={a.id} app={a} />)}
