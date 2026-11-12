@@ -201,3 +201,18 @@ def test_too_many_at_once_are_refused(keyed, monkeypatch):
     bare, _ = keyed
     monkeypatch.setattr(share, "LIMIT_PER_HOUR", 0)
     assert bare.post("/api/v1/share", json={"text": "x"}).status_code == 429
+
+
+def test_the_copy_is_never_the_backup_folder_and_only_clears_its_own_nightlies(dirs, monkeypatch):
+    """8.91: on the server, the backups were already on the NAS, and the copy pointed at the same folder."""
+    data, out, nas = dirs
+    monkeypatch.setenv("SIRISOS_BACKUP_COPY_DIR", str(out))
+    made = backup.create("manual")
+    assert backup.copy_dir() is None and backup.copy_out(made["name"]) is None
+    assert (out / made["name"]).exists()
+    monkeypatch.setenv("SIRISOS_BACKUP_COPY_DIR", str(nas))
+    monkeypatch.setattr(backup, "COPIES", 1)
+    (nas / "sirisos-20200101-000000-manual.tar.gz").write_bytes(b"kept by hand")
+    for i in range(2):
+        backup.copy_out(backup.create("nightly", now=datetime(2026, 11, 1 + i, 3, tzinfo=timezone.utc))["name"])
+    assert sorted(p.name for p in nas.iterdir()) == ["sirisos-20200101-000000-manual.tar.gz", "sirisos-20261102-030000-nightly.tar.gz"]

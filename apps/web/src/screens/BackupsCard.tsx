@@ -57,7 +57,7 @@ export function BackupsCard() {
         <p className={data.copy.error || data.copy.stale ? "tone-warning" : "muted"} style={{ margin: 0, fontSize: 14 }}>
           {data.copy.error ? `The copy off the server failed: ${data.copy.error}` : data.copy.newest ? `Copied off the server to ${data.copy.folder}, last ${stamp(data.copy.newest)}${data.copy.stale ? ": over a day ago" : ""}.` : `Nothing copied to ${data.copy.folder} yet: it goes after tonight's backup.`}</p>
       ) : (
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>Backups stay on the server's disk. Set SIRISOS_BACKUP_COPY_DIR to a NAS folder for a copy off it.</p>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>No second copy. If the folder above isn't already off the server (a NAS), set SIRISOS_BACKUP_COPY_PATH to one that is.</p>
       )}
       <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span className={data.check ? (data.check.ok ? "tone-good" : "tone-critical") : "muted"} style={{ fontSize: 14 }}>

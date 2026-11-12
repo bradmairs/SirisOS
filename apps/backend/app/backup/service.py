@@ -62,9 +62,19 @@ def backup_dir() -> Path:
 
 
 def copy_dir() -> Path | None:
-    """Where the off-server copy goes (8.9), or None."""
+    """Where the off-server copy goes (8.9), or None. 8.91: never the backup folder itself (it once was, on Brad's
+    server, where SIRISOS_BACKUP_PATH already pointed at the NAS): a copy onto itself is no copy, and its clean-up
+    would count the real backups."""
     raw = os.getenv("SIRISOS_BACKUP_COPY_DIR", "").strip()
-    return Path(raw) if raw else None
+    if not raw:
+        return None
+    folder = Path(raw)
+    try:
+        if folder.resolve() == backup_dir().resolve() or (folder.exists() and backup_dir().exists() and folder.samefile(backup_dir())):
+            return None
+    except OSError:
+        pass
+    return folder
 
 
 def _hour() -> int:
@@ -234,7 +244,9 @@ def copy_out(name: str) -> dict[str, Any] | None:
         temp = folder / f".{name}.tmp"
         shutil.copyfile(path_of(name), temp)
         temp.replace(folder / name)
-        kept = sorted((p for p in folder.iterdir() if p.is_file() and NAME.match(p.name)), key=lambda p: p.name, reverse=True)
+        # Only its own nightly copies are ever cleared (8.91).
+        kept = sorted((p for p in folder.iterdir() if p.is_file() and (m := NAME.match(p.name)) and m.group(2) == "nightly"),
+                      key=lambda p: p.name, reverse=True)
         for old in kept[COPIES:]:
             old.unlink(missing_ok=True)
     except OSError as exc:
