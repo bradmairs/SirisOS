@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import os
 import json
 import socket
 import time
@@ -34,6 +35,18 @@ from app.terminal import service as terminal
 router = APIRouter(prefix="/api/v1/access", tags=["access"], dependencies=[Depends(require_user)])
 
 TAILSCALE = ipaddress.ip_network("100.64.0.0/10")
+# 8.9: other VPNs' client ranges, e.g. wg-easy's 10.8.0.0/24 (it's inside 10/8, so without this it reads as home).
+VPN_DEFAULT = "10.8.0.0/24"
+
+
+def vpn_networks() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    out: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = [TAILSCALE]
+    for raw in os.getenv("SIRISOS_VPN_NETWORKS", VPN_DEFAULT).split(","):
+        try:
+            out.append(ipaddress.ip_network(raw.strip(), strict=False))
+        except ValueError:
+            continue
+    return out
 HOME = [ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16", "::1/128", "fc00::/7", "fe80::/10")]
 
 
@@ -50,7 +63,7 @@ def network_of(ip: str) -> str:
         return "unknown"
     if getattr(addr, "ipv4_mapped", None):
         addr = addr.ipv4_mapped
-    if addr in TAILSCALE:
+    if any(addr.version == n.version and addr in n for n in vpn_networks()):
         return "vpn"
     if any(addr.version == n.version and addr in n for n in HOME):
         return "home"

@@ -100,6 +100,28 @@ export function ReviewScreen() {
               </Glass>
             )}
 
+            {data.goals && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your goals">
+                <header className="widget__head"><Compass aria-hidden="true" /><span>Your goals</span><span className="widget__source">{data.goals.through_year}% through the year</span></header>
+                <p style={{ margin: 0 }}>{data.goals.done.length} of {data.goals.total} done, {data.goals.on_track} on track{data.goals.behind.length ? `, ${data.goals.behind.length} behind` : ""}.</p>
+                {data.goals.behind.length > 0 && (
+                  <ul className="items" aria-label="Behind">
+                    {data.goals.behind.map((g) => <li key={g.title} className="item"><span className="item__text"><span className="item__title">{g.title}</span><span className="item__subtitle tone-warning">{g.percent ?? 0}% there, against {data.goals!.through_year}% of the year</span></span></li>)}
+                  </ul>
+                )}
+                <Link to="/year" className="chip chip--button" style={{ alignSelf: "flex-start" }}>Open goals</Link>
+              </Glass>
+            )}
+
+            {(data.overdue ?? []).length > 0 && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Overdue">
+                <header className="widget__head"><Hourglass aria-hidden="true" /><span>Overdue</span><span className="widget__source">{data.overdue!.length}</span></header>
+                <p className="muted" style={{ margin: 0, fontSize: 14 }}>Move them to a day you'll do them, or let them go.</p>
+                <ul className="items">{data.overdue!.map((t) => <li key={t.id ?? t.title} className="item"><span className="item__text"><span className="item__title">{t.title}</span>{t.due && <span className="item__subtitle">Due {dayName(t.due)}</span>}</span></li>)}</ul>
+                <Link to="/tasks" className="chip chip--button" style={{ alignSelf: "flex-start" }}>Open tasks</Link>
+              </Glass>
+            )}
+
             {data.chartership && data.chartership.next.length > 0 && (
               <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Chartership">
                 <header className="widget__head"><Award aria-hidden="true" /><span>Chartership: next steps</span><Link to="/career" className="widget__source">Career</Link></header>

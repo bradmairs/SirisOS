@@ -1315,3 +1315,8 @@ section:has(> .widget-grid:empty) { display: none; }
 .lab__tree-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .lab__tree-dot.lab__dot--on { background: var(--good); }
 .lab__tree-dot.lab__dot--off { background: var(--critical, #f87171); }
+/* 8.9: the server's disks */
+.server-disk__bar { display: block; height: 6px; margin-top: 4px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 20%, transparent); overflow: hidden; }
+.server-disk__bar > span { display: block; height: 100%; background: var(--accent); }
+.server-disk__bar > .server-disk__fill--warn { background: var(--warning, #f5a524); }
+.server-disk__bar > .server-disk__fill--alert { background: var(--critical, #e5484d); }

@@ -14,6 +14,14 @@ ones are kept, plus the last 10 made by hand and 5 taken just before a
 restore. Restoring puts every file in the backup back (atomically, one file
 at a time) after taking a fresh "before-restore" backup, so a restore can
 itself be undone. Files the backup doesn't have are left alone.
+
+8.9: **a second copy off the server.** With SIRISOS_BACKUP_COPY_DIR set (a NAS
+folder mounted into the container), each nightly backup is copied there too,
+and the newest COPIES kept, so a dead server disk doesn't take the backups
+with it. **A weekly restore check** opens the newest backup and checks every
+file the manifest lists is there, the right size, and (for JSON) readable,
+the way a restore would need it; the result shows on the Backups card and a
+failure goes to the inbox.
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import tarfile
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -36,6 +45,9 @@ logger = logging.getLogger(__name__)
 
 KINDS = {"nightly": 14, "manual": 10, "before-restore": 5}
 STALE_HOURS = 36
+COPIES = 14
+CHECK_EVERY_DAYS = 7
+CHECK_FILE = ".last-check.json"
 NAME = re.compile(r"^sirisos-(\d{8}-\d{6})-(nightly|manual|before-restore)\.tar\.gz$")
 
 _last_error: str | None = None
@@ -47,6 +59,12 @@ def data_dir() -> Path:
 
 def backup_dir() -> Path:
     return Path(os.getenv("SIRISOS_BACKUP_DIR", "/app/backups"))
+
+
+def copy_dir() -> Path | None:
+    """Where the off-server copy goes (8.9), or None."""
+    raw = os.getenv("SIRISOS_BACKUP_COPY_DIR", "").strip()
+    return Path(raw) if raw else None
 
 
 def _hour() -> int:
@@ -201,13 +219,105 @@ def _forget_caches() -> None:
     history.reset()
 
 
+_copy_error: str | None = None
+
+
+def copy_out(name: str) -> dict[str, Any] | None:
+    """Copy one backup to the off-server folder and keep the newest COPIES there (8.9)."""
+    global _copy_error
+    folder = copy_dir()
+    if folder is None:
+        return None
+    try:
+        if not folder.is_dir():
+            raise FileNotFoundError(f"{folder} isn't there (is the NAS mounted?)")
+        temp = folder / f".{name}.tmp"
+        shutil.copyfile(path_of(name), temp)
+        temp.replace(folder / name)
+        kept = sorted((p for p in folder.iterdir() if p.is_file() and NAME.match(p.name)), key=lambda p: p.name, reverse=True)
+        for old in kept[COPIES:]:
+            old.unlink(missing_ok=True)
+    except OSError as exc:
+        _copy_error = f"{type(exc).__name__}: {exc}"
+        logger.warning("Copying the backup off the server failed: %s", exc)
+        return None
+    _copy_error = None
+    return {"copied": name, "to": str(folder)}
+
+
+def copy_status(now: datetime) -> dict[str, Any] | None:
+    folder = copy_dir()
+    if folder is None:
+        return None
+    newest = None
+    if folder.is_dir():
+        names = sorted((p.name for p in folder.iterdir() if NAME.match(p.name)), reverse=True)
+        if names and (m := NAME.match(names[0])):
+            newest = datetime.strptime(m.group(1), "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
+    stale = newest is None or datetime.fromisoformat(newest) < now - timedelta(hours=STALE_HOURS)
+    return {"folder": str(folder), "newest": newest, "stale": stale, "error": _copy_error}
+
+
+def check(name: str | None = None, now: datetime | None = None) -> dict[str, Any]:
+    """Open a backup (the newest by default) and check it would restore (8.9). Nothing is written but the result."""
+    now = now or datetime.now(timezone.utc)
+    found = backups()
+    name = name or (found[0]["name"] if found else None)
+    result: dict[str, Any] = {"at": now.isoformat(timespec="seconds"), "name": name, "ok": False, "files": 0, "problems": []}
+    if not name:
+        result["problems"].append("There's no backup to check yet.")
+    else:
+        try:
+            with tarfile.open(path_of(name), "r:gz") as tar:
+                members = {m.name: m for m in tar.getmembers() if m.isfile()}
+                manifest_member = members.get("manifest.json")
+                if manifest_member is None:
+                    raise ValueError("it has no manifest")
+                listed = json.loads(tar.extractfile(manifest_member).read())  # type: ignore[union-attr]
+                for f in listed.get("files") or []:
+                    m = members.get(f"data/{f['path']}")
+                    if m is None:
+                        result["problems"].append(f"{f['path']} is missing")
+                    elif m.size != f["bytes"]:
+                        result["problems"].append(f"{f['path']} is {m.size} bytes, not {f['bytes']}")
+                    elif f["path"].endswith(".json"):
+                        try:
+                            json.loads(tar.extractfile(m).read() or b"null")  # type: ignore[union-attr]
+                        except ValueError:
+                            result["problems"].append(f"{f['path']} isn't readable JSON")
+                    result["files"] += 1
+        except (OSError, ValueError, tarfile.TarError, KeyError) as exc:
+            result["problems"].append(f"It couldn't be opened: {exc}")
+        result["ok"] = not result["problems"]
+        result["problems"] = result["problems"][:10]
+    try:
+        (backup_dir() / CHECK_FILE).write_text(json.dumps(result))
+    except OSError:
+        pass
+    return result
+
+
+def last_check() -> dict[str, Any] | None:
+    try:
+        return json.loads((backup_dir() / CHECK_FILE).read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def check_due(now: datetime | None = None) -> bool:
+    now = now or datetime.now(timezone.utc)
+    last = last_check()
+    return bool(backups()) and (not last or datetime.fromisoformat(last["at"]) < now - timedelta(days=CHECK_EVERY_DAYS))
+
+
 def status(now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     found = backups()
     newest = found[0]["created"] if found else None
     stale = newest is None or datetime.fromisoformat(newest) < now - timedelta(hours=STALE_HOURS)
     return {"enabled": enabled(), "folder": str(backup_dir()), "newest": newest, "count": len(found),
-            "stale": stale, "error": _last_error, "nightly_hour": _hour()}
+            "stale": stale, "error": _last_error, "nightly_hour": _hour(),
+            "copy": copy_status(now), "check": last_check()}
 
 
 def due(now: datetime | None = None) -> bool:
@@ -226,7 +336,10 @@ async def loop(every: float = 900.0) -> None:
     while True:
         try:
             if due():
-                await asyncio.to_thread(create, "nightly")
+                made = await asyncio.to_thread(create, "nightly")
+                await asyncio.to_thread(copy_out, made["name"])
+            if check_due():
+                await asyncio.to_thread(check)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the loop never dies

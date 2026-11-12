@@ -3,6 +3,7 @@ import { AlertTriangle, Fingerprint, Info, Plus, ShieldCheck, Trash2 } from "luc
 import { passkeyProblem, passkeys, type PasskeyInfo, type SecurityCheck } from "../api/passkeys";
 import { deviceLabel } from "../api/push";
 import { Glass } from "../components/Glass";
+import { ShareCard } from "./ShareCard";
 
 const ICON = { critical: AlertTriangle, warning: AlertTriangle, info: Info } as const;
 const TONE = { critical: "tone-critical", warning: "tone-warning", info: "muted" } as const;
@@ -97,6 +98,7 @@ export function SecurityScreen() {
           )}
         </Glass>
 
+        <ShareCard />
         <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Settings check">
           <header className="widget__head"><ShieldCheck aria-hidden="true" /><span>Settings check</span></header>
           {checks?.length === 0 && <p className="tone-good" style={{ margin: 0 }}>Nothing to fix.</p>}

@@ -7,6 +7,8 @@ export interface Backup {
   bytes: number;
 }
 
+export interface BackupCheck { at: string; name: string | null; ok: boolean; files: number; problems: string[] }
+
 export interface Backups {
   enabled: boolean;
   folder: string;
@@ -15,6 +17,9 @@ export interface Backups {
   stale: boolean;
   error: string | null;
   nightly_hour: number;
+  /** 8.9: the copy off the server (SIRISOS_BACKUP_COPY_DIR), and the last restore check. */
+  copy?: { folder: string; newest: string | null; stale: boolean; error: string | null } | null;
+  check?: BackupCheck | null;
   backups: Backup[];
 }
 
@@ -23,6 +28,7 @@ const B = "/api/v1/backups";
 export const backups = {
   list: () => api<Backups>(B),
   create: () => api<Backup & { files: number }>(B, { method: "POST" }),
+  check: () => api<BackupCheck>(`${B}/check`, { method: "POST" }),
   restore: (name: string) => api<{ restored: number; from: string; undo: string }>(`${B}/${encodeURIComponent(name)}/restore`, json({ confirm: "restore" })),
   async download(name: string) {
     const blob = await (await request(`${B}/${encodeURIComponent(name)}`)).blob();

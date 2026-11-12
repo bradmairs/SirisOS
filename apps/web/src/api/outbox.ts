@@ -6,7 +6,10 @@ import { tasks } from "./tasks";
  * waits on this device and goes as soon as it can (back online, the app
  * opened again, or brought to the front). Kept in localStorage, so it
  * survives closing the app; photos over about 1.5 MB aren't kept. */
-export type Item = { kind: "task"; text: string } | { kind: "capture"; body: Parameters<typeof brain.capture>[0] }
+export type Item = { kind: "task"; text: string; due?: string | null } | { kind: "capture"; body: Parameters<typeof brain.capture>[0] }
+  /** 8.9: a task ticked off, and a receipt or letter uploaded, with no connection. */
+  | { kind: "task_done"; task: import("./tasks").TaskItem }
+  | { kind: "document"; name: string; type: string; data: string }
   | { kind: "gym"; session: import("./gym").Session }
   /** 7.7: a health log (water, mood, a symptom) made with no connection. */
   | { kind: "health_log"; log: { kind: string; amount?: number; text?: string } }
@@ -17,6 +20,7 @@ export type Pending = Item & { at: string };
 
 const KEY = "sirisos.outbox";
 const MAX_PHOTO = 1_500_000;
+const MAX_DOCUMENT = 2_500_000;  // as base64: localStorage holds about 5 MB in all
 const listeners = new Set<(n: number) => void>();
 
 function read(): Pending[] {
@@ -47,9 +51,18 @@ export function unreachable(e: unknown): boolean {
   return typeof navigator !== "undefined" && navigator.onLine === false;
 }
 
+/** A file as base64, to keep it for later (8.9). */
+export async function fileData(file: File): Promise<string> {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  let out = "";
+  for (let i = 0; i < buf.length; i += 0x8000) out += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  return btoa(out);
+}
+
 /** Keep it for later; false when it can't be kept (storage full, or a big photo). */
 export function keep(item: Item): boolean {
   if (item.kind === "capture" && (item.body.image?.length ?? 0) > MAX_PHOTO) return false;
+  if (item.kind === "document" && item.data.length > MAX_DOCUMENT) return false;
   return write([...read(), { ...item, at: new Date().toISOString() }]);
 }
 
@@ -73,7 +86,13 @@ export function flush(): Promise<number> {
       const [next, ...rest] = read();
       if (!next) break;
       try {
-        if (next.kind === "task") await tasks.add({ text: next.text });
+        if (next.kind === "task") await tasks.add(next.due !== undefined ? { text: next.text, due: next.due } : { text: next.text });
+        else if (next.kind === "task_done") await tasks.done(next.task);
+        else if (next.kind === "document") {
+          const { life } = await import("./life");
+          const bytes = Uint8Array.from(atob(next.data), (c) => c.charCodeAt(0));
+          await life.addDocument(new File([bytes], next.name, { type: next.type }));
+        }
         else if (next.kind === "gym") await (await import("./gym")).gym.finish(next.session);
         else if (next.kind === "health_log") await api("/api/v1/health/log", json({ ...next.log, text: next.log.text ?? "" }));
         else if (next.kind === "inbox") {

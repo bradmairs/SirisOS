@@ -35,11 +35,11 @@ the 150-hour requirement. CPD is imported from Engineers Australia's own
 export, so it's only ever logged there ([ADR 111](docs/adr/111-career.md)).
 
 The **Terminal** opens a shell on a machine at home over SSH. It's for
-reaching home from work over Tailscale or a VPN. Every session needs a
+reaching home from work over a VPN (WireGuard or Tailscale). Every session needs a
 fresh code from an authenticator app, and sessions close by themselves
 ([ADR 113](docs/adr/113-terminal.md)).
 
-**Version 1.0** ([release notes](docs/releases/1.0.md)). Every change bumps
+**Version 8.9** ([release notes](docs/releases/8.9.md); every release in [docs/releases/](docs/releases/)). Every change bumps
 the version by 0.01 or 0.1 and merges to main once CI is green; a version
 bump tags and publishes the release ([docs/releases.md](docs/releases.md)).
 

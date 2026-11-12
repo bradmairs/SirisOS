@@ -8,6 +8,7 @@ os.environ.setdefault("SIRISOS_DATA_DIR", tempfile.mkdtemp())
 os.environ.setdefault("SIRISOS_PUSH_ENABLED", "0")
 os.environ.setdefault("SIRISOS_STATUS_SAMPLER", "0")
 os.environ.setdefault("SIRISOS_BACKUPS", "0")
+os.environ.setdefault("SIRISOS_MACHINE_WATCH", "0")  # 8.9: not this computer's disk in the tests
 os.environ.setdefault("SIRISOS_WATCH", "0")
 os.environ.setdefault("SIRISOS_SELFTEST", "0")
 os.environ.setdefault("SIRISOS_BUILT_IN_LINKS", "0")

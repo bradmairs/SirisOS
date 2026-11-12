@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fileData, keep, unreachable } from "../api/outbox";
 import { FileText, Mail, Plane, Receipt, Trash2, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useResource } from "../api/resource";
@@ -26,7 +27,15 @@ export function DocumentsCard() {
     setBusy(true);
     setNote(null);
     try {
-      const doc = await life.addDocument(file);
+      let doc: Awaited<ReturnType<typeof life.addDocument>>;
+      try { doc = await life.addDocument(file); } catch (e) {
+        // No signal (8.9): a photo of a receipt is kept on the phone and filed when SirisOS is back.
+        if (unreachable(e) && keep({ kind: "document", name: file.name, type: file.type, data: await fileData(file) })) {
+          setNote({ tone: "good", text: `Saved "${file.name}" on this phone: it's filed when SirisOS is back.` });
+          return;
+        }
+        throw e;
+      }
       const due = doc.due[0];
       setNote({
         tone: "good",

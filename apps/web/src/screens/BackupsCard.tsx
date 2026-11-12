@@ -52,6 +52,20 @@ export function BackupsCard() {
       </p>
       {data.error && <p className="tone-critical" role="alert" style={{ margin: 0 }}>The last backup failed: {data.error}</p>}
       {!data.error && data.stale && data.newest && <p className="tone-warning" style={{ margin: 0 }}>The newest backup is over a day old.</p>}
+      {/* 8.9: a copy off the server, and a weekly check that the newest would restore. */}
+      {data.copy ? (
+        <p className={data.copy.error || data.copy.stale ? "tone-warning" : "muted"} style={{ margin: 0, fontSize: 14 }}>
+          {data.copy.error ? `The copy off the server failed: ${data.copy.error}` : data.copy.newest ? `Copied off the server to ${data.copy.folder}, last ${stamp(data.copy.newest)}${data.copy.stale ? ": over a day ago" : ""}.` : `Nothing copied to ${data.copy.folder} yet: it goes after tonight's backup.`}</p>
+      ) : (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>Backups stay on the server's disk. Set SIRISOS_BACKUP_COPY_DIR to a NAS folder for a copy off it.</p>
+      )}
+      <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span className={data.check ? (data.check.ok ? "tone-good" : "tone-critical") : "muted"} style={{ fontSize: 14 }}>
+          {data.check ? (data.check.ok ? `Restore check passed ${stamp(data.check.at)}: all ${data.check.files} files there and readable.` : `Restore check failed ${stamp(data.check.at)}: ${data.check.problems.slice(0, 2).join("; ")}`) : "Not checked yet: it's checked weekly."}</span>
+        <button type="button" className="chip chip--button" disabled={busy !== null || !data.backups.length}
+          onClick={() => run("check", async () => { const c = await backups.check(); return c.ok ? `The newest backup would restore: ${c.files} files checked.` : `It wouldn't restore cleanly: ${c.problems.join("; ")}`; })}>
+          {busy === "check" ? "Checking…" : "Check it now"}</button>
+      </div>
       {data.backups.length === 0 ? (
         <p className="muted" style={{ margin: 0, fontSize: 14 }}>None yet.</p>
       ) : (

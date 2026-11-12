@@ -60,6 +60,8 @@ export const life = {
 export interface Thing {
   id: number; name: string; brand: string; model: string; room: string; bought: string | null; price: number | null; shop: string;
   warranty_until: string | null; manual: string; notes: string; document_id: number | null; warranty_days_left?: number; under_warranty?: boolean;
+  /** SirisAI 5.94: the last day it can go back (from the receipt, or set by hand). */
+  return_until?: string | null; return_days_left?: number;
 }
 export interface Person {
   id: number; name: string; relation: string; birthday: string | null; anniversary: string | null; notes: string; last_contact: string | null;

@@ -20,6 +20,9 @@ export interface WeeklyReview {
   /** The weakest competency elements and what to do next (6.3). */
   /** The week's sleep report (6.4). */
   sleep?: import("./health").SleepWeek | null;
+  /** 8.9: the year's goals behind the pace, and overdue tasks. */
+  goals?: { through_year: number; behind: { title: string; percent: number | null }[]; on_track: number; done: { title: string; percent: number | null }[]; total: number } | null;
+  overdue?: { id: string; title: string; due: string | null }[];
   gym?: { sessions: number; sets: number; volume: number; records: string[]; under: string[]; deload: boolean } | null;
   chartership?: { counts: { solid: number; thin: number; none: number }; next: { id: string; title: string; strength: string; next: string }[] } | null;
   next_week: {

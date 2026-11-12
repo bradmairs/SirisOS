@@ -43,6 +43,8 @@ from app.netwatch.api import router as netwatch_router
 from app.power.api import router as power_router
 from app.standby.api import router as standby_router
 from app.gym.api import router as gym_router, voice_router as gym_voice_router
+from app.machine.api import router as machine_router
+from app.share.api import router as share_router
 from app.work.api import router as work_router
 from app.homelab.api import router as homelab_router
 from app.training.api import public_router as training_public_router
@@ -84,6 +86,8 @@ for router in (
     standby_router,
     gym_router,
     gym_voice_router,
+    machine_router,
+    share_router,
     work_router,
     homelab_router,
     training_router,
