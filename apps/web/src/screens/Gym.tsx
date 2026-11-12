@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePageContext } from "../api/pageContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Activity, ArrowDown, ArrowUp, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Repeat, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
+import { Activity, Mic, ArrowDown, ArrowUp, BatteryLow, Camera, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, ListPlus, Medal, Pencil, Play, Plus, Repeat, Ruler, Search, Settings2, Sparkles, Trash2, TrendingUp, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, moveEntry, newId, saveActive, savePlan, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type MergeDone, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session } from "../api/gym";
+import { gym, loadActive, moveEntry, newId, saveActive, savePlan, type Exercise, shortcuts, type BuildEquipment, type BuildGoal, type Built, type Duplicate, type MergeDone, type ExerciseDetail, type Gym, type GymProfile, type Measurement, type Photo, type GymSettings, type ImportPreview, type ImportUnit, type Plan, type Progression, type Routine, type Session, type DayMode, type BlockChange } from "../api/gym";
 import { DecimalInput } from "../components/DecimalInput";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
@@ -34,11 +34,11 @@ function startingReps(e: Plan["exercises"][number], i: number, weight: number | 
 }
 
 /** Start a workout: from a routine day (with last time, what to lift and warm-ups), or empty. */
-export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string, shortcut?: string, title = "Workout") {
+export async function startWorkout(navigate: (to: string) => void, routine?: Routine, day?: number, gymId?: string, shortcut?: string, title = "Workout", mode: DayMode = "normal") {
   const now = new Date().toISOString();
   let s: Session = { id: newId(), title, started_at: now, entries: [], gym: gymId ?? null };
   if (routine) {
-    const p = await gym.plan(routine.id, day, gymId);
+    const p = await gym.plan(routine.id, day, gymId, mode);
     s = { ...s, title: p.title, routine_id: routine.id, day: p.day, deload: !!p.deload, entries: p.exercises.map((e) => ({
       exercise: e.exercise,
       group: e.group ?? null,
@@ -113,17 +113,155 @@ function DeloadCard({ d, onChange }: { d: NonNullable<Gym["deload"]>; onChange: 
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Deload">
       <header className="widget__head"><BatteryLow aria-hidden="true" /><span>{d.active ? "Deload week" : "Time for a lighter week?"}</span></header>
       {d.active ? (
-        <p style={{ margin: 0 }}>Until {fmtDay(d.until!)}: half the sets, 10% lighter, and no records. Let your body catch up.</p>
+        <p style={{ margin: 0 }}>{d.planned?.this_week ? `Your planned lighter week (every ${d.planned.every} weeks), until ${fmtDay(d.until!)}` : `Until ${fmtDay(d.until!)}`}: half the sets, 10% lighter, and no records. Let your body catch up.</p>
       ) : (
         <p style={{ margin: 0 }}>{d.why.map((w) => w[0].toUpperCase() + w.slice(1)).join(". ")}. A week at half the sets and 10% lighter usually brings the numbers back up.</p>
       )}
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+      {!d.planned?.this_week && <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="button" className={`button ${d.active ? "" : "button--primary"}`} disabled={busy} onClick={() => set(!d.active)}>
           {d.active ? "End the deload" : "Start a deload week"}</button>
         {/* 8.7: it kept asking every day; "Not now" puts it away for four weeks. */}
         {!d.active && <button type="button" className="chip chip--button" disabled={busy} onClick={later}>Not now</button>}
+      </div>}
+    </Glass>
+  );
+}
+
+/** The next block (8.8): after the routine's run its weeks, what to keep, swap or change, each one yours to accept. */
+function NextBlockCard({ g, onChange }: { g: Gym; onChange: () => void }) {
+  const res = useResource("gym:next-block", () => gym.nextBlock(), {});
+  const b = res.data?.block;
+  const [off, setOff] = useState<Set<number>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const changes: BlockChange[] = b?.changes ?? [];
+  const toChange = changes.map((c, i) => [c, i] as const).filter(([c]) => c.verdict !== "keep");
+  const start = async () => {
+    setBusy(true);
+    try { const out = await gym.startBlock(toChange.filter(([, i]) => !off.has(i)).map(([, i]) => i)); setDone(`New block started${out.changed ? ` with ${out.changed} change${out.changed === 1 ? "" : "s"}` : ""}.`); onChange(); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Next block">
+      <header className="widget__head"><Sparkles aria-hidden="true" /><span>Time for the next block</span>{g.block && <span className="widget__source">{g.block.weeks} of {g.block.of} weeks</span>}</header>
+      {done ? <p role="status" style={{ margin: 0 }}>{done}</p> : !b ? <div className="skeleton" style={{ height: 60 }} /> : (
+        <>
+          <p style={{ margin: 0 }}>{toChange.length ? "Here's how each lift moved this block. Untick anything you'd rather keep as it is." : "Everything's still moving: keep the routine as it is for another block."}</p>
+          <ul className="items" aria-label="Changes for the next block">
+            {changes.map((c, i) => (
+              <li key={`${c.day}-${c.index}`} className="item">
+                {c.verdict !== "keep" && <input type="checkbox" aria-label={`Change ${c.name}`} checked={!off.has(i)} onChange={() => { const n = new Set(off); if (n.has(i)) n.delete(i); else n.add(i); setOff(n); }} />}
+                <span className="item__text"><span className="item__title">{c.name}{c.verdict === "swap" ? ` → ${c.swap_name}` : c.verdict === "reps" ? `: ${c.reps} → ${c.reps_to} reps` : ""}</span>
+                  <span className="item__subtitle">{c.day_name} · {c.why}</span></span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="button button--primary" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={start}>Start the next block</button>
+        </>
+      )}
+    </Glass>
+  );
+}
+
+/** Working sets a month for each muscle (8.8): which are growing and which are slipping. */
+function MuscleTrendsCard() {
+  const [months, setMonths] = useState(12);
+  const res = useResource(`gym:muscle-trends:${months}`, () => gym.muscleTrends(months), { staleMs: 60_000 });
+  const d = res.data;
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Muscles over time">
+      <header className="widget__head"><Activity aria-hidden="true" /><span>Muscles over time</span>
+        <span className="widget__source row" style={{ gap: 6 }}>{[12, 24].map((m) => (
+          <button key={m} type="button" className={`chip chip--button ${months === m ? "chip--active" : ""}`} aria-pressed={months === m} onClick={() => setMonths(m)}>{m === 12 ? "1y" : "2y"}</button>
+        ))}</span></header>
+      {!d ? <div className="skeleton" style={{ height: 80 }} /> : !d.muscles?.length || !d.months ? <p className="muted" style={{ margin: 0 }}>Nothing logged in that time.</p> : (
+        <>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>Working sets a month; a helper muscle counts half. The % is the last 3 full months against the 3 before.</p>
+          <ul className="gym-trends" aria-label="Sets a month by muscle">
+            {d.muscles.map((m) => {
+              // Whole months only: this one's just begun, and would always look like a drop.
+              const full = m.series.slice(0, -1);
+              const hi = Math.max(1, ...full);
+              const pts = full.map((v, i) => `${(i / Math.max(1, full.length - 1)) * 100},${22 - (v / hi) * 20}`).join(" ");
+              return (
+                <li key={m.muscle}>
+                  <button type="button" className="gym-trends__row" aria-expanded={open === m.muscle} onClick={() => setOpen(open === m.muscle ? null : m.muscle)}>
+                    <span className="gym-trends__name">{m.muscle}</span>
+                    <svg className="gym-trends__spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><polyline points={pts} className="spark__line" /></svg>
+                    <span className={`gym-trends__change ${m.change == null ? "muted" : m.change >= 10 ? "tone-good" : m.change <= -20 ? "tone-warning" : "muted"}`}>
+                      {m.change == null ? "new" : `${m.change > 0 ? "+" : ""}${m.change}%`}</span>
+                  </button>
+                  {open === m.muscle && (
+                    <p className="muted" style={{ margin: "2px 0 6px", fontSize: 12 }}>
+                      {m.series.slice(-6).map((v, i) => `${new Date(`${d.months[d.months.length - 6 + i]}-15T12:00:00`).toLocaleDateString(undefined, { month: "short" })} ${Math.round(v)}`).join(" · ")} sets</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Glass>
+  );
+}
+
+/** Log a set by voice (8.8): a key for an iPhone Shortcut that sends what you said to Siri. Shown once. */
+function SiriCard({ has, onChange }: { has: boolean; onChange: () => void }) {
+  const [key, setKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const url = `${window.location.origin}/api/v1/gym-voice/log`;
+  const make = async () => {
+    if (has && !window.confirm("Make a new key? The Shortcut using the old one stops working until you paste the new one in.")) return;
+    setBusy(true); try { setKey((await gym.voiceKey()).key); onChange(); } finally { setBusy(false); }
+  };
+  const drop = async () => { if (!window.confirm("Turn off logging with Siri?")) return; setBusy(true); try { await gym.dropVoiceKey(); setKey(null); onChange(); } finally { setBusy(false); } };
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Log sets with Siri">
+      <header className="widget__head"><Mic aria-hidden="true" /><span>Log sets with Siri</span>{has && <span className="widget__source tone-good">On</span>}</header>
+      <p style={{ margin: 0, fontSize: 14 }}>Say "Hey Siri, log a set", then "100 by 5" (or "100 kilos for 5 at RPE 8"). The set goes into the exercise you're on, next time SirisGym is open.</p>
+      {key ? (
+        <>
+          <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>Copy this key now: it won't be shown again.</p>
+          <code className="gym-key" aria-label="Siri key">{key}</code>
+          <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => void navigator.clipboard?.writeText(key)}>Copy the key</button>
+        </>
+      ) : null}
+      <details>
+        <summary style={{ fontSize: 14 }}>Make the Shortcut</summary>
+        <ol style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13 }}>
+          <li>In Shortcuts, make a new one called <strong>Log a set</strong>.</li>
+          <li>Add <strong>Dictate Text</strong>.</li>
+          <li>Add <strong>Get Contents of URL</strong>: URL <code>{url}</code>, Method POST, Header <code>X-SirisGym-Key</code> = your key, Request Body JSON with a text field <code>text</code> set to Dictated Text.</li>
+          <li>Add <strong>Get Dictionary Value</strong> for <code>say</code>, then <strong>Speak Text</strong>.</li>
+        </ol>
+      </details>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className={`button ${has ? "" : "button--primary"}`} disabled={busy} onClick={make}>{has ? "Make a new key" : "Make a key"}</button>
+        {has && <button type="button" className="chip chip--button" disabled={busy} onClick={drop}>Turn off</button>}
       </div>
     </Glass>
+  );
+}
+
+/** Form cues for an exercise (8.8): a built-in few for the big lifts, or your own. */
+function CuesEditor({ id, cues, yours, onSaved }: { id: string; cues: string; yours: boolean; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(cues);
+  const save = async (v: string) => { await gym.setCues(id, v); setEditing(false); onSaved(); };
+  if (editing) return (
+    <div className="stack" style={{ gap: 6 }}>
+      <textarea className="field" rows={3} maxLength={300} aria-label="Form cues" placeholder="e.g. Brace, knees out, chest up" value={text} onChange={(e) => setText(e.target.value)} />
+      <div className="row" style={{ gap: 8 }}>
+        <button type="button" className="button button--primary" onClick={() => save(text.trim())}>Save cues</button>
+        <button type="button" className="button" onClick={() => setEditing(false)}>Cancel</button>
+        {yours && <button type="button" className="icon-link" style={{ marginLeft: "auto" }} onClick={() => save("")}>Back to the built-in ones</button>}
+      </div>
+    </div>
+  );
+  return (
+    <p style={{ margin: 0, fontSize: 14 }}>{cues ? <><strong>Cues:</strong> {cues} </> : <span className="muted">No form cues yet. </span>}
+      <button type="button" className="icon-link" onClick={() => { setText(cues); setEditing(true); }}><Pencil size={12} aria-hidden="true" /> {cues ? "Edit" : "Add"}</button></p>
   );
 }
 
@@ -176,7 +314,8 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
   const todayIdx = (new Date().getDay() + 6) % 7;
   const [busy, setBusy] = useState(false);
   const [gymId, setGymId] = useState(g.settings.current_gym);
-  const go = async (r?: Routine, d?: number, title?: string) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId, g.settings.shortcut_start, title); } finally { setBusy(false); } };
+  const [mode, setMode] = useState<DayMode>("normal");
+  const go = async (r?: Routine, d?: number, title?: string) => { setBusy(true); try { await startWorkout(navigate, r, d, gymId, g.settings.shortcut_start, title, mode); } finally { setBusy(false); } };
   const muscles = Object.entries(g.week.sets_by_muscle);
   const most = Math.max(1, ...muscles.map(([, n]) => n));
   return (
@@ -195,6 +334,7 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
         </p>
       )}
       {g.deload && (g.deload.active || g.deload.suggest) && <DeloadCard d={g.deload} onChange={onChange} />}
+      {g.block?.due && <NextBlockCard g={g} onChange={onChange} />}
       {(g.niggles ?? []).length > 0 && <NigglesCard niggles={g.niggles!} onChange={onChange} />}
       {(g.links ?? 0) > 0 && <LinkHistoryCard onChange={onChange} />}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">
@@ -223,6 +363,13 @@ function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
           <>
             <p style={{ margin: 0, fontSize: 16 }}><strong>{routine.name}: {next.name}</strong>{sched?.rest && sched.next ? <span className="muted"> ({sched.next.weekday})</span> : null}</p>
             <p className="muted" style={{ margin: 0, fontSize: 13 }}>{next.exercises.map((e) => g.exercises.find((x) => x.id === e.exercise)?.name ?? e.exercise).join(" · ")}</p>
+            {/* 8.8: how today's going, before it starts. */}
+            <div className="row" role="radiogroup" aria-label="How today's going" style={{ gap: 6, flexWrap: "wrap" }}>
+              {([["normal", "As planned"], ["tired", "I'm tired"], ["short", "Short on time"]] as const).map(([m, label]) => (
+                <button key={m} type="button" role="radio" aria-checked={mode === m} className={`chip chip--button ${mode === m ? "chip--active" : ""}`} onClick={() => setMode(m)}>{label}</button>
+              ))}
+            </div>
+            {mode !== "normal" && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{mode === "tired" ? "A set fewer on each exercise and 5% lighter." : "The first exercises only, the ones that matter most."}</p>}
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <button type="button" className={`button ${sched?.rest ? "" : "button--primary"}`} disabled={busy || !!active} onClick={() => go(routine, g.active?.next_day)}>{sched?.rest ? `Do ${next.name} today` : `Start ${next.name}`}</button>
               {routine.days.length > 1 && routine.days.map((d, i) => i !== g.active?.next_day && (
@@ -687,6 +834,16 @@ function RoutineEditor({ g, start, onClose, onSaved }: { g: Gym; start: Routine;
           </div>
         ))}
         <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => setR({ ...r, days: [...r.days, { name: `Day ${r.days.length + 1}`, exercises: [] }] })}>Add a day</button>
+        {/* 8.8: lighter weeks planned in, and blocks that end with a look at what's moving. */}
+        <label className="gym-setting">A lighter week every
+          <select className="field" value={r.deload_every ?? ""} onChange={(e) => setR({ ...r, deload_every: Number(e.target.value) || null })}>
+            <option value="">None planned (SirisGym suggests one when you need it)</option>
+            {[4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} weeks{n === 5 ? " (4 hard, 1 light)" : ""}</option>)}
+          </select></label>
+        <label className="gym-setting">Block length (then SirisGym proposes the next)
+          <select className="field" value={r.block_weeks ?? 6} onChange={(e) => setR({ ...r, block_weeks: Number(e.target.value) })}>
+            {[4, 5, 6, 8, 10, 12].map((n) => <option key={n} value={n}>{n} weeks</option>)}
+          </select></label>
         <label className="row" style={{ gap: 8, fontSize: 14 }}><input type="checkbox" checked={r.active} onChange={(e) => setR({ ...r, active: e.target.checked })} /> My current routine</label>
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="button button--primary" disabled={!r.name.trim() || !r.days.some((d) => d.exercises.length)} onClick={save}>Save</button>
@@ -864,6 +1021,7 @@ export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; un
           <h2 className="sheet__title">{d.exercise.name}</h2>
           <p className="muted" style={{ margin: 0 }}>{d.exercise.primary}{d.exercise.secondary.length ? `, with ${d.exercise.secondary.join(", ")}` : ""} · {d.exercise.equipment}
             {d.exercise.custom && <> · <button type="button" className="icon-link" onClick={() => setEditing(true)}><Pencil size={12} aria-hidden="true" /> Edit</button></>}</p>
+          <CuesEditor key={d.cues ?? ""} id={id} cues={d.cues ?? ""} yours={!!d.cues_yours} onSaved={() => res.reload?.(true)} />
           {editing && <EditExerciseSheet exercise={d.exercise} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void res.reload?.(true); onChanged?.(); }} />}
           {!d.history.length && <p className="muted" style={{ margin: 0 }}>Not done yet.</p>}
           {d.history.length > 0 && (
@@ -945,6 +1103,7 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
           <input className="field" placeholder="e.g. SirisGym Rest (empty: none)" value={s.shortcut_rest ?? ""} onChange={(e) => setS({ ...s, shortcut_rest: e.target.value })} /></label>
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>A web app can't put up a Live Activity itself; only iPhone apps can. A Clock timer can: make a Shortcut that takes the input as seconds and runs Start Timer. Each rest then opens Shortcuts for a moment; from the Home Screen app, tap ◀ SirisOS at the top left to come back.</p>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.learn_rest ?? true} onChange={(e) => setS({ ...s, learn_rest: e.target.checked })} /> Set the rest timer from how long my heart rate takes to settle (needs the Watch)</label>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.keep_awake ?? true} onChange={(e) => setS({ ...s, keep_awake: e.target.checked })} /> Keep the screen on during a workout</label>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (
           <label className="gym-setting">Warm-ups (% of the working weight × reps)
@@ -967,6 +1126,7 @@ function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) {
           {x.id !== s.current_gym && <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => setS({ ...s, current_gym: x.id })}>Train here now</button>}
         </Glass>
       ))}
+      <SiriCard has={!!g.settings.voice_key} onChange={onChange} />
       <TidyCard onChange={onChange} />
       <BackupsCard onChange={onChange} />
       <div className="row" style={{ gap: 8 }}>
@@ -1111,6 +1271,7 @@ function ProgressView() {
         </ul>
         {st.data && !st.data.bodyweight && <p className="muted" style={{ margin: 0, fontSize: 13 }}>No bodyweight yet: it comes from Apple Health (weight), so the ratios appear once one arrives.</p>}
       </Glass>
+      <MuscleTrendsCard />
       <BodyCard />
       <PhotosCard />
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Year in review">

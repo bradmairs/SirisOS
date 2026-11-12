@@ -37,6 +37,60 @@ export function GymWorkoutScreen() {
   const plan = useMemo<Plan | null>(() => (s ? loadPlan(s.id) : null), [s?.id]);
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
   useEffect(() => { document.title = "Workout · SirisOS"; }, []);
+  // 8.8: the screen stays on while a workout's going (Settings can turn it off). iOS lets it go when the app's hidden,
+  // so it's asked for again on coming back.
+  const awake = !!s && !s.editing && (g?.settings.keep_awake ?? true);
+  useEffect(() => {
+    if (!awake || !("wakeLock" in navigator)) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    let gone = false;
+    const ask = async () => {
+      if (document.visibilityState !== "visible" || gone) return;
+      try { lock = await (navigator as Navigator & { wakeLock: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock.request("screen"); } catch { /* low battery mode, or not allowed */ }
+    };
+    void ask();
+    document.addEventListener("visibilitychange", ask);
+    return () => { gone = true; document.removeEventListener("visibilitychange", ask); void lock?.release().catch(() => {}); };
+  }, [awake]);
+  // 8.8: sets said to Siri wait on SirisOS; they come in here every few seconds while the workout's on screen.
+  const sRef = useRef(s);
+  sRef.current = s;
+  const byIdRef = useRef(new Map<string, Exercise>());
+  byIdRef.current = new Map((g?.exercises ?? []).map((e) => [e.id, e] as const));
+  const siri = !!s && !s.editing && !!g?.settings.voice_key;
+  useEffect(() => {
+    if (!siri) return;
+    let busy = false;
+    const pull = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        const { items } = await gym.voiceLog();
+        if (!items.length) return;
+        let cur = sRef.current;
+        const taken: string[] = [];
+        const said: string[] = [];
+        let last: { ei: number; si: number } | null = null;
+        for (const it of items) {
+          if (!cur) break;
+          const r = applySaid(cur, { ...it.parsed, weight: it.parsed.weight ?? undefined }, byIdRef.current);
+          taken.push(it.id);
+          if ("error" in r) { said.push(r.error); continue; }
+          cur = r.session; last = { ei: r.ei, si: r.si }; said.push(r.text);
+        }
+        if (cur && cur !== sRef.current) { setS(cur); saveActive(cur); }
+        await gym.voiceAck(taken);
+        setInfo(`From Siri: ${said.join(" ")}`);
+        if (cur && last) { const t = restAfterRef.current(cur.entries, last.ei); if (t) startRestRef.current(t, nextTextRef.current(last.ei, last.si)); }
+      } catch { /* offline: they wait on SirisOS */ } finally { busy = false; }
+    };
+    void pull();
+    const id = window.setInterval(pull, 5000);
+    return () => window.clearInterval(id);
+  }, [siri]);
+  const restAfterRef = useRef<(entries: Session["entries"], ei: number) => number>(() => 0);
+  const startRestRef = useRef<(t: number, next: string) => void>(() => {});
+  const nextTextRef = useRef<(ei: number, si: number) => string>(() => "");
   useEffect(() => {
     if (rest && Date.now() >= rest.until) {
       // Over while you're looking (8.6): a chime and a banner, as the push isn't shown while the app's open. One that ran
@@ -106,25 +160,19 @@ export function GymWorkoutScreen() {
       const { text } = await brain.transcribe(await rec.done);
       const said = parseSpoken(text ?? "");
       if (!said) { setInfo(`Didn't catch a set in "${text}". Try "100 by 5".`); return; }
-      const words = (said.name ?? "").split(" ").filter((w) => w.length > 2);
-      const named = words.length ? s.entries.findIndex((e) => words.some((w) => (byId.get(e.exercise)?.name ?? e.exercise).toLowerCase().includes(w))) : -1;
-      const ei = named >= 0 ? named : s.entries.findIndex((e) => e.sets.some((x) => !x.done));
-      if (ei < 0) { setInfo("Every set's done: add one first."); return; }
-      const entry = s.entries[ei];
-      let si = entry.sets.findIndex((x) => !x.done && x.type !== "warmup");
-      if (si < 0) si = entry.sets.findIndex((x) => !x.done);
-      const patch = { reps: said.reps, done: true, at: new Date().toISOString(), ...(said.weight !== undefined ? { weight: said.weight } : {}), ...(said.rpe ? { rpe: said.rpe } : {}) };
-      const sets = si >= 0 ? entry.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) : [...entry.sets, { type: "normal" as const, weight: said.weight ?? entry.sets.at(-1)?.weight ?? null, ...patch }];
-      const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets } : e));
-      update({ ...s, entries });
-      const name = byId.get(entry.exercise)?.name ?? entry.exercise;
-      setInfo(`Logged ${name}: ${said.weight != null ? `${said.weight} × ` : ""}${said.reps}${said.rpe ? ` at RPE ${said.rpe}` : ""}.`);
-      const t = restAfter(entries, ei);
-      if (t) startRest(t, nextText(ei, si < 0 ? entry.sets.length : si));
+      const r = applySaid(s, said, byId);
+      if ("error" in r) { setInfo(r.error); return; }
+      update(r.session);
+      setInfo(r.text);
+      const t = restAfter(r.session.entries, r.ei);
+      if (t) startRest(t, nextText(r.ei, r.si));
     } catch (e) {
       setInfo(e instanceof Error ? e.message : "Couldn't listen.");
     } finally { setListening(false); }
   }
+  restAfterRef.current = restAfter;
+  startRestRef.current = startRest;
+  nextTextRef.current = nextText;
   /** Move an exercise up or down (8.6). */
   const move = (ei: number, by: number) => update({ ...s, entries: moveEntry(s.entries, ei, ei + by) });
   const unlink = (ei: number) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, group: null } : e)) });
@@ -192,6 +240,7 @@ export function GymWorkoutScreen() {
         </div>
       </div>
       {info && <p className="tone-warning" role="status">{info}</p>}
+      {plan?.mode_note && <p className="muted" role="status" style={{ margin: "4px 0 0", fontSize: 13 }}>{plan.mode_note}</p>}
       <div className="stack" style={{ marginTop: 12 }}>
         {s.entries.map((entry, ei) => {
           const ex = byId.get(entry.exercise);
@@ -227,6 +276,8 @@ export function GymWorkoutScreen() {
                 </div>
               )}
               {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
+              {p?.cues && <p className="gym-cues" style={{ margin: 0, fontSize: 12 }}>{p.cues}</p>}
+              {p?.gym_swap && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Instead of {byId.get(p.gym_swap.from)?.name ?? p.gym_swap.from}, as always at this gym.</p>}
               {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
               {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
               {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
@@ -284,7 +335,7 @@ export function GymWorkoutScreen() {
           onPick={(ex) => { update({ ...s, entries: [...s.entries, { exercise: ex.id, sets: [{ weight: null, reps: null, done: false, type: "normal" }] }] }); setPicking(false); }} />
       )}
       {swapping != null && s.entries[swapping] && (
-        <SwapSheet exercise={s.entries[swapping].exercise} gymId={s.gym ?? null} onClose={() => setSwapping(null)}
+        <SwapSheet exercise={s.entries[swapping].exercise} gymId={s.gym ?? null} gymName={g?.settings.gyms.find((x) => x.id === s.gym)?.name} onClose={() => setSwapping(null)}
           onPick={(id, weight) => {
             update({ ...s, entries: s.entries.map((e, i) => (i === swapping ? { ...e, exercise: id, sets: e.sets.map((x) => (x.done ? x : { ...x, weight: x.type === "warmup" ? null : weight, reps: null })) } : e)) });
             setSwapping(null);
@@ -293,6 +344,29 @@ export function GymWorkoutScreen() {
       {openEx && <ExerciseSheet id={openEx} unit={unit} onClose={() => setOpenEx(null)} />}
     </>
   );
+}
+
+/** A set's types, in the order a tap on its number goes through them (8.8 added AMRAP and rest-pause). */
+const NEXT_TYPE: Record<string, SetLog["type"]> = { normal: "warmup", warmup: "drop", drop: "amrap", amrap: "restpause", restpause: "normal", failure: "normal" };
+const TYPE_NAME: Record<string, string> = { normal: "Normal", warmup: "Warm-up", drop: "Drop set", amrap: "As many reps as possible", restpause: "Rest-pause", failure: "To failure" };
+
+/** Put a set said aloud (or to Siri) into the workout: into the exercise it names, else the one you're on; the next set
+ * not ticked, else a new one. */
+export function applySaid(s: Session, said: { weight?: number | null; reps?: number; rpe?: number; name?: string }, byId: Map<string, Exercise>):
+  { session: Session; ei: number; si: number; text: string } | { error: string } {
+  if (!said.reps) return { error: "Didn't catch the reps." };
+  const words = (said.name ?? "").toLowerCase().split(" ").filter((w) => w.length > 2);
+  const named = words.length ? s.entries.findIndex((e) => words.some((w) => (byId.get(e.exercise)?.name ?? e.exercise).toLowerCase().includes(w))) : -1;
+  const ei = named >= 0 ? named : s.entries.findIndex((e) => e.sets.some((x) => !x.done));
+  if (ei < 0) return { error: "Every set's done: add one first." };
+  const entry = s.entries[ei];
+  let si = entry.sets.findIndex((x) => !x.done && x.type !== "warmup");
+  if (si < 0) si = entry.sets.findIndex((x) => !x.done);
+  const patch = { reps: said.reps, done: true, at: new Date().toISOString(), ...(said.weight != null ? { weight: said.weight } : {}), ...(said.rpe ? { rpe: said.rpe } : {}) };
+  const sets = si >= 0 ? entry.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) : [...entry.sets, { type: "normal" as const, weight: said.weight ?? entry.sets.at(-1)?.weight ?? null, ...patch }];
+  const name = byId.get(entry.exercise)?.name ?? entry.exercise;
+  return { session: { ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets } : e)) }, ei, si: si < 0 ? entry.sets.length : si,
+    text: `Logged ${name}: ${said.weight != null ? `${said.weight} × ` : ""}${said.reps}${said.rpe ? ` at RPE ${said.rpe}` : ""}.` };
 }
 
 /** Sets for one exercise. On the phone (8.7): swipe a set right to tick it, left to delete it; under a barbell weight,
@@ -333,7 +407,7 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, onChange, onRem
         <span aria-label="Done" />
       </div>
       {sets.map((x, i) => {
-        const label = x.type === "warmup" ? "W" : x.type === "drop" ? "D" : String(++n);
+        const label = x.type === "warmup" ? "W" : x.type === "drop" ? "D" : x.type === "amrap" ? `${++n}A` : x.type === "restpause" ? `${++n}R` : String(++n);
         const prev = x.type === "warmup" ? undefined : last[working++];
         const est = e1rm(x.weight, x.reps);
         // Under the set: plates, against last time, a new best (8.7).
@@ -360,8 +434,8 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, onChange, onRem
               else { setSwiped(null); if (!x.done) tick(i, prev); }
             }}>
             <div className={`gym-sets__row ${x.done ? "gym-sets__row--done" : ""}`} role="row">
-              <button type="button" className="gym-sets__type" title="Normal, warm-up or drop set" aria-label={`Set ${label}: change type`}
-                onClick={() => onChange(i, { type: x.type === "normal" ? "warmup" : x.type === "warmup" ? "drop" : "normal" })}>{label}</button>
+              <button type="button" className="gym-sets__type" title={`${TYPE_NAME[x.type] ?? "Normal"}: tap for warm-up, drop, as many reps as possible (A) or rest-pause (R)`} aria-label={`Set ${label}, ${TYPE_NAME[x.type] ?? "normal"}: change type`}
+                onClick={() => onChange(i, { type: NEXT_TYPE[x.type] ?? "normal" })}>{label}</button>
               <span className="muted gym-sets__prev">{prev ? (prev.weight ? `${prev.weight}×${prev.reps ?? "–"}` : prev.seconds ? `${prev.seconds}s` : `${prev.reps ?? "–"}`) : "–"}</span>
               {kind === "weight" || kind === "bodyweight" ? (
                 <>
@@ -443,17 +517,21 @@ function Finished({ done, unit }: { done: Done; unit: string }) {
 
 
 /** Swap an exercise mid-workout (6.93): the same movement first, then the same muscle, with last time and what to lift. */
-function SwapSheet({ exercise, gymId, onPick, onClose }: { exercise: string; gymId: string | null; onPick: (id: string, weight: number | null) => void; onClose: () => void }) {
+function SwapSheet({ exercise, gymId, gymName, onPick, onClose }: { exercise: string; gymId: string | null; gymName?: string; onPick: (id: string, weight: number | null) => void; onClose: () => void }) {
   const res = useResource(`gym:swap:${exercise}:${gymId ?? ""}`, () => gym.swap(exercise, gymId), {});
+  // 8.8: a gym without the kit for it: swap it there every time.
+  const [always, setAlways] = useState(false);
+  const pick = (id: string, weight: number | null) => { if (always && gymId) gym.gymSwap(gymId, exercise, id).catch(() => {}); onPick(id, weight); };
   return (
     <Sheet label="Swap the exercise" onClose={onClose}>
       <div className="stack" style={{ gap: 8 }}>
         <h2 className="sheet__title">Swap for</h2>
+        {gymId && <label className="row" style={{ gap: 8, fontSize: 14 }}><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Every time at {gymName ?? "this gym"}</label>}
         {!res.data && <div className="skeleton" style={{ height: 120 }} />}
         <ul className="items">
           {(res.data?.options ?? []).map((o) => (
             <li key={o.id} className="item">
-              <button type="button" className="item__text house__pick" onClick={() => onPick(o.id, o.weight)}>
+              <button type="button" className="item__text house__pick" onClick={() => pick(o.id, o.weight)}>
                 <span className="item__title">{o.name}</span>
                 <span className="item__subtitle">{o.same_pattern ? "same movement" : "same muscle"} · {o.equipment}{o.last.length ? ` · last ${o.last.map((x) => `${x.weight ?? "bw"}×${x.reps ?? "–"}`).join(", ")}` : ""}{o.weight ? ` · try ${o.weight} kg` : ""}</span>
               </button>

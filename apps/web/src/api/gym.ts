@@ -2,7 +2,7 @@ import { api, json, request } from "./client";
 
 export type Kind = "weight" | "bodyweight" | "time" | "cardio";
 export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean }
-export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure"; rpe?: number | null;
+export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure" | "amrap" | "restpause"; rpe?: number | null;
   /** When it was ticked done (6.96), to line it up with the Watch's heart rate. */
   at?: string | null }
 export interface EffortExercise { exercise: string; sets: number; avg_hr: number | null; peak_hr: number | null; peak_share: number | null; effort: number | null; rpe: number | null; recovery_bpm: number | null; e1rm: number | null }
@@ -23,8 +23,10 @@ export interface PlanExercise { exercise: string; sets: number; reps: string; re
 /** `weekdays`: 0 = Monday … 6 = Sunday (6.94); empty: in turn. */
 export interface RoutineDay { name: string; exercises: PlanExercise[]; weekdays?: number[] }
 export interface WeekSchedule { today: number | null; rest: boolean; next: { day: number; date: string; weekday: string } | null; week: { weekday: string; day: number | null; name: string | null }[] }
-export interface Routine { id: string; name: string; days: RoutineDay[]; note?: string; active: boolean }
-export interface GymProfile { id: string; name: string; bar: number; plates: number[]; dumbbells: number[]; stack_step?: number | null }
+export interface Routine { id: string; name: string; days: RoutineDay[]; note?: string; active: boolean;
+  /** 8.8: a lighter week every N weeks, and blocks of `block_weeks` after which the next block is proposed. */
+  deload_every?: number | null; block_weeks?: number; block_started?: string | null }
+export interface GymProfile { id: string; name: string; bar: number; plates: number[]; dumbbells: number[]; stack_step?: number | null; swaps?: Record<string, string> }
 export interface WarmupStep { percent: number; reps: number }
 export interface GymSettings {
   unit: "kg"; bar: number; plates: number[]; increment: number; rest_s: number;
@@ -32,6 +34,8 @@ export interface GymSettings {
   shortcut_start?: string; shortcut_finish?: string; learn_rest?: boolean;
   /** 8.6: rest after an exercise's last set, and a Shortcut given each rest's seconds (e.g. a Clock timer, for a Live Activity). */
   rest_between_s?: number; shortcut_rest?: string;
+  /** 8.8: keep the screen on in a workout; whether Siri has a key for logging sets (the key itself is never sent back). */
+  keep_awake?: boolean; voice_key?: boolean; bodyweight_kg?: number | null;
 }
 export interface Suggest { weight: number | null; reps: number; why: string; seconds?: number; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null; watch_effort?: number }
 export type Area = "shoulder" | "elbow" | "wrist" | "lower back" | "knee";
@@ -52,14 +56,20 @@ export interface Gym {
   held?: Summary[]; muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
   /** 8.7: each exercise's heaviest working set in the last year (the typo check), how recovered each muscle is,
    * how many routine exercises could link to your history, and sessions set aside with a start that wasn't a time. */
-  recent_max?: Record<string, number>; recovery?: Recovery[]; links?: number; quarantined?: number;
+  recent_max?: Record<string, number>; recovery?: Recovery[]; links?: number; quarantined?: number; block?: BlockStatus | null;
 }
 export interface Recovery { muscle: string; last: string | null; hours: number | null; ready: number | null }
 export interface HistoryLink { exercise: string; name: string; sessions: number; options: { id: string; name: string; sessions: number; equipment: string | null }[] }
 export interface ExerciseFix { id: string; name: string; sessions: number; now: { kind: Kind; equipment: string; primary: string }; change: Partial<{ kind: Kind; equipment: string; primary: string }> }
 export interface Compare { date: string; title: string; sets: number; volume: number; minutes: number | null }
 export interface MuscleWeek { muscle: string; sets: number; target: [number, number]; status: "under" | "in range" | "over" }
-export interface Deload { active: boolean; until: string | null; suggest: boolean; why: string[]; snoozed_until?: string | null }
+export interface Deload { active: boolean; until: string | null; suggest: boolean; why: string[]; snoozed_until?: string | null;
+  planned?: { every: number; this_week: boolean; in_weeks: number; until: string | null } | null }
+export type DayMode = "normal" | "tired" | "short";
+export interface BlockStatus { routine: string; started: string; weeks: number; of: number; due: boolean }
+export interface BlockChange { day: number; index: number; day_name: string; exercise: string; name: string; reps: string; sessions: number;
+  verdict: "keep" | "swap" | "reps"; why: string; swap_to?: string; swap_name?: string; reps_to?: string }
+export interface MuscleTrends { months: string[]; muscles: { muscle: string; series: number[]; total: number; change: number | null }[] }
 export interface Watch { name: string; start: string; minutes: number | null; avg_hr: number | null; max_hr: number | null; kj: number | null }
 export interface Strength { bodyweight: number | null; lifts: { exercise: string; name: string; best: number; date: string; this_year: number | null; last_year: number | null; ratio: number | null; level: string | null }[] }
 export interface YearStats { sessions: number; hours: number; sets: number; volume: number }
@@ -70,7 +80,10 @@ export interface YearReview extends YearStats {
 export interface Plan { routine: string; day: number; title: string; gym?: string; deload?: boolean; readiness?: { score: number | null; band: string } | null; exercises: (PlanExercise & { name: string; kind: Kind; equipment?: string; last: SetLog[]; suggest: Suggest; warmups?: { weight: number; reps: number }[];
   niggle?: { area: string; swap: string | null; name?: string; why: string; from: string | null }; rest_learned?: { seconds: number; planned: number; why: string };
   /** 8.7: your best estimated 1RM (a new one gets a badge as you log) and heaviest set in the last year (the typo check). */
-  best_e1rm?: number | null; recent_max?: number | null })[] }
+  best_e1rm?: number | null; recent_max?: number | null;
+  /** 8.8: form cues, and a swap this gym always needs. */
+  cues?: string; gym_swap?: { from: string; gym: string } })[];
+  mode?: DayMode; mode_note?: string | null }
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
 export interface ExerciseDetail {
   exercise: Exercise;
@@ -78,7 +91,7 @@ export interface ExerciseDetail {
     most_reps?: { reps: number; weight: number | null; date: string }; best_volume?: { volume: number; date: string } };
   series: { date: string; e1rm: number | null; best: number | null; volume: number; reps: number }[];
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
-  fitness?: Fitness | null; videos?: Video[];
+  fitness?: Fitness | null; videos?: Video[]; cues?: string; cues_yours?: boolean;
 }
 
 export interface MergeDone { id: string; at: string; from_name: string; into: string; into_name: string; sets_moved: number; workouts: number }
@@ -125,8 +138,17 @@ export const gym = {
   addRoutine: (body: { template?: string; routine?: Omit<Routine, "id"> & { id?: string } }) => api<Routine>(`${G}/routines`, json(body)),
   saveRoutine: (r: Routine) => api<Routine>(`${G}/routines/${r.id}`, { method: "PUT", body: JSON.stringify(r) }),
   deleteRoutine: (id: string) => api<{ deleted: string }>(`${G}/routines/${id}`, { method: "DELETE" }),
-  plan: (routine: string, day?: number, gymId?: string) =>
-    api<Plan>(`${G}/plan?routine=${encodeURIComponent(routine)}${day != null ? `&day=${day}` : ""}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
+  plan: (routine: string, day?: number, gymId?: string, mode: DayMode = "normal") =>
+    api<Plan>(`${G}/plan?routine=${encodeURIComponent(routine)}${day != null ? `&day=${day}` : ""}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}${mode !== "normal" ? `&mode=${mode}` : ""}`),
+  muscleTrends: (months = 24) => api<MuscleTrends>(`${G}/muscle-trends?months=${months}`),
+  nextBlock: () => api<{ block: (BlockStatus & { changes: BlockChange[] }) | null }>(`${G}/next-block`),
+  startBlock: (accept: number[]) => api<{ changed: number; block_started: string }>(`${G}/next-block`, json({ accept })),
+  setCues: (id: string, text: string) => api<{ cues: string; yours: boolean }>(`${G}/exercises/${encodeURIComponent(id)}/cues`, { method: "PUT", body: JSON.stringify({ text }) }),
+  gymSwap: (gymId: string, source: string, into: string | null) => api<{ swaps: Record<string, string> }>(`${G}/gyms/${encodeURIComponent(gymId)}/swaps`, json(into ? { source, into } : { source })),
+  voiceKey: () => api<{ key: string; url: string }>(`${G}/voice-key`, { method: "POST" }),
+  dropVoiceKey: () => api<{ key: null }>(`${G}/voice-key`, { method: "DELETE" }),
+  voiceLog: () => api<{ items: { id: string; text: string; parsed: { weight?: number | null; reps: number; rpe?: number; name?: string }; at: string }[] }>(`${G}/voice-log`),
+  voiceAck: (ids: string[]) => api<{ taken: number }>(`${G}/voice-log/ack`, json({ ids })),
   warmups: (exercise: string, weight: number, gymId?: string) =>
     api<{ warmups: { weight: number; reps: number }[] }>(`${G}/warmups?exercise=${encodeURIComponent(exercise)}&weight=${weight}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
   heatmap: (days = 371) => api<{ days: HeatDay[] }>(`${G}/heatmap?days=${days}`),

@@ -60,6 +60,15 @@ def volume(sets: list[SetLog]) -> float:
     return round(sum((s.weight or 0) * (s.reps or 0) for s in working(sets)), 1)
 
 
+def entry_volume(doc: GymDoc, s: Session, e: EntryLog) -> float:
+    """An exercise's volume in a workout (8.8): a bodyweight exercise counts your bodyweight plus any added weight,
+    so pull-ups and dips aren't 0 kg. Bodyweight is the session's own, else the latest from Apple Health."""
+    if (exercises(doc).get(e.exercise) or {}).get("kind") == "bodyweight":
+        bw = s.bodyweight or doc.settings.bodyweight_kg or 0
+        return round(sum((bw + (x.weight or 0)) * (x.reps or 0) for x in working(e.sets)), 1)
+    return volume(e.sets)
+
+
 @lru_cache(maxsize=8192)
 def _day(stamp: str) -> str:
     """The local date a session was on (6.8): the phone sends UTC, so a 7am
@@ -85,7 +94,7 @@ def history(doc: GymDoc, exercise: str) -> list[dict[str, Any]]:
             best = max(ws, key=lambda x: ((x.weight or 0), (x.reps or 0)))
             est = [v for x in ws if (v := e1rm(x.weight, x.reps))]
             out.append({"session": s.id, "date": _day(s.started_at), "sets": [x.model_dump() for x in ws], "best": best.model_dump(),
-                        "e1rm": max(est) if est else None, "volume": volume(e.sets), "reps": sum(x.reps or 0 for x in ws),
+                        "e1rm": max(est) if est else None, "volume": entry_volume(doc, s, e), "reps": sum(x.reps or 0 for x in ws),
                         "seconds": sum(x.seconds or 0 for x in ws), "km": round(sum(x.km or 0 for x in ws), 2)})
     return out
 
@@ -310,7 +319,7 @@ def heatmap(doc: GymDoc, today: date, days: int = 371) -> list[dict[str, Any]]:
         cell = out.setdefault(d, {"date": d, "volume": 0.0, "sets": 0, "muscles": defaultdict(int)})
         for e in s.entries:
             n = len(working(e.sets))
-            cell["volume"] += volume(e.sets)
+            cell["volume"] += entry_volume(doc, s, e)
             cell["sets"] += n
             if (m := (names.get(e.exercise) or {}).get("primary")) and n:
                 cell["muscles"][m] += n
@@ -348,7 +357,7 @@ def week(doc: GymDoc, today: date) -> dict[str, Any]:
                 by_muscle[m] += n * 0.5
     c = cardio(doc, sessions)
     return {"week_of": start, "sessions": len(sessions), "sets_by_muscle": {m: round(v, 1) for m, v in sorted(by_muscle.items(), key=lambda t: -t[1])},
-            "volume": round(sum(volume(e.sets) for s in sessions for e in s.entries), 1), **c}
+            "volume": round(sum(entry_volume(doc, s, e) for s in sessions for e in s.entries), 1), **c}
 
 
 def cardio(doc: GymDoc, sessions: list[Session]) -> dict[str, Any]:
@@ -389,7 +398,7 @@ def summary(doc: GymDoc, s: Session) -> dict[str, Any]:
         minutes = round((datetime.fromisoformat(s.ended_at) - datetime.fromisoformat(s.started_at)).total_seconds() / 60)
     sets = sum(len(working(e.sets)) for e in s.entries)
     return {"id": s.id, "title": s.title, "date": _day(s.started_at), "started_at": s.started_at, "minutes": minutes, "sets": sets,
-            "exercises": len([e for e in s.entries if working(e.sets)]), "volume": round(sum(volume(e.sets) for e in s.entries), 1),
+            "exercises": len([e for e in s.entries if working(e.sets)]), "volume": round(sum(entry_volume(doc, s, e) for e in s.entries), 1),
             "names": [exercises(doc).get(e.exercise, {}).get("name", e.exercise) for e in s.entries][:8], "held": held(s), "feel": s.feel}
 
 
@@ -499,3 +508,39 @@ def to_csv(doc: GymDoc) -> str:
                             x.weight if x.weight is not None else "", x.reps if x.reps is not None else "", x.seconds if x.seconds is not None else "",
                             x.km if x.km is not None else "", x.rpe if x.rpe is not None else "", x.at or "", e.note if i == 1 else ""])
     return buf.getvalue()
+
+
+
+def muscle_trends(doc: GymDoc, today: date, months: int = 24) -> dict[str, Any]:
+    """Working sets a month for each muscle over the last `months` (8.8): the main muscle counts a set fully, a helper
+    half. `change` is the last three whole months against the three before, as a percentage."""
+    names = exercises(doc)
+    keys = []
+    y, m = today.year, today.month
+    for _ in range(months):
+        keys.append(f"{y}-{m:02d}")
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    keys.reverse()
+    first = keys[0]
+    sets: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for s in counted(doc):
+        month = _day(s.started_at)[:7]
+        if month < first:
+            continue
+        for e in s.entries:
+            n = len(working(e.sets))
+            ex = names.get(e.exercise)
+            if not ex or not n:
+                continue
+            sets[ex["primary"]][month] += n
+            for helper in ex.get("secondary") or []:
+                sets[helper][month] += n * 0.5
+    out = []
+    for muscle, by_month in sets.items():
+        if muscle in ("cardio", "full body"):
+            continue
+        series = [round(by_month.get(k, 0.0), 1) for k in keys]
+        recent, before = sum(series[-4:-1]), sum(series[-7:-4])  # whole months: this one's only begun
+        change = round((recent - before) / before * 100) if before else None
+        out.append({"muscle": muscle, "series": series, "total": round(sum(series), 1), "change": change})
+    return {"months": keys, "muscles": sorted(out, key=lambda r: -r["total"])}

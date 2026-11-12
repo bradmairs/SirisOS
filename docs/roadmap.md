@@ -195,6 +195,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.5: Home Lab diagram, Training becomes Fitness (with Health's activity), drag sheets down to close, away-mode choice, no leave-by times, no OneNote handwriting check, wind-down desktop fixes
 8.6: SirisGym list: start stays in the Home Screen app, weights don't drop a digit, rest timer kept and chimes in-app, 2 min between exercises, Clock-timer rest Shortcut, Finish at the bottom, reorder, unmerge and not-the-same, workouts kept offline and resent to SirisAI
 8.7: SirisGym review: link your history, tidy imported exercises, typo check and Fix a set, iPhone workout (⋯, swipe, plates, against last time, new best, how it felt), repeat last, recovery, weekly push, deload Not now, lift goals, bad-date and warm-up fixes
+8.8: SirisGym: screen stays on, log sets with Siri, tired / short-on-time days, AMRAP and rest-pause sets, form cues, gym swaps, planned lighter weeks, the next block, muscles over time, bodyweight in volume, monthly measure-up, backups pruned
 
 ## Terminal (ADR 113)
 

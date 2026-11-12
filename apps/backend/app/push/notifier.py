@@ -106,6 +106,23 @@ def task_messages(now: datetime) -> list[dict[str, Any]]:
 GYM_WEEK_HOUR = 18
 
 
+GYM_MEASURE_HOUR = 9
+
+
+def gym_measure_message(now: datetime) -> list[dict[str, Any]]:
+    """On the 1st of the month (8.8), while nothing's been measured this month: measurements and a photo, at the same
+    time of day each month so they compare."""
+    if now.day != 1 or now.hour < GYM_MEASURE_HOUR:
+        return []
+    from app.gym import store as gym_store
+
+    doc = gym_store.load()
+    if not doc.sessions or any(m.date.startswith(now.strftime("%Y-%m")) for m in doc.measurements):
+        return []
+    return [message(f"gym:measure:{now.strftime('%Y-%m')}", "brief", "Measurements and a photo",
+                    "Waist, chest and arms, and a front photo: the same spot and time as last month, so they compare.", "/gym?view=progress")]
+
+
 def gym_week_message(now: datetime) -> list[dict[str, Any]]:
     """Sunday evening (8.7): the gym week in one notification, for a week with a workout in it or a routine to follow."""
     if now.weekday() != 6 or now.hour < GYM_WEEK_HOUR:
@@ -178,6 +195,10 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         out += await nudges.messages(hub, now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: nudges unavailable: %s", exc)
+    try:
+        out += gym_measure_message(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: gym measurements unavailable: %s", exc)
     try:
         out += gym_week_message(now)
     except Exception as exc:  # noqa: BLE001

@@ -119,3 +119,24 @@ BUILTIN: dict[str, dict[str, Any]] = {
     r[0]: {"id": r[0], "name": r[1], "primary": r[2], "secondary": list(r[3]), "equipment": r[4], "kind": r[5], "custom": False}
     for r in _ROWS
 }
+
+
+# 8.8: two or three short reminders for the main lifts, shown on the workout card (yours replace them).
+CUES: dict[str, str] = {
+    "back-squat": "Brace before you descend · knees out over the toes · drive up through the whole foot",
+    "front-squat": "Elbows high · upright chest · sit between the hips",
+    "bench-press": "Shoulder blades back and down · feet planted · bar to the lower chest",
+    "incline-bench-press": "Shoulder blades pinned · bar to the upper chest · elbows under the bar",
+    "db-bench-press": "Shoulder blades back · elbows about 45° · press up and slightly in",
+    "incline-db-press": "Shoulder blades back · elbows about 45° · don't bounce at the bottom",
+    "deadlift": "Bar over mid-foot · brace and take the slack out · push the floor away",
+    "romanian-deadlift": "Soft knees · hips back · bar close to the legs",
+    "overhead-press": "Squeeze the glutes · bar close to the face · head through at the top",
+    "barbell-row": "Hinge to about 45° · pull to the lower ribs · no jerking",
+    "pull-up": "Full hang to start · chest to the bar · control the way down",
+    "lat-pulldown": "Lean back slightly · elbows down to the ribs · don't swing",
+    "seated-cable-row": "Tall chest · pull to the waist · shoulders down, not up",
+    "leg-press": "Feet shoulder-width · don't let the lower back lift · don't lock the knees",
+    "lateral-raise": "Lead with the elbows · stop at shoulder height · slow on the way down",
+    "hip-thrust": "Chin tucked · drive through the heels · squeeze at the top",
+}

@@ -40,6 +40,14 @@
     PUT    /api/v1/gym/exercises/{id}                      (8.7) change one of your own exercises (name, muscles, equipment, kind)
     GET    /api/v1/gym/exercise-fixes; POST /api/v1/gym/exercise-fixes {ids, keep?}   (8.7) your imported exercises' tidy-up
     GET    /api/v1/gym/links; POST /api/v1/gym/links {source, into?, keep?}          (8.7) the routine linked to your history
+    GET    /api/v1/gym/plan?...&mode=normal|tired|short      (8.8) how you are today
+    GET    /api/v1/gym/muscle-trends?months=                 (8.8) working sets a month per muscle
+    GET    /api/v1/gym/next-block; POST /api/v1/gym/next-block {accept}   (8.8) the next block of the routine
+    PUT    /api/v1/gym/exercises/{id}/cues {text}            (8.8) form cues for an exercise
+    POST   /api/v1/gym/gyms/{gym}/swaps {source, into?}     (8.8) a swap this gym always needs (into empty: forget it)
+    POST   /api/v1/gym/voice-key; DELETE /api/v1/gym/voice-key   (8.8) Siri's key for logging sets (shown once)
+    GET    /api/v1/gym/voice-log; POST /api/v1/gym/voice-log/ack {ids}   (8.8) sets said to Siri, waiting for the workout
+    POST   /api/v1/gym-voice/log {text} with X-SirisGym-Key   (8.8) from the Siri Shortcut: no sign-in, can only add to the queue
   6.8 also: the overview has sets per muscle against targets, a deload suggestion and today's readiness;
   /plan adjusts for readiness and a deload week; a saved session goes to SirisAI for strain; a session
   shows the Apple Watch workout that overlaps it.
@@ -52,7 +60,7 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -141,9 +149,21 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     doc = store.load()
     today = tasks.today()
     h = await _health(hub)
+    changed = False
+    w = h.get("weight_kg")
+    if w and abs((doc.settings.bodyweight_kg or 0) - float(w)) > 0.05:  # 8.8: for bodyweight volume
+        doc.settings.bodyweight_kg = round(float(w), 1)
+        changed = True
+    act = next((r for r in doc.routines if r.active), None)
+    if act and not act.block_started:  # 8.8: the block runs from its first workout (or today)
+        firsts = [service.day_of(s.started_at) for s in doc.sessions if s.routine_id == act.id]
+        act.block_started = min(firsts) if firsts else today.isoformat()
+        changed = True
+    if changed:
+        store.save(doc)
     active = next((r for r in doc.routines if r.active), None)
     return {
-        "settings": doc.settings.model_dump(),
+        "settings": {**doc.settings.model_dump(exclude={"voice_key_hash"}), "voice_key": bool(doc.settings.voice_key_hash)},
         "exercises": sorted(service.exercises(doc).values(), key=lambda e: e["name"]),
         "routines": [r.model_dump() for r in doc.routines],
         "active": {"routine": active.id, "next_day": service.next_day(doc, active.id, today),
@@ -161,6 +181,7 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "recovery": coach.recovery(doc, datetime.now(timezone.utc)),
         "links": len(tidy.history_links(doc)),
         "quarantined": len(doc.quarantined),
+        "block": coach.block_status(doc, today),
     }
 
 
@@ -199,9 +220,12 @@ def year_review(year: int | None = Query(default=None, ge=2000, le=2100)) -> dic
 @router.put("/settings")
 def put_settings(body: store.Settings) -> dict[str, Any]:
     doc = store.load()
+    # 8.8: kept on the server, never sent to the phone, so a save from the phone mustn't wipe them.
+    body.voice_key_hash = doc.settings.voice_key_hash
+    body.bodyweight_kg = body.bodyweight_kg or doc.settings.bodyweight_kg
     doc.settings = body
     store.save(doc)
-    return body.model_dump()
+    return {**body.model_dump(exclude={"voice_key_hash"}), "voice_key": bool(body.voice_key_hash)}
 
 
 @router.post("/exercises")
@@ -275,6 +299,110 @@ def apply_exercise_fixes(body: FixesRequest) -> dict[str, Any]:
     return {"changed": len(wanted), "fixes": tidy.exercise_fixes(doc)}
 
 
+@router.get("/muscle-trends")
+def get_muscle_trends(months: int = Query(default=24, ge=6, le=120)) -> dict[str, Any]:
+    return service.muscle_trends(store.load(), tasks.today(), months)
+
+
+@router.get("/next-block")
+def get_next_block() -> dict[str, Any]:
+    return {"block": coach.next_block(store.load(), tasks.today())}
+
+
+class BlockRequest(BaseModel):
+    accept: list[int] = Field(default_factory=list, max_length=200)
+
+
+@router.post("/next-block")
+def start_next_block(body: BlockRequest) -> dict[str, Any]:
+    """Make the accepted changes and start the next block today. A copy of the file is kept first."""
+    doc = store.load()
+    store.backup("before-block")
+    out = coach.apply_block(doc, tasks.today(), body.accept)
+    store.save(doc)
+    return out
+
+
+class Cues(BaseModel):
+    text: str = Field(default="", max_length=300)
+
+
+@router.put("/exercises/{exercise_id}/cues")
+def set_cues(exercise_id: str, body: Cues) -> dict[str, Any]:
+    """Your form cues for an exercise (8.8); empty puts back the built-in ones, if it has any."""
+    from app.gym import library
+
+    doc = store.load()
+    if exercise_id not in service.exercises(doc):
+        raise _missing("exercise")
+    if body.text.strip():
+        doc.cues[exercise_id] = body.text.strip()
+    else:
+        doc.cues.pop(exercise_id, None)
+    store.save(doc)
+    return {"exercise": exercise_id, "cues": doc.cues.get(exercise_id) or library.CUES.get(exercise_id, ""), "yours": exercise_id in doc.cues}
+
+
+class GymSwap(BaseModel):
+    source: str = Field(max_length=60)
+    into: str | None = Field(default=None, max_length=60)
+
+
+@router.post("/gyms/{gym_id}/swaps")
+def gym_swap(gym_id: str, body: GymSwap) -> dict[str, Any]:
+    """Remember that this gym needs `into` instead of `source` (8.8), or forget it."""
+    doc = store.load()
+    g = next((x for x in doc.settings.gyms if x.id == gym_id), None)
+    if g is None:
+        raise _missing("gym")
+    if body.into:
+        if body.into not in service.exercises(doc):
+            raise _missing("exercise")
+        g.swaps[body.source] = body.into
+    else:
+        g.swaps.pop(body.source, None)
+    store.save(doc)
+    return {"gym": g.id, "swaps": g.swaps}
+
+
+@router.post("/voice-key")
+def make_voice_key() -> dict[str, Any]:
+    """A new key for the Siri Shortcut (8.8), shown this once. Any old one stops working."""
+    from app.gym import voice
+
+    doc = store.load()
+    key, digest = voice.new_key()
+    doc.settings.voice_key_hash = digest
+    store.save(doc)
+    return {"key": key, "url": "/api/v1/gym-voice/log"}
+
+
+@router.delete("/voice-key")
+def drop_voice_key() -> dict[str, Any]:
+    doc = store.load()
+    doc.settings.voice_key_hash = ""
+    store.save(doc)
+    return {"key": None}
+
+
+@router.get("/voice-log")
+def voice_log() -> dict[str, Any]:
+    from app.gym import voice
+
+    return {"items": voice.queue()}
+
+
+class Ack(BaseModel):
+    ids: list[str] = Field(default_factory=list, max_length=100)
+
+
+@router.post("/voice-log/ack")
+def voice_ack(body: Ack) -> dict[str, Any]:
+    from app.gym import voice
+
+    return {"taken": voice.ack(body.ids)}
+
+
 @router.get("/links")
 def get_links() -> dict[str, Any]:
     return {"links": tidy.history_links(store.load())}
@@ -324,7 +452,14 @@ def exercise(exercise_id: str) -> dict[str, Any]:
     return {"exercise": ex, "records": service.records(rows), "last": rows[-1] if rows else None,
             "series": [{"date": r["date"], "e1rm": r["e1rm"], "best": r["best"].get("weight"), "volume": r["volume"], "reps": r["reps"]} for r in rows[-60:]],
             "history": list(reversed(rows[-30:])), "fitness": watch.fitness(doc, exercise_id),
-            "videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True) if v.exercise == exercise_id]}
+            "videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True) if v.exercise == exercise_id],
+            "cues": doc.cues.get(exercise_id) or _library_cues(exercise_id), "cues_yours": exercise_id in doc.cues}
+
+
+def _library_cues(exercise_id: str) -> str:
+    from app.gym import library
+
+    return library.CUES.get(exercise_id, "")
 
 
 @router.get("/templates")
@@ -385,7 +520,7 @@ def delete_routine(routine_id: str) -> dict[str, Any]:
 
 @router.get("/plan")
 async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13), gym: str | None = Query(default=None, max_length=40),
-               hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+               mode: Literal["normal", "tired", "short"] = "normal", hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     doc = await _refresh_effort(hub, store.load())
     h = await _health(hub)
     deloading = coach.deload(doc, tasks.today())["active"]
@@ -396,13 +531,21 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
     d = r.days[i]
     names = service.exercises(doc)
     maxes = service.recent_max(doc, tasks.today())
+    here = doc.settings.gym(gym)
+    from app.gym import library
+
     out = []
     warmed: set[str] = set()
-    for p in d.exercises:
+    todays = d.exercises[:coach.short_day(len(d.exercises))] if mode == "short" else d.exercises
+    for p in todays:
         spared = coach.spare(doc, p.exercise, gym)  # a sore spot (7.1): swap to something that spares it
         if spared and spared["swap"]:
             p = p.model_copy(update={"exercise": spared["swap"]})
-        sets, sug = coach.adjust(p, service.suggest(doc, p, gym), doc, h.get("readiness"), deloading)
+        gym_swap = None
+        if not spared and p.exercise in here.swaps and here.swaps[p.exercise] in names:  # this gym doesn't have it (8.8)
+            gym_swap = {"from": p.exercise, "gym": here.name}
+            p = p.model_copy(update={"exercise": here.swaps[p.exercise]})
+        sets, sug = coach.adjust(p, service.suggest(doc, p, gym), doc, h.get("readiness"), deloading, mode)
         ex = names.get(p.exercise, {})
         learned = watch.rest(doc, p.exercise, p.rest_s)  # the rest your heart rate needs (7.1)
         extra: dict[str, Any] = {}
@@ -410,6 +553,11 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
             extra["niggle"] = {**spared, "from": d.exercises[len(out)].exercise if spared["swap"] else None}
         if learned:
             extra["rest_learned"] = learned
+        if gym_swap:
+            extra["gym_swap"] = gym_swap
+        cue = doc.cues.get(p.exercise) or library.CUES.get(p.exercise)
+        if cue:
+            extra["cues"] = cue
         # Warm up for the first exercise that works each main muscle (6.7).
         warm = service.warmups(doc, p.exercise, sug.get("weight"), gym) if ex.get("primary") not in warmed else []
         if warm:
@@ -419,7 +567,9 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
                     "best_e1rm": service.best_e1rm(doc, p.exercise), "recent_max": maxes.get(p.exercise),
                     **({"rest_s": learned["seconds"]} if learned else {})})
     band = (h.get("readiness") or {}).get("band")
-    return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out, "deload": deloading,
+    note = (f"Short on time: the first {len(todays)} of {len(d.exercises)} exercises." if mode == "short" and len(todays) < len(d.exercises)
+            else "Tired: a set fewer and 5% lighter on each." if mode == "tired" else None)
+    return {"routine": r.id, "day": i, "title": f"{r.name}: {d.name}", "gym": doc.settings.gym(gym).id, "exercises": out, "deload": deloading, "mode": mode, "mode_note": note,
             "readiness": {"score": (h.get("readiness") or {}).get("score"), "band": band} if band else None}
 
 
@@ -1088,3 +1238,25 @@ def export_json() -> Response:
     doc = store.load()
     return Response(doc.model_dump_json(indent=1), media_type="application/json",
                     headers={"Content-Disposition": f'attachment; filename="sirisgym-{tasks.today().isoformat()}.json"'})
+
+
+
+# The Siri Shortcut's route (8.8): no sign-in, just the SirisGym key, and all it can do is add a set to the queue.
+voice_router = APIRouter(prefix="/api/v1/gym-voice", tags=["gym"])
+
+
+class Spoken(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+
+
+@voice_router.post("/log")
+def voice_log_from_siri(body: Spoken, x_sirisgym_key: str | None = Header(default=None)) -> dict[str, Any]:
+    from app.gym import voice
+
+    if not voice.matches(x_sirisgym_key, store.load().settings.voice_key_hash):
+        raise HTTPException(status_code=401, detail="That's not your SirisGym key. Make a new one in SirisGym's settings.")
+    parsed = voice.parse(body.text)
+    if parsed is None:
+        raise HTTPException(status_code=422, detail=f"I didn't catch a set in \"{body.text}\". Try \"100 by 5\".")
+    voice.add(body.text, parsed)
+    return {"say": f"Got it: {voice.said(parsed)}. It goes into your workout when SirisGym's open.", "parsed": parsed}

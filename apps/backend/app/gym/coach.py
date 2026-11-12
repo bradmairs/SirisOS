@@ -90,7 +90,25 @@ def weeks_in_a_row(doc: GymDoc, today: date) -> int:
     return n
 
 
+def planned_deload(doc: GymDoc, today: date) -> dict[str, Any] | None:
+    """A lighter week built into the routine (8.8): every `deload_every` weeks, counted from its block's start."""
+    r = next((x for x in doc.routines if x.active), None)
+    if not r or not r.deload_every or not r.block_started:
+        return None
+    start = date.fromisoformat(r.block_started)
+    start -= timedelta(days=start.weekday())
+    weeks = (today - start).days // 7
+    if weeks < 0:
+        return None
+    left = (r.deload_every - 1 - weeks % r.deload_every)
+    return {"every": r.deload_every, "this_week": left == 0, "in_weeks": left,
+            "until": (today + timedelta(days=6 - today.weekday())).isoformat() if left == 0 else None}
+
+
 def deload(doc: GymDoc, today: date, low_mornings: int = 0) -> dict[str, Any]:
+    planned = planned_deload(doc, today)
+    if planned and planned["this_week"]:
+        return {"active": True, "until": planned["until"], "suggest": False, "why": [], "planned": planned}
     active = bool(doc.settings.deload_until and doc.settings.deload_until >= today.isoformat())
     why = []
     if stalled := _stalled(doc, today):
@@ -100,8 +118,9 @@ def deload(doc: GymDoc, today: date, low_mornings: int = 0) -> dict[str, Any]:
     if low_mornings >= 3:
         why.append(f"readiness has been low on {low_mornings} of the last five mornings")
     snoozed = bool(doc.settings.deload_snoozed_until and doc.settings.deload_snoozed_until >= today.isoformat())
-    return {"active": active, "until": doc.settings.deload_until if active else None, "suggest": bool(why) and not active and not snoozed, "why": why,
-            "snoozed_until": doc.settings.deload_snoozed_until if snoozed else None}
+    # A routine with lighter weeks built in doesn't need telling (8.8): one's always coming.
+    return {"active": active, "until": doc.settings.deload_until if active else None, "suggest": bool(why) and not active and not snoozed and not planned,
+            "why": why, "snoozed_until": doc.settings.deload_snoozed_until if snoozed else None, "planned": planned}
 
 
 RECOVERY_HOURS = {"chest": 48, "back": 48, "shoulders": 48, "biceps": 36, "triceps": 36, "forearms": 24, "abs": 24,
@@ -149,9 +168,12 @@ def weekly_message(doc: GymDoc, today: date) -> dict[str, Any] | None:
     return {"title": f"Your gym week: {bits[0]}", "body": ". ".join(bits[1:]) + ("." if len(bits) > 1 else "")}
 
 
-def adjust(plan: PlanExercise, sug: dict[str, Any], doc: GymDoc, readiness: dict[str, Any] | None, deloading: bool) -> tuple[int, dict[str, Any]]:
-    """Sets and the suggestion after a deload week or today's readiness."""
+def adjust(plan: PlanExercise, sug: dict[str, Any], doc: GymDoc, readiness: dict[str, Any] | None, deloading: bool,
+           mode: str = "normal") -> tuple[int, dict[str, Any]]:
+    """Sets and the suggestion after a deload week, today's readiness, or how you said you are (8.8)."""
     sets = plan.sets
+    if mode == "tired":  # you said so: the same as a low readiness morning
+        readiness = {"band": "Recover", "score": "you said you're tired"}
     fit = lambda w: service.loadable(doc, plan.exercise, w)  # noqa: E731
     if deloading:
         sets = max(1, (plan.sets + 1) // 2)
@@ -163,8 +185,14 @@ def adjust(plan: PlanExercise, sug: dict[str, Any], doc: GymDoc, readiness: dict
     if band == "Recover":
         sets = max(2, plan.sets - 1) if plan.sets > 2 else plan.sets
         if sug.get("weight"):
-            sug = {**sug, "weight": fit(sug["weight"] * 0.95), "per_set": [fit(w * 0.95) for w in sug.get("per_set") or []] or None,
-                   "why": f"Readiness is low today ({(readiness or {}).get('score', '?')}): a set fewer and 5% lighter. {sug['why']}"}
+            # 5% off the plan; and if that's still over last time (a big step on a small dumbbell), 5% off last time:
+            # a tired day isn't one to add weight (8.8).
+            prev = [x["weight"] for x in service.last(doc, plan.exercise) if x.get("weight") and x.get("type") != "warmup"]
+            cap = max(prev) if prev else None
+            easy = lambda w: fit(cap * 0.95) if cap and fit(w * 0.95) > cap else fit(w * 0.95)  # noqa: E731
+            sug = {**sug, "weight": easy(sug["weight"]), "per_set": [easy(w) for w in sug.get("per_set") or []] or None,
+                   "why": (f"You're tired today: a set fewer and 5% lighter. {sug['why']}" if mode == "tired" else
+                           f"Readiness is low today ({(readiness or {}).get('score', '?')}): a set fewer and 5% lighter. {sug['why']}")}
     elif band == "Primed" and sug.get("weight"):
         sug = {**sug, "push": True, "why": f"{sug['why']} You're primed today: a good day to go for an extra rep or a record."}
     return sets, sug
@@ -474,3 +502,76 @@ def spare(doc: GymDoc, exercise: str, gym_id: str | None = None) -> dict[str, An
     if ok:
         return {"area": label, "swap": ok[0]["id"], "name": ok[0]["name"], "why": f"Swapped to spare your {label}."}
     return {"area": label, "swap": None, "why": f"Loads your {label}: go light and stop if it hurts (nothing else here does the same job)."}
+
+
+
+SHORT_SHARE = 0.6  # "short on time" (8.8): the first 60% of the day's exercises, at least two
+
+
+def short_day(n: int) -> int:
+    return max(2, round(n * SHORT_SHARE)) if n > 2 else n
+
+
+def block_status(doc: GymDoc, today: date) -> dict[str, Any] | None:
+    r = next((x for x in doc.routines if x.active), None)
+    if not r or not r.block_started:
+        return None
+    weeks = (today - date.fromisoformat(r.block_started)).days // 7
+    return {"routine": r.id, "started": r.block_started, "weeks": weeks, "of": r.block_weeks, "due": weeks >= r.block_weeks}
+
+
+def next_block(doc: GymDoc, today: date) -> dict[str, Any] | None:
+    """The next block (8.8), once this one's run its weeks: for each exercise in the routine, how its best estimated 1RM
+    moved over the block. Moving (2.5% or more): keep. Not moving after three or more sessions: swap it for another
+    exercise for the same job that has history, or else change the rep range. Too few sessions: keep."""
+    status = block_status(doc, today)
+    r = next((x for x in doc.routines if x.active), None)
+    if not status or not r:
+        return None
+    names = service.exercises(doc)
+    since = r.block_started
+    changes = []
+    for di, d in enumerate(r.days):
+        for pi, p in enumerate(d.exercises):
+            rows = [x for x in service.history(doc, p.exercise) if x["date"] >= since and x["e1rm"]]
+            name = names.get(p.exercise, {}).get("name", p.exercise)
+            item: dict[str, Any] = {"day": di, "index": pi, "day_name": d.name, "exercise": p.exercise, "name": name, "reps": p.reps, "sessions": len(rows)}
+            if len(rows) < 3:
+                changes.append({**item, "verdict": "keep", "why": f"Only {len(rows)} session{'' if len(rows) == 1 else 's'} this block: not enough to tell."})
+                continue
+            first = max(x["e1rm"] for x in rows[:2])
+            last = max(x["e1rm"] for x in rows[-2:])
+            gain = (last - first) / first * 100 if first else 0
+            if gain >= 2.5:
+                changes.append({**item, "verdict": "keep", "why": f"Up {gain:.0f}% this block ({first:g} to {last:g} est. 1RM): keep going."})
+                continue
+            options = [o for o in swaps(doc, p.exercise) if o.get("same_pattern") and o.get("last")]
+            if options:
+                o = options[0]
+                changes.append({**item, "verdict": "swap", "swap_to": o["id"], "swap_name": o["name"],
+                                "why": f"No progress this block ({first:g} to {last:g}): a change of exercise often restarts it. {o['name']} works the same muscles."})
+            else:
+                lo, hi = service.rep_range(p.reps)
+                to = "10-15" if hi <= 10 else "6-10"
+                changes.append({**item, "verdict": "reps", "reps_to": to,
+                                "why": f"No progress this block ({first:g} to {last:g}): try {to} reps for the next one."})
+    return {**status, "changes": changes}
+
+
+def apply_block(doc: GymDoc, today: date, accept: list[int]) -> dict[str, Any]:
+    """Make the accepted changes (indexes into next_block's list) and start the next block from today."""
+    proposal = next_block(doc, today) or {"changes": []}
+    r = next((x for x in doc.routines if x.active), None)
+    done = 0
+    for i, c in enumerate(proposal["changes"]):
+        if i not in accept or c["verdict"] == "keep" or r is None:
+            continue
+        p = r.days[c["day"]].exercises[c["index"]]
+        if c["verdict"] == "swap":
+            p.exercise = c["swap_to"]
+        elif c["verdict"] == "reps":
+            p.reps = c["reps_to"]
+        done += 1
+    if r is not None:
+        r.block_started = today.isoformat()
+    return {"changed": done, "block_started": today.isoformat()}

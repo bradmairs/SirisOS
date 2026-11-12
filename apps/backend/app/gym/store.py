@@ -44,7 +44,8 @@ class SetLog(BaseModel):
     seconds: int | None = Field(default=None, ge=0, le=86400)
     km: float | None = Field(default=None, ge=0, le=1000)
     done: bool = True
-    type: Literal["normal", "warmup", "drop", "failure"] = "normal"
+    # 8.8: "amrap" (as many reps as possible) and "restpause" (a set taken past failure with short breaks).
+    type: Literal["normal", "warmup", "drop", "failure", "amrap", "restpause"] = "normal"
     rpe: float | None = Field(default=None, ge=1, le=10)
     at: str | None = Field(default=None, max_length=40)  # when it was ticked done (6.96), to line it up with the Watch's heart rate
 
@@ -141,6 +142,11 @@ class Routine(BaseModel):
     days: list[RoutineDay] = Field(default_factory=list, max_length=14)
     note: str = Field(default="", max_length=500)
     active: bool = False
+    # 8.8: a lighter week built in every `deload_every` weeks (counted from block_started), instead of being nagged for one.
+    deload_every: int | None = Field(default=None, ge=3, le=12)
+    # 8.8: a block of `block_weeks`, after which SirisGym proposes the next one (what to keep, swap or change).
+    block_weeks: int = Field(default=6, ge=3, le=16)
+    block_started: str | None = Field(default=None, max_length=10)
 
 
 PLATES = [25, 20, 15, 10, 5, 2.5, 1.25]
@@ -155,6 +161,8 @@ class GymProfile(BaseModel):
     plates: list[float] = Field(default_factory=lambda: list(PLATES), max_length=16)
     dumbbells: list[float] = Field(default_factory=list, max_length=80)
     stack_step: float | None = Field(default=None, gt=0, le=20)
+    # 8.8: swaps this gym always needs (exercise id -> the one it has), remembered from a swap mid-workout.
+    swaps: dict[str, str] = Field(default_factory=dict)
 
 
 class WarmupStep(BaseModel):
@@ -184,6 +192,9 @@ class Settings(BaseModel):
     # Protein (6.93): grams per kg of bodyweight, on rest days and training days.
     learn_rest: bool = True  # rest timer set from how long your heart rate takes to settle (7.1)
     deload_snoozed_until: str | None = Field(default=None, max_length=10)  # "Not now" on the deload card (8.7)
+    keep_awake: bool = True  # 8.8: keep the phone's screen on while a workout is open
+    bodyweight_kg: float | None = Field(default=None, gt=0, le=400)  # 8.8: the latest from Apple Health, for bodyweight volume
+    voice_key_hash: str = Field(default="", max_length=64)  # 8.8: Siri's key for logging sets (sha256; the key itself is shown once)
     links_kept: list[str] = Field(default_factory=list, max_length=200)  # routine exercises you said aren't the same as an old one (8.7)
     fixes_kept: list[str] = Field(default_factory=list, max_length=500)  # your exercises whose suggested tidy-up you turned down (8.7)
     protein_rest: float = Field(default=1.6, ge=0.5, le=3.5)
@@ -277,6 +288,7 @@ class GymDoc(BaseModel):
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
     import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it
+    cues: dict[str, str] = Field(default_factory=dict)  # 8.8: your form cues per exercise (built-ins have defaults)
     # Sessions whose start wasn't a time (8.7), kept as they were rather than breaking every page or being deleted.
     quarantined: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
 
@@ -412,8 +424,30 @@ def backup(tag: str) -> str | None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         name = f"gym.{tag}.{stamp}.json"
         (p.parent / name).write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+        prune_backups()
         return name
     return None
+
+
+KEEP_BACKUPS = 10
+KEEP_BACKUP_DAYS = 30
+
+
+def prune_backups(now: datetime | None = None) -> list[str]:
+    """8.8: the newest ten copies are kept, and any from the last 30 days; older ones go."""
+    now = now or datetime.now(timezone.utc)
+    found = []
+    for f in _path().parent.glob("gym.*.json"):
+        m = BACKUP_NAME.match(f.name)
+        if m:
+            found.append((datetime.strptime(m.group(2), "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc), f))
+    found.sort(key=lambda t: t[0], reverse=True)
+    gone = []
+    for i, (when, f) in enumerate(found):
+        if i >= KEEP_BACKUPS and (now - when).days > KEEP_BACKUP_DAYS:
+            f.unlink(missing_ok=True)
+            gone.append(f.name)
+    return gone
 
 
 BACKUP_NAME = re.compile(r"^gym\.([a-z0-9-]+)\.(\d{8}-\d{6})\.json$")
