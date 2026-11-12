@@ -6,10 +6,11 @@ import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { HealthSyncCard } from "./HealthSync";
+import { MindView } from "./HealthMind";
 
 // 8.5: Fitness (activity, training load, workouts) moved to the Fitness page, with running.
 const VIEWS = [{ id: "today", label: "Today" }, { id: "sleep", label: "Sleep" }, { id: "vitals", label: "Vitals" },
-  { id: "log", label: "Log" }, { id: "data", label: "Data" }, { id: "sync", label: "Data sync" }] as const;
+  { id: "log", label: "Log" }, { id: "mind", label: "Mental health" }, { id: "data", label: "Data" }, { id: "sync", label: "Data sync" }] as const;
 type View = (typeof VIEWS)[number]["id"];
 const day = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 const hm = (h: number | null | undefined) => (h == null ? "–" : `${Math.floor(h)}h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}m`);
@@ -128,7 +129,9 @@ export function HealthScreen() {
       </div>
       {!h && res.error && <div className="error-banner" role="alert">{res.error}</div>}
       {!h && !res.error && <div className="skeleton" style={{ height: 220, marginTop: 16 }} aria-busy="true" />}
-      {h && !h.available && view !== "data" && view !== "sync" && (
+      {/* Mental health (9.1) has its own data and tools that work without Apple Health. */}
+      {view === "mind" && <div className="stack" style={{ marginTop: 16 }}><MindView /></div>}
+      {h && !h.available && view !== "data" && view !== "sync" && view !== "mind" && (
         <Glass className="widget" style={{ marginTop: 16, minHeight: 0 }}>
           <p style={{ margin: 0 }}>{h.guest_mode ? "Health is hidden in guest mode." : !h.sources.sirisai ? "SirisAI isn't answering, so there's no health data to show."
             : <>No health data yet. Set up Apple Health under <Link to="/health?view=sync" className="brief-link">Data sync</Link>, or bring in your history from the Data tab.</>}</p>
@@ -138,7 +141,7 @@ export function HealthScreen() {
       {h?.migrating && <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>Moving your earlier health history into SirisAI…</p>}
       {h && view === "data" && <div className="stack" style={{ marginTop: 16 }}><SourcesCard today={h.today} /><DataView onChange={() => res.reload?.()} /></div>}
       {view === "sync" && <div className="stack" style={{ marginTop: 16 }}><HealthSyncCard health={!!h?.available} /></div>}
-      {h?.available && view !== "data" && view !== "sync" && (
+      {h?.available && view !== "data" && view !== "sync" && view !== "mind" && (
         <div className="stack" style={{ marginTop: 16 }}>
           {view === "today" && <TodayView h={h} />}
           {view === "sleep" && <SleepView h={h} />}

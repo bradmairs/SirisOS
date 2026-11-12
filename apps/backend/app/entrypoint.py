@@ -47,6 +47,7 @@ from app.machine.api import router as machine_router
 from app.share.api import router as share_router
 from app.work.api import router as work_router
 from app.homelab.api import router as homelab_router
+from app.mind.api import router as mind_router
 from app.training.api import public_router as training_public_router
 from app.training.api import router as training_router
 from app.setup.api import router as setup_router
@@ -90,6 +91,7 @@ for router in (
     share_router,
     work_router,
     homelab_router,
+    mind_router,
     training_router,
     training_public_router,
     setup_router,

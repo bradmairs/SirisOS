@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things", "/homelab"];
+const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things", "/homelab"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -95,6 +95,13 @@ const FIXTURES = [
   ["/api/v1/life/things", thingsFixture],
   ["/api/v1/life/people", peopleFixture],
   ["/api/v1/work", workFixture],
+  ["/api/v1/mind/clarity", { started: null }],
+  ["/api/v1/mind", { available: true, today: { date: "2026-11-12", valence: 0.5, word: "Pleasant", mindful_minutes: 12, here_minutes: 2 },
+    days: Array.from({ length: 30 }, (_, i) => ({ date: new Date(Date.UTC(2026, 9, 14 + i)).toISOString().slice(0, 10), valence: Math.round(Math.sin(i / 3) * 70) / 100,
+      word: "Neutral", mindful_minutes: i % 3 ? 10 : 0, here_minutes: null })),
+    week: { valence: 0.3, word: "Slightly pleasant", before: 0.1, mindful_minutes: 40, mindful_before: 20, mood_days: 6 },
+    patterns: [{ key: "sleep", text: "Your mood is better after 7 hours' sleep or more than after less.", with: 0.5, without: -0.2, days: 20 }],
+    journal: [{ id: "j1", at: "2026-11-11T20:00:00+11:00", kind: "gratitude", text: "Coffee with Sam\nA good run" }], tools_minutes_week: 6 }],
   ["/api/v1/gym/last", { last: { "bench-press": { date: "2026-11-04", sets: [{ weight: 80, reps: 8, done: true, type: "normal" }, { weight: 80, reps: 7, done: true, type: "normal" }] } } }],
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],

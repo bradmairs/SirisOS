@@ -466,6 +466,20 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `DELETE /api/v1/memories/{memory_id}` | Delete one of SirisAI's memories. There's no undo. |
 | `PUT /api/v1/memories/{memory_id}` | Correct one of SirisAI's memories (7.2, SirisAI 4.4). |
 
+### `/api/v1/mind`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/mind` |  |
+| `GET /api/v1/mind/clarity` |  |
+| `POST /api/v1/mind/clarity/check` |  |
+| `PUT /api/v1/mind/clarity/plan` |  |
+| `POST /api/v1/mind/clarity/start` |  |
+| `POST /api/v1/mind/clarity/urge` |  |
+| `POST /api/v1/mind/journal` |  |
+| `DELETE /api/v1/mind/journal/{entry_id}` |  |
+| `POST /api/v1/mind/sessions` |  |
+
 ### `/api/v1/netwatch`
 
 | Route | What it does |
