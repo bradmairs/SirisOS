@@ -410,19 +410,30 @@ a {
   overscroll-behavior: contain;
 }
 
+/* 9.0: the tab you drag down to close: a tall touch target, kept in view at the top while the sheet scrolls. */
+.sheet > .sheet__handle {
+  position: sticky;
+  top: -10px;
+  z-index: 5;
+  margin: -10px -20px 6px;
+  padding: 12px 20px 10px;
+  touch-action: none;
+  cursor: grab;
+}
+
 .sheet__grabber {
   width: 38px;
   height: 5px;
   border-radius: 3px;
   background: var(--ink-3);
-  margin: 4px auto 14px;
+  margin: 0 auto;
   opacity: 0.6;
 }
 
 @media (min-width: 760px) {
   .scrim { align-items: center; }
   .sheet { margin: 0; }
-  .sheet__grabber { display: none; }
+  .sheet__handle { display: none; }
 }
 
 @keyframes sheet-up {

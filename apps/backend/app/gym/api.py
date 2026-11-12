@@ -5,6 +5,7 @@
     POST   /api/v1/gym/exercises             your own exercise {name, primary, secondary, equipment, kind}
     DELETE /api/v1/gym/exercises/{id}
     GET    /api/v1/gym/exercises/{id}        its history, records, last time, and a chart series
+    GET    /api/v1/gym/last?exercises=a,b&exclude=   (9.0) each exercise's sets last time, for a workout with no plan
     GET    /api/v1/gym/templates             starter routines
     POST   /api/v1/gym/routines              a routine (or {template: id} to copy one)
     PUT    /api/v1/gym/routines/{id}
@@ -440,6 +441,19 @@ def delete_exercise(exercise_id: str) -> dict[str, Any]:
         raise _missing("exercise of yours")
     store.save(doc)
     return {"deleted": exercise_id}
+
+
+@router.get("/last")
+def last_time(exercises: str = Query(default="", max_length=2000), exclude: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
+    """What you lifted last time for each exercise (9.0): its working sets and the day. For an empty workout, an exercise
+    added mid-workout or a swap, which have no plan to bring last time with them. `exclude` leaves out the workout being edited."""
+    doc = store.load()
+    out: dict[str, Any] = {}
+    for ex in [x for x in exercises.split(",") if x][:40]:
+        rows = [r for r in service.history(doc, ex) if r["session"] != exclude]
+        if rows:
+            out[ex] = {"date": rows[-1]["date"], "sets": rows[-1]["sets"]}
+    return {"last": out}
 
 
 @router.get("/exercises/{exercise_id}")

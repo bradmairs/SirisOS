@@ -227,3 +227,12 @@ def test_a_workout_saved_while_sirisai_is_down_goes_when_its_back(client, monkey
     assert asyncio.run(gym_api.resend_pending(hub)) == 1
     assert "/siris/health/gym/session" in sent and not store.load().sessions[0].ai_pending
     assert asyncio.run(gym_api.resend_pending(hub)) == 0  # nothing left
+
+
+def test_last_time_for_exercises_with_no_plan(client):
+    saved(imported("2026-01-01", 2, weight=70), imported("2026-01-08", 3, weight=80, reps=6))
+    r = client.get("/api/v1/gym/last", params={"exercises": "bench-press,barbell-row"}).json()["last"]
+    assert list(r) == ["bench-press"]
+    assert r["bench-press"]["date"] == "2026-01-08" and [(x["weight"], x["reps"]) for x in r["bench-press"]["sets"]] == [(80, 6)] * 3
+    older = client.get("/api/v1/gym/last", params={"exercises": "bench-press", "exclude": "import-20260108"}).json()["last"]
+    assert older["bench-press"]["date"] == "2026-01-01"

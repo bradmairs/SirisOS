@@ -411,7 +411,7 @@ describe("<GymWorkoutScreen />", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
     expect(await screen.findByText(/add 2.5/)).toBeInTheDocument();
-    expect(screen.getByText("80×8")).toBeInTheDocument();
+    expect(screen.getByText("80×8", { selector: ".gym-sets__prev" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Set 1 done" }));
     expect(screen.getByRole("timer", { name: "Rest" })).toHaveTextContent("2:00");
     expect(screen.getByRole("textbox", { name: "Set 1 reps" })).toHaveValue("8");  // filled from last time

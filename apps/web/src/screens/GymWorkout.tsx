@@ -35,6 +35,14 @@ export function GymWorkoutScreen() {
   const [listening, setListening] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
   const plan = useMemo<Plan | null>(() => (s ? loadPlan(s.id) : null), [s?.id]);
+  // Last time for exercises the plan doesn't cover (9.0): an empty workout, one added or swapped in. Kept on the phone.
+  const unplanned = [...new Set((s?.entries ?? []).map((e) => e.exercise).filter((id) => !(plan?.exercises.find((p) => p.exercise === id)?.last ?? []).length))].sort();
+  const lastRes = useResource(`gym:last:${unplanned.join(",")}:${s?.editing ? s.id : ""}`, () => gym.last(unplanned, s?.editing ? s.id : undefined),
+    { enabled: unplanned.length > 0, persist: true, staleMs: 300_000 });
+  const lastFor = (id: string): { date?: string; sets: SetLog[] } => {
+    const planned = plan?.exercises.find((p) => p.exercise === id)?.last ?? [];
+    return planned.length ? { sets: planned } : (lastRes.data?.last?.[id] ?? { sets: [] });
+  };
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
   useEffect(() => { document.title = "Workout · SirisOS"; }, []);
   // 8.8: the screen stays on while a workout's going (Settings can turn it off). iOS lets it go when the app's hidden,
@@ -276,12 +284,13 @@ export function GymWorkoutScreen() {
                 </div>
               )}
               {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
+              <LastTime last={lastFor(entry.exercise)} kind={ex?.kind ?? "weight"} />
               {p?.cues && <p className="gym-cues" style={{ margin: 0, fontSize: 12 }}>{p.cues}</p>}
               {p?.gym_swap && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Instead of {byId.get(p.gym_swap.from)?.name ?? p.gym_swap.from}, as always at this gym.</p>}
               {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
               {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
               {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
-              <SetTable ex={ex} sets={entry.sets} last={(p?.last ?? []).length ? p!.last : []} unit={unit} settings={here}
+              <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here}
                 guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null}
                 onChange={(si, patch, opts) => {
                   const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
@@ -372,6 +381,18 @@ export function applySaid(s: Session, said: { weight?: number | null; reps?: num
 /** Sets for one exercise. On the phone (8.7): swipe a set right to tick it, left to delete it; under a barbell weight,
  * the plates for each side; beside what you typed, how it compares with last time; and a check on a weight far above
  * anything you've lifted lately before it's ticked. */
+/** What you did last time, set by set, before you fill this one in (9.0), as in JEFIT. */
+function LastTime({ last, kind }: { last: { date?: string; sets: SetLog[] }; kind: string }) {
+  if (!last.sets.length) return null;
+  const one = (x: SetLog) => (kind === "time" ? `${x.seconds ?? "–"} s` : kind === "cardio" ? `${x.seconds != null ? Math.round(x.seconds / 60) : "–"} min${x.km ? ` ${x.km} km` : ""}`
+    : x.weight ? `${x.weight}×${x.reps ?? "–"}` : `${x.reps ?? "–"} reps`);
+  return (
+    <p className="gym-last" style={{ margin: 0, fontSize: 12 }} aria-label="Last time">
+      <span className="muted">Last time{last.date ? ` (${fmtDay(last.date)})` : ""}:</span> {last.sets.map(one).join(", ")}
+    </p>
+  );
+}
+
 function SetTable({ ex, sets, last, unit, settings, guard, best, onChange, onRemove }: {
   ex?: Exercise; sets: SetLog[]; last: SetLog[]; unit: string; settings?: { bar: number; plates: number[] };
   guard?: number | null; best?: number | null;

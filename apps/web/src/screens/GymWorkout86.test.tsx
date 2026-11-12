@@ -159,3 +159,20 @@ describe("SirisGym 8.6: Shortcuts from the Home Screen app", () => {
   });
 });
 
+
+describe("SirisGym 9.0: last time, set by set", () => {
+  it("shows what you lifted last time in a workout with no plan, before you fill it in", async () => {
+    signIn();
+    saveActive(workout([{ exercise: "barbell-row", sets: [set(null), { ...set(null), reps: null }] }]));
+    const calls = mockFetch({
+      "/api/v1/gym/last": () => jsonResponse({ last: { "barbell-row": { date: "2026-11-04", sets: [{ weight: 60, reps: 10, done: true, type: "normal" }, { weight: 62.5, reps: 8, done: true, type: "normal" }] } } }),
+      "/api/v1/gym": () => jsonResponse(GYM),
+    });
+    render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
+    const row = await screen.findByRole("region", { name: "Barbell Row" });
+    expect(await within(row).findByLabelText("Last time")).toHaveTextContent(/Last time \(.*4.*\): 60×10, 62.5×8/);
+    expect(within(row).getByText("62.5×8")).toBeInTheDocument();  // set 2's Last column
+    expect(within(row).getByRole("textbox", { name: "Set 2 weight" })).toHaveAttribute("placeholder", "62.5");
+    expect(calls.find((c) => c.url.startsWith("/api/v1/gym/last"))!.url).toBe("/api/v1/gym/last?exercises=barbell-row");
+  });
+});

@@ -95,6 +95,7 @@ const FIXTURES = [
   ["/api/v1/life/things", thingsFixture],
   ["/api/v1/life/people", peopleFixture],
   ["/api/v1/work", workFixture],
+  ["/api/v1/gym/last", { last: { "bench-press": { date: "2026-11-04", sets: [{ weight: 80, reps: 8, done: true, type: "normal" }, { weight: 80, reps: 7, done: true, type: "normal" }] } } }],
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],
   ["/api/v1/gym/body", { measurements: [{ id: "a", date: "2026-08-01", waist: 88, chest: 104 }, { id: "b", date: "2026-11-01", waist: 84.5, chest: 106, arm: 38.5 }],
