@@ -26,6 +26,8 @@ PY
 echo "$next" > VERSION
 sed -i -E "s/^API_VERSION = \".*\"/API_VERSION = \"$next\"/" apps/backend/app/main.py
 sed -i -E "s/^export const APP_VERSION = \".*\";/export const APP_VERSION = \"$next\";/" apps/web/src/version.ts
+# The README's version line (8.9: it said 1.0 for seven major versions).
+sed -i -E "s#^\*\*Version [0-9.]+\*\* \(\[release notes\]\(docs/releases/[0-9.]+\.md\)#**Version $next** ([release notes](docs/releases/$next.md)#" README.md
 notes="docs/releases/$next.md"
 [ -f "$notes" ] || printf '# SirisOS %s\n\n- \n' "$next" > "$notes"
 echo "SirisOS $current -> $next (fill in $notes)"

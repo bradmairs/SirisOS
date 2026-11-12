@@ -97,7 +97,8 @@ def test_the_check_runs_from_the_page(dirs):
 def test_a_full_disk_and_a_model_spilling_out_of_the_gpu_go_to_the_inbox():
     s = {"checked": "2026-11-12T01:00:00+00:00", "warn_percent": 85, "alert_percent": 95,
          "disks": [{"label": "Data", "path": "/app/data", "total_gb": 1000, "free_gb": 30, "used_percent": 97},
-                   {"label": "Backups", "path": "/app/backups", "total_gb": 1000, "free_gb": 600, "used_percent": 40}],
+                   {"label": "Backups", "path": "/app/backups", "total_gb": 1000, "free_gb": 600, "used_percent": 40},
+                   {"label": "Backup copy", "path": "/app/backup-copy", "total_gb": 7000, "free_gb": 1003, "used_percent": 86}],
          "ollama": {"configured": True, "error": None, "models": machine.gpu([
              {"name": "llama3.1:8b", "size": 9_000_000_000, "size_vram": 6_000_000_000},
              {"name": "nomic-embed-text", "size": 600_000_000, "size_vram": 600_000_000}])}}

@@ -196,6 +196,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.6: SirisGym list: start stays in the Home Screen app, weights don't drop a digit, rest timer kept and chimes in-app, 2 min between exercises, Clock-timer rest Shortcut, Finish at the bottom, reorder, unmerge and not-the-same, workouts kept offline and resent to SirisAI
 8.7: SirisGym review: link your history, tidy imported exercises, typo check and Fix a set, iPhone workout (⋯, swipe, plates, against last time, new best, how it felt), repeat last, recovery, weekly push, deload Not now, lift goals, bad-date and warm-up fixes
 8.8: SirisGym: screen stays on, log sets with Siri, tired / short-on-time days, AMRAP and rest-pause sets, form cues, gym swaps, planned lighter weeks, the next block, muscles over time, bodyweight in volume, monthly measure-up, backups pruned
+8.9: Add to SirisOS (Share Sheet), offline tasks and uploads, WireGuard as VPN, return windows, review goals and overdue, server disk and GPU watch, backups copied to the NAS and restore-checked, Gym screen split, generated API docs
 
 ## Terminal (ADR 113)
 

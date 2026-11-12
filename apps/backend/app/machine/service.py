@@ -1,7 +1,9 @@
 """The server itself (8.9): disk space, and whether the local AI is still all on the GPU.
 
-- **Disk**: the disks under SirisOS's data and backups. At SIRISOS_DISK_WARN_PERCENT (85) used it says so in the
-  inbox; at SIRISOS_DISK_ALERT_PERCENT (95) it's urgent, since a full disk stops backups, uploads and the databases.
+- **Disk**: the disks under SirisOS's data and backups. At SIRISOS_DISK_WARN_PERCENT (85) used, with under
+  SIRISOS_DISK_WARN_FREE_GB (100) left, it says so in the inbox (a big NAS at 86% with a terabyte free is fine); at
+  SIRISOS_DISK_ALERT_PERCENT (95), or under 10 GB left, it's urgent, since a full disk stops backups, uploads and the
+  databases.
 - **The GPU**: Ollama's loaded models (GET /api/ps on OLLAMA_URL). A model with part of it outside VRAM is running
   partly from system RAM on the CPU: slow, and the RAM it takes is what Brad wants left alone. It's said once a day
   while it lasts, with the fix.
@@ -27,6 +29,13 @@ _cache: dict[str, Any] = {"at": 0.0, "value": None}
 def _int(env: str, default: int) -> int:
     try:
         return max(50, min(99, int(os.getenv(env, str(default)))))
+    except ValueError:
+        return default
+
+
+def _gb(env: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(env, str(default))))
     except ValueError:
         return default
 
@@ -91,7 +100,8 @@ async def status(force: bool = False) -> dict[str, Any]:
     if not force and _cache["value"] is not None and now - _cache["at"] < CHECK_SECONDS:
         return _cache["value"]
     value = {"checked": datetime.now(timezone.utc).isoformat(timespec="seconds"), "disks": disks(), "ollama": await _ollama(),
-             "warn_percent": _int("SIRISOS_DISK_WARN_PERCENT", 85), "alert_percent": _int("SIRISOS_DISK_ALERT_PERCENT", 95)}
+             "warn_percent": _int("SIRISOS_DISK_WARN_PERCENT", 85), "alert_percent": _int("SIRISOS_DISK_ALERT_PERCENT", 95),
+             "warn_free_gb": _gb("SIRISOS_DISK_WARN_FREE_GB", 100)}
     _cache.update(at=now, value=value)
     return value
 
@@ -102,10 +112,11 @@ def items(s: dict[str, Any] | None) -> list[dict[str, Any]]:
         return []
     day = s["checked"][:10]
     out = []
+    room = s.get("warn_free_gb", 100)
     for d in s["disks"]:
-        if d["used_percent"] < s["warn_percent"]:
+        urgent = d["used_percent"] >= s["alert_percent"] or d["free_gb"] < 10
+        if not urgent and (d["used_percent"] < s["warn_percent"] or d["free_gb"] >= room):
             continue
-        urgent = d["used_percent"] >= s["alert_percent"]
         out.append({"key": f"machine:disk:{d['label']}:{'alert' if urgent else 'warn'}:{day}", "kind": "alert",
                     "severity": "urgent" if urgent else "attention",
                     "title": f"The server's {d['label'].lower()} disk is {d['used_percent']}% full",

@@ -12,6 +12,7 @@ services:
       # Engineering module (SirisHydro answer synthesis is optional).
       OLLAMA_URL: ${OLLAMA_URL:-}
       SIRISOS_OLLAMA_CHAT_MODEL: ${SIRISOS_OLLAMA_CHAT_MODEL:-}
+      SIRISOS_BACKUP_COPY_DIR: ${SIRISOS_BACKUP_COPY_PATH:+/app/backup-copy}
       SIRISOS_OLLAMA_CHAT_TIMEOUT_SECONDS: ${SIRISOS_OLLAMA_CHAT_TIMEOUT_SECONDS:-30}
       SIRISOS_STANDARDS_PATH: /app/data/standards
       SIRISOS_STANDARDS_MAX_UPLOAD_MB: ${SIRISOS_STANDARDS_MAX_UPLOAD_MB:-100}
@@ -72,6 +73,8 @@ services:
       - ./data/standards:/app/data/standards
       # SirisOS's own backups (3.7): point SIRISOS_BACKUP_PATH at the NAS to keep them off this server.
       - ${SIRISOS_BACKUP_PATH:-./data/backups}:/app/backups
+      # 8.9: a copy of each nightly backup off the server (a NAS folder); unset, nothing is copied
+      - ${SIRISOS_BACKUP_COPY_PATH:-./data/no-backup-copy}:/app/backup-copy
     healthcheck:
       test:
         - CMD
