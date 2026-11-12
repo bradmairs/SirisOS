@@ -1321,3 +1321,22 @@ section:has(> .widget-grid:empty) { display: none; }
 .server-disk__bar > span { display: block; height: 100%; background: var(--accent); }
 .server-disk__bar > .server-disk__fill--warn { background: var(--warning, #f5a524); }
 .server-disk__bar > .server-disk__fill--alert { background: var(--critical, #e5484d); }
+
+/* Mental health (9.1) */
+.mind-chart { width: 100%; height: 90px; display: block; }
+.metrics .metric__value.mind-word { font-size: 17px; line-height: 1.2; white-space: normal; overflow-wrap: break-word; }
+.mind-chart__axis { stroke: color-mix(in srgb, var(--ink-3) 45%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.mind-chart__up { fill: var(--accent); }
+.mind-chart__down { fill: color-mix(in srgb, var(--ink-3) 80%, transparent); }
+.mind-breath { width: 180px; height: 180px; display: grid; place-items: center; }
+.mind-breath span { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 55%, transparent), color-mix(in srgb, var(--accent) 15%, transparent));
+  transition: transform 0.25s linear; }
+@media (prefers-reduced-motion: reduce) { .mind-breath span { transition: none; } }
+.mind-fold { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; width: 100%; text-align: left; }
+.mind-fold svg:last-child { margin-left: auto; transition: transform 0.2s; }
+.mind-fold__open { transform: rotate(180deg); }
+.mind-month { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; }
+.mind-month__day { aspect-ratio: 1; border-radius: 4px; background: color-mix(in srgb, var(--ink-3) 18%, transparent); }
+.mind-month__day--clear { background: var(--good); }
+.mind-month__day--slip { background: color-mix(in srgb, var(--ink-3) 70%, transparent); }
+.mind-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
