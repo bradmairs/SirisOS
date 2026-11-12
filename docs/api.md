@@ -282,6 +282,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/gym/gyms/{gym_id}/swaps` | Remember that this gym needs `into` instead of `source` (8.8), or forget it. |
 | `GET /api/v1/gym/heatmap` |  |
 | `POST /api/v1/gym/import` |  |
+| `GET /api/v1/gym/last` | What you lifted last time for each exercise (9.0): its working sets and the day. For an empty workout, an exercise added mid-workout or a swap, which have no plan to bring last time with them. `exclude` leaves out the workout being edited. |
 | `GET /api/v1/gym/links` |  |
 | `POST /api/v1/gym/links` | Point the routine's exercise at the one your history is under (8.7), or say it's different. |
 | `POST /api/v1/gym/measurements` |  |

@@ -134,6 +134,9 @@ export const gym = {
   settings: (s: GymSettings) => api<GymSettings>(`${G}/settings`, { method: "PUT", body: JSON.stringify(s) }),
   addExercise: (e: Pick<Exercise, "name" | "primary" | "secondary" | "equipment" | "kind">) => api<Exercise>(`${G}/exercises`, json(e)),
   exercise: (id: string) => api<ExerciseDetail>(`${G}/exercises/${encodeURIComponent(id)}`),
+  /** 9.0: each exercise's sets last time, for exercises with no plan behind them. */
+  last: (ids: string[], exclude?: string) =>
+    api<{ last: Record<string, { date: string; sets: SetLog[] }> }>(`${G}/last?exercises=${encodeURIComponent(ids.join(","))}${exclude ? `&exclude=${encodeURIComponent(exclude)}` : ""}`),
   templates: () => api<{ templates: Routine[] }>(`${G}/templates`),
   addRoutine: (body: { template?: string; routine?: Omit<Routine, "id"> & { id?: string } }) => api<Routine>(`${G}/routines`, json(body)),
   saveRoutine: (r: Routine) => api<Routine>(`${G}/routines/${r.id}`, { method: "PUT", body: JSON.stringify(r) }),

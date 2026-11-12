@@ -9,6 +9,9 @@ import { Glass } from "./Glass";
 export function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   const drag = useSwipeDown(ref, onClose);
+  // A tap on the dimmed page closes it, but only one that started there (9.0): a drag that began in the sheet (scrolling
+  // a list, selecting search text) and ended outside it used to close it.
+  const downOnScrim = useRef(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -16,9 +19,11 @@ export function Sheet({ label, onClose, children }: { label: string; onClose: ()
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return createPortal(
-    <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <Glass ref={ref} variant="strong" shape="xl" className="sheet" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} {...drag}>
-        <div className="sheet__grabber" />
+    <div className="scrim" onPointerDown={(e) => { downOnScrim.current = e.target === e.currentTarget; }}
+      onClick={(e) => { if (e.target === e.currentTarget && downOnScrim.current) onClose(); downOnScrim.current = false; }}>
+      <Glass ref={ref} variant="strong" shape="xl" className="sheet" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
+        {/* Drag down from here to close (9.0): only the tab at the top, so scrolling a list inside never closes it. */}
+        <div className="sheet__handle" data-testid="sheet-handle" {...drag}><div className="sheet__grabber" /></div>
         {children}
       </Glass>
     </div>,
@@ -27,8 +32,9 @@ export function Sheet({ label, onClose, children }: { label: string; onClose: ()
 }
 
 
-/** 8.5: drag a sheet down to close it, as on iOS. It follows the finger once you pull down from the top of the
- * sheet (scrolled to the top), and closes past CLOSE_PX or on a quick flick; otherwise it springs back. */
+/** 8.5: drag a sheet down to close it, as on iOS. Since 9.0 it's only from the tab at the top (the handlers go on it):
+ * from anywhere in a sheet scrolled to the top, scrolling a list inside it (the exercise picker's) pulled it shut. It
+ * follows the finger, and closes past CLOSE_PX or on a quick flick; otherwise it springs back. */
 const CLOSE_PX = 110;
 const FLICK = 0.6;  // px per ms
 export function useSwipeDown(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
@@ -42,8 +48,7 @@ export function useSwipeDown(ref: React.RefObject<HTMLElement | null>, onClose: 
   };
   return {
     onTouchStart: (e: React.TouchEvent) => {
-      const el = ref.current;
-      start.current = { y: e.touches[0].clientY, t: performance.now(), armed: !el || el.scrollTop <= 0 };
+      start.current = { y: e.touches[0].clientY, t: performance.now(), armed: true };
       dy.current = 0;
     },
     onTouchMove: (e: React.TouchEvent) => {
