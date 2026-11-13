@@ -7,6 +7,7 @@ import { life, type Bill, type Doc, type FromEmail, type Trip } from "../api/lif
 import { Glass } from "../components/Glass";
 import { categoryOf, LatestThenGrouped } from "../components/Grouped";
 import { ReceiptView } from "./ReceiptView";
+import { RenewalsCard } from "./RenewalsCard";
 
 function day(iso: string) {
   return new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -274,6 +275,7 @@ export function LifeScreen() {
       <div className="stack" style={{ marginTop: 16 }}>
         <DocumentsCard />
         <BillsCard />
+        <RenewalsCard />
         <ReceiptsCard />
         <TravelCard />
       </div>

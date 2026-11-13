@@ -243,6 +243,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/fitness` |  |
 | `PUT /api/v1/fitness/goal` |  |
 
+### `/api/v1/glance`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/glance` |  |
+| `DELETE /api/v1/glance/key` |  |
+| `GET /api/v1/glance/key` |  |
+| `POST /api/v1/glance/key` |  |
+
 ### `/api/v1/goals`
 
 | Route | What it does |
@@ -540,6 +549,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/push/subscriptions` |  |
 | `POST /api/v1/push/test` |  |
 | `POST /api/v1/push/unsubscribe` |  |
+
+### `/api/v1/renewals`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/renewals` |  |
+| `POST /api/v1/renewals` |  |
+| `DELETE /api/v1/renewals/{item_id}` |  |
+| `PATCH /api/v1/renewals/{item_id}` |  |
 
 ### `/api/v1/resurface`
 

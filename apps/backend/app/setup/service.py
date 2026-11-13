@@ -131,6 +131,32 @@ async def health(hub: Hub) -> list[dict[str, Any]]:
                   "" if recent else "On the Training page, make a key and set up Health Auto Export (it takes five minutes).", link="/training#health")]
 
 
+async def mind(hub: Hub) -> list[dict[str, Any]]:
+    """9.4: mood and mindful minutes arriving from Apple Health for Mental health, and Face ID for its journal."""
+    from app.security import service as security
+
+    body = await sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": 14}) if sirisai_api.connector(hub) else None
+    days = [d.get("metrics") or {} for d in (body or {}).get("days") or []]
+    out = []
+    if body is not None and not body.get("guest_mode"):
+        moods = sum(1 for m in days if "mood_valence" in m)
+        mindful = sum(1 for m in days if m.get("mindful_minutes"))
+        if moods:
+            out.append(_item("mood", "Mood from Apple Health", "You", "on", f"State of Mind on {moods} of the last 14 days.", link="/health?view=mind"))
+        else:
+            out.append(_item("mood", "Mood from Apple Health", "You", "off", "No State of Mind in the last 14 days, so Mental health has no mood to show.",
+                             "In Health Auto Export, add State of Mind to the automation that sends to SirisAI (or make one for it), then log a mood in the Health app.",
+                             link="/health?view=mind"))
+        if not mindful:
+            out.append(_item("mindful", "Mindful minutes from Apple Health", "You", "off", "None in the last 14 days.",
+                             "Add Mindful Minutes to the Health Auto Export automation's metrics.", link="/health?view=mind"))
+    keys = security.passkeys()
+    out.append(_item("journal-lock", "Face ID for the journal", "SirisOS", "on" if keys else "off",
+                     "The Mental health journal opens with Face ID." if keys else "With no passkey, the Mental health journal isn't locked.",
+                     "" if keys else "Add a passkey on the Security page (it's also how you sign in with Face ID).", link="/security"))
+    return out
+
+
 def push() -> list[dict[str, Any]]:
     from app.push import store
 
@@ -247,7 +273,7 @@ async def checklist(hub: Hub) -> dict[str, Any]:
     groups = await asyncio.gather(
         run(lambda: sirisai(hub), "sirisai"), run(lambda: home(hub), "home"), run(lambda: health(hub), "health"),
         run(push, "push"), run(career, "cpd"), run(backups, "backups"), run(service_key, "service-key"),
-        run(terminal, "terminal"), run(security, "security"), run(lambda: apps(hub), "apps"),
+        run(terminal, "terminal"), run(security, "security"), run(lambda: apps(hub), "apps"), run(lambda: mind(hub), "mind"),
     )
     items = [i for g in groups for i in g]
     counts = {s: sum(i["state"] == s for i in items) for s in ("on", "off", "problem")}

@@ -72,3 +72,10 @@ def test_a_health_key_with_nothing_arriving_is_a_problem(client):
     health_import.new_key()
     items = {i["id"]: i for i in client.get("/api/v1/setup", headers=AUTH).json()["items"]}
     assert items["health"]["state"] == "problem" and "Health Auto Export" in items["health"]["fix"]
+
+
+def test_mental_health_checks_mood_mindful_and_the_journal_lock(client):
+    items = {i["id"]: i for i in client.get("/api/v1/setup", headers=AUTH).json()["items"]}
+    assert items["mood"]["state"] == "off" and "State of Mind" in items["mood"]["fix"]
+    assert items["mindful"]["state"] == "off"
+    assert items["journal-lock"]["state"] == "off" and items["journal-lock"]["link"] == "/security"

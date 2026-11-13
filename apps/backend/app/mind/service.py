@@ -90,7 +90,7 @@ def _avg(xs: list[float]) -> float | None:
     return round(sum(xs) / len(xs), 2) if xs else None
 
 
-def patterns(days: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def patterns(days: list[dict[str, Any]], habits: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """What goes with a better mood, from your own days: sleep, exercise, mindful minutes, daylight. Each needs at least
     four days on each side, and a difference worth saying (0.15 on the -1..1 scale)."""
     out = []
@@ -133,6 +133,11 @@ def patterns(days: list[dict[str, Any]]) -> list[dict[str, Any]]:
     split("alcohol", drank, "the day after 3 drinks or more", "after fewer")
     split("caffeine", lambda d, _: None if d.get("caffeine_mg") is None else d["caffeine_mg"] >= 300, "on days with 300 mg of caffeine or more", "on days with less")
     split("gym", lambda d, _: d.get("gym"), "on days you trained at the gym", "on days you didn't")
+    # 9.4: each habit, on the days since you started it.
+    for h in habits or []:
+        done, since = set(h.get("done", [])), h.get("created", "")
+        split(f"habit:{h['id']}", lambda d, _, done=done, since=since: None if d["date"] < since else d["date"] in done,
+              f"on days you ticked “{h['name']}”", "on days you didn't")
     return out
 
 
@@ -168,7 +173,7 @@ def overview(health_days: list[dict[str, Any]] | None, days: int = 30, gym_days:
         "today": next((r for r in rows if r["date"] == t.isoformat()), None),
         "week": {"valence": week_v, "word": word(week_v), "before": before_v, "mindful_minutes": mindful(week), "mindful_before": mindful(before),
                  "mood_days": sum(1 for r in week if r["valence"] is not None)},
-        "patterns": patterns(rows),
+        "patterns": patterns(rows, [h for h in doc.get("habits", []) if not h.get("archived")]),
         "journal_count": len(doc["journal"]),
         "tools_minutes_week": round(sum(s.get("seconds", 0) for s in doc["sessions"] if s["at"][:10] > (t - timedelta(days=7)).isoformat()) / 60, 1),
     }
@@ -402,3 +407,30 @@ def change_habit(habit_id: str, name: str | None = None, archived: bool | None =
         h["archived"] = True
     save(doc)
     return habits()
+
+
+def week(days: list[dict[str, Any]], monday: date, today_: date) -> dict[str, Any] | None:
+    """The review's line (9.4): this week's mood and mindful minutes from Apple Health against last week's, and each
+    habit's ticks this week. None when there's nothing to say."""
+    this = [d for d in days if monday.isoformat() <= d.get("date", "") <= today_.isoformat()]
+    last = [d for d in days if (monday - timedelta(days=7)).isoformat() <= d.get("date", "") < monday.isoformat()]
+
+    def mood(ds):
+        return _avg([v for d in ds if (v := valence(d.get("metrics") or {})) is not None])
+
+    def mindful(ds):
+        return round(sum((d.get("metrics") or {}).get("mindful_minutes") or 0 for d in ds))
+
+    now_v, before_v = mood(this), mood(last)
+    out_days = (today_ - monday).days + 1
+    habits_out = []
+    for h in load().get("habits", []):
+        if h.get("archived"):
+            continue
+        start = max(monday.isoformat(), h.get("created", monday.isoformat()))
+        possible = sum(1 for i in range(out_days) if (monday + timedelta(days=i)).isoformat() >= start)
+        if possible:
+            habits_out.append({"name": h["name"], "done": sum(1 for d in h.get("done", []) if start <= d <= today_.isoformat()), "of": possible})
+    if now_v is None and not mindful(this) and not habits_out:
+        return None
+    return {"mood": now_v, "word": word(now_v), "mood_before": before_v, "mindful_minutes": mindful(this), "mindful_before": mindful(last), "habits": habits_out}

@@ -1,13 +1,14 @@
-import { CalendarClock, Cake, CheckSquare, Plane, Receipt } from "lucide-react";
+import { CalendarClock, Cake, CheckSquare, IdCard, Plane, Receipt } from "lucide-react";
 import type { ReactNode } from "react";
 import { useResource } from "../api/resource";
 import { life, people } from "../api/life";
 import { tasks } from "../api/tasks";
+import { renewals } from "../api/renewals";
 import { Glass } from "../components/Glass";
 
-export interface Entry { key: string; time: string | null; text: string; kind: "event" | "task" | "bill" | "birthday" | "trip"; sub?: string }
+export interface Entry { key: string; time: string | null; text: string; kind: "event" | "task" | "bill" | "birthday" | "trip" | "renewal"; sub?: string }
 
-const ICON: Record<Entry["kind"], typeof CalendarClock> = { event: CalendarClock, task: CheckSquare, bill: Receipt, birthday: Cake, trip: Plane };
+const ICON: Record<Entry["kind"], typeof CalendarClock> = { event: CalendarClock, task: CheckSquare, bill: Receipt, birthday: Cake, trip: Plane, renewal: IdCard };
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -17,6 +18,7 @@ export function buildDay(now: Date, src: {
   events?: { summary: string; start: string }[]; tasks?: { id: string; title: string; due: string | null; time: string | null; group: string }[];
   bills?: { id: number; label: string; due_date: string | null }[]; people?: { id: number; name: string; days_to_birthday?: number; turning?: number | null }[];
   trips?: { key: string; destination: string; start: string; nights: number }[];
+  renewals?: { id: string; name: string; days_left: number }[];
 }): { timed: Entry[]; anytime: Entry[]; soon: Entry[] } {
   const today = ymd(now);
   const timed: Entry[] = [], anytime: Entry[] = [], soon: Entry[] = [];
@@ -43,6 +45,10 @@ export function buildDay(now: Date, src: {
     const days = Math.round((new Date(t.start.slice(0, 10) + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86_400_000);
     if (days >= 0 && days <= 14) soon.push({ key: `trip:${t.key}`, kind: "trip", time: null, text: days === 0 ? `Off to ${t.destination} today` : `${t.destination} in ${days} day${days === 1 ? "" : "s"}`, sub: t.nights ? `${t.nights} nights` : undefined });
   }
+  // 9.4: a document or renewal expiring within the week (or already expired).
+  for (const r of src.renewals ?? []) {
+    if (r.days_left <= 7) soon.push({ key: `r:${r.id}`, kind: "renewal", time: null, text: r.days_left < 0 ? `${r.name} has expired` : r.days_left === 0 ? `${r.name} expires today` : `${r.name} expires in ${r.days_left} day${r.days_left === 1 ? "" : "s"}` });
+  }
   timed.sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
   return { timed, anytime, soon };
 }
@@ -64,12 +70,12 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 export function TodayTimeline({ events }: { events?: { summary: string; start: string }[] }) {
   const { data } = useResource("home:today", async () => {
-    const [t, b, p, tr] = await Promise.allSettled([tasks.list(), life.bills(), people.list(), life.travel()]);
+    const [t, b, p, tr, rn] = await Promise.allSettled([tasks.list(), life.bills(), people.list(), life.travel(), renewals.list()]);
     const ok = <T,>(r: PromiseSettledResult<T>) => (r.status === "fulfilled" ? r.value : undefined);
     const list = ok(t);
     return {
       tasks: list ? [...list.groups.overdue, ...list.groups.today] : [],
-      bills: ok(b) ?? [], people: ok(p) ?? [], trips: ok(tr) ?? [],
+      bills: ok(b) ?? [], people: ok(p) ?? [], trips: ok(tr) ?? [], renewals: ok(rn)?.renewals ?? [],
     };
   }, { refreshMs: 5 * 60_000, persist: true });
   const now = new Date();

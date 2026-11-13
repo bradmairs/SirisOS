@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 
 const PORT = 4199;
 const OUT = "visual-check";
-const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things", "/homelab"];
+const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things", "/life", "/homelab"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -95,6 +95,10 @@ const FIXTURES = [
   ["/api/v1/life/things", thingsFixture],
   ["/api/v1/life/people", peopleFixture],
   ["/api/v1/work", workFixture],
+  ["/api/v1/renewals", { renewals: [
+    { id: "r1", name: "Car rego (Corolla)", kind: "rego", expires: "2026-11-20", note: "", days_left: 7, state: "soon" },
+    { id: "r2", name: "Passport", kind: "passport", expires: "2029-03-02", note: "", days_left: 840, state: "fine" }] }],
+  ["/api/v1/glance/key", { set: false, created: null }],
   ["/api/v1/mind/clarity", { started: null }],
   ["/api/v1/mind/journal", { journal: [] }],
   ["/api/v1/mind/habits", { habits: [
