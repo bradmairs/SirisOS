@@ -199,6 +199,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 8.9: Add to SirisOS (Share Sheet), offline tasks and uploads, WireGuard as VPN, return windows, review goals and overdue, server disk and GPU watch, backups copied to the NAS and restore-checked, Gym screen split, generated API docs
 9.0: SirisGym: sheets close only from the top tab, the picker's search can't close it by mistake, last time's sets in every workout (GET /gym/last)
 9.1: Health's Mental health tab: mood (Apple Health's State of Mind or a quick log), mindful minutes, what goes with a better mood, breathing, grounding, reframing, three good things, a journal and where to get help
+9.2: Face ID for the Mental health journal, mood against drinks, caffeine and the gym, mood from Apple Health only, and a Habits tab with streaks
 
 ## Terminal (ADR 113)
 

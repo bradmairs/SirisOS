@@ -196,6 +196,13 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: nudges unavailable: %s", exc)
     try:
+        from app.mind import service as mind
+
+        if nudges_on():
+            out += mind.push_message(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: mind unavailable: %s", exc)
+    try:
         out += gym_measure_message(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: gym measurements unavailable: %s", exc)
@@ -205,6 +212,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: career unavailable: %s", exc)
     return out
+
+
+def nudges_on() -> bool:
+    from app.nudges import service as nudges
+
+    return nudges.enabled()
 
 
 def payload_for(msg: dict[str, Any]) -> dict[str, Any]:
