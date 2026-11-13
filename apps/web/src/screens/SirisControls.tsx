@@ -273,6 +273,9 @@ export function HomeControlsWidget({ onHousePage = false }: { onHousePage?: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: "good" | "critical"; text: string } | null>(null);
   const [states, setStates] = useState<Record<string, string>>({});
+  // 9.42: what a tap said only stands until the next fresh read. It used to stand for good, so a light changed in the
+  // Home app, by a protocol or by its switch kept showing what SirisOS last set (on when it was off, off when on).
+  useEffect(() => { setStates({}); }, [data]);
   if (!data || (!data.configured && data.scenes.length === 0) || (data.controls.length === 0 && data.scenes.length === 0)) return null;
 
   async function act(c: HomeControl, confirmed = false) {
@@ -287,8 +290,13 @@ export function HomeControlsWidget({ onHousePage = false }: { onHousePage?: bool
     setNote(null);
     try {
       const r = await assistant.control(c.entity_id, action, confirmed);
-      if (r.state) setStates((s) => ({ ...s, [c.entity_id]: r.state! }));
-      reload(true).catch(() => undefined);
+      if (r.state) {
+        setStates((s) => ({ ...s, [c.entity_id]: r.state! }));
+        reload(true).catch(() => undefined);
+      } else {
+        // Home Assistant hadn't caught up (SirisAI 6.6 says nothing rather than the old state): read again shortly.
+        window.setTimeout(() => { reload(true).catch(() => undefined); }, 2500);
+      }
     } catch (e) {
       setNote({ tone: "critical", text: e instanceof Error ? e.message : String(e) });
     } finally {
