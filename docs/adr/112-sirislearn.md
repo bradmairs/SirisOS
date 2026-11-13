@@ -43,14 +43,18 @@ connector puts `SIRISLEARN_PUBLIC_URL` (or `SIRISLEARN_URL`) in front.
 - **Widget "Learning"**: Streak (days; good once today's quiz is done,
   warning while it's at risk), Today (XP against the daily goal), Level,
   active Courses; items: the streak warning, *Next: <lesson>* with course
-  progress, cards due in the daily review (SirisLearn 1.1, opens `/review`),
-  and recently unlocked awards.
+  progress, unfinished learning paths (SirisLearn 1.4: *Path: <title>* with
+  percent, pace and next step, or *Behind on <title>* in warning tone when
+  it's behind or past its target date), cards due in the daily review
+  (SirisLearn 1.1, opens `/review`), and recently unlocked awards.
 - **Search**: SirisLearn's own search, through the generic connector search
   (ADR 109), as its own group.
 - **Inbox**: SirisOS's own item "Your N-day learning streak ends at
   midnight" (severity info) when the widget's Streak metric is flagged. Its
   key includes the date, so dismissing it lasts for the day. It opens the
-  next lesson.
+  next lesson. And "Your learning path "<title>" is behind" (severity info)
+  for each path the widget flags as behind, keyed by ISO week so dismissing
+  it lasts the week; it opens the path's next step.
 
 ## Consequences
 

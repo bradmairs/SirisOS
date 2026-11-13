@@ -130,6 +130,21 @@ def own_items(apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "app": app["name"],
                 "url": app.get("launch_url"),
             })
+        if app.get("id") == "sirislearn":
+            week = datetime.now(timezone.utc).strftime("%G-W%V")
+            for path_item in (widget or {}).get("items") or []:
+                if path_item.get("tone") == "warning" and str(path_item.get("title", "")).startswith("Behind on "):
+                    name = path_item["title"][len("Behind on "):]
+                    items.append({
+                        "key": f"sirislearn:path:{name}:{week}",
+                        "kind": "notice",
+                        "severity": "info",
+                        "title": f"Your learning path \"{name}\" is behind",
+                        "body": path_item.get("subtitle") or "",
+                        "source": "sirislearn",
+                        "app": app["name"],
+                        "url": path_item.get("url") or app.get("launch_url"),
+                    })
         if app.get("id") == "sirislearn" and (streak := _streak_at_risk(widget)):
             items.append({
                 "key": f"sirislearn:streak:{day}",
