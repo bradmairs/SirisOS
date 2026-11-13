@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SleepWeekCard } from "./Health";
-import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, TrendingUp, Trophy } from "lucide-react";
+import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, Smile, TrendingUp, Trophy } from "lucide-react";
 import { useResource } from "../api/resource";
 import { review, type WeeklyReview } from "../api/review";
 import { Glass } from "../components/Glass";
@@ -97,6 +97,24 @@ export function ReviewScreen() {
                 <p style={{ margin: 0 }}>{data.gym.sessions ? `${data.gym.sessions} workout${data.gym.sessions === 1 ? "" : "s"}, ${data.gym.sets} sets, ${(data.gym.volume / 1000).toFixed(1)} t lifted.` : "No workouts this week."}
                   {data.gym.under.length ? ` Under target: ${data.gym.under.join(", ")}.` : ""}{data.gym.deload ? " SirisGym suggests a lighter week next." : ""}</p>
                 {data.gym.records.length > 0 && <ul className="items">{data.gym.records.map((r) => <li key={r} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r}</span></span></li>)}</ul>}
+              </Glass>
+            )}
+
+            {data.mind && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Mind and habits this week">
+                <header className="widget__head"><Smile aria-hidden="true" /><span>Mind and habits</span><Link to="/health?view=mind" className="widget__source">Mental health</Link></header>
+                {(data.mind.word || data.mind.mindful_minutes > 0) && (
+                  <p style={{ margin: 0 }}>
+                    {data.mind.word && <>Mood: {data.mind.word.toLowerCase()}{data.mind.mood_before != null && data.mind.mood != null
+                      ? (Math.abs(data.mind.mood - data.mind.mood_before) < 0.05 ? ", steady on last week" : data.mind.mood > data.mind.mood_before ? ", up on last week" : ", down on last week") : ""}. </>}
+                    {data.mind.mindful_minutes} mindful minutes{data.mind.mindful_before ? ` (${data.mind.mindful_before} last week)` : ""}.
+                  </p>
+                )}
+                {data.mind.habits.length > 0 && (
+                  <ul className="items">{data.mind.habits.map((h) => (
+                    <li key={h.name} className="item"><span className="item__text"><span className="item__title">{h.name}</span><span className="item__subtitle">{h.done} of {h.of} days</span></span></li>
+                  ))}</ul>
+                )}
               </Glass>
             )}
 

@@ -196,6 +196,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: nudges unavailable: %s", exc)
     try:
+        from app.renewals import service as renewals
+
+        out += renewals.push_messages(now.astimezone(_zone()))
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: renewals unavailable: %s", exc)
+    try:
         from app.mind import service as mind
 
         if nudges_on():

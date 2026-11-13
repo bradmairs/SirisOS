@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type FormEvent, type ReactNode } from "react";
 import { WidgetBoundary } from "../components/WidgetBoundary";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
@@ -18,18 +18,26 @@ import { HomeTimes } from "./HomeTimes";
 import { TasksWidget } from "./TasksWidget";
 import { TodayTimeline } from "./TodayTimeline";
 import { FocusCard } from "./FocusCard";
-import { MorningGymCard } from "./GymCards";
 import { GoalsPromptCard } from "./GoalsPrompt";
-import { WorkHomeCard } from "./Work";
 import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
-import { HomeJobsWidget } from "./Maintenance";
-import { TodaysRunWidget } from "./Training";
-import { ReadinessWidget } from "./Health";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
-import { InboxPanel } from "../components/Inbox";
 import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWidget, WeatherWidget, useHud } from "./HudWidgets";
 import { CamerasWidget, CarWidget, EnergyWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
+import { HabitsHomeWidget } from "./HabitsWidget";
+
+/** 9.3: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
+ * (with Mental health), Training, Work, Maintenance, SirisGym's cards and the inbox just for their Home cards. */
+function lazyCard<P extends object>(load: () => Promise<ComponentType<P>>): (props: P) => JSX.Element {
+  const Card = lazy(() => load().then((c) => ({ default: c as ComponentType<object> })));
+  return function LazyCard(props: P) { return <Suspense fallback={null}><Card {...(props as object)} /></Suspense>; };
+}
+const MorningGymCard = lazyCard(() => import("./GymCards").then((m) => m.MorningGymCard));
+const WorkHomeCard = lazyCard(() => import("./Work").then((m) => m.WorkHomeCard));
+const HomeJobsWidget = lazyCard(() => import("./Maintenance").then((m) => m.HomeJobsWidget));
+const TodaysRunWidget = lazyCard(() => import("./Training").then((m) => m.TodaysRunWidget));
+const ReadinessWidget = lazyCard(() => import("./Health").then((m) => m.ReadinessWidget));
+const InboxPanel = lazyCard(() => import("../components/Inbox").then((m) => m.InboxPanel));
 
 const REFRESH_MS = 60_000;
 
@@ -194,6 +202,7 @@ export function Home() {
     { id: "career", label: "Career", node: !hideMine && <CareerWidget delay={30} /> },
     { id: "fitness", label: "Fitness", node: !hideMine && <FitnessWidget delay={40} /> },
     { id: "readiness", label: "Readiness", node: !hideMine && <ReadinessWidget /> },
+    { id: "habits", label: "Habits", node: !hideMine && <HabitsHomeWidget /> },
     { id: "training", label: "Today's run", node: !hideMine && <TodaysRunWidget /> },
     ...(appsLoading
       ? [0, 1].map((i) => ({ id: `loading-app-${i}`, label: "Loading apps", node: <LoadingWidget title="Loading apps" delay={60 + i * 50} /> }))

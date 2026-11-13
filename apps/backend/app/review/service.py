@@ -91,7 +91,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
     done = [t for t in task_store.load().tasks if t.done_at and monday <= datetime.fromisoformat(t.done_at).astimezone(zone()).date() <= today]
     insights = await sirisai_api.get(hub, "/siris/brain/insights", params={"days": 14}) or {}
     summary = insights.get("summary") or {}
-    health = await sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": 7}) or {}
+    health = await sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": 14}) or {}
     days = [d for d in health.get("days") or [] if monday.isoformat() <= d.get("date", "") <= today.isoformat()]
     ran = round(sum(d["metrics"].get("running_km", 0) for d in days), 1)
     runs = sum(1 for d in days if d["metrics"].get("running_km", 0) > 0)
@@ -132,8 +132,19 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
         "goals": await _goals(hub, today),
         "overdue": [{"id": t.get("id"), "title": t.get("title") or t.get("text"), "due": t.get("due")} for t in listing["groups"].get("overdue", [])][:10],
         "sleep": await _sleep_week(hub),
+        "mind": _mind_week(health.get("days") or [], monday, today),
         "saved": saved(monday),
     }
+
+
+def _mind_week(days: list[dict[str, Any]], monday: date, today: date) -> dict[str, Any] | None:
+    """Mood and mindful minutes from Apple Health, and habits (9.3)."""
+    from app.mind import service as mind
+
+    try:
+        return mind.week(days, monday, today)
+    except Exception:  # noqa: BLE001 - the review stands without it
+        return None
 
 
 async def _sleep_week(hub: Hub) -> dict[str, Any] | None:

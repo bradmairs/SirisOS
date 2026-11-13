@@ -992,6 +992,7 @@ class RestRequest(BaseModel):
 
 
 _rest: dict[str, asyncio.Task] = {}
+rest_info: dict[str, Any] = {}  # the rest running now: until (epoch seconds) and the next set
 
 
 async def _ring(seconds: int, text: str) -> None:
@@ -1007,11 +1008,13 @@ async def start_rest(body: RestRequest) -> dict[str, Any]:
     if (old := _rest.pop("current", None)) is not None:
         old.cancel()
     _rest["current"] = asyncio.create_task(_ring(body.seconds, body.next))
+    rest_info.update(until=time.time() + body.seconds, next=body.next)  # for the iPhone widget (9.3)
     return {"ringing_in": body.seconds}
 
 
 @router.delete("/rest")
 async def stop_rest() -> dict[str, Any]:
+    rest_info.clear()
     if (old := _rest.pop("current", None)) is not None:
         old.cancel()
         return {"stopped": True}
