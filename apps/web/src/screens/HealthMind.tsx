@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { BookHeart, Brain, ChevronDown, Flower2, LifeBuoy, Lightbulb, Shield, Smile, Trash2, Wind } from "lucide-react";
-import { health } from "../api/health";
-import { mind, type Clarity, type JournalEntry, type Mind, type MindDay } from "../api/mind";
+import { BookHeart, Brain, Check, ChevronDown, Repeat, Flower2, LifeBuoy, Lightbulb, Lock, Shield, Smile, Trash2, Wind } from "lucide-react";
+import { lockNow, mind, useUnlocked, type Clarity, type Habit, type JournalEntry, type Mind, type MindDay } from "../api/mind";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 
@@ -15,12 +14,12 @@ export function MindView() {
     <>
       {!m && res.error && <div className="error-banner" role="alert">{res.error}</div>}
       {!m && !res.error && <div className="skeleton" style={{ height: 220 }} aria-busy="true" />}
-      {m && <MoodCard m={m} onChange={reload} />}
+      {m && <MoodCard m={m} />}
       {m && <MindfulCard m={m} />}
       {m && m.patterns.length > 0 && <PatternsCard m={m} />}
       <ToolsCard onDone={reload} />
-      {m && <JournalCard entries={m.journal} onChange={reload} />}
-      <ClarityCard />
+      {m && <JournalCard m={m} onChange={reload} />}
+      <ClarityCard locking={m?.locking ?? true} />
       <SupportCard />
     </>
   );
@@ -62,12 +61,8 @@ function MinutesChart({ days }: { days: MindDay[] }) {
   );
 }
 
-function MoodCard({ m, onChange }: { m: Mind; onChange: () => void }) {
-  const [note, setNote] = useState<string | null>(null);
-  const log = async (n: number) => {
-    try { const r = await health.log("mood", n); setNote(r.queued ? "Saved on this phone; it goes when SirisOS is back." : `Mood ${n} logged.`); onChange(); }
-    catch (e) { setNote(e instanceof Error ? e.message : "Couldn't log it."); }
-  };
+/** Mood comes from Apple Health (9.2: logged there, not here): State of Mind, from the Health app or the Watch's Mindfulness app. */
+function MoodCard({ m }: { m: Mind }) {
   const t = m.today, w = m.week;
   const change = w.valence != null && w.before != null ? w.valence - w.before : null;
   const hasMood = m.days.some((d) => d.valence != null);
@@ -81,16 +76,9 @@ function MoodCard({ m, onChange }: { m: Mind; onChange: () => void }) {
       </div>
       {hasMood ? <MoodChart days={m.days} /> : (
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>{m.available
-          ? "No mood yet. Log one below, or in Apple Health (State of Mind); for those to arrive, add State of Mind to a Health Auto Export automation sending to SirisAI."
+          ? "No mood from Apple Health yet. Log it there (Health, State of Mind, or the Watch's Mindfulness app), and add State of Mind to a Health Auto Export automation sending to SirisAI."
           : "SirisAI isn't answering, so Apple Health's mood can't be shown. The tools below still work."}</p>
       )}
-      <div className="row" style={{ gap: 6, flexWrap: "wrap" }} role="group" aria-label="How are you feeling?">
-        <span className="muted" style={{ fontSize: 13 }}>Right now:</span>
-        {[["1", "Awful"], ["2", "Low"], ["3", "OK"], ["4", "Good"], ["5", "Great"]].map(([n, label]) => (
-          <button key={n} type="button" className="chip chip--button" aria-label={`Mood ${n} of 5: ${label}`} onClick={() => log(Number(n))}>{label}</button>
-        ))}
-      </div>
-      {note && <p className="muted" role="status" style={{ margin: 0, fontSize: 13 }}>{note}</p>}
     </Glass>
   );
 }
@@ -270,16 +258,51 @@ function Gratitude({ onDone }: { onDone: () => void }) {
   );
 }
 
-function JournalCard({ entries, onChange }: { entries: JournalEntry[]; onChange: () => void }) {
+/** What's behind the lock (9.2): fetched only once unlocked, and dropped (not cached) the moment it locks again. */
+function useLockedData<T>(load: () => Promise<T>, enabled: boolean, bump = 0): { data: T | null; error: string | null; set: (v: T) => void } {
+  const open = useUnlocked();
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) { setData(null); return; }
+    let live = true;
+    setData(null); setError(null);
+    load().then((v) => { if (live) setData(v); }).catch((e) => { if (live) setError(e instanceof Error ? e.message : String(e)); });
+    return () => { live = false; };
+  }, [open, enabled, bump]);  // eslint-disable-line react-hooks/exhaustive-deps
+  return { data, error, set: setData };
+}
+
+/** The lock's front: Face ID opens it. With no passkey set up, it says how to lock it. */
+function Locked({ what }: { what: string }) {
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}><Lock size={12} aria-hidden="true" /> {what} is locked.</p>
+      <button type="button" className="button button--primary" style={{ alignSelf: "flex-start" }}
+        onClick={async () => { setMsg(null); try { await mind.unlock(); } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't unlock."); } }}>Unlock with Face ID</button>
+      {msg && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
+    </div>
+  );
+}
+
+function JournalCard({ m, onChange }: { m: Mind; onChange: () => void }) {
   const [text, setText] = useState("");
+  const open = useUnlocked() || !m.locking;
+  const [bump, setBump] = useState(0);
+  const list = useLockedData(() => mind.journalList(), open, bump + m.journal_count);
+  const entries: JournalEntry[] = list.data?.journal ?? [];
+  const changed = () => { setBump((n) => n + 1); onChange(); };
   return (
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Journal">
       <header className="widget__head"><BookHeart aria-hidden="true" /><span>Journal</span></header>
-      <form className="row" style={{ gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!text.trim()) return; await mind.journal("note", text.trim()); setText(""); onChange(); }}>
+      <form className="row" style={{ gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!text.trim()) return; await mind.journal("note", text.trim()); setText(""); changed(); }}>
         <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder="What's on your mind?" aria-label="Journal entry" value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} />
         <button type="submit" className="button">Add</button>
       </form>
-      {entries.length > 0 && (
+      {!open && m.journal_count > 0 && <Locked what={`Your journal (${m.journal_count} entr${m.journal_count === 1 ? "y" : "ies"})`} />}
+      {open && list.error && <p className="tone-warning" style={{ margin: 0, fontSize: 13 }}>{list.error}</p>}
+      {open && entries.length > 0 && (
         <ul className="items">
           {entries.map((j) => (
             <li key={j.id} className="item">
@@ -287,11 +310,13 @@ function JournalCard({ entries, onChange }: { entries: JournalEntry[]; onChange:
                 <span className="item__title career-wrap">{j.kind === "reframe" && j.thought ? `“${j.thought}” → ${j.text}` : j.text.split("\n").join(" · ")}</span>
                 <span className="item__subtitle">{shortDay(j.at.slice(0, 10))} · {j.kind === "gratitude" ? "good things" : j.kind === "reframe" ? "reframe" : "note"}</span>
               </span>
-              <button type="button" className="icon-link" aria-label="Delete the entry" onClick={async () => { if (window.confirm("Delete this entry?")) { await mind.unjournal(j.id); onChange(); } }}><Trash2 size={14} aria-hidden="true" /></button>
+              <button type="button" className="icon-link" aria-label="Delete the entry" onClick={async () => { if (window.confirm("Delete this entry?")) { await mind.unjournal(j.id); changed(); } }}><Trash2 size={14} aria-hidden="true" /></button>
             </li>
           ))}
         </ul>
       )}
+      {open && m.locking && <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={lockNow}><Lock size={12} aria-hidden="true" /> Lock</button>}
+      {!m.locking && m.journal_count > 0 && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Add a passkey (Security) and your journal and Clarity open only with Face ID.</p>}
     </Glass>
   );
 }
@@ -301,26 +326,27 @@ function JournalCard({ entries, onChange }: { entries: JournalEntry[]; onChange:
 const TRIGGERS = ["Bored", "Stressed", "Tired", "Lonely", "Late night", "Phone in bed", "After a drink", "Other"];
 const ALTERNATIVES = ["Leave the room you're in", "Phone in another room for 20 minutes", "Cold water on your face", "20 push-ups or a short walk", "Message someone", "Two minutes' breathing (below)"];
 
-/** Clarity: a private streak. Closed each time you come to the page, and only fetched once you open it. */
-function ClarityCard() {
+/** Clarity: a private streak. Closed each time you come to the page, only fetched once you open it, and (9.2) behind Face ID. */
+function ClarityCard({ locking }: { locking: boolean }) {
   const [open, setOpen] = useState(false);
+  const unlockedNow = useUnlocked();
   return (
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Clarity">
       <button type="button" className="widget__head mind-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Shield aria-hidden="true" /><span>Clarity</span><ChevronDown size={16} aria-hidden="true" className={open ? "mind-fold__open" : ""} />
       </button>
-      {open && <ClarityBody />}
+      {open && (unlockedNow || !locking ? <ClarityBody /> : <Locked what="Clarity" />)}
     </Glass>
   );
 }
 
 function ClarityBody() {
-  const res = useResource<Clarity>("mind:clarity", () => mind.clarity(), { staleMs: 30_000 });
+  const res = useLockedData<Clarity>(() => mind.clarity(), true);
   const c = res.data;
   const [urge, setUrge] = useState<{ began: number; trigger: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const set = (next: Clarity) => res.mutate?.(next);
+  const set = (next: Clarity) => res.set(next);
   if (!c) return res.error ? <p className="tone-warning" style={{ margin: 0 }}>{res.error}</p> : <div className="skeleton" style={{ height: 120 }} aria-busy="true" />;
   if (!c.started) return (
     <div className="stack" style={{ gap: 8 }}>
@@ -360,6 +386,10 @@ function ClarityBody() {
           <span className="muted" style={{ fontSize: 13 }}>When: {c.times.filter((t) => t.count).map((t) => `${t.part} ${t.count}`).join(", ") || "–"}</span>
         </div>
       )}
+      <label className="row" style={{ gap: 8, fontSize: 13 }}>
+        <input type="checkbox" checked={c.nudge} onChange={async (e) => set(await mind.nudge(e.target.checked))} />
+        <span>A quiet nudge before your usual time{c.risky ? ` (${c.risky.nudge_at}, as urges come most around ${c.risky.hour}:00)` : " (once a few urges show when that is)"}. It just says "A moment for you".</span>
+      </label>
       {editing ? <PlanEditor c={c} onSaved={(next) => { set(next); setEditing(false); }} /> : (
         <div className="stack" style={{ gap: 4 }}>
           <span className="muted" style={{ fontSize: 13 }}>Why it matters to you</span>
@@ -425,5 +455,53 @@ function SupportCard() {
       <p style={{ margin: 0, fontSize: 14 }}>Talk to someone, any time: <a className="brief-link" href="tel:131114">Lifeline 13 11 14</a> · <a className="brief-link" href="tel:1300224636">Beyond Blue 1300 22 4636</a>. In an emergency, call <a className="brief-link" href="tel:000">000</a>. A GP can set up a Mental Health Treatment Plan for subsidised sessions with a psychologist.</p>
       <p className="muted" style={{ margin: 0, fontSize: 12 }}><Wind size={12} aria-hidden="true" /> These tools help day to day; they aren't a replacement for care.</p>
     </Glass>
+  );
+}
+
+/* -- habits (9.2) ------------------------------------------------------------------------------------------------ */
+
+/** Daily habits, each with a streak, your best and the last 30 days. Tap a day in the grid to fix it. */
+export function HabitsView() {
+  const res = useResource<{ habits: Habit[] }>("mind:habits", () => mind.habits(), { staleMs: 30_000, persist: true });
+  const [name, setName] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const habits = res.data?.habits ?? [];
+  const run = async (fn: () => Promise<{ habits: Habit[] }>) => {
+    setMsg(null);
+    try { res.mutate?.(await fn()); } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't save that."); }
+  };
+  return (
+    <>
+      <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Habits">
+        <header className="widget__head"><Repeat aria-hidden="true" /><span>Habits</span></header>
+        {!res.data && !res.error && <div className="skeleton" style={{ height: 80 }} aria-busy="true" />}
+        {res.data && !habits.length && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Add one you want to do every day: stretch, read 20 pages, phone out of the bedroom.</p>}
+        <ul className="items">
+          {habits.map((h) => (
+            <li key={h.id} className="item habit">
+              <button type="button" className={`gym-sets__done ${h.today ? "gym-sets__done--on" : ""}`} aria-pressed={h.today} aria-label={`${h.name}: done today`}
+                onClick={() => run(() => mind.markHabit(h.id, !h.today))}><Check size={16} aria-hidden="true" /></button>
+              <span className="item__text">
+                <span className="item__title">{h.name}</span>
+                <span className="item__subtitle" style={{ whiteSpace: "normal" }}>{h.streak ? `${h.streak}-day streak` : "No streak yet"} · best {h.best} · {h.rate}% in 30 days</span>
+                <span className="mind-month mind-month--small" role="group" aria-label={`${h.name}, the last 30 days`}>
+                  {h.month.map((d) => (
+                    <button key={d.date} type="button" className={`mind-month__day ${d.done ? "mind-month__day--clear" : ""}`} aria-pressed={d.done}
+                      aria-label={`${shortDay(d.date)}: ${d.done ? "done" : "not done"}`} title={shortDay(d.date)} onClick={() => run(() => mind.markHabit(h.id, !d.done, d.date))} />
+                  ))}
+                </span>
+              </span>
+              <button type="button" className="icon-link" aria-label={`Stop tracking ${h.name}`}
+                onClick={() => { if (window.confirm(`Stop tracking ${h.name}? Its history is kept.`)) run(() => mind.changeHabit(h.id, { archived: true })); }}><Trash2 size={14} aria-hidden="true" /></button>
+            </li>
+          ))}
+        </ul>
+        <form className="row" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) run(() => mind.addHabit(name.trim())).then(() => setName("")); }}>
+          <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder="A new habit" aria-label="New habit" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          <button type="submit" className="button">Add</button>
+        </form>
+        {msg && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
+      </Glass>
+    </>
   );
 }

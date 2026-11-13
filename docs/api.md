@@ -473,12 +473,21 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/mind` |  |
 | `GET /api/v1/mind/clarity` |  |
 | `POST /api/v1/mind/clarity/check` |  |
+| `PUT /api/v1/mind/clarity/nudge` |  |
 | `PUT /api/v1/mind/clarity/plan` |  |
 | `POST /api/v1/mind/clarity/start` |  |
 | `POST /api/v1/mind/clarity/urge` |  |
+| `GET /api/v1/mind/habits` |  |
+| `POST /api/v1/mind/habits` |  |
+| `PATCH /api/v1/mind/habits/{habit_id}` |  |
+| `POST /api/v1/mind/habits/{habit_id}/check` |  |
+| `GET /api/v1/mind/journal` |  |
 | `POST /api/v1/mind/journal` |  |
 | `DELETE /api/v1/mind/journal/{entry_id}` |  |
+| `POST /api/v1/mind/lock` |  |
 | `POST /api/v1/mind/sessions` |  |
+| `POST /api/v1/mind/unlock` |  |
+| `POST /api/v1/mind/unlock/options` |  |
 
 ### `/api/v1/netwatch`
 
