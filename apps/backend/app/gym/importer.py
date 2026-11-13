@@ -416,7 +416,13 @@ def commit(doc: store.GymDoc, rows: list[dict[str, Any]], choices: dict[str, str
         if mine is None:
             kit = equipment_of(name)
             kit = "barbell" if kit == "ez bar" else kit
-            mine = store.CustomExercise(name=name[:80], primary=_guess_muscle(name), equipment=kit if kit in library.EQUIPMENT else "other")
+            # 9.44: the main muscle and its helpers from the movement in the name, else the old one-word guess.
+            from app.gym import anatomy
+
+            found = anatomy.muscles_for(name)
+            primary = found[0] if found else _guess_muscle(name)
+            mine = store.CustomExercise(name=name[:80], primary=primary, secondary=[m for m in (found[1] if found else ()) if m != primary],
+                                        equipment=kit if kit in library.EQUIPMENT else "other")
             doc.exercises.append(mine)
             exercises[mine.id] = mine.model_dump()
             made += 1

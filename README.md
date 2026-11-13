@@ -39,7 +39,7 @@ reaching home from work over a VPN (WireGuard or Tailscale). Every session needs
 fresh code from an authenticator app, and sessions close by themselves
 ([ADR 113](docs/adr/113-terminal.md)).
 
-**Version 9.43** ([release notes](docs/releases/9.43.md); every release in [docs/releases/](docs/releases/)). Every change bumps
+**Version 9.44** ([release notes](docs/releases/9.44.md); every release in [docs/releases/](docs/releases/)). Every change bumps
 the version by 0.01 or 0.1 and merges to main once CI is green; a version
 bump tags and publishes the release ([docs/releases.md](docs/releases.md)).
 

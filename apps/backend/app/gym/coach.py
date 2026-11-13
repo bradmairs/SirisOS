@@ -128,26 +128,43 @@ RECOVERY_HOURS = {"chest": 48, "back": 48, "shoulders": 48, "biceps": 36, "trice
 
 
 def recovery(doc: GymDoc, now: datetime) -> list[dict[str, Any]]:
-    """Each muscle: when it was last trained (main muscle, at least two working sets), and how recovered it is by the
-    usual rule of thumb (8.7): about 24-36 h for small muscles, 48 h for the upper body, 72 h for the legs."""
+    """Each muscle: when it was last trained, and how recovered it is by the usual rule of thumb (8.7): about 24-36 h
+    for small muscles, 48 h for the upper body, 72 h for the legs.
+
+    9.44: helper muscles count too. Rows work the biceps, squats the glutes, bench the triceps, but only an exercise's
+    main muscle used to count, so a muscle could show fully recovered the day after it had done half the work. Two
+    working sets as a helper need half the time; the muscle is as recovered as the slower of the two. `via` says
+    which it was: "main" or "helper"."""
     names = service.exercises(doc)
-    last: dict[str, datetime] = {}
+    last: dict[tuple[str, str], datetime] = {}  # (muscle, "main" | "helper") -> the newest
     for s in reversed(counted(doc)):
         when = _aware(s.started_at)
         if when is None:
             continue
         for e in s.entries:
-            m = (names.get(e.exercise) or {}).get("primary")
-            if m in RECOVERY_HOURS and m not in last and len(service.working(e.sets)) >= 2:
-                last[m] = when
-        if len(last) == len(RECOVERY_HOURS):
+            ex = names.get(e.exercise) or {}
+            if len(service.working(e.sets)) < 2:
+                continue
+            for m, how in [(ex.get("primary"), "main"), *((h, "helper") for h in ex.get("secondary") or [])]:
+                if m in RECOVERY_HOURS and (m, how) not in last:
+                    last[(m, how)] = when
+        if len(last) == 2 * len(RECOVERY_HOURS):
             break
     out = []
     for m, need in RECOVERY_HOURS.items():
-        when = last.get(m)
-        hours = round((now - when).total_seconds() / 3600) if when else None
-        ready = None if hours is None else min(100, max(0, round(hours / need * 100)))
-        out.append({"muscle": m, "last": when.isoformat() if when else None, "hours": hours, "ready": ready})
+        best = None  # (ready, when, hours, via): the least recovered
+        for how, needs in (("main", need), ("helper", need / 2)):
+            when = last.get((m, how))
+            if when is None:
+                continue
+            hours = (now - when).total_seconds() / 3600
+            ready = min(100, max(0, round(hours / needs * 100)))
+            if best is None or ready < best[0]:
+                best = (ready, when, round(hours), how)
+        if best is None:
+            out.append({"muscle": m, "last": None, "hours": None, "ready": None, "via": None})
+        else:
+            out.append({"muscle": m, "last": best[1].isoformat(), "hours": best[2], "ready": best[0], "via": best[3]})
     return out
 
 

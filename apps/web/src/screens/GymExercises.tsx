@@ -5,7 +5,7 @@ import { gym, type Exercise, type Duplicate, type MergeDone, type ExerciseDetail
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 import { FitnessLine, VideosCard } from "./GymCards";
-import { EditExerciseSheet, ExerciseFixesCard, FixSetsForm } from "./GymReview";
+import { EditExerciseSheet, ExerciseFixesCard, FixSetsForm, HelperMuscles } from "./GymReview";
 import { EQUIPMENT, MUSCLES, fmtDay, kg } from "./GymShared";
 
 /** SirisGym's Exercises tab and an exercise's sheet (split out of Gym.tsx in 8.9). */
@@ -142,8 +142,14 @@ export function NewExercise({ onClose, onSaved }: { onClose: () => void; onSaved
     <Sheet label="Your own exercise" onClose={onClose}>
       <div className="stack" style={{ gap: 8 }}>
         <h2 className="sheet__title">Your own exercise</h2>
-        <input className="field" placeholder="Name" aria-label="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-        <select className="field" aria-label="Main muscle" value={f.primary} onChange={(e) => setF({ ...f, primary: e.target.value })}>{MUSCLES.map((m) => <option key={m}>{m}</option>)}</select>
+        <input className="field" placeholder="Name" aria-label="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })}
+          onBlur={async () => {
+            // 9.44: the muscles the name says, unless you've already chosen helpers.
+            if (!f.name.trim() || f.secondary.length) return;
+            try { const a = await gym.anatomy(f.name.trim()); if (a.primary) setF((x) => ({ ...x, primary: a.primary!, secondary: a.secondary })); } catch { /* choose them yourself */ }
+          }} />
+        <select className="field" aria-label="Main muscle" value={f.primary} onChange={(e) => setF({ ...f, primary: e.target.value, secondary: f.secondary.filter((m) => m !== e.target.value) })}>{MUSCLES.map((m) => <option key={m}>{m}</option>)}</select>
+        <HelperMuscles primary={f.primary} value={f.secondary} onChange={(secondary) => setF({ ...f, secondary })} />
         <select className="field" aria-label="Equipment" value={f.equipment} onChange={(e) => setF({ ...f, equipment: e.target.value })}>{EQUIPMENT.map((m) => <option key={m}>{m}</option>)}</select>
         <select className="field" aria-label="Logged as" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as Exercise["kind"] })}>
           <option value="weight">Weight × reps</option><option value="bodyweight">Reps (bodyweight)</option><option value="time">Time</option><option value="cardio">Cardio (time and distance)</option>

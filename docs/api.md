@@ -269,6 +269,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | Route | What it does |
 | --- | --- |
 | `GET /api/v1/gym` |  |
+| `GET /api/v1/gym/anatomy` | The main muscle and helpers an exercise's name says (9.44), to fill the new-exercise form. |
 | `GET /api/v1/gym/backups` |  |
 | `POST /api/v1/gym/backups/restore` |  |
 | `GET /api/v1/gym/body` |  |

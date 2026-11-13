@@ -58,7 +58,7 @@ export interface Gym {
    * how many routine exercises could link to your history, and sessions set aside with a start that wasn't a time. */
   recent_max?: Record<string, number>; recovery?: Recovery[]; links?: number; quarantined?: number; block?: BlockStatus | null;
 }
-export interface Recovery { muscle: string; last: string | null; hours: number | null; ready: number | null }
+export interface Recovery { muscle: string; last: string | null; hours: number | null; ready: number | null; /** 9.44 */ via?: "main" | "helper" | null }
 export interface HistoryLink { exercise: string; name: string; sessions: number; options: { id: string; name: string; sessions: number; equipment: string | null }[] }
 export interface ExerciseFix { id: string; name: string; sessions: number; now: { kind: Kind; equipment: string; primary: string }; change: Partial<{ kind: Kind; equipment: string; primary: string }> }
 export interface Compare { date: string; title: string; sets: number; volume: number; minutes: number | null }
@@ -133,6 +133,8 @@ export const gym = {
   get: () => api<Gym>(G),
   settings: (s: GymSettings) => api<GymSettings>(`${G}/settings`, { method: "PUT", body: JSON.stringify(s) }),
   addExercise: (e: Pick<Exercise, "name" | "primary" | "secondary" | "equipment" | "kind">) => api<Exercise>(`${G}/exercises`, json(e)),
+  /** 9.44: the main muscle and helpers a name says. */
+  anatomy: (name: string) => api<{ primary: string | null; secondary: string[] }>(`${G}/anatomy?name=${encodeURIComponent(name)}`),
   exercise: (id: string) => api<ExerciseDetail>(`${G}/exercises/${encodeURIComponent(id)}`),
   /** 9.0: each exercise's sets last time, for exercises with no plan behind them. */
   last: (ids: string[], exclude?: string) =>

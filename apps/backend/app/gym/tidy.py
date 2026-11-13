@@ -278,7 +278,13 @@ def exercise_fixes(doc: store.GymDoc) -> list[dict[str, Any]]:
                 change["equipment"] = found
             elif change.get("kind") in ("bodyweight", "time"):
                 change["equipment"] = "bodyweight"
-        muscle = next((m for pat, m in _MUSCLE_GUESS if re.search(pat, n)), None)
+        # 9.44: the same reading of the movement as the helper muscles (anatomy.py), so the two never disagree.
+        from app.gym import anatomy
+
+        said = anatomy.muscles_for(e.name)
+        muscle = said[0] if said and said[0] not in ("full body",) else next((m for pat, m in _MUSCLE_GUESS if re.search(pat, n)), None)
+        if muscle == "cardio" and e.kind != "cardio":
+            muscle = None  # a walking lunge logged as weight isn't cardio
         if muscle and muscle != e.primary:
             change["primary"] = muscle
         if change:

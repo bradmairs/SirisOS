@@ -75,14 +75,14 @@ export function RecoveryCard({ recovery }: { recovery: Recovery[] }) {
       <ul className="gym-recovery" aria-label="How recovered each muscle is">
         {sorted.map((r) => (
           <li key={r.muscle} className={`gym-recovery__item gym-recovery--${r.ready == null ? "rested" : r.ready >= 100 ? "ready" : r.ready >= 60 ? "nearly" : "tired"}`}
-            title={`${r.muscle}: trained ${ago(r.hours)}`}>
+            title={`${r.muscle}: trained ${ago(r.hours)}${r.via === "helper" ? ", helping another lift" : ""}`}>
             <span className="gym-recovery__name">{r.muscle}</span>
             <span className="gym-recovery__state">{r.ready == null ? "fresh" : r.ready >= 100 ? "ready" : `${r.ready}%`}</span>
-            <span className="gym-recovery__when muted">{ago(r.hours)}</span>
+            <span className="gym-recovery__when muted">{ago(r.hours)}{r.via === "helper" ? " · helping" : ""}</span>
           </li>
         ))}
       </ul>
-      <p className="muted" style={{ margin: 0, fontSize: 12 }}>By the usual rule of thumb: about a day or so for arms, calves and abs, two for the upper body, three for legs.</p>
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>By the usual rule of thumb: about a day or so for arms, calves and abs, two for the upper body, three for legs; half that for a muscle that only helped (the triceps in a bench press).</p>
     </Glass>
   );
 }
@@ -134,8 +134,25 @@ export function ExerciseFixesCard({ onChange }: { onChange: () => void }) {
 }
 
 /** Change one of your own exercises (8.7): its name, main muscle, equipment and how it's logged. */
+/** The muscles that help (9.44): tap to add or take one away. The main muscle isn't offered. */
+export function HelperMuscles({ primary, value, onChange }: { primary: string; value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="stack" style={{ gap: 4 }}>
+      <span className="muted">Helped by</span>
+      <div className="row" style={{ gap: 6, flexWrap: "wrap" }} role="group" aria-label="Helper muscles">
+        {MUSCLES.filter((m) => m !== primary && m !== "cardio").map((m) => {
+          const on = value.includes(m);
+          return <button key={m} type="button" aria-pressed={on} className={`chip chip--button ${on ? "chip--active" : ""}`}
+            onClick={() => onChange(on ? value.filter((x) => x !== m) : [...value, m].slice(0, 6))}>{m}</button>;
+        })}
+      </div>
+      <span className="muted" style={{ fontSize: 12 }}>Each set counts half a set for each, in sets per muscle and recovery.</span>
+    </div>
+  );
+}
+
 export function EditExerciseSheet({ exercise, onClose, onSaved }: { exercise: Exercise; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ name: exercise.name, primary: exercise.primary, equipment: exercise.equipment, kind: exercise.kind });
+  const [f, setF] = useState({ name: exercise.name, primary: exercise.primary, secondary: exercise.secondary ?? [], equipment: exercise.equipment, kind: exercise.kind });
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   async function save() {
@@ -150,7 +167,8 @@ export function EditExerciseSheet({ exercise, onClose, onSaved }: { exercise: Ex
         <h2 className="sheet__title">Edit {exercise.name}</h2>
         <input className="field" aria-label="Name" value={f.name} maxLength={80} onChange={(e) => setF({ ...f, name: e.target.value })} />
         <label className="stack" style={{ gap: 4 }}><span className="muted">Main muscle</span>
-          <select className="field" aria-label="Main muscle" value={f.primary} onChange={(e) => setF({ ...f, primary: e.target.value })}>{MUSCLES.map((m) => <option key={m}>{m}</option>)}</select></label>
+          <select className="field" aria-label="Main muscle" value={f.primary} onChange={(e) => setF({ ...f, primary: e.target.value, secondary: f.secondary.filter((m) => m !== e.target.value) })}>{MUSCLES.map((m) => <option key={m}>{m}</option>)}</select></label>
+        <HelperMuscles primary={f.primary} value={f.secondary} onChange={(secondary) => setF({ ...f, secondary })} />
         <label className="stack" style={{ gap: 4 }}><span className="muted">Equipment</span>
           <select className="field" aria-label="Equipment" value={f.equipment} onChange={(e) => setF({ ...f, equipment: e.target.value })}>{EQUIPMENT.map((m) => <option key={m}>{m}</option>)}</select></label>
         <label className="stack" style={{ gap: 4 }}><span className="muted">Logged as</span>
