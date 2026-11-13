@@ -151,12 +151,18 @@ def set_password_signin(on: bool) -> bool:
 def checks() -> list[dict[str, str]]:
     """What a security review of this install finds, worst first."""
     out: list[dict[str, str]] = []
-    jwt_secret = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
+    from app.secrets_config import KNOWN_PASSWORDS, configured_secret_ok, dev_allowed
+
     password = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
-    if jwt_secret in ("change-this-development-secret", "replace-with-a-long-random-secret") or len(jwt_secret) < 32:
+    if not configured_secret_ok() and dev_allowed():  # development: the published default really is in use
         out.append({"level": "critical", "title": "Sign-in secret is a default or too short",
                     "fix": "Set SIRISOS_JWT_SECRET to a long random value (openssl rand -hex 32) and restart. Everyone signs in again."})
-    weak = password in ("change-me", "change-this-password") or len(password) < 12
+    elif not configured_secret_ok():
+        # 9.5: SirisOS signs with its own random key meanwhile, never the published default, but set your own so it's
+        # in your .env and backed up with the rest.
+        out.append({"level": "warning", "title": "Sign-in secret isn't set, so SirisOS made its own",
+                    "fix": "Set SIRISOS_JWT_SECRET to a long random value (openssl rand -hex 32) and restart. Everyone signs in again."})
+    weak = password in KNOWN_PASSWORDS or password == "change-me" or len(password) < 12
     have_keys = bool(passkeys())
     if not password_signin():
         out.append({"level": "info", "title": "Passkey only: the password can't sign in",

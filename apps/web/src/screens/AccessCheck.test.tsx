@@ -5,7 +5,7 @@ import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 import { AccessCheckCard } from "./AccessCheck";
 
 const view = (extra = {}) => ({
-  client_ip: "149.167.20.9", network: "internet", host: "sirisos.home:8444",
+  client_ip: "203.0.113.9", network: "internet", host: "sirisos.home:8444",
   certificate: { host: "sirisos.home:8444", days_left: 60 },
   terminal: { enabled: true, hosts: [{ name: "home", target: "brad@192.168.0.100", ms: 4, reachable: true }, { name: "nas", target: "brad@192.168.0.20", ms: null, reachable: false }] },
   ...extra,
@@ -49,7 +49,7 @@ describe("<AccessCheckCard />", () => {
     render(<AccessCheckCard />);
     await user.click(screen.getByRole("button", { name: "Check from here" }));
     expect(await screen.findByText(/won't work from here/, {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByText(/Through the internet \(149.167.20.9\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Through the internet \(203.0.113.9\)/)).toBeInTheDocument();
     expect(screen.getByText("Runs out in 60 days")).toBeInTheDocument();
     expect(screen.getByText("The Inbox and chat update as things happen")).toBeInTheDocument();
     expect(screen.getByText(/Closed before it opened \(1006\)/)).toBeInTheDocument();

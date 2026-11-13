@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from app.services import json_store
+from app.secrets_config import jwt_secret
 
 
 def _path() -> Path:
@@ -51,7 +52,7 @@ def save(state: dict[str, Any]) -> None:
 
 
 def _fernet() -> Fernet:
-    secret = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret").encode()
+    secret = jwt_secret().encode()
     key = HKDF(algorithm=hashes.SHA256(), length=32, salt=b"sirisos-terminal", info=b"totp-secret").derive(secret)
     return Fernet(base64.urlsafe_b64encode(key))
 

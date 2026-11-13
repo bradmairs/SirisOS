@@ -21,6 +21,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import jwt
+from app.secrets_config import jwt_secret
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def _session_token() -> str:
     now = datetime.now(timezone.utc)
     payload = {"sub": os.getenv("SIRISOS_ADMIN_USERNAME", "brad"), "iat": now, "exp": now + timedelta(minutes=5),
                "iss": "sirisos-api", "via": "service-key"}
-    return jwt.encode(payload, os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret"), algorithm="HS256")
+    return jwt.encode(payload, jwt_secret(), algorithm="HS256")
 
 
 class ServiceKeyMiddleware:

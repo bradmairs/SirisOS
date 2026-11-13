@@ -63,13 +63,14 @@ def _not_enabled() -> HTTPException:
 
 
 def _check_password(password: str, request: Request) -> None:
-    from app.main import AUTH_PASSWORD
+    from app.secrets_config import admin_password
 
     client = security_api.client_of(request)
     wait = security.blocked_for(client)
     if wait:
         raise HTTPException(status_code=429, detail="Too many attempts. Try again soon.", headers={"Retry-After": str(wait)})
-    if not secrets.compare_digest(password, AUTH_PASSWORD):
+    allowed = admin_password()  # 9.5: a missing or published default password never opens it
+    if allowed is None or not secrets.compare_digest(password.encode(), allowed.encode()):
         security.failed(client)
         store.audit("password-refused", client=client)
         raise HTTPException(status_code=401, detail="That isn't your SirisOS password.")

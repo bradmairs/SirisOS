@@ -11,6 +11,7 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, Header, HTTPException
+from app.secrets_config import jwt_secret
 
 JWT_ALGORITHM = "HS256"
 
@@ -25,7 +26,7 @@ def require_user(authorization: Annotated[str | None, Header()] = None) -> str:
     try:
         payload = jwt.decode(
             authorization.removeprefix("Bearer ").strip(),
-            os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret"),
+            jwt_secret(),
             algorithms=[JWT_ALGORITHM],
             issuer="sirisos-api",
         )
