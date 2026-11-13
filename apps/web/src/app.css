@@ -1344,3 +1344,5 @@ section:has(> .widget-grid:empty) { display: none; }
 .mind-month--small .mind-month__day { border: 0; padding: 0; border-radius: 2px; cursor: pointer; }
 .habit { align-items: flex-start; }
 .renewal-date { width: auto; max-width: 150px; flex: none; font-size: 13px; padding: 6px 8px; }
+/* 9.3: a card title that can't shrink and a button beside it: the button goes under, on the right, rather than off a phone's screen. */
+.widget__head:has(> .button) { flex-wrap: wrap; row-gap: 6px; }
