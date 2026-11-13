@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, Wrench, X } from "lucide-react";
 import { assistant, brain } from "../api/hub";
 import type { ChatEvent, ChatResponse, ConversationSummary, PendingToolCall } from "../api/types";
-import { ReplyPlayer, micContext, micUnavailableReason, startRecording, type Recording } from "../api/voice";
+import { ReplyPlayer, micContext, micUnavailableReason, resetMicContext, startRecording, type Recording } from "../api/voice";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 import { SirisOrb, type OrbState } from "../components/SirisOrb";
@@ -245,6 +245,13 @@ export function Assistant() {
     if (followUp && !rec.heard()) {
       setOrb("idle");
       setHint("Tap to talk");
+      return;
+    }
+    if (rec.captured && !rec.captured()) {
+      // 9.42: the phone gave no sound at all (its audio was asleep). Don't send silence; the next tap starts fresh.
+      resetMicContext();
+      setOrb("idle");
+      setHint("The microphone didn't pick anything up. Tap to try again");
       return;
     }
     await converse(wav);

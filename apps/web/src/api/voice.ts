@@ -75,6 +75,8 @@ export interface Recording {
   stop: () => void;
   /** Whether anything louder than background noise was picked up. */
   heard: () => boolean;
+  /** Whether the microphone delivered any sound at all, even quiet (9.42): false when the audio context was dead. */
+  captured?: () => boolean;
 }
 
 let micCtx: AudioContext | null = null;
@@ -83,14 +85,32 @@ let micCtx: AudioContext | null = null;
  * The mic's audio context: made once (call this from a tap) and kept. On iPhone a
  * context created later without a tap, as when listening again for an answer,
  * starts suspended and records silence.
+ *
+ * 9.42: after a reply has played, or a few minutes idle, iPhone puts the context
+ * in "interrupted" (or closes it), which the old check missed: the next recording
+ * was empty and SirisAI said it didn't catch anything. Such a context is replaced
+ * here, during the tap, where a new one is allowed to start.
  */
 export function micContext(): AudioContext {
-  if (!micCtx) {
+  const state = micCtx?.state as string | undefined;
+  if (!micCtx || state === "closed" || state === "interrupted") {
+    micCtx?.close().catch(() => {});
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     micCtx = new Ctx();
   }
-  if (micCtx.state === "suspended") micCtx.resume().catch(() => {});
+  if (micCtx.state !== "running") micCtx.resume().catch(() => {});
   return micCtx;
+}
+
+/** Forget the mic's context, so the next tap makes a fresh one (after a recording came back empty). */
+export function resetMicContext(): void {
+  micCtx?.close().catch(() => {});
+  micCtx = null;
+}
+
+async function running(ctx: AudioContext): Promise<void> {
+  if (ctx.state === "running") return;
+  await Promise.race([ctx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 1000))]);
 }
 
 export interface RecordOptions {
@@ -125,6 +145,7 @@ export async function startRecording(options: RecordOptions = {}): Promise<Recor
   const { stopOnSilence = true, maxSeconds = 12, sampleRate } = options;
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   const ctx = micContext();
+  await running(ctx);  // 9.42: a context still waking records nothing
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
@@ -132,6 +153,7 @@ export async function startRecording(options: RecordOptions = {}): Promise<Recor
   const chunks: Float32Array[] = [];
   let silentFor = 0;
   let heard = false;
+  let captured = false;
   let finished = false;
   let resolve!: (wav: Blob) => void;
   const done = new Promise<Blob>((r) => (resolve = r));
@@ -150,6 +172,7 @@ export async function startRecording(options: RecordOptions = {}): Promise<Recor
     const samples = new Float32Array(e.inputBuffer.getChannelData(0));
     chunks.push(samples);
     const rms = Math.sqrt(samples.reduce((a, s) => a + s * s, 0) / samples.length);
+    if (rms > 0) captured = true;
     if (rms > 0.02) {
       heard = true;
       silentFor = 0;
@@ -162,7 +185,7 @@ export async function startRecording(options: RecordOptions = {}): Promise<Recor
   source.connect(processor);
   processor.connect(ctx.destination);
   const timer = window.setTimeout(stop, maxSeconds * 1000);
-  return { analyser, done, stop, heard: () => heard };
+  return { analyser, done, stop, heard: () => heard, captured: () => captured };
 }
 
 /**

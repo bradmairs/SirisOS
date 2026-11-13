@@ -7,6 +7,8 @@ import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 const recordings: { maxSeconds?: number }[] = [];
 /** What each recording in turn picks up: speech or nothing. */
 let heardPlan: boolean[] = [];
+/** Whether each recording got any sound at all (9.42: false when the phone's audio was asleep). */
+let capturedPlan: boolean[] = [];
 
 vi.mock("../api/voice", async (importOriginal) => {
   const real = await importOriginal<typeof import("../api/voice")>();
@@ -25,7 +27,8 @@ vi.mock("../api/voice", async (importOriginal) => {
     startRecording: async (options: { maxSeconds?: number } = {}) => {
       recordings.push(options);
       const heard = heardPlan.shift() ?? false;
-      return { analyser: {}, done: Promise.resolve(new Blob(["wav"])), stop: () => {}, heard: () => heard };
+      const captured = capturedPlan.shift() ?? true;
+      return { analyser: {}, done: Promise.resolve(new Blob(["wav"])), stop: () => {}, heard: () => heard, captured: () => captured };
     },
   };
 });
@@ -40,6 +43,7 @@ describe("<Assistant /> voice", () => {
   beforeEach(() => {
     recordings.length = 0;
     heardPlan = [];
+    capturedPlan = [];
   });
 
   it("listens again by itself when SirisAI asks something, in the same conversation", async () => {
@@ -99,5 +103,25 @@ describe("<Assistant /> voice", () => {
     await waitFor(() => expect(recordings).toHaveLength(2));
     expect(await screen.findByText("Tap to talk")).toBeInTheDocument();
     expect(calls.filter((c) => c.url.endsWith("/voice/converse"))).toHaveLength(1);
+  });
+
+  it("doesn't send silence when the phone's microphone gave nothing (9.42)", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/assistant/voice/converse": () => ndjson([{ type: "transcript", text: "" }]),
+      "/api/v1/assistant/voice": () => jsonResponse({ stt: true, tts: true }),
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Assistant />
+      </MemoryRouter>,
+    );
+    heardPlan = [false];
+    capturedPlan = [false];
+    const [orb] = await screen.findAllByRole("button", { name: "Talk to SirisAI" });
+    await user.click(orb);
+    expect(await screen.findByText("The microphone didn't pick anything up. Tap to try again")).toBeInTheDocument();
+    expect(calls.filter((c) => c.url.endsWith("/voice/converse"))).toHaveLength(0);
   });
 });
