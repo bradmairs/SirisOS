@@ -49,6 +49,7 @@ class FakeApps:
         self.calls: list[str] = []
         self.down: set[str] = set()
         self.learn_at_risk = False
+        self.learn_paths: list[dict] = []
         self.captured: list[dict] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -106,6 +107,7 @@ class FakeApps:
                 "review": {"due": 6, "next_due": None, "cards": 40},
                 "recent": [{"kind": "achievement", "title": "Week warrior", "url": "/awards"},
                            {"kind": "quiz_finished", "title": "Moving heat", "url": "/lesson/l1"}],
+                "paths": self.learn_paths,
             })
         if path == "/api/hub/v1/search":
             q = request.url.params.get("q", "")
@@ -313,6 +315,28 @@ def test_sirislearn_streak_at_risk_goes_to_the_inbox(client, apps, tmp_path, mon
     [item] = [i for i in attention.own_items(apps_) if i["source"] == "sirislearn"]
     assert item["title"] == "Your 12-day learning streak ends at midnight"
     assert item["url"] == "https://learn.local/lesson/l2" and item["key"].startswith("sirislearn:streak:")
+
+
+def test_sirislearn_learning_paths(client, apps, tmp_path, monkeypatch):
+    from app.attention import service as attention
+
+    monkeypatch.setenv("SIRISOS_ATTENTION_STATE_PATH", str(tmp_path / "attention.json"))
+    apps.learn_paths = [
+        {"id": "p1", "title": "AI leader", "percent": 40, "status": "on_track", "target_date": "2027-03-31", "days_left": 138, "per_week": 1,
+         "next": {"title": "Transformers and large language models", "url": "/lesson/l4"}, "url": "/path/p1"},
+        {"id": "p2", "title": "Water design", "percent": 10, "status": "behind", "target_date": "2026-12-20", "days_left": 37, "per_week": 3,
+         "next": {"title": "Pumps and system curves", "url": "/lesson/l9"}, "url": "/path/p2"},
+    ]
+    apps_ = list(_by_id(client.get("/api/v1/hub/apps?widgets=true&fresh=true", headers=AUTH).json()).values())
+    learn = next(a for a in apps_ if a["id"] == "sirislearn")
+    items = {i["title"]: i for i in learn["widget"]["items"]}
+    assert items["Path: AI leader"] == {"title": "Path: AI leader", "subtitle": "40% · on track · next: Transformers and large language models",
+                                        "url": "https://learn.local/lesson/l4", "tone": "neutral"}
+    behind = items["Behind on Water design"]
+    assert behind["tone"] == "warning" and behind["subtitle"].startswith("10% · about 3 a week to make 2026-12-20")
+    [item] = [i for i in attention.own_items(apps_) if i["source"] == "sirislearn"]
+    assert item["title"] == 'Your learning path "Water design" is behind' and item["url"] == "https://learn.local/lesson/l9"
+    assert item["key"].startswith("sirislearn:path:Water design:")
 
 
 def test_sirislearn_needs_its_hub_key(client, monkeypatch):

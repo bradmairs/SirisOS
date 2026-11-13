@@ -58,6 +58,17 @@ class SirisLearnConnector(Connector):
         if at_risk:
             items.insert(0, WidgetItem(title=f"Your {days}-day streak ends at midnight", subtitle="Finish a quiz today to keep it",
                                        url=self.link(nxt.get("url")) if isinstance(nxt, dict) else self.launch_url, tone="warning"))
+        for path in (s.get("paths") or [])[:2]:  # learning paths (SirisLearn 1.4)
+            if not isinstance(path, dict) or not path.get("title"):
+                continue
+            behind = path.get("status") in ("behind", "overdue")
+            step = path.get("next") if isinstance(path.get("next"), dict) else {}
+            pace = (f"about {path['per_week']} a week to make {path['target_date']}" if behind and path.get("per_week") and path.get("status") == "behind"
+                    else "past its target date" if path.get("status") == "overdue"
+                    else "on track" if path.get("status") == "on_track" else "")
+            subtitle = " · ".join(p for p in (f"{path.get('percent', 0)}%", pace, f"next: {step['title']}" if step.get("title") else "") if p)
+            items.append(WidgetItem(title=f"Behind on {path['title']}" if behind else f"Path: {path['title']}", subtitle=subtitle,
+                                    url=self.link(step.get("url") or path.get("url")), tone="warning" if behind else "neutral"))
         review = s.get("review") if isinstance(s.get("review"), dict) else {}
         if review.get("due"):
             due = int(review["due"])
