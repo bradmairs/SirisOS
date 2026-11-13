@@ -4,7 +4,7 @@ import { mind, type Habit } from "../api/mind";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 
-/** Today's habits on Home (9.3): one tap to tick, and a streak at risk says so from the evening. Nothing when you have none. */
+/** Today's habits on Home (9.4): one tap to tick, and a streak at risk says so from the evening. Nothing when you have none. */
 export function HabitsHomeWidget() {
   const res = useResource<{ habits: Habit[] }>("mind:habits", () => mind.habits(), { staleMs: 60_000, persist: true });
   const habits = res.data?.habits ?? [];

@@ -1,6 +1,6 @@
 import { api } from "./client";
 
-/** The iPhone widget's feed (9.3): a read-only glance behind its own key. */
+/** The iPhone widget's feed (9.4): a read-only glance behind its own key. */
 export const glance = {
   status: () => api<{ set: boolean; created: string | null }>("/api/v1/glance/key"),
   newKey: () => api<{ key: string }>("/api/v1/glance/key", { method: "POST" }),

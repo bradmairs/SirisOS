@@ -1,6 +1,6 @@
 import { api, json } from "./client";
 
-/** Documents and renewals (9.3): what expires that never arrives by email, with reminders before it does. */
+/** Documents and renewals (9.4): what expires that never arrives by email, with reminders before it does. */
 export type RenewalKind = "passport" | "licence" | "rego" | "insurance" | "medicare" | "warranty" | "membership" | "other";
 export interface Renewal { id: string; name: string; kind: RenewalKind; expires: string; note: string; days_left: number; state: "expired" | "soon" | "later" | "fine" }
 

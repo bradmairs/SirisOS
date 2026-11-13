@@ -1,4 +1,4 @@
-"""Documents and renewals (9.3): what expires that never arrives by email (a
+"""Documents and renewals (9.4): what expires that never arrives by email (a
 passport, a driver's licence, car rego, an insurance policy, a Medicare card,
 a warranty), each with its expiry date. Reminders go 60, 30 and 7 days before
 and on the day; Life lists them soonest first and the Today timeline shows any

@@ -200,7 +200,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.0: SirisGym: sheets close only from the top tab, the picker's search can't close it by mistake, last time's sets in every workout (GET /gym/last)
 9.1: Health's Mental health tab: mood (Apple Health's State of Mind or a quick log), mindful minutes, what goes with a better mood, breathing, grounding, reframing, three good things, a journal and where to get help
 9.2: Face ID for the Mental health journal, mood against drinks, caffeine and the gym, mood from Apple Health only, and a Habits tab with streaks
-9.3: Habits on Home and in what helps, mind and habits in the weekly review, documents and renewals with reminders, an iPhone widget (Scriptable) with its own read-only key, a smaller first download, and setup checks for mood and the journal lock
+9.4: Habits on Home and in what helps, mind and habits in the weekly review, documents and renewals with reminders, an iPhone widget (Scriptable) with its own read-only key, a smaller first download, and setup checks for mood and the journal lock
 
 ## Terminal (ADR 113)
 

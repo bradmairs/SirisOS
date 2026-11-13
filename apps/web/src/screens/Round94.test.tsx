@@ -17,7 +17,7 @@ afterEach(() => { clearResources(); vi.restoreAllMocks(); });
 
 const habit = (over: Partial<Habit>): Habit => ({ id: "h1", name: "Stretch", created: "2026-11-01", streak: 0, best: 0, today: false, rate: 0, month: [], ...over });
 
-describe("SirisOS 9.3", () => {
+describe("SirisOS 9.4", () => {
   it("ticks today's habits from Home, and warns of a streak at risk in the evening", async () => {
     signIn();
     vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date(2026, 10, 13, 19, 0) });

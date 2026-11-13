@@ -1,4 +1,4 @@
-"""9.3: documents and renewals, the iPhone widget's glance, habits in what helps and the review."""
+"""9.4: documents and renewals, the iPhone widget's glance, habits in what helps and the review."""
 
 from datetime import datetime, timedelta
 

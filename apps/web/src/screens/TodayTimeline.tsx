@@ -45,7 +45,7 @@ export function buildDay(now: Date, src: {
     const days = Math.round((new Date(t.start.slice(0, 10) + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86_400_000);
     if (days >= 0 && days <= 14) soon.push({ key: `trip:${t.key}`, kind: "trip", time: null, text: days === 0 ? `Off to ${t.destination} today` : `${t.destination} in ${days} day${days === 1 ? "" : "s"}`, sub: t.nights ? `${t.nights} nights` : undefined });
   }
-  // 9.3: a document or renewal expiring within the week (or already expired).
+  // 9.4: a document or renewal expiring within the week (or already expired).
   for (const r of src.renewals ?? []) {
     if (r.days_left <= 7) soon.push({ key: `r:${r.id}`, kind: "renewal", time: null, text: r.days_left < 0 ? `${r.name} has expired` : r.days_left === 0 ? `${r.name} expires today` : `${r.name} expires in ${r.days_left} day${r.days_left === 1 ? "" : "s"}` });
   }

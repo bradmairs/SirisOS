@@ -10,7 +10,7 @@ const day = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(unde
 const when = (r: Renewal) => (r.days_left < 0 ? `expired ${-r.days_left} day${r.days_left === -1 ? "" : "s"} ago` : r.days_left === 0 ? "expires today"
   : r.days_left <= 90 ? `in ${r.days_left} day${r.days_left === 1 ? "" : "s"}` : day(r.expires));
 
-/** Documents and renewals (9.3): passport, licence, rego, insurance and the like, soonest first. Reminders come 60, 30
+/** Documents and renewals (9.4): passport, licence, rego, insurance and the like, soonest first. Reminders come 60, 30
  * and 7 days before and on the day; renewed, so tap the date and set the new one. */
 export function RenewalsCard() {
   const res = useResource<{ renewals: Renewal[] }>("renewals", () => renewals.list(), { staleMs: 60_000, persist: true });

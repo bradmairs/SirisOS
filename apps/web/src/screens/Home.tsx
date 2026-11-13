@@ -26,7 +26,7 @@ import { ActivityWidget, AppHealthWidget, ClockWidget, ComingUpWidget, ServerWid
 import { CamerasWidget, CarWidget, EnergyWidget, ProtocolsWidget, SirisParcelsWidget, useSirisWidgets } from "./SirisControls";
 import { HabitsHomeWidget } from "./HabitsWidget";
 
-/** 9.3: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
+/** 9.4: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
  * (with Mental health), Training, Work, Maintenance, SirisGym's cards and the inbox just for their Home cards. */
 function lazyCard<P extends object>(load: () => Promise<ComponentType<P>>): (props: P) => JSX.Element {
   const Card = lazy(() => load().then((c) => ({ default: c as ComponentType<object> })));

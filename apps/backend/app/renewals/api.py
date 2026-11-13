@@ -1,4 +1,4 @@
-"""Documents and renewals (9.3). See service.py.
+"""Documents and renewals (9.4). See service.py.
 
     GET    /api/v1/renewals             soonest first, each with days_left and state (expired, soon, later, fine)
     POST   /api/v1/renewals             {name, kind, expires, note?}

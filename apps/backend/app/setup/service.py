@@ -132,7 +132,7 @@ async def health(hub: Hub) -> list[dict[str, Any]]:
 
 
 async def mind(hub: Hub) -> list[dict[str, Any]]:
-    """9.3: mood and mindful minutes arriving from Apple Health for Mental health, and Face ID for its journal."""
+    """9.4: mood and mindful minutes arriving from Apple Health for Mental health, and Face ID for its journal."""
     from app.security import service as security
 
     body = await sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": 14}) if sirisai_api.connector(hub) else None

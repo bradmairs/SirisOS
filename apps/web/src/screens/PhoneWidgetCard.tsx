@@ -3,7 +3,7 @@ import { Smartphone } from "lucide-react";
 import { glance, widgetScript } from "../api/glance";
 import { Glass } from "../components/Glass";
 
-/** The iPhone widget (9.3): a read-only key for its feed, and the Scriptable script to paste. A new key stops the old. */
+/** The iPhone widget (9.4): a read-only key for its feed, and the Scriptable script to paste. A new key stops the old. */
 export function PhoneWidgetCard() {
   const [status, setStatus] = useState<{ set: boolean; created: string | null } | null>(null);
   const [key, setKey] = useState<string | null>(null);

@@ -133,7 +133,7 @@ def patterns(days: list[dict[str, Any]], habits: list[dict[str, Any]] | None = N
     split("alcohol", drank, "the day after 3 drinks or more", "after fewer")
     split("caffeine", lambda d, _: None if d.get("caffeine_mg") is None else d["caffeine_mg"] >= 300, "on days with 300 mg of caffeine or more", "on days with less")
     split("gym", lambda d, _: d.get("gym"), "on days you trained at the gym", "on days you didn't")
-    # 9.3: each habit, on the days since you started it.
+    # 9.4: each habit, on the days since you started it.
     for h in habits or []:
         done, since = set(h.get("done", [])), h.get("created", "")
         split(f"habit:{h['id']}", lambda d, _, done=done, since=since: None if d["date"] < since else d["date"] in done,
@@ -410,7 +410,7 @@ def change_habit(habit_id: str, name: str | None = None, archived: bool | None =
 
 
 def week(days: list[dict[str, Any]], monday: date, today_: date) -> dict[str, Any] | None:
-    """The review's line (9.3): this week's mood and mindful minutes from Apple Health against last week's, and each
+    """The review's line (9.4): this week's mood and mindful minutes from Apple Health against last week's, and each
     habit's ticks this week. None when there's nothing to say."""
     this = [d for d in days if monday.isoformat() <= d.get("date", "") <= today_.isoformat()]
     last = [d for d in days if (monday - timedelta(days=7)).isoformat() <= d.get("date", "") < monday.isoformat()]

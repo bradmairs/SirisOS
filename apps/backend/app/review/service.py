@@ -138,7 +138,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
 
 
 def _mind_week(days: list[dict[str, Any]], monday: date, today: date) -> dict[str, Any] | None:
-    """Mood and mindful minutes from Apple Health, and habits (9.3)."""
+    """Mood and mindful minutes from Apple Health, and habits (9.4)."""
     from app.mind import service as mind
 
     try:

@@ -1,4 +1,4 @@
-"""A glance for an iPhone Home Screen widget (9.3). A web app can't make a widget, but Scriptable (or Shortcuts) can
+"""A glance for an iPhone Home Screen widget (9.4). A web app can't make a widget, but Scriptable (or Shortcuts) can
 draw one from a small feed. The feed is read-only and opens with its own key, not your sign-in: make one in Settings,
 paste it into the widget script, and make a new one (which stops the old) if a phone is lost.
 

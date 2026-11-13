@@ -1008,7 +1008,7 @@ async def start_rest(body: RestRequest) -> dict[str, Any]:
     if (old := _rest.pop("current", None)) is not None:
         old.cancel()
     _rest["current"] = asyncio.create_task(_ring(body.seconds, body.next))
-    rest_info.update(until=time.time() + body.seconds, next=body.next)  # for the iPhone widget (9.3)
+    rest_info.update(until=time.time() + body.seconds, next=body.next)  # for the iPhone widget (9.4)
     return {"ringing_in": body.seconds}
 
 
