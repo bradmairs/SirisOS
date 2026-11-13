@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Mail, PiggyBank, Plus, Table2, Trash2, Wallet } from "lucide-react";
 import {
-  EMPTY, EVERY, PRESETS, SECTIONS, SECTION_HINT, SECTION_LABEL, budget, goals, money, monthly, newLine, per, rule503020,
+  EMPTY, EVERY, PRESETS, SECTIONS, SECTION_HINT, SECTION_LABEL, budget, goals, money, monthly, newLine, nextPay, per, rule503020,
   savingsProjection, totals, type Budget, type Every, type Line, type Period, type Section,
 } from "../api/budget";
 import { Glass } from "../components/Glass";
@@ -49,6 +49,16 @@ function LineRows({ lines, section, onChange, currency }: {
                   <input className="field" type="number" inputMode="decimal" min={0} value={l.goal ?? ""} placeholder="none" aria-label={`${l.name || "Line"}: goal`}
                     onChange={(e) => update(l.id, { goal: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })} />
                 </label>
+              </span>
+            )}
+            {section === "income" && (
+              <span className="budget-line__pay">
+                {/* 9.5: a pay day; SirisAI reminds you that morning and Home shows it on the day. */}
+                <label><span className="muted">Pay day</span>
+                  <input className="field" type="date" value={l.pay_day ?? ""} aria-label={`${l.name || "Line"}: pay day`}
+                    onChange={(e) => update(l.id, { pay_day: e.target.value || undefined })} />
+                </label>
+                {(() => { const n = nextPay(l); return n ? <span className="muted budget-line__next">Next {new Date(`${n}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</span> : null; })()}
               </span>
             )}
             <span className="budget-line__monthly muted">{money(monthly(l), currency)}/mo</span>

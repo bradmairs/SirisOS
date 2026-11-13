@@ -16,7 +16,11 @@ export interface Line {
   goal?: number;
   saved?: number;
   note?: string;
+  /** 9.5, income only: a day it's paid (any one); the next follows from how often. */
+  pay_day?: string;
 }
+
+export interface PayDay { id: string; name: string; amount: number; every: Every; next: string; days: number }
 
 export interface Totals { income: number; expenses: number; savings: number; spending: number; left: number }
 
@@ -27,6 +31,31 @@ export interface Budget {
   history: ({ month: string } & Totals)[];
   totals: Totals;
   updated_at?: string;
+  pay_days?: PayDay[];
+}
+
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/** The next pay day on or after `today` (9.5), as SirisOS works it out: monthly pay on the 31st falls on the last day of shorter months. */
+export function nextPay(line: Pick<Line, "pay_day" | "every">, today = new Date()): string | null {
+  if (!line.pay_day || !/^\d{4}-\d{2}-\d{2}$/.test(line.pay_day)) return null;
+  const [y, m, d] = line.pay_day.split("-").map(Number);
+  const start = new Date(y, m - 1, d);
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (start >= t) return iso(start);
+  if (line.every === "weekly" || line.every === "fortnightly") {
+    const step = line.every === "weekly" ? 7 : 14;
+    const days = Math.round((t.getTime() - start.getTime()) / 86_400_000);
+    const out = new Date(start); out.setDate(start.getDate() + Math.ceil(days / step) * step);
+    return iso(out);
+  }
+  const months = line.every === "quarterly" ? 3 : line.every === "yearly" ? 12 : 1;
+  let k = Math.floor(((t.getFullYear() - y) * 12 + t.getMonth() - (m - 1)) / months);
+  for (let i = 0; i < 3; i++, k++) {
+    const yy = y + Math.floor((m - 1 + k * months) / 12), mm = (m - 1 + k * months) % 12;
+    const out = new Date(yy, mm, Math.min(d, new Date(yy, mm + 1, 0).getDate()));
+    if (out >= t) return iso(out);
+  }
+  return null;
 }
 
 export const SECTIONS: Section[] = ["expenses", "savings", "spending"];
@@ -110,6 +139,8 @@ export const budget = {
   save: (b: Pick<Budget, "currency" | "income" | "sections">) =>
     api<Budget>(B, { method: "PUT", body: JSON.stringify({ currency: b.currency, income: b.income, sections: b.sections }) }),
   fromBills: () => api<Pick<Line, "name" | "amount" | "every" | "note">[]>(`${B}/from-bills`),
+  /** 9.5: each income line's next pay day; `today` is what's paid today, for Home. */
+  payDays: () => api<{ currency: string; pay_days: PayDay[]; today: PayDay[] }>(`${B}/pay-days`),
   /** Unsaved changes kept on this device when SirisOS can't be reached. */
   draft: {
     read(): Pick<Budget, "currency" | "income" | "sections"> | null {

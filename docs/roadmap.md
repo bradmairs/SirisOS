@@ -204,6 +204,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.41: public-repo hardening: never sign with a published key or accept a published password, read-only CI, SECURITY.md
 9.42: lights show what they really are: a tap's answer only stands until the next read, and SirisAI 6.6 waits for the light to switch
 9.44: SirisGym: every exercise names its helper muscles (built-ins fixed, yours filled once from the name), Helped by in New and Edit exercise, and recovery counts helpers
+9.5: Pay day for each income line in Budget, with a SirisAI reminder at 8am on the day (SirisAI 6.71) and a Pay day card on Home
 
 ## Terminal (ADR 113)
 
