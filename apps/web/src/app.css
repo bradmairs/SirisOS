@@ -1239,6 +1239,12 @@ section:has(> .widget-grid:empty) { display: none; }
 .budget-line__amount { display: flex; align-items: center; gap: 4px; color: var(--ink-3); }
 .budget-line__amount .field, .budget-line__goal .field { width: 100%; min-width: 0; }
 .budget-line__goal { display: flex; gap: 6px; }
+/* 9.5: an income line's pay day */
+.budget-line:has(.budget-line__pay) { grid-template-columns: minmax(120px, 1.4fr) minmax(90px, 0.8fr) minmax(110px, 0.9fr) minmax(200px, 1.2fr) auto auto; }
+.budget-line__pay { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.budget-line__pay label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.budget-line__pay .field { min-width: 140px; }
+.budget-line__next { font-size: 12px; white-space: nowrap; }
 .budget-line__goal label { display: flex; align-items: center; gap: 6px; font-size: 13px; flex: 1; }
 .budget-line__goal .field { width: 100%; min-width: 90px; }
 .budget-line__monthly { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1264,6 +1270,8 @@ section:has(> .widget-grid:empty) { display: none; }
 .timeline__group { margin: 8px 0 2px 74px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
 @media (max-width: 640px) {
   .budget-line:has(.budget-line__goal) { grid-template-columns: 1fr 1fr; }
+  .budget-line:has(.budget-line__pay) { grid-template-columns: 1fr 1fr; }
+  .budget-line__pay { grid-column: 1 / -1; }
 }
 .budget-line__goal label > span { white-space: nowrap; flex: none; }
 .budget .button { max-width: 100%; white-space: normal; text-align: left; }
@@ -1346,3 +1354,4 @@ section:has(> .widget-grid:empty) { display: none; }
 .renewal-date { width: auto; max-width: 150px; flex: none; font-size: 13px; padding: 6px 8px; }
 /* 9.4: a card title that can't shrink and a button beside it: the button goes under, on the right, rather than off a phone's screen. */
 .widget__head:has(> .button) { flex-wrap: wrap; row-gap: 6px; }
+.budget-line__pay label > span { white-space: nowrap; flex: none; }

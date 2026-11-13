@@ -46,7 +46,7 @@ const yearReview = { year: 2026, sessions: 132, hours: 141.5, sets: 2650, volume
 const heat = { days: Array.from({ length: 120 }, (_, i) => { const d = new Date(Date.now() - i * 3 * 86400000); return { date: d.toISOString().slice(0, 10), volume: 4000 + (i % 5) * 1500, sets: 18, muscles: ["chest"] }; }) };
 const budgetFixture = {
   currency: "AUD",
-  income: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly" }, { id: "i2", name: "Side work", amount: 400, every: "monthly" }],
+  income: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly", pay_day: "2026-11-06" }, { id: "i2", name: "Side work", amount: 400, every: "monthly" }],
   sections: {
     expenses: [{ id: "e1", name: "Rent", amount: 2000, every: "monthly" }, { id: "e2", name: "Power and gas", amount: 420, every: "quarterly" },
       { id: "e3", name: "Car rego", amount: 900, every: "yearly" }, { id: "e4", name: "Netflix", amount: 22.99, every: "monthly" }],
@@ -91,6 +91,7 @@ const lab = { clients: { total: 34, online: 21 }, sources: { network: true, serv
   { id: "own:ups", label: "Eaton UPS", kind: "ups", parent: "net:sw", online: null, found: "you" }] };
 const FIXTURES = [
   ["/api/v1/homelab", lab],
+  ["/api/v1/budget/pay-days", { currency: "AUD", pay_days: [], today: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly", next: "2026-11-20", days: 0 }] }],
   ["/api/v1/budget", budgetFixture],
   ["/api/v1/life/things", thingsFixture],
   ["/api/v1/life/people", peopleFixture],

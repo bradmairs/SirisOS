@@ -3,6 +3,7 @@
     GET  /api/v1/budget              income, the three sections, monthly totals and history
     PUT  /api/v1/budget              the whole budget (income and sections), saved as one
     GET  /api/v1/budget/from-bills   SirisAI's renewals and bills found in email, as expense lines to add
+    GET  /api/v1/budget/pay-days     (9.5) each income line's next pay day; `today` lists the ones paid today, for Home
 """
 
 from __future__ import annotations
@@ -25,11 +26,23 @@ def get_budget() -> dict[str, Any]:
 
 
 @router.put("")
-def put_budget(body: dict[str, Any]) -> dict[str, Any]:
+async def put_budget(body: dict[str, Any], hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     try:
-        return service.save(body)
+        out = service.save(body)
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+    try:  # 9.5: SirisAI's pay day reminders follow the budget; it's saved either way
+        await service.sync_pay_reminders(hub)
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+@router.get("/pay-days")
+def get_pay_days() -> dict[str, Any]:
+    doc = service.get()
+    days = doc["pay_days"]
+    return {"currency": doc.get("currency", "AUD"), "pay_days": days, "today": [p for p in days if p["days"] == 0]}
 
 
 @router.get("/from-bills")

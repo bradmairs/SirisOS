@@ -195,6 +195,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         out += await nudges.messages(hub, now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: nudges unavailable: %s", exc)
+    try:  # 9.5: SirisAI's pay day reminders roll on to the next pay day (it only calls SirisAI when one changes)
+        from app.budget import service as budget
+
+        await budget.sync_pay_reminders(hub)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: pay day reminders unavailable: %s", exc)
     try:
         from app.renewals import service as renewals
 
