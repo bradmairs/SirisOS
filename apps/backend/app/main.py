@@ -13,11 +13,11 @@ from pydantic import BaseModel
 
 from app.auth import JWT_ALGORITHM, CurrentUser
 from app.service_key import ServiceKeyMiddleware
+from app.secrets_config import jwt_secret
 
-API_VERSION = "9.4"
+API_VERSION = "9.41"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
-AUTH_PASSWORD = os.getenv("SIRISOS_ADMIN_PASSWORD", "change-me")
-JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
+
 JWT_EXPIRY_HOURS = int(os.getenv("SIRISOS_JWT_EXPIRY_HOURS", "24"))
 
 
@@ -69,7 +69,7 @@ def _create_access_token(username: str) -> tuple[str, int]:
         "exp": now + timedelta(seconds=expires_in),
         "iss": "sirisos-api",
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM), expires_in
+    return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALGORITHM), expires_in
 
 
 @app.get("", include_in_schema=False)
@@ -94,8 +94,14 @@ async def login(credentials: LoginRequest, request: Request) -> TokenResponse:
                             headers={"Retry-After": str(wait)})
     if not security.password_signin():
         raise HTTPException(status_code=403, detail="Password sign-in is off: use your passkey.")
+    from app.secrets_config import admin_password
+
+    allowed = admin_password()
+    if allowed is None:  # 9.5: no password, or a published default one, never signs in
+        security.failed(client)
+        raise HTTPException(status_code=403, detail="Password sign-in is off until SIRISOS_ADMIN_PASSWORD is set (scripts/reset-password.sh). Use your passkey.")
     if not secrets.compare_digest(credentials.username, AUTH_USERNAME) or not secrets.compare_digest(
-        credentials.password, AUTH_PASSWORD
+        credentials.password.encode(), allowed.encode()
     ):
         security.failed(client)
         raise HTTPException(status_code=401, detail="Incorrect username or password.")

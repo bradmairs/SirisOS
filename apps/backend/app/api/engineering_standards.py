@@ -17,10 +17,11 @@ from pydantic import BaseModel
 from app.services.engineering_standards_ocr import extract_standard_pages
 from app.services.engineering_standards_search import rank_pages
 from app.services.json_cache import load_json
+from app.secrets_config import jwt_secret
 
 router = APIRouter(prefix="/api/v1/engineering/standards", tags=["engineering"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
-JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
+
 LIBRARY_ROOT = Path(os.getenv("SIRISOS_STANDARDS_PATH", "/app/data/standards"))
 MAX_UPLOAD_BYTES = int(os.getenv("SIRISOS_STANDARDS_MAX_UPLOAD_MB", "100")) * 1024 * 1024
 
@@ -71,7 +72,7 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
     try:
         payload = jwt.decode(
             authorization.removeprefix("Bearer ").strip(),
-            JWT_SECRET,
+            jwt_secret(),
             algorithms=["HS256"],
             issuer="sirisos-api",
         )

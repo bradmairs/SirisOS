@@ -3,13 +3,14 @@ import json
 
 import jwt
 
+from app import secrets_config
 from app.api import sirishydro
 
 
 def _token() -> str:
     return "Bearer " + jwt.encode(
         {"sub": sirishydro.AUTH_USERNAME, "iss": "sirisos-api"},
-        sirishydro.JWT_SECRET,
+        secrets_config.jwt_secret(),
         algorithm="HS256",
     )
 

@@ -16,7 +16,7 @@ from tests.test_hub import AUTH
 
 @pytest.mark.parametrize("ip, network", [
     ("192.168.0.42", "home"), ("10.0.0.5", "home"), ("127.0.0.1", "home"), ("100.101.5.9", "vpn"),
-    ("149.167.20.9", "internet"), ("::ffff:192.168.0.9", "home"), ("nonsense", "unknown"),
+    ("203.0.113.9", "internet"), ("::ffff:192.168.0.9", "home"), ("nonsense", "unknown"),
 ])
 def test_networks(ip, network):
     assert access.network_of(ip) == network
@@ -29,10 +29,10 @@ def test_check_reports_where_from_and_terminal_hosts(monkeypatch):
     port = listener.getsockname()[1]
     monkeypatch.setenv("SIRISOS_TERMINAL_HOSTS", f"home=brad@127.0.0.1:{port},gone=brad@127.0.0.1:1")
     try:
-        body = TestClient(app).get("/api/v1/access", headers={**AUTH, "X-Forwarded-For": "149.167.20.9, 172.18.0.3"}).json()
+        body = TestClient(app).get("/api/v1/access", headers={**AUTH, "X-Forwarded-For": "203.0.113.9, 172.18.0.3"}).json()
     finally:
         listener.close()
-    assert body["client_ip"] == "149.167.20.9" and body["network"] == "internet"
+    assert body["client_ip"] == "203.0.113.9" and body["network"] == "internet"
     assert [(h["name"], h["reachable"]) for h in body["terminal"]["hosts"]] == [("home", True), ("gone", False)]
     assert body["certificate"] is None  # plain http here
 

@@ -4,13 +4,14 @@ from pathlib import Path
 
 import jwt
 
+from app import secrets_config
 from app.api import engineering_calculations, engineering_standards, projects
 
 
 def _token() -> str:
     return "Bearer " + jwt.encode(
         {"sub": projects.AUTH_USERNAME, "iss": "sirisos-api"},
-        projects.JWT_SECRET,
+        secrets_config.jwt_secret(),
         algorithm="HS256",
     )
 

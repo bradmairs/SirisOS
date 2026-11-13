@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.services import json_store
+from app.secrets_config import jwt_secret
 
 TTL_SECONDS = 48 * 3600
 MAX_USED = 1000
@@ -35,7 +36,7 @@ class BadToken(Exception):
 
 
 def _key() -> bytes:
-    secret = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
+    secret = jwt_secret()
     return hashlib.sha256(f"sirisos-push-actions:{secret}".encode()).digest()
 
 

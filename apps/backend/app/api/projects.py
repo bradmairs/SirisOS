@@ -8,6 +8,7 @@ import jwt
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from app.secrets_config import jwt_secret
 from app.services.project_service import (
     ProjectKind,
     ProjectNotFoundError,
@@ -18,7 +19,7 @@ from app.services.project_service import (
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
-JWT_SECRET = os.getenv("SIRISOS_JWT_SECRET", "change-this-development-secret")
+
 PROJECTS_PATH = Path(os.getenv("SIRISOS_PROJECTS_PATH", "/app/data/projects.json"))
 PROJECT_CONTEXT_PATH = Path(
     os.getenv("SIRISOS_PROJECT_CONTEXT_PATH", "/app/data/project-context.json")
@@ -71,7 +72,7 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
     try:
         payload = jwt.decode(
             authorization.removeprefix("Bearer ").strip(),
-            JWT_SECRET,
+            jwt_secret(),
             algorithms=["HS256"],
             issuer="sirisos-api",
         )
