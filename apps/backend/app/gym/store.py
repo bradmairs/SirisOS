@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
@@ -288,6 +288,7 @@ class GymDoc(BaseModel):
     cleaned_empty: bool = True  # the one-time tidy of exercises with no data (6.95); False only in files from before it
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
     import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it
+    muscles_filled: bool = True  # your exercises' helper muscles filled in from their names (9.44); False only in files from before it
     cues: dict[str, str] = Field(default_factory=dict)  # 8.8: your form cues per exercise (built-ins have defaults)
     # Sessions whose start wasn't a time (8.7), kept as they were rather than breaking every page or being deleted.
     quarantined: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
@@ -498,7 +499,7 @@ def load() -> GymDoc:
     if bad:  # 8.7: set aside, never lost
         raw["sessions"] = [s for s in raw.get("sessions") or [] if _valid_start(s)]
         raw["quarantined"] = [*(raw.get("quarantined") or []), *bad][-200:]
-    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, "import_titles": False, **raw})
+    doc = GymDoc.model_validate({"cleaned_empty": False, "import_times_local": False, "import_titles": False, "muscles_filled": False, **raw})
     if bad:
         backup("before-quarantine")
         save(doc)
@@ -525,6 +526,21 @@ def load() -> GymDoc:
         for s in old:
             s.title = service.trained_title(doc, s.entries)
         doc.import_titles = True
+        save(doc)
+    if not doc.muscles_filled:
+        # Once (9.44): your exercises get the helper muscles their names say (and a main one when it was only guessed as
+        # "full body"), so sets per muscle and recovery count all of a lift. A copy is kept first, and the last week's
+        # workouts go to SirisAI again so its picture of your training follows.
+        from app.gym import anatomy
+
+        changed = anatomy.fill(doc)
+        if changed:
+            backup("before-muscles")
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            for s in doc.sessions:
+                if (s.started_at or "") >= cutoff[:10]:
+                    s.ai_pending = True
+        doc.muscles_filled = True
         save(doc)
     return doc
 

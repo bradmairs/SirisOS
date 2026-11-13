@@ -5,6 +5,7 @@
     POST   /api/v1/gym/exercises             your own exercise {name, primary, secondary, equipment, kind}
     DELETE /api/v1/gym/exercises/{id}
     GET    /api/v1/gym/exercises/{id}        its history, records, last time, and a chart series
+    GET    /api/v1/gym/anatomy?name=         (9.44) the main muscle and helpers a name says
     GET    /api/v1/gym/last?exercises=a,b&exclude=   (9.0) each exercise's sets last time, for a workout with no plan
     GET    /api/v1/gym/templates             starter routines
     POST   /api/v1/gym/routines              a routine (or {template: id} to copy one)
@@ -229,6 +230,15 @@ def put_settings(body: store.Settings) -> dict[str, Any]:
     return {**body.model_dump(exclude={"voice_key_hash"}), "voice_key": bool(body.voice_key_hash)}
 
 
+@router.get("/anatomy")
+def anatomy_for(name: str = Query(default="", max_length=80)) -> dict[str, Any]:
+    """The main muscle and helpers an exercise's name says (9.44), to fill the new-exercise form."""
+    from app.gym import anatomy
+
+    found = anatomy.muscles_for(name)
+    return {"primary": found[0], "secondary": list(found[1])} if found else {"primary": None, "secondary": []}
+
+
 @router.post("/exercises")
 def add_exercise(body: store.CustomExercise) -> dict[str, Any]:
     from app.gym import library
@@ -262,6 +272,13 @@ def _change_exercise(doc: store.GymDoc, exercise_id: str, changes: dict[str, Any
     for k, v in changes.items():
         if v is not None:
             setattr(found, k, v)
+    found.secondary = [m for m in found.secondary if m != found.primary]  # 9.44: a muscle doesn't help itself
+    if changes.get("primary") and "secondary" not in changes and not found.secondary:
+        from app.gym import anatomy
+
+        said = anatomy.muscles_for(found.name)
+        if said and said[0] == found.primary:
+            found.secondary = [m for m in said[1] if m != found.primary]
     return found
 
 
