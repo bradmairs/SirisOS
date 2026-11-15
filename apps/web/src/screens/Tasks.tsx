@@ -10,8 +10,8 @@ const ORDER: TaskGroup[] = ["overdue", "today", "week", "later", "someday"];
 const SOURCE_ICON = { sirisos: ListTodo, siris: BrainCircuit, reminder: Sparkles } as const;
 const SOURCE_LABEL = { sirisos: "Task", siris: "Siris", reminder: "SirisAI reminder" } as const;
 
-export function useTasks() {
-  return useResource<TaskList>("tasks:list", () => tasks.list(), { staleMs: 30_000, persist: true });
+export function useTasks(all = false) {
+  return useResource<TaskList>(all ? "tasks:list:all" : "tasks:list", () => tasks.list(all), { staleMs: 30_000, persist: true });
 }
 
 /** One task: tick it, push it to later, or (for SirisOS's own) delete it. */
@@ -124,7 +124,9 @@ function localToday(): string {
 }
 
 export function TasksScreen() {
-  const res = useTasks();
+  // 9.51: at the weekend, work tasks stay out of the way unless you ask for them.
+  const [showWork, setShowWork] = useState(false);
+  const res = useTasks(showWork);
   const data = res.data ?? null;
   const [text, setText] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -189,6 +191,17 @@ export function TasksScreen() {
       </Glass>
       {note && <p className="tone-good suggest__done" role="status" style={{ marginTop: 10 }}><Check size={14} aria-hidden="true" /> {note}</p>}
       {error && <p className="tone-critical" role="alert">{error}</p>}
+      {data?.weekend && (data.hidden_work ?? 0) > 0 && (
+        <p className="muted" style={{ marginTop: 10, fontSize: 13 }}>
+          {data.hidden_work} work task{data.hidden_work === 1 ? "" : "s"} left for Monday.{" "}
+          <button type="button" className="brief-link link-button" onClick={() => setShowWork(true)}>Show them</button>
+        </p>
+      )}
+      {data?.weekend && showWork && (
+        <p className="muted" style={{ marginTop: 10, fontSize: 13 }}>
+          <button type="button" className="brief-link link-button" onClick={() => setShowWork(false)}>Hide work tasks for the weekend</button>
+        </p>
+      )}
       <div className="stack" style={{ marginTop: 14 }}>
         {!data && !res.error && <div className="skeleton" style={{ height: 160 }} aria-label="Loading tasks" />}
         {!data && res.error && <p className="tone-critical">{res.error}</p>}

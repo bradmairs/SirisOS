@@ -1355,3 +1355,5 @@ section:has(> .widget-grid:empty) { display: none; }
 /* 9.4: a card title that can't shrink and a button beside it: the button goes under, on the right, rather than off a phone's screen. */
 .widget__head:has(> .button) { flex-wrap: wrap; row-gap: 6px; }
 .budget-line__pay label > span { white-space: nowrap; flex: none; }
+/* 9.51: a link that does something on the page */
+.link-button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }

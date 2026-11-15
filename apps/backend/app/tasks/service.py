@@ -140,9 +140,19 @@ def _snoozed(doc: store.TasksDocument, key: str) -> date | None:
     return date.fromisoformat(o.snoozed_until) if o and o.snoozed_until else None
 
 
-async def collect(hub: Hub, on: date | None = None) -> dict[str, Any]:
-    """{groups: {overdue: [...], ...}, counts}: SirisOS's own open tasks."""
+def weekend(on: date) -> bool:
+    return on.weekday() >= 5
+
+
+async def collect(hub: Hub, on: date | None = None, include_work: bool | None = None) -> dict[str, Any]:
+    """{groups: {overdue: [...], ...}, counts}: SirisOS's own open tasks.
+
+    9.51: on a Saturday or Sunday, work tasks are left out (`hidden_work` says how many), so Home, the timeline,
+    nudges and the widget don't put work in front of you at the weekend. `include_work=True` keeps them (the Tasks
+    page's "show them", and the Sunday review, which plans the week ahead)."""
     on = on or today()
+    if include_work is None:
+        include_work = not weekend(on)
     doc = store.load()
     items: list[dict[str, Any]] = []
 
@@ -157,8 +167,13 @@ async def collect(hub: Hub, on: date | None = None) -> dict[str, Any]:
     def order(i: dict[str, Any]) -> tuple:
         return (i["due"] is None, i["due"] or "", i.get("time") or "99:99", (i["title"] or "").lower())
 
+    hidden = 0
+    if not include_work:
+        hidden = sum(1 for i in items if i["area"] == "work")
+        items = [i for i in items if i["area"] != "work"]
     groups = {g: sorted((i for i in items if i["group"] == g), key=order) for g in GROUPS}
-    return {"date": on.isoformat(), "groups": groups, "counts": {g: len(v) for g, v in groups.items()}}
+    return {"date": on.isoformat(), "groups": groups, "counts": {g: len(v) for g, v in groups.items()}, "hidden_work": hidden,
+            "weekend": weekend(on)}
 
 
 def done_today(on: date | None = None) -> list[dict[str, Any]]:
@@ -269,6 +284,8 @@ def due_now(now: datetime | None = None) -> list[store.Task]:
     for t in store.load().tasks:
         if t.done_at or not t.due or not t.time:
             continue
+        if weekend(now.date()) and area_of(t.title, t.notes, t.area) == "work":
+            continue  # 9.51: no work reminders at the weekend
         at = datetime.combine(date.fromisoformat(t.due), time.fromisoformat(t.time), zone())
         if at <= now < at + timedelta(hours=6) and t.reminded_for != f"{t.due}T{t.time}":
             out.append(t)

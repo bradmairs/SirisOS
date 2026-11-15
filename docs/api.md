@@ -626,7 +626,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/v1/tasks` |  |
+| `GET /api/v1/tasks` | At the weekend, work tasks are left out unless ?all=true (9.51). |
 | `POST /api/v1/tasks` |  |
 | `DELETE /api/v1/tasks/{task_id}` |  |
 | `PATCH /api/v1/tasks/{task_id}` |  |

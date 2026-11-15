@@ -53,8 +53,9 @@ class Done(BaseModel):
 
 
 @router.get("")
-async def list_tasks(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
-    return await service.collect(hub)
+async def list_tasks(hub: Hub = Depends(get_hub), all: bool = False) -> dict[str, Any]:
+    """At the weekend, work tasks are left out unless ?all=true (9.51)."""
+    return await service.collect(hub, include_work=True if all else None)
 
 
 @router.post("")

@@ -23,6 +23,9 @@ export interface TaskList {
   date: string;
   groups: Record<TaskGroup, TaskItem[]>;
   counts: Record<TaskGroup, number>;
+  /** 9.51: work tasks left out because it's the weekend, and whether it is. */
+  hidden_work?: number;
+  weekend?: boolean;
 }
 
 export interface NewTask {
@@ -36,7 +39,7 @@ export interface NewTask {
 }
 
 export const tasks = {
-  list: () => api<TaskList>("/api/v1/tasks"),
+  list: (all = false) => api<TaskList>(`/api/v1/tasks${all ? "?all=true" : ""}`),
   add: (task: NewTask) => api<{ id: string; title: string; due: string | null; time: string | null; repeat: Repeat }>("/api/v1/tasks", json(task)),
   done: (task: TaskItem) => api<{ id: string; action: string; next_due?: string }>(`/api/v1/tasks/${encodeURIComponent(task.id)}/done`,
     json(task.source === "siris" ? { note: task.note ?? task.detail, title: task.title } : {})),
