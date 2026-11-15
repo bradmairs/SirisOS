@@ -101,7 +101,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
     wrapped = sum(1 for i in range((today - monday).days + 1) if wrapup.saved(monday + timedelta(days=i)))
 
     ahead = await calendar.events(hub, next_monday, next_monday + timedelta(days=7))
-    listing = await tasks.collect(hub, today)
+    listing = await tasks.collect(hub, today, include_work=True)  # the Sunday review plans the work week too
     due_next = [t for g in ("week", "later") for t in listing["groups"][g] if t.get("due") and next_monday.isoformat() <= t["due"] < (next_monday + timedelta(days=7)).isoformat()]
     deadlines = [d for d in insights.get("deadlines") or [] if 0 <= (d.get("days_left") or 99) <= (next_monday - today).days + 6]
 
