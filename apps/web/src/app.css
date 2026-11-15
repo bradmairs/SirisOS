@@ -492,7 +492,7 @@ html, body { overflow-x: clip; }
 .inbox-row--urgent .inbox-row__icon { color: var(--critical); }
 .inbox-row__text { flex: 1; min-width: 0; }
 .inbox-row__title { font-weight: 600; }
-.inbox-row__body { color: var(--ink-2); font-size: 14px; margin-top: 2px; overflow-wrap: anywhere; }
+.inbox-row__body { color: var(--ink-2); font-size: 14px; margin-top: 2px; overflow-wrap: anywhere; white-space: pre-line; }
 .inbox-row__meta { color: var(--ink-3); font-size: 12.5px; margin-top: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .inbox-row__open { color: var(--accent); text-decoration: none; display: inline-flex; align-items: center; gap: 2px; }
 .inbox-row__actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
