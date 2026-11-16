@@ -91,6 +91,10 @@ class FakeSirisAI:
             return httpx.Response(200, json=example("protocol_run"))
         if path == "/siris/hub/v1/cameras/front_door/look":
             return httpx.Response(200, json=example("camera_look"))
+        if path == "/siris/voice/speak":
+            if "nothing" in json.loads(request.content)["text"]:
+                return httpx.Response(501, json={"detail": "Text-to-speech isn't configured"})
+            return httpx.Response(200, content=b"ID3mp3", headers={"content-type": "audio/mpeg"})
         if path == "/siris/cameras/front_door/latest.jpg":
             return httpx.Response(200, content=b"\xff\xd8jpeg", headers={"content-type": "image/jpeg"})
         if path == "/siris/hub/v1/llm/complete":
@@ -286,3 +290,11 @@ def test_stop_tracking_goes_through_to_sirisai(client, ai) -> None:
     assert off.status_code == 200 and off.json()["containers"][0]["tracked"] is False
     assert json.loads(next(r for r in reversed(ai.requests) if r.method == "PUT").content) == {"kind": "container", "name": "open-webui", "tracked": False, "why": ""}
     assert client.put("/api/v1/assistant/tracking", json={"kind": "device", "name": "x", "tracked": False}, headers=AUTH).status_code == 422
+
+
+def test_read_it_to_me_speaks_through_sirisai(client, ai) -> None:
+    """9.53: the briefing card's Read it to me gets SirisAI's voice; 501 lets the phone use its own."""
+    spoken = client.post("/api/v1/assistant/voice/speak", json={"text": "Weather: 8.5 degrees"}, headers=AUTH)
+    assert spoken.status_code == 200 and spoken.content == b"ID3mp3" and spoken.headers["content-type"] == "audio/mpeg"
+    assert client.post("/api/v1/assistant/voice/speak", json={"text": "nothing to say"}, headers=AUTH).status_code == 501
+    assert client.post("/api/v1/assistant/voice/speak", json={"text": ""}, headers=AUTH).status_code == 422

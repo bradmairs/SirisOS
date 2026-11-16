@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { keep, unreachable } from "../api/outbox";
 import { AlertTriangle, ArrowUpRight, Bell, CheckCircle2, Clock, Inbox as InboxIcon, Lightbulb, ShieldAlert } from "lucide-react";
 import { inbox } from "../api/hub";
+import { readAloud } from "../api/command";
 import type { InboxAction, InboxCounts, InboxEvent, InboxItem } from "../api/types";
 import { Glass } from "./Glass";
 import { NotificationSettings } from "./NotificationSettings";
@@ -154,6 +155,18 @@ export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; on
   const Icon = KIND_ICON[item.kind] ?? Bell;
   const link = linkFor(item);
   const row = useRef<HTMLLIElement>(null);
+  // "Read it to me" (9.53): a card with a listen action (SirisAI's daily briefing) keeps its
+  // text out of sight and reads it aloud in SirisAI's voice instead. Played here, not on the server.
+  const listens = item.actions.some((a) => a.id === "listen");
+  const [reading, setReading] = useState<"starting" | "playing" | null>(null);
+  const stopReading = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopReading.current?.(), []);
+  async function listen() {
+    if (reading) { stopReading.current?.(); stopReading.current = null; setReading(null); return; }
+    setReading("starting");
+    stopReading.current = await readAloud(item.body, () => { stopReading.current = null; setReading(null); });
+    setReading((r) => (r ? "playing" : r));
+  }
   // Opened from a push's "Approve in SirisOS" (7.3): show it and ask for the
   // PIN straight away. Nothing is sent until the PIN is entered.
   useEffect(() => {
@@ -195,7 +208,7 @@ export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; on
       <Icon className="inbox-row__icon" aria-hidden="true" />
       <div className="inbox-row__text">
         <div className="inbox-row__title">{item.title}</div>
-        {item.body && <div className="inbox-row__body">{item.body}</div>}
+        {item.body && !listens && <div className="inbox-row__body">{item.body}</div>}
         <div className="inbox-row__meta">
           {item.app}
           {item.source && item.source !== item.app && item.source !== "hub" ? ` · ${item.source}` : ""}
@@ -225,10 +238,17 @@ export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; on
         ) : (
           <div className="inbox-row__actions">
             {item.actions.map((a) => (
+              a.id === "listen" ? (
+                <button key={a.id} type="button" className={`button button--small button--${a.style}`} disabled={busy || reading === "starting"}
+                  onClick={listen} aria-pressed={reading === "playing"}>
+                  {reading === "starting" ? "Getting it ready…" : reading === "playing" ? "Stop" : a.label}
+                </button>
+              ) : (
               <button key={a.id} type="button" className={`button button--small button--${a.style}`} disabled={busy}
                 onClick={() => (a.confirm ? setAsking(a) : go(a.id))}>
                 {a.label}
               </button>
+              )
             ))}
             {!item.actions.some((a) => a.id === "acknowledge" || a.id === "decline") && (
               <button type="button" className="button button--small button--quiet" disabled={busy} onClick={() => go("dismiss")} aria-label={`Dismiss ${item.title}`}>

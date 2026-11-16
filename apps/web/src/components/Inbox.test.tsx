@@ -187,3 +187,39 @@ describe("Approve in SirisOS (7.3)", () => {
     expect(await screen.findByText("That approval has already been answered or has expired.")).toBeInTheDocument();
   });
 });
+
+describe("Read it to me (9.53)", () => {
+  it("hides the briefing's text and reads it aloud in SirisAI's voice", async () => {
+    signIn();
+    const BRIEF = item({ id: "ai:20", kind: "notice", severity: "info", title: "Your briefing for Monday is ready", source: "briefing",
+      body: "Weather: 8.5°C, overcast. Payday (Dom).",
+      actions: [{ id: "listen", label: "Read it to me", style: "primary" }, { id: "acknowledge", label: "Got it", style: "secondary" }] });
+    const played: string[] = [];
+    const OriginalAudio = window.Audio;
+    window.Audio = class {
+      src: string; onended: (() => void) | null = null; onerror: (() => void) | null = null;
+      constructor(src?: string) { this.src = src ?? ""; }
+      play() { played.push(this.src); return Promise.resolve(); }
+      pause() {}
+    } as unknown as typeof Audio;
+    URL.createObjectURL = () => "blob:brief";
+    URL.revokeObjectURL = () => {};
+    const calls = mockFetch({
+      "/api/v1/attention/stream": () => sseResponse([{ type: "snapshot", items: [BRIEF], counts: { open: 1, urgent: 0 } }]),
+      "/api/v1/assistant/voice/speak": () => new Response(new Blob(["mp3"]), { status: 200, headers: { "Content-Type": "audio/mpeg" } }),
+      "/api/v1/attention": () => jsonResponse({ items: [], counts: { open: 0, urgent: 0 } }),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><InboxPanel /></MemoryRouter>);
+
+    const row = await screen.findByRole("listitem", { name: "Your briefing for Monday is ready" });
+    expect(within(row).queryByText(/Weather/)).not.toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "Read it to me" }));
+    await waitFor(() => expect(played).toContain("blob:brief"));
+    const speak = calls.find((c) => c.url.includes("/voice/speak"))!;
+    expect(JSON.parse(String(speak.init.body))).toEqual({ text: "Weather: 8.5°C, overcast. Payday (Dom)." });
+    expect(calls.some((c) => c.url.includes("/act"))).toBe(false);   // still there until "Got it"
+    expect(within(row).getByRole("button", { name: "Stop" })).toBeInTheDocument();
+    window.Audio = OriginalAudio;
+  });
+});

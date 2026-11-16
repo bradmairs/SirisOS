@@ -102,6 +102,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `PUT /api/v1/assistant/tracking` | Stop tracking something removed on purpose (no more "it's down" alerts), or track it again. |
 | `GET /api/v1/assistant/voice` | Whether SirisAI can hear (speech-to-text) and speak (text-to-speech). |
 | `POST /api/v1/assistant/voice/converse` | SirisAI's POST /siris/voice/converse (one spoken turn), relayed as-is: newline-delimited JSON with the transcript, then each reply sentence with its audio, then a final event. It's the same conversation store as chat, so spoken turns feed Siris' nightly dream too. |
+| `POST /api/v1/assistant/voice/speak` | Text read aloud in SirisAI's voice (9.53: the briefing card's "Read it to me"). 501 when SirisAI has no text-to-speech set up, so the phone can use its own voice. |
 | `POST /api/v1/assistant/voice/transcribe` | Speech to text through SirisAI (for voice memos in quick capture). |
 | `GET /api/v1/assistant/widgets` | Car, parcels, power, protocols (and the last run, for undo), cameras and what SirisAI did on its own today. |
 
