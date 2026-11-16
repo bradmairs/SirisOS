@@ -426,6 +426,25 @@ async def camera_frame(camera: SafeName, connector: SirisAIConnector = Depends(_
                     headers={"Cache-Control": "no-store"})
 
 
+class SpeakText(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+
+
+@router.post("/assistant/voice/speak", tags=["assistant"])
+async def voice_speak(body: SpeakText, connector: SirisAIConnector = Depends(_sirisai)) -> Response:
+    """Text read aloud in SirisAI's voice (9.53: the briefing card's "Read it to me").
+    501 when SirisAI has no text-to-speech set up, so the phone can use its own voice."""
+    try:
+        upstream = await shared_client().post(f"{connector.base_url}/siris/voice/speak", headers=connector.headers(),
+                                              json={"text": body.text}, timeout=90.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"SirisAI unreachable: {type(exc).__name__}") from exc
+    if upstream.status_code >= 400:
+        raise HTTPException(status_code=501 if upstream.status_code == 501 else 502, detail="SirisAI couldn't speak that.")
+    return Response(content=upstream.content, media_type=upstream.headers.get("content-type", "audio/mpeg"),
+                    headers={"Cache-Control": "no-store"})
+
+
 @router.get("/brain/search", tags=["brain"])
 async def brain_search(
     q: str = Query(min_length=1, max_length=500),
