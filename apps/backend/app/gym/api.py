@@ -504,7 +504,8 @@ def exercise(exercise_id: str) -> dict[str, Any]:
                         "volume": r["volume"], "reps": r["reps"]} for r in rows[-60:]],
             "history": list(reversed(rows[-30:])), "fitness": watch.fitness(doc, exercise_id),
             "videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True) if v.exercise == exercise_id],
-            "cues": doc.cues.get(exercise_id) or _library_cues(exercise_id), "cues_yours": exercise_id in doc.cues}
+            "cues": doc.cues.get(exercise_id) or _library_cues(exercise_id), "cues_yours": exercise_id in doc.cues,
+            "percents": service.percent_chart(doc, exercise_id)}
 
 
 def _library_cues(exercise_id: str) -> str:

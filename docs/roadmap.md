@@ -213,6 +213,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.62: bars stay at the bottom on iPhone after the keyboard closes or coming back to the app
 9.63: SirisGym energy in kcal
 9.64: an empty workout comes back to SirisGym after the Watch Shortcut, like a routine
+9.65: SirisGym percentage chart of your best estimated 1RM on every exercise
 
 ## Terminal (ADR 113)
 

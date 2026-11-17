@@ -55,3 +55,19 @@ describe("SirisGym 9.6", () => {
     expect(d.heart).toBe("118 bpm average · 161 max · 363 kcal");
   });
 });
+
+describe("SirisGym 9.65: percentages of your best", () => {
+  it("opens a chart rounded to the gym, with about how many reps", async () => {
+    const { PercentChart } = await import("./GymExercises");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    render(<PercentChart unit="kg" chart={{ best: 116.7, gym: "Anytime", assisted: false,
+      rows: [{ percent: 95, weight: 110, reps: 2 }, { percent: 80, weight: 92.5, reps: 8 }, { percent: 50, weight: 57.5, reps: null }] }} />);
+    expect(screen.queryByRole("table")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /percentages of your best \(116\.7 kg\)/ }));
+    const table = screen.getByRole("table", { name: "Percentages of your best estimated 1RM" });
+    expect(table).toHaveTextContent("80%92.58 reps");
+    expect(table).toHaveTextContent("50%57.512+ reps");
+    expect(screen.getByText(/Rounded to what Anytime can load/)).toBeInTheDocument();
+  });
+});
