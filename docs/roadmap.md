@@ -217,6 +217,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.7: SirisGym: a picture for each exercise (start and end of the movement), your own photo, or none
 9.71: workout exercise pictures beside the name, not over it; Air Bike shows a bike
 9.72: the tab bar floats lower on iPhone
+9.73: the tab bar back where it was
 
 ## Terminal (ADR 113)
 
