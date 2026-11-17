@@ -260,7 +260,7 @@ export function GymWorkoutScreen() {
               {entry.group && <span className="gym-group">SUPERSET {entry.group}<button type="button" className="icon-link" aria-label={`Take ${ex?.name} out of the superset`} onClick={() => unlink(ei)}><X size={10} aria-hidden="true" /></button></span>}
               <header className="widget__head">
                 <span className="gym-entry__name-row">
-                  {ex?.image && <button type="button" className="icon-link" aria-label={`Picture of ${ex.name}`} onClick={() => setOpenEx(entry.exercise)}><ExerciseImage id={entry.exercise} name={ex.name} size="thumb" /></button>}
+                  {ex?.image && <button type="button" className="gym-entry__thumb" aria-label={`Picture of ${ex.name}`} onClick={() => setOpenEx(entry.exercise)}><ExerciseImage id={entry.exercise} name={ex.name} size="thumb" /></button>}
                   <button type="button" className="icon-link gym-entry__name" onClick={() => setOpenEx(entry.exercise)}>{ex?.name ?? entry.exercise}</button>
                 </span>
                 <button type="button" className="widget__source icon-link gym-entry__more" aria-label={`More for ${ex?.name ?? entry.exercise}`} aria-expanded={menu === ei}

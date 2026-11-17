@@ -53,12 +53,14 @@ CURATED: dict[str, str | None] = {
     "hanging-leg-raise": "Hanging_Leg_Raise", "cable-crunch": "Cable_Crunch", "ab-wheel": "Barbell_Ab_Rollout_-_On_Knees",
     "russian-twist": "Russian_Twist", "pallof-press": "Pallof_Press", "kb-swing": "One-Arm_Kettlebell_Swings", "clean": "Power_Clean",
     "thruster": "Kettlebell_Thruster", "burpee": None, "treadmill": "Running_Treadmill", "rowing-machine": "Rowing_Stationary",
-    "exercise-bike": "Recumbent_Bike", "elliptical": "Elliptical_Trainer", "stair-climber": "Stairmaster", "jump-rope": "Rope_Jumping",
-    "air-bike": "Air_Bike", "ski-erg": None, "run": "Running_Treadmill", "circuit": None, "sled-push": "Sled_Push",
+    "exercise-bike": "Bicycling_Stationary", "elliptical": "Elliptical_Trainer", "stair-climber": "Stairmaster", "jump-rope": "Rope_Jumping",
+    "air-bike": "Bicycling_Stationary", "ski-erg": None, "run": "Running_Treadmill", "circuit": None, "sled-push": "Sled_Push",
 }
 
 _EQUIPMENT_WORDS = {"barbell": "barbell", "dumbbell": "dumbbell", "cable": "cable", "kettlebell": "kettlebell", "smith": "machine",
                     "machine": "machine", "leverage": "machine", "band": "bands", "ez": "e-z curl bar"}
+# 9.71: library entries whose names say something else: its "Air Bike" is a bicycle crunch on the floor, not the bike.
+_MISLEADING = frozenset({"Air_Bike"})
 _EQUIP_TOKENS = frozenset(_EQUIPMENT_WORDS) | {"bar"}
 _SYN = {"db": "dumbbell", "bb": "barbell", "kb": "kettlebell", "pullup": "pull up", "pullups": "pull up", "chinup": "chin up",
         "ohp": "overhead press", "rdl": "romanian deadlift", "tricep": "triceps", "bicep": "biceps", "flye": "fly", "flyes": "fly",
@@ -94,7 +96,7 @@ def guess(name: str, equipment: str = "") -> str | None:
     best, best_score = None, 0.0
     for e in library()["by_id"].values():
         have = _tokens(e["name"])
-        if not have:
+        if not have or e["id"] in _MISLEADING:
             continue
         theirs = _equipment(have) | ({e["equipment"]} if e["equipment"] in _EQUIPMENT_WORDS.values() else set())
         if ours and theirs and not ours & theirs:

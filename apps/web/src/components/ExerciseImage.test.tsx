@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { ExerciseImage } from "./ExerciseImage";
 import { mockFetch, signIn } from "../test/helpers";
 
@@ -7,7 +7,6 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("exercise pictures (9.7)", () => {
   it("plays the start and end of the movement in turn", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     signIn();
     let n = 0;
     URL.createObjectURL = () => `blob:frame-${n++}`;
@@ -15,8 +14,8 @@ describe("exercise pictures (9.7)", () => {
     render(<ExerciseImage id="bench-press" name="Bench Press" frames={2} version="t1" />);
     const img = await screen.findByRole("img", { name: "Bench Press: start of the movement" });
     expect(calls.map((c) => c.url)).toEqual(["/api/v1/gym/exercises/bench-press/image?frame=0", "/api/v1/gym/exercises/bench-press/image?frame=1"]);
-    act(() => { vi.advanceTimersByTime(1300); });
-    expect(img).toHaveAccessibleName("Bench Press: end of the movement");
+    // Real time, waiting for the switch (9.71: a sped-up clock plus a slow CI machine could switch twice, back to the start).
+    await waitFor(() => expect(img).toHaveAccessibleName("Bench Press: end of the movement"), { timeout: 3000 });
   });
 
   it("shows nothing when there's no picture to get", async () => {
