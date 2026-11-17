@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Share2 } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, type GymRecord, type SetLog, type Summary, type Watch } from "../api/gym";
+import { gym, kcal, type GymRecord, type SetLog, type Summary, type Watch } from "../api/gym";
 
 /**
  * A finished-workout card (9.6): an image of the session (what you lifted, volume, new bests and the Watch's heart
@@ -55,7 +55,7 @@ export function cardData(s: SessionLike, unit = "kg"): CardData {
   const volume = s.summary.volume >= 10_000 ? `${(s.summary.volume / 1000).toFixed(1)} t` : `${Math.round(s.summary.volume).toLocaleString()} ${unit}`;
   const w = s.watch;
   const heart = w && (w.avg_hr || w.kj)
-    ? [w.avg_hr && `${Math.round(w.avg_hr)} bpm average`, w.max_hr && `${Math.round(w.max_hr)} max`, w.kj && `${Math.round(w.kj).toLocaleString()} kJ`].filter(Boolean).join(" · ")
+    ? [w.avg_hr && `${Math.round(w.avg_hr)} bpm average`, w.max_hr && `${Math.round(w.max_hr)} max`, kcal(w.kj)].filter(Boolean).join(" · ")
     : null;
   return {
     title: s.title,

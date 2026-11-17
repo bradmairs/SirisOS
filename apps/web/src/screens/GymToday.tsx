@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, BatteryLow, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, Pencil, Play, Repeat, Sparkles, Trash2, Trophy } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, loadActive, saveActive, type Gym, type Routine, type DayMode, type BlockChange } from "../api/gym";
+import { gym, kcal, loadActive, saveActive, type Gym, type Routine, type DayMode, type BlockChange } from "../api/gym";
 import { ShareWorkout } from "../components/WorkoutCard";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
@@ -328,7 +328,7 @@ export function SessionSheet({ id, unit, onClose }: { id: string; unit: string; 
           <EffortCard id={id} />
           {s.watch && (
             <p className="gym-watch" aria-label="From your Apple Watch"><HeartPulse size={14} aria-hidden="true" />
-              {[s.watch.avg_hr && `${Math.round(s.watch.avg_hr)} bpm average`, s.watch.max_hr && `${Math.round(s.watch.max_hr)} max`, s.watch.kj && `${s.watch.kj.toLocaleString()} kJ`, s.watch.minutes && `${s.watch.minutes} min on the Watch`].filter(Boolean).join(" · ")}
+              {[s.watch.avg_hr && `${Math.round(s.watch.avg_hr)} bpm average`, s.watch.max_hr && `${Math.round(s.watch.max_hr)} max`, kcal(s.watch.kj), s.watch.minutes && `${s.watch.minutes} min on the Watch`].filter(Boolean).join(" · ")}
             </p>
           )}
           {s.deload && <p className="muted" style={{ margin: 0 }}>A deload session.</p>}
