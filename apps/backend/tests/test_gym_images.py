@@ -15,6 +15,8 @@ def test_names_match_carefully():
     assert images.guess("Barbell Lunge", "barbell") == "Barbell_Lunge"
     assert images.guess("Barbell Shoulder Press", "barbell") != "Dumbbell_Shoulder_Press"   # never the other equipment
     assert images.guess("Zzz Mystery Move", "other") is None
+    # 9.71: the library's "Air Bike" is a crunch on the floor; the bike is the stationary bike.
+    assert images.guess("Air Bike", "other") is None and images.CURATED["air-bike"] == "Bicycling_Stationary"
     assert all(v is None or v in images.library()["by_id"] for v in images.CURATED.values())
 
 

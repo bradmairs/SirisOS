@@ -1371,4 +1371,6 @@ section:has(> .widget-grid:empty) { display: none; }
 .gym-image--thumb { width: 44px; height: 44px; border-radius: 10px; }
 .gym-image--thumb img { object-fit: cover; }
 .gym-image.skeleton { background: color-mix(in srgb, var(--ink) 8%, transparent); }
-.gym-entry__name-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.gym-entry__name-row { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+/* 9.71: its own button, sized to the picture (the round 32px icon button let the 44px picture spill over the name). */
+.gym-entry__thumb { flex: none; padding: 0; border: 0; background: none; border-radius: 10px; cursor: pointer; line-height: 0; }
