@@ -46,6 +46,16 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
   saveActive(s);
   // A Shortcut first (e.g. start the Watch's strength workout), which comes back to the workout (6.92).
   navigate("/gym/workout");
+  await runStartShortcut(shortcut);
+}
+
+/** 9.64: open the start Shortcut once the workout screen is up. A routine's start waited for its plan, so the Shortcut
+ * opened after the screen had changed and iOS came back to SirisGym when it finished; an empty workout opened it in the
+ * same instant as the screen change, and iOS left you in Shortcuts. Every start now waits the same short moment. */
+export const SHORTCUT_DELAY_MS = 400;
+export async function runStartShortcut(shortcut?: string): Promise<void> {
+  if (!shortcut?.trim()) return;
+  await new Promise((resolve) => window.setTimeout(resolve, SHORTCUT_DELAY_MS));
   shortcuts.run(shortcut, "/gym/workout");
 }
 
