@@ -128,7 +128,7 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
             "deadlines": deadlines[:6],
         },
         "chartership": _chartership(),
-        "gym": _gym_week(monday, today),
+        "gym": await _gym_with_good(hub, monday, today),
         "goals": await _goals(hub, today),
         "overdue": [{"id": t.get("id"), "title": t.get("title") or t.get("text"), "due": t.get("due")} for t in listing["groups"].get("overdue", [])][:10],
         "sleep": await _sleep_week(hub),
@@ -155,6 +155,20 @@ async def _sleep_week(hub: Hub) -> dict[str, Any] | None:
         return (await health.overview(hub)).get("sleep_week")
     except Exception:  # noqa: BLE001 - the review stands without it
         return None
+
+
+async def _gym_with_good(hub: Hub, monday: date, today: date) -> dict[str, Any] | None:
+    """The gym's week, with what makes a good session (9.6): the two clearest findings."""
+    week = _gym_week(monday, today)
+    if not week:
+        return week
+    try:
+        from app.gym import api as gym_api, good, store as gym_store
+
+        week["good"] = [f["text"] for f in good.findings(gym_store.load(), await gym_api.year_of_health(hub), today)["findings"][:2]]
+    except Exception:  # noqa: BLE001 - the review never fails for this
+        week["good"] = []
+    return week
 
 
 def _gym_week(monday: date, today: date) -> dict[str, Any] | None:

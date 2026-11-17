@@ -163,6 +163,21 @@ export function NewExercise({ onClose, onSaved }: { onClose: () => void; onSaved
   );
 }
 
+/** 9.6: assisted (the weight is help) and one side at a time, worked out from the name until you change them. */
+function LoadingSwitches({ id, assisted, perSide, onSaved }: { id: string; assisted: boolean; perSide: boolean; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const flip = async (body: { assisted?: boolean; per_side?: boolean }) => {
+    setBusy(true);
+    try { await gym.setLoading(id, body); onSaved(); } finally { setBusy(false); }
+  };
+  return (
+    <div role="group" aria-label="How it's loaded" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <label className="chip chip--button"><input type="checkbox" checked={assisted} disabled={busy} onChange={(e) => flip({ assisted: e.target.checked })} /> Assisted (weight is help)</label>
+      <label className="chip chip--button"><input type="checkbox" checked={perSide} disabled={busy} onChange={(e) => flip({ per_side: e.target.checked })} /> One side at a time</label>
+    </div>
+  );
+}
+
 /** One exercise: records, a chart of estimated 1RM, and every time you've done it. */
 export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; unit: string; onClose: () => void; onChanged?: () => void }) {
   const res = useResource<ExerciseDetail>(`gym:exercise:${id}`, () => gym.exercise(id), {});
@@ -178,6 +193,7 @@ export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; un
           <h2 className="sheet__title">{d.exercise.name}</h2>
           <p className="muted" style={{ margin: 0 }}>{d.exercise.primary}{d.exercise.secondary.length ? `, with ${d.exercise.secondary.join(", ")}` : ""} · {d.exercise.equipment}
             {d.exercise.custom && <> · <button type="button" className="icon-link" onClick={() => setEditing(true)}><Pencil size={12} aria-hidden="true" /> Edit</button></>}</p>
+          <LoadingSwitches id={id} assisted={!!d.exercise.assisted} perSide={!!d.exercise.per_side} onSaved={() => { void res.reload?.(true); onChanged?.(); }} />
           <CuesEditor key={d.cues ?? ""} id={id} cues={d.cues ?? ""} yours={!!d.cues_yours} onSaved={() => res.reload?.(true)} />
           {editing && <EditExerciseSheet exercise={d.exercise} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void res.reload?.(true); onChanged?.(); }} />}
           {!d.history.length && <p className="muted" style={{ margin: 0 }}>Not done yet.</p>}
@@ -185,7 +201,9 @@ export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; un
             <>
               <div className="metrics">
                 <div><div className="metric__value">{kg(d.records.e1rm?.value, unit)}</div><div className="metric__label">Best est. 1RM</div></div>
-                <div><div className="metric__value">{kg(d.records.heaviest?.weight, unit)}</div><div className="metric__label">Heaviest</div></div>
+                {d.exercise.assisted
+                  ? <div><div className="metric__value">{d.records.heaviest ? kg(d.records.heaviest.weight ?? 0, unit) : "–"}</div><div className="metric__label">Least help</div></div>
+                  : <div><div className="metric__value">{kg(d.records.heaviest?.weight, unit)}</div><div className="metric__label">Heaviest</div></div>}
                 <div><div className="metric__value">{d.records.best_volume ? Math.round(d.records.best_volume.volume).toLocaleString() : "–"}</div><div className="metric__label">Biggest session</div></div>
               </div>
               {d.records.rep_max && Object.keys(d.records.rep_max).length > 0 && (

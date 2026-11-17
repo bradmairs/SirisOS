@@ -116,6 +116,9 @@ const FIXTURES = [
   ["/api/v1/gym/last", { last: { "bench-press": { date: "2026-11-04", sets: [{ weight: 80, reps: 8, done: true, type: "normal" }, { weight: 80, reps: 7, done: true, type: "normal" }] } } }],
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],
+  ["/api/v1/gym/good-sessions", { scored: 41, health: true, note: null, findings: [
+    { key: "sleep", text: "You lift about 4% more after 7 hours' sleep or more than after less.", gap: 4.1, with: 98.2, without: 94.1, sessions: 38, counts: "21 sessions after a good night, 17 after a short one" },
+    { key: "morning", text: "You lift about 3% less before noon than later in the day.", gap: -2.6, with: 94.9, without: 97.5, sessions: 41, counts: "12 morning sessions, 29 later" }] }],
   ["/api/v1/gym/body", { measurements: [{ id: "a", date: "2026-08-01", waist: 88, chest: 104 }, { id: "b", date: "2026-11-01", waist: 84.5, chest: 106, arm: 38.5 }],
     photos: [], weight: Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, kg: 83 - i * 0.05 + (i % 3) * 0.3, trend: 83 - i * 0.05 })) }],
   ["/api/v1/gym/year", yearReview],

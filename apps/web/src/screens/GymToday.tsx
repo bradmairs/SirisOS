@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Activity, BatteryLow, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, Pencil, Play, Repeat, Sparkles, Trash2, Trophy } from "lucide-react";
 import { useResource } from "../api/resource";
 import { gym, loadActive, saveActive, type Gym, type Routine, type DayMode, type BlockChange } from "../api/gym";
+import { ShareWorkout } from "../components/WorkoutCard";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 import { GymCoachCard, NigglesCard } from "./GymCards";
@@ -337,6 +338,7 @@ export function SessionSheet({ id, unit, onClose }: { id: string; unit: string; 
               <button type="button" className="chip chip--button" onClick={async () => { await gym.review(id, s.summary.held ? "real" : "wrong"); window.location.reload(); }}>{s.summary.held ? "It happened" : "Leave it out"}</button>
             </div>
           )}
+          <ShareWorkout id={id} unit={unit} />
           {s.records.length > 0 && <ul className="items">{s.records.map((r) => <li key={r.text} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r.text}</span></span></li>)}</ul>}
           {s.entries.map((e) => (
             <div key={e.exercise}>

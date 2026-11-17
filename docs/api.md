@@ -289,8 +289,10 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/gym/exercises/{exercise_id}` |  |
 | `PUT /api/v1/gym/exercises/{exercise_id}` | Change one of your own exercises (8.7). Its sets stay as they are. |
 | `PUT /api/v1/gym/exercises/{exercise_id}/cues` | Your form cues for an exercise (8.8); empty puts back the built-in ones, if it has any. |
+| `PUT /api/v1/gym/exercises/{exercise_id}/loading` | 9.6: say an exercise is assisted (the weight is help: less is harder) or done one side at a time (volume counts both sides). Works for built-in exercises too; it's worked out from the name until you do. |
 | `GET /api/v1/gym/export.csv` | Every set ever logged, one row each, in kg, km and seconds (7.1). |
 | `GET /api/v1/gym/export.json` |  |
+| `GET /api/v1/gym/good-sessions` | 9.6: what goes with your best and worst sessions: sleep, resting heart rate, time of day, caffeine. |
 | `POST /api/v1/gym/gyms/{gym_id}/swaps` | Remember that this gym needs `into` instead of `source` (8.8), or forget it. |
 | `GET /api/v1/gym/heatmap` |  |
 | `POST /api/v1/gym/import` |  |

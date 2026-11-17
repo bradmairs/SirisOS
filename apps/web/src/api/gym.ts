@@ -1,7 +1,13 @@
 import { api, json, request } from "./client";
 
 export type Kind = "weight" | "bodyweight" | "time" | "cardio";
-export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean }
+export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean;
+  /** 9.6: the weight is help (less is harder), and one arm or leg at a time (volume counts both sides). */
+  assisted?: boolean; per_side?: boolean }
+export interface GoodSessions {
+  findings: { key: string; text: string; gap: number; with: number; without: number; sessions: number; counts: string }[];
+  scored: number; health: boolean; note: string | null;
+}
 export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure" | "amrap" | "restpause"; rpe?: number | null;
   /** When it was ticked done (6.96), to line it up with the Watch's heart rate. */
   at?: string | null }
@@ -87,7 +93,7 @@ export interface Plan { routine: string; day: number; title: string; gym?: strin
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
 export interface ExerciseDetail {
   exercise: Exercise;
-  records: { heaviest?: { weight: number; reps: number | null; date: string }; e1rm?: { value: number; date: string }; rep_max?: Record<string, { weight: number; date: string }>;
+  records: { heaviest?: { weight: number | null; reps: number | null; date: string; assisted?: boolean; load?: number | null }; e1rm?: { value: number; date: string }; rep_max?: Record<string, { weight: number; date: string }>;
     most_reps?: { reps: number; weight: number | null; date: string }; best_volume?: { volume: number; date: string } };
   series: { date: string; e1rm: number | null; best: number | null; volume: number; reps: number }[];
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
@@ -145,6 +151,8 @@ export const gym = {
   deleteRoutine: (id: string) => api<{ deleted: string }>(`${G}/routines/${id}`, { method: "DELETE" }),
   plan: (routine: string, day?: number, gymId?: string, mode: DayMode = "normal") =>
     api<Plan>(`${G}/plan?routine=${encodeURIComponent(routine)}${day != null ? `&day=${day}` : ""}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}${mode !== "normal" ? `&mode=${mode}` : ""}`),
+  /** 9.6: what goes with your best and worst sessions. */
+  goodSessions: () => api<GoodSessions>(`${G}/good-sessions`),
   muscleTrends: (months = 24) => api<MuscleTrends>(`${G}/muscle-trends?months=${months}`),
   nextBlock: () => api<{ block: (BlockStatus & { changes: BlockChange[] }) | null }>(`${G}/next-block`),
   startBlock: (accept: number[]) => api<{ changed: number; block_started: string }>(`${G}/next-block`, json({ accept })),
@@ -169,7 +177,7 @@ export const gym = {
   link: (source: string, into: string | null) => api<{ changed: number; links: HistoryLink[] }>(`${G}/links`, json(into ? { source, into } : { source, keep: true })),
   deloadLater: () => api<Deload>(`${G}/deload`, json({ on: false, later: true })),
   sessions: (month?: string) => api<{ sessions: Summary[] }>(`${G}/sessions${month ? `?month=${month}` : ""}`),
-  session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string })[]; watch?: Watch | null }>(`${G}/sessions/${id}`),
+  session: (id: string) => api<Omit<Session, "entries"> & { summary: Summary; records: GymRecord[]; entries: (EntryLog & { name: string; assisted?: boolean; per_side?: boolean })[]; watch?: Watch | null }>(`${G}/sessions/${id}`),
   build: (b: BuildRequest) => api<Built>(`${G}/builder`, json(b)),
   body: () => api<Body>(`${G}/body`),
   addMeasurement: (m: Measurement) => api<Measurement>(`${G}/measurements`, json(m)),
@@ -235,6 +243,8 @@ export const gym = {
   importPreview: (file: File, unit: ImportUnit) => importFile<{ preview: ImportPreview }>(file, unit),
   importCommit: (file: File, unit: ImportUnit, choices: Record<string, string>) =>
     importFile<{ imported: { workouts: number; sets: number; new_exercises: number; skipped_days?: string[]; removed?: number; tidied?: number } }>(file, unit, choices),
+  /** 9.6: say an exercise is assisted or done one side at a time (built-in ones too). */
+  setLoading: (id: string, body: { assisted?: boolean; per_side?: boolean }) => api<Exercise>(`${G}/exercises/${id}/loading`, { method: "PUT", body: JSON.stringify(body) }),
   deleteSession: (id: string) => api<{ deleted: string }>(`${G}/sessions/${id}`, { method: "DELETE" }),
 };
 
@@ -242,6 +252,12 @@ export const gym = {
 export function e1rm(weight?: number | null, reps?: number | null): number | null {
   if (!weight || !reps || reps > 12) return null;
   return Math.round((reps === 1 ? weight : weight * (1 + reps / 30)) * 10) / 10;
+}
+
+/** 9.6: the estimated 1RM of a set as the server counts it: on an assisted exercise, from bodyweight less the help. */
+export function setE1rm(ex: Exercise | undefined, weight: number | null | undefined, reps: number | null | undefined, bodyweight?: number | null): number | null {
+  if (!ex?.assisted) return e1rm(weight, reps);
+  return bodyweight ? e1rm(Math.max(0, bodyweight - (weight ?? 0)), reps) : null;
 }
 
 /** The plates for each side, largest first. */
