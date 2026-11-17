@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeftRight, ArrowUp, BellRing, Check, Link2, Mic, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from "lucide-react";
-import { type Compare, changeSet, chime, e1rm, gym, loadActive, loadPlan, loadRest, moveEntry, parseSpoken, plates, saveActive, savePlan, saveRest, shortcuts, type Exercise, type GymRecord, type Plan, type Rest, type Session, type SetLog, type Summary } from "../api/gym";
+import { type Compare, changeSet, chime, gym, loadActive, loadPlan, loadRest, moveEntry, parseSpoken, plates, saveActive, setE1rm, savePlan, saveRest, shortcuts, type Exercise, type GymRecord, type Plan, type Rest, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { brain } from "../api/hub";
 import { micUnavailableReason, startRecording } from "../api/voice";
 import { DecimalInput } from "../components/DecimalInput";
+import { ShareWorkout } from "../components/WorkoutCard";
 import { Glass } from "../components/Glass";
 import { ExercisePicker, ExerciseSheet, fmtDay, kg, useGym } from "./Gym";
 import { FeelPicker } from "./GymReview";
@@ -283,6 +284,11 @@ export function GymWorkoutScreen() {
                     <X size={12} aria-hidden="true" /> Remove</button>
                 </div>
               )}
+              {(ex?.assisted || ex?.per_side) && (
+                <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                  {ex.assisted ? "Assisted: the weight is the help, so less is harder." : "One side at a time: log one side's weight and reps; the volume counts both."}
+                </p>
+              )}
               {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
               <LastTime last={lastFor(entry.exercise)} kind={ex?.kind ?? "weight"} />
               {p?.cues && <p className="gym-cues" style={{ margin: 0, fontSize: 12 }}>{p.cues}</p>}
@@ -291,7 +297,7 @@ export function GymWorkoutScreen() {
               {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
               {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
               <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here}
-                guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null}
+                guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null} bodyweight={s.bodyweight ?? g?.settings.bodyweight_kg ?? null}
                 onChange={(si, patch, opts) => {
                   const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
                   update({ ...s, entries });
@@ -393,9 +399,9 @@ function LastTime({ last, kind }: { last: { date?: string; sets: SetLog[] }; kin
   );
 }
 
-function SetTable({ ex, sets, last, unit, settings, guard, best, onChange, onRemove }: {
+function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onChange, onRemove }: {
   ex?: Exercise; sets: SetLog[]; last: SetLog[]; unit: string; settings?: { bar: number; plates: number[] };
-  guard?: number | null; best?: number | null;
+  guard?: number | null; best?: number | null; bodyweight?: number | null;
   onChange: (i: number, patch: Partial<SetLog>, opts?: { carry?: boolean; from?: number | null }) => void; onRemove: (i: number) => void;
 }) {
   const kind = ex?.kind ?? "weight";
@@ -424,13 +430,13 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, onChange, onRem
     <div className="gym-sets" role="table" aria-label="Sets">
       <div className="gym-sets__row gym-sets__head" role="row">
         <span>Set</span><span>Last</span>
-        {kind === "weight" || kind === "bodyweight" ? <><span>{kind === "bodyweight" ? `+${unit}` : unit}</span><span>Reps</span></> : kind === "time" ? <><span /><span>Secs</span></> : <><span>Min</span><span>km</span></>}
+        {kind === "weight" || kind === "bodyweight" ? <><span>{ex?.assisted ? `Help ${unit}` : kind === "bodyweight" ? `+${unit}` : unit}</span><span>Reps</span></> : kind === "time" ? <><span /><span>Secs</span></> : <><span>Min</span><span>km</span></>}
         <span aria-label="Done" />
       </div>
       {sets.map((x, i) => {
         const label = x.type === "warmup" ? "W" : x.type === "drop" ? "D" : x.type === "amrap" ? `${++n}A` : x.type === "restpause" ? `${++n}R` : String(++n);
         const prev = x.type === "warmup" ? undefined : last[working++];
-        const est = e1rm(x.weight, x.reps);
+        const est = setE1rm(ex, x.weight, x.reps, bodyweight);
         // Under the set: plates, against last time, a new best (8.7).
         const bits: string[] = [];
         if (barbell && x.weight && settings && x.weight > settings.bar) {
@@ -438,7 +444,7 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, onChange, onRem
           if (p.perSide.length) bits.push(`${p.perSide.join(" + ")} a side${p.left ? ` (${p.left} short)` : ""}`);
         }
         if (prev && x.type !== "warmup") {
-          if (x.weight != null && prev.weight != null && x.weight !== prev.weight) bits.push(`${x.weight > prev.weight ? "+" : "−"}${Math.abs(Math.round((x.weight - prev.weight) * 100) / 100)} ${unit} on last time`);
+          if (x.weight != null && prev.weight != null && x.weight !== prev.weight) bits.push(`${x.weight > prev.weight ? "+" : "−"}${Math.abs(Math.round((x.weight - prev.weight) * 100) / 100)} ${unit}${ex?.assisted ? " of help" : ""} on last time`);
           else if (x.reps != null && prev.reps != null && x.reps !== prev.reps && (x.weight ?? null) === (prev.weight ?? null)) bits.push(`${x.reps > prev.reps ? "+" : "−"}${Math.abs(x.reps - prev.reps)} rep${Math.abs(x.reps - prev.reps) === 1 ? "" : "s"} on last time`);
         }
         const record = x.done && x.type !== "warmup" && est != null && best != null && est > best;
@@ -524,6 +530,7 @@ function Finished({ done, unit }: { done: Done; unit: string }) {
             </p>
           )}
           <FeelPicker session={s.id} />
+          <ShareWorkout id={s.id} unit={unit} />
           {(done.records ?? []).length > 0 && (
             <ul className="items" aria-label="Records">
               {done.records!.map((r) => <li key={r.text} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r.text}</span></span></li>)}

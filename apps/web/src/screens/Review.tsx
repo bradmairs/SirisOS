@@ -96,6 +96,7 @@ export function ReviewScreen() {
                 <header className="widget__head"><Dumbbell aria-hidden="true" /><span>The gym</span><Link to="/gym" className="widget__source">SirisGym</Link></header>
                 <p style={{ margin: 0 }}>{data.gym.sessions ? `${data.gym.sessions} workout${data.gym.sessions === 1 ? "" : "s"}, ${data.gym.sets} sets, ${(data.gym.volume / 1000).toFixed(1)} t lifted.` : "No workouts this week."}
                   {data.gym.under.length ? ` Under target: ${data.gym.under.join(", ")}.` : ""}{data.gym.deload ? " SirisGym suggests a lighter week next." : ""}</p>
+                {(data.gym.good ?? []).map((g) => <p key={g} className="muted" style={{ margin: 0, fontSize: 13 }}>{g}</p>)}
                 {data.gym.records.length > 0 && <ul className="items">{data.gym.records.map((r) => <li key={r} className="item"><Trophy size={16} className="tone-warning" aria-hidden="true" /><span className="item__text"><span className="item__title">{r}</span></span></li>)}</ul>}
               </Glass>
             )}

@@ -289,6 +289,9 @@ class GymDoc(BaseModel):
     import_times_local: bool = True  # imported start times moved from UTC to local (6.96); False only in files from before it
     import_titles: bool = True  # "Imported workout" renamed from what was trained (7.0); False only in files from before it
     muscles_filled: bool = True  # your exercises' helper muscles filled in from their names (9.44); False only in files from before it
+    # 9.6: assisted (the weight is help: less is harder) and per-side (one arm or leg at a time: volume counts both)
+    # per exercise, when you've set them; otherwise worked out from the name (app/gym/service.py: loading()).
+    loading: dict[str, dict[str, bool]] = Field(default_factory=dict)
     cues: dict[str, str] = Field(default_factory=dict)  # 8.8: your form cues per exercise (built-ins have defaults)
     # Sessions whose start wasn't a time (8.7), kept as they were rather than breaking every page or being deleted.
     quarantined: list[dict[str, Any]] = Field(default_factory=list, max_length=200)

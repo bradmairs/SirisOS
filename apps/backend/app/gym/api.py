@@ -72,7 +72,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from app.auth import require_user
-from app.gym import builder, coach, importer, service, store, templates, tidy, watch
+from app.gym import builder, coach, good, importer, service, store, templates, tidy, watch
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
@@ -361,6 +361,24 @@ def set_cues(exercise_id: str, body: Cues) -> dict[str, Any]:
     return {"exercise": exercise_id, "cues": doc.cues.get(exercise_id) or library.CUES.get(exercise_id, ""), "yours": exercise_id in doc.cues}
 
 
+class Loading(BaseModel):
+    assisted: bool | None = None
+    per_side: bool | None = None
+
+
+@router.put("/exercises/{exercise_id}/loading")
+def set_loading(exercise_id: str, body: Loading) -> dict[str, Any]:
+    """9.6: say an exercise is assisted (the weight is help: less is harder) or done one side at a time
+    (volume counts both sides). Works for built-in exercises too; it's worked out from the name until you do."""
+    doc = store.load()
+    ex = service.exercises(doc).get(exercise_id)
+    if ex is None:
+        raise _missing("exercise")
+    doc.loading[exercise_id] = {**(doc.loading.get(exercise_id) or {}), **body.model_dump(exclude_none=True)}
+    store.save(doc)
+    return service.exercises(doc)[exercise_id]
+
+
 class GymSwap(BaseModel):
     source: str = Field(max_length=60)
     into: str | None = Field(default=None, max_length=60)
@@ -481,7 +499,9 @@ def exercise(exercise_id: str) -> dict[str, Any]:
         raise _missing("exercise")
     rows = service.history(doc, exercise_id)
     return {"exercise": ex, "records": service.records(rows), "last": rows[-1] if rows else None,
-            "series": [{"date": r["date"], "e1rm": r["e1rm"], "best": r["best"].get("weight"), "volume": r["volume"], "reps": r["reps"]} for r in rows[-60:]],
+            # 9.6: on an assisted exercise the chart's "best" is what you lifted (bodyweight less the help), so up is better
+            "series": [{"date": r["date"], "e1rm": r["e1rm"], "best": r["best"].get("load") if ex.get("assisted") else r["best"].get("weight"),
+                        "volume": r["volume"], "reps": r["reps"]} for r in rows[-60:]],
             "history": list(reversed(rows[-30:])), "fitness": watch.fitness(doc, exercise_id),
             "videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True) if v.exercise == exercise_id],
             "cues": doc.cues.get(exercise_id) or _library_cues(exercise_id), "cues_yours": exercise_id in doc.cues}
@@ -778,7 +798,9 @@ async def session(session_id: str, hub: Hub = Depends(get_hub), watch: bool = Tr
         except Exception:  # noqa: BLE001
             found = None
     return {**s.model_dump(), "summary": service.summary(doc, s), "records": service.new_records(doc, s), "watch": found,
-            "entries": [{**e.model_dump(), "name": names.get(e.exercise, {}).get("name", e.exercise)} for e in s.entries]}
+            "entries": [{**e.model_dump(), "name": names.get(e.exercise, {}).get("name", e.exercise),
+                         "assisted": bool(names.get(e.exercise, {}).get("assisted")), "per_side": bool(names.get(e.exercise, {}).get("per_side"))}
+                        for e in s.entries]}
 
 
 class ReviewRequest(BaseModel):
@@ -1044,6 +1066,21 @@ async def stop_rest() -> dict[str, Any]:
 @router.get("/swap")
 def swap(exercise: str = Query(max_length=60), gym: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
     return {"options": coach.swaps(store.load(), exercise, gym)}
+
+
+async def year_of_health(hub: Hub) -> list[dict[str, Any]] | None:
+    """A year of Apple Health days from SirisAI, or None when it isn't there (or is in guest mode)."""
+    try:
+        body = await asyncio.wait_for(sirisai_api.get(hub, "/siris/hub/v1/health/days", params={"days": 370}), timeout=10)
+    except Exception:  # noqa: BLE001
+        return None
+    return None if not body or body.get("guest_mode") else list(body.get("days") or [])
+
+
+@router.get("/good-sessions")
+async def good_sessions(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """9.6: what goes with your best and worst sessions: sleep, resting heart rate, time of day, caffeine."""
+    return good.findings(store.load(), await year_of_health(hub), tasks.today())
 
 
 @router.get("/protein")

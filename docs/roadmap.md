@@ -208,6 +208,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.51: no work tasks or work reminders at the weekend (Show them on Tasks; the Sunday review still plans the week)
 9.52: feed cards keep line breaks, for SirisAI's plain-words weekly reports
 9.53: SirisAI's briefing card with Read it to me (SirisAI's voice, phone voice fallback)
+9.6: SirisGym: assisted and one-side exercises counted right, what makes a good session (sleep, resting HR, time of day, caffeine), a workout card to share
 
 ## Terminal (ADR 113)
 

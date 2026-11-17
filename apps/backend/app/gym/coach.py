@@ -195,7 +195,8 @@ def adjust(plan: PlanExercise, sug: dict[str, Any], doc: GymDoc, readiness: dict
     if deloading:
         sets = max(1, (plan.sets + 1) // 2)
         if sug.get("weight"):
-            sug = {**sug, "weight": fit(sug["weight"] * 0.9), "per_set": [fit(w * 0.9) for w in sug.get("per_set") or []] or None,
+            ease = lambda w: fit(service.easier(doc, plan.exercise, w, 0.9))  # noqa: E731 - 9.6: more help when assisted
+            sug = {**sug, "weight": ease(sug["weight"]), "per_set": [ease(w) for w in sug.get("per_set") or []] or None,
                    "why": f"Deload week: half the sets and 10% lighter. {sug['why']}"}
         return sets, sug
     band = (readiness or {}).get("band")
@@ -207,6 +208,8 @@ def adjust(plan: PlanExercise, sug: dict[str, Any], doc: GymDoc, readiness: dict
             prev = [x["weight"] for x in service.last(doc, plan.exercise) if x.get("weight") and x.get("type") != "warmup"]
             cap = max(prev) if prev else None
             easy = lambda w: fit(cap * 0.95) if cap and fit(w * 0.95) > cap else fit(w * 0.95)  # noqa: E731
+            if (service.exercises(doc).get(plan.exercise) or {}).get("assisted"):  # 9.6: easier is more help
+                easy = lambda w: fit(service.easier(doc, plan.exercise, w, 0.95))  # noqa: E731
             sug = {**sug, "weight": easy(sug["weight"]), "per_set": [easy(w) for w in sug.get("per_set") or []] or None,
                    "why": (f"You're tired today: a set fewer and 5% lighter. {sug['why']}" if mode == "tired" else
                            f"Readiness is low today ({(readiness or {}).get('score', '?')}): a set fewer and 5% lighter. {sug['why']}")}

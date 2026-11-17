@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Camera, CalendarDays, Plus, Ruler, Trash2, TrendingUp, Trophy } from "lucide-react";
+import { Activity, Camera, CalendarDays, Plus, Ruler, Sparkles, Trash2, TrendingUp, Trophy } from "lucide-react";
 import { useResource } from "../api/resource";
 import { gym, type Measurement, type Photo } from "../api/gym";
 import { DecimalInput } from "../components/DecimalInput";
@@ -7,6 +7,31 @@ import { Glass } from "../components/Glass";
 import { fmtDay } from "./GymShared";
 
 /** SirisGym's Progress tab (split out of Gym.tsx in 8.9). */
+
+/** What makes a good session (9.6): your workouts against sleep, resting heart rate, time of day and caffeine. */
+export function GoodSessionsCard() {
+  const res = useResource("gym:good-sessions", () => gym.goodSessions(), { staleMs: 10 * 60_000 });
+  const d = Array.isArray(res.data?.findings) ? res.data : undefined;
+  if (res.error) return null;
+  return (
+    <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="What makes a good session">
+      <header className="widget__head"><Sparkles aria-hidden="true" /><span>What makes a good session</span></header>
+      {!d ? <div className="skeleton" style={{ height: 60 }} /> : d.findings.length === 0 ? <p className="muted" style={{ margin: 0 }}>{d.note}</p> : (
+        <>
+          <ul className="items">
+            {d.findings.map((f) => (
+              <li key={f.key} className="item">
+                <span className="item__text"><span className="item__title career-wrap">{f.text}</span>
+                  <span className="item__subtitle">{f.counts}</span></span>
+              </li>
+            ))}
+          </ul>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>From {d.scored} workouts, each scored against your best for the same lifts in the 90 days before. Patterns, not proof.</p>
+        </>
+      )}
+    </Glass>
+  );
+}
 
 /** Working sets a month for each muscle (8.8): which are growing and which are slipping. */
 export function MuscleTrendsCard() {
@@ -183,6 +208,7 @@ export function ProgressView() {
         </ul>
         {st.data && !st.data.bodyweight && <p className="muted" style={{ margin: 0, fontSize: 13 }}>No bodyweight yet: it comes from Apple Health (weight), so the ratios appear once one arrives.</p>}
       </Glass>
+      <GoodSessionsCard />
       <MuscleTrendsCard />
       <BodyCard />
       <PhotosCard />

@@ -31,6 +31,8 @@ what to lift next, plates, and the week's volume by muscle.
 
 from __future__ import annotations
 
+import re
+
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
@@ -42,8 +44,44 @@ from app.gym.store import EntryLog, GymDoc, PlanExercise, Session, SetLog, count
 REP_MAXES = (1, 3, 5, 10)
 
 
+_ASSISTED = re.compile(r"\bassist(ed|ance)?\b", re.I)
+_PER_SIDE = re.compile(r"single[- ]?(arm|leg|hand)|one[- ]?(arm|leg|hand)|unilateral|split squat|bulgarian|pistol|"
+                       r"concentration curl|step[- ]?ups?\b|lunge|kneeling .*single|\bsingle\b", re.I)
+
+
+@lru_cache(maxsize=4096)
+def guess_loading(name: str) -> tuple[bool, bool]:
+    """(assisted, per side) from an exercise's name (9.6): "Assisted Pull-Up", "Single Arm Cable Row"."""
+    return bool(_ASSISTED.search(name)), bool(_PER_SIDE.search(name))
+
+
+def loading(doc: GymDoc, exercise_id: str, name: str) -> dict[str, bool]:
+    assisted, per_side = guess_loading(name or exercise_id)
+    return {"assisted": assisted, "per_side": per_side, **(doc.loading.get(exercise_id) or {})}
+
+
 def exercises(doc: GymDoc) -> dict[str, dict[str, Any]]:
-    return {**library.BUILTIN, **{e.id: e.model_dump() for e in doc.exercises}}
+    out = {**library.BUILTIN, **{e.id: e.model_dump() for e in doc.exercises}}
+    return {k: {**v, **loading(doc, k, v.get("name", k))} for k, v in out.items()}
+
+
+def bodyweight_for(doc: GymDoc, s: Session | None) -> float | None:
+    return (s.bodyweight if s else None) or doc.settings.bodyweight_kg or None
+
+
+def load(weight: float | None, assisted: bool, bw: float | None) -> float | None:
+    """What you actually lifted (9.6): on an assisted machine, your bodyweight less the help."""
+    if not assisted:
+        return weight
+    return round(max(0.0, bw - (weight or 0)), 1) if bw else None
+
+
+def easier(doc: GymDoc, exercise: str, weight: float, factor: float) -> float:
+    """A weight `factor` as hard (0.9 = 10% easier). On an assisted exercise that's more help, not less weight."""
+    if not (exercises(doc).get(exercise) or {}).get("assisted"):
+        return weight * factor
+    bw = doc.settings.bodyweight_kg
+    return bw - (bw - weight) * factor if bw and bw > weight else weight / factor
 
 
 def e1rm(weight: float | None, reps: int | None) -> float | None:
@@ -60,13 +98,19 @@ def volume(sets: list[SetLog]) -> float:
     return round(sum((s.weight or 0) * (s.reps or 0) for s in working(sets)), 1)
 
 
-def entry_volume(doc: GymDoc, s: Session, e: EntryLog) -> float:
+def entry_volume(doc: GymDoc, s: Session, e: EntryLog, info: dict[str, Any] | None = None) -> float:
     """An exercise's volume in a workout (8.8): a bodyweight exercise counts your bodyweight plus any added weight,
-    so pull-ups and dips aren't 0 kg. Bodyweight is the session's own, else the latest from Apple Health."""
-    if (exercises(doc).get(e.exercise) or {}).get("kind") == "bodyweight":
+    so pull-ups and dips aren't 0 kg. Bodyweight is the session's own, else the latest from Apple Health.
+    9.6: an assisted one counts bodyweight less the help, and a per-side one counts both sides."""
+    info = info if info is not None else (exercises(doc).get(e.exercise) or {})
+    sides = 2 if info.get("per_side") else 1
+    if info.get("assisted"):
+        bw = bodyweight_for(doc, s)
+        return round(sides * sum((load(x.weight, True, bw) or 0) * (x.reps or 0) for x in working(e.sets)), 1)
+    if info.get("kind") == "bodyweight":
         bw = s.bodyweight or doc.settings.bodyweight_kg or 0
-        return round(sum((bw + (x.weight or 0)) * (x.reps or 0) for x in working(e.sets)), 1)
-    return volume(e.sets)
+        return round(sides * sum((bw + (x.weight or 0)) * (x.reps or 0) for x in working(e.sets)), 1)
+    return round(sides * volume(e.sets), 1)
 
 
 @lru_cache(maxsize=8192)
@@ -86,26 +130,53 @@ def day_of(stamp: str) -> str:
 def history(doc: GymDoc, exercise: str) -> list[dict[str, Any]]:
     """Each session the exercise was in, oldest first."""
     out = []
+    info = exercises(doc).get(exercise) or {}
+    assisted = bool(info.get("assisted"))
     for s in counted(doc):
         for e in s.entries:
             if e.exercise != exercise or not working(e.sets):
                 continue
             ws = working(e.sets)
-            best = max(ws, key=lambda x: ((x.weight or 0), (x.reps or 0)))
-            est = [v for x in ws if (v := e1rm(x.weight, x.reps))]
-            out.append({"session": s.id, "date": _day(s.started_at), "sets": [x.model_dump() for x in ws], "best": best.model_dump(),
-                        "e1rm": max(est) if est else None, "volume": entry_volume(doc, s, e), "reps": sum(x.reps or 0 for x in ws),
+            if assisted:  # 9.6: records and the 1RM from what you lifted (bodyweight less the help), not the help
+                bw = bodyweight_for(doc, s)
+                sets = [{**x.model_dump(), "assisted": True, "load": load(x.weight, True, bw)} for x in ws]
+                best = max(sets, key=_strength)
+                est = [v for x in sets if (v := e1rm(x["load"], x.get("reps")))]
+            else:
+                sets = [x.model_dump() for x in ws]
+                best = max(ws, key=lambda x: ((x.weight or 0), (x.reps or 0))).model_dump()
+                est = [v for x in ws if (v := e1rm(x.weight, x.reps))]
+            out.append({"session": s.id, "date": _day(s.started_at), "sets": sets, "best": best,
+                        "e1rm": max(est) if est else None, "volume": entry_volume(doc, s, e, info), "reps": sum(x.reps or 0 for x in ws),
                         "seconds": sum(x.seconds or 0 for x in ws), "km": round(sum(x.km or 0 for x in ws), 2)})
     return out
 
 
+def _strength(x: dict[str, Any]) -> tuple[float, int]:
+    """How hard a set was, for records (9.6): the weight, or on an assisted exercise what you lifted
+    (bodyweight less the help), or with no bodyweight known, the less help the better."""
+    if x.get("assisted"):
+        return (x["load"] if x.get("load") is not None else -(x.get("weight") or 0), x.get("reps") or 0)
+    return (x.get("weight") or 0, x.get("reps") or 0)
+
+
 def records(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    out = _records(rows)
+    out.get("heaviest", {}).pop("key", None)
+    for v in out.get("rep_max", {}).values():
+        v.pop("key", None)
+    return out
+
+
+def _records(rows: list[dict[str, Any]]) -> dict[str, Any]:
     sets = [(r["date"], x) for r in rows for x in r["sets"]]
     out: dict[str, Any] = {}
-    weighted = [(d, x) for d, x in sets if x.get("weight")]
+    weighted = [(d, x) for d, x in sets if x.get("weight") or (x.get("assisted") and x.get("reps"))]
     if weighted:
-        d, x = max(weighted, key=lambda t: (t[1]["weight"], t[1].get("reps") or 0))
-        out["heaviest"] = {"weight": x["weight"], "reps": x.get("reps"), "date": d}
+        d, x = max(weighted, key=lambda t: _strength(t[1]))
+        out["heaviest"] = {"weight": x.get("weight"), "reps": x.get("reps"), "date": d, "key": _strength(x)[0]}
+        if x.get("assisted"):
+            out["heaviest"].update(assisted=True, load=x.get("load"))
     est = [(r["date"], r["e1rm"]) for r in rows if r["e1rm"]]
     if est:
         d, v = max(est, key=lambda t: t[1])
@@ -114,8 +185,8 @@ def records(rows: list[dict[str, Any]]) -> dict[str, Any]:
     for n in REP_MAXES:
         fit = [(d, x) for d, x in weighted if (x.get("reps") or 0) >= n]
         if fit:
-            d, x = max(fit, key=lambda t: t[1]["weight"])
-            out["rep_max"][str(n)] = {"weight": x["weight"], "date": d}
+            d, x = max(fit, key=lambda t: _strength(t[1])[0])
+            out["rep_max"][str(n)] = {"weight": x.get("weight"), "date": d, "key": _strength(x)[0]}
     reps = [(d, x) for d, x in sets if x.get("reps")]
     if reps:
         d, x = max(reps, key=lambda t: t[1]["reps"])
@@ -130,26 +201,35 @@ def new_records(doc: GymDoc, session: Session) -> list[dict[str, Any]]:
     """The records this session set, against every session before it. A deload session sets none (6.8)."""
     if session.deload:
         return []
-    before = GymDoc(sessions=[s for s in counted(doc) if s.started_at < session.started_at and s.id != session.id])
+    # 9.6: a copy with only the sessions changed, so your exercises' assisted and per-side settings still apply
+    before = doc.model_copy(update={"sessions": [s for s in counted(doc) if s.started_at < session.started_at and s.id != session.id]})
     names = exercises(doc)
     found = []
     for e in session.entries:
         if not working(e.sets):
             continue
-        old = records(history(before, e.exercise))
-        new = records(history(GymDoc(sessions=[*before.sessions, session]), e.exercise))
+        old = _records(history(before, e.exercise))
+        new = _records(history(doc.model_copy(update={"sessions": [*before.sessions, session]}), e.exercise))
         name = names.get(e.exercise, {}).get("name", e.exercise)
         if not history(before, e.exercise):
             continue  # a first time isn't a record
-        if (new.get("heaviest") or {}).get("weight", 0) > (old.get("heaviest") or {}).get("weight", 0):
-            found.append({"exercise": e.exercise, "name": name, "kind": "heaviest", "text": f"{name}: heaviest ever, {new['heaviest']['weight']:g}"})
+        nh, oh = new.get("heaviest") or {}, old.get("heaviest") or {}
+        if nh and (not oh or nh["key"] > oh["key"]):
+            if nh.get("assisted"):
+                text = (f"{name}: least help ever, {nh['weight']:g}" if nh.get("weight") else f"{name}: no help needed")
+                text += f" (you lifted {nh['load']:g})" if nh.get("load") else ""
+            else:
+                text = f"{name}: heaviest ever, {nh['weight']:g}"
+            found.append({"exercise": e.exercise, "name": name, "kind": "heaviest", "text": text})
         if (new.get("e1rm") or {}).get("value", 0) > (old.get("e1rm") or {}).get("value", 0):
             found.append({"exercise": e.exercise, "name": name, "kind": "e1rm", "text": f"{name}: best estimated 1RM, {new['e1rm']['value']:g}"})
         if (new.get("best_volume") or {}).get("volume", 0) > (old.get("best_volume") or {}).get("volume", 0):
             found.append({"exercise": e.exercise, "name": name, "kind": "volume", "text": f"{name}: biggest session, {new['best_volume']['volume']:g}"})
         for n, v in (new.get("rep_max") or {}).items():
-            if v["weight"] > ((old.get("rep_max") or {}).get(n) or {}).get("weight", 0) and n != "1":
-                found.append({"exercise": e.exercise, "name": name, "kind": f"{n}rm", "text": f"{name}: best for {n} reps, {v['weight']:g}"})
+            was = ((old.get("rep_max") or {}).get(n) or {}).get("key")
+            if n != "1" and (was is None or v["key"] > was) and (was is not None or v["key"] > 0):
+                said = f"{v['weight']:g} help" if nh.get("assisted") and v.get("weight") else ("no help" if nh.get("assisted") else f"{v['weight']:g}")
+                found.append({"exercise": e.exercise, "name": name, "kind": f"{n}rm", "text": f"{name}: best for {n} reps, {said}"})
     return found
 
 
@@ -217,6 +297,9 @@ def suggest(doc: GymDoc, plan: PlanExercise, gym_id: str | None = None) -> dict[
         why = (f"Every set reached {hi} s last time: hold a little longer, or make it harder." if all(s >= hi for s in secs)
                else f"Last time up to {best:g} s: aim for {hi} s on every set.")
         return {"weight": None, "reps": hi, "seconds": best, "why": why, "last_note": note}
+    info = exercises(doc).get(plan.exercise) or {}
+    if info.get("assisted") and plan.progression != "percent":
+        return {**_suggest_assisted(doc, plan, prev, lo, hi, step, fit), "last_note": note}
     weights = [x["weight"] for x in prev if x.get("weight")]
     if not weights and kind == "bodyweight":
         reps_done = [x["reps"] for x in prev if x.get("reps")]
@@ -266,6 +349,25 @@ def suggest(doc: GymDoc, plan: PlanExercise, gym_id: str | None = None) -> dict[
     if hr is not None:
         out["watch_effort"] = hr
     return {**out, "last_note": note}
+
+
+def _suggest_assisted(doc: GymDoc, plan: PlanExercise, prev: list[dict[str, Any]], lo: int, hi: int, step: float, fit: Any) -> dict[str, Any]:
+    """9.6: on an assisted machine, progress is less help. The hardest set last time is the one with least help."""
+    if not prev:
+        return {"weight": None, "reps": hi, "why": f"No history yet: pick the help that lets you do {lo} to {hi} good reps."}
+    helps = [x.get("weight") or 0 for x in prev]
+    least = min(helps)
+    at = [x for x in prev if (x.get("weight") or 0) == least]
+    target = lo if plan.progression == "linear" else hi
+    if least <= 0:
+        reps = ", ".join(str(x.get("reps") or 0) for x in at)
+        return {"weight": 0, "reps": hi, "why": f"No help last time ({reps} reps): you're ready for the unassisted version."}
+    if all((x.get("reps") or 0) >= target for x in at):
+        less = max(0.0, fit(least - step))
+        why = (f"Every set with {least:g} of help reached {target}: take {least - less:g} off the help."
+               if less > 0 else f"Every set with {least:g} of help reached {target}: try it with no help.")
+        return {"weight": less, "reps": lo, "why": why}
+    return {"weight": least, "reps": target, "why": f"Same help as last time ({least:g}) until every set reaches {target}."}
 
 
 WATCH_EASY = 5.0
