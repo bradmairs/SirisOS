@@ -60,6 +60,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
@@ -72,7 +73,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from app.auth import require_user
-from app.gym import builder, coach, good, importer, service, store, templates, tidy, watch
+from app.gym import builder, coach, good, images, importer, service, store, templates, tidy, watch
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
@@ -166,7 +167,9 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     active = next((r for r in doc.routines if r.active), None)
     return {
         "settings": {**doc.settings.model_dump(exclude={"voice_key_hash"}), "voice_key": bool(doc.settings.voice_key_hash)},
-        "exercises": sorted(service.exercises(doc).values(), key=lambda e: e["name"]),
+        # 9.7: whether each has a picture, for the thumbnails
+        "exercises": sorted(({**e, "image": bool(images.choice(doc, k, e.get("name", k), e.get("equipment", "")))}
+                             for k, e in service.exercises(doc).items()), key=lambda e: e["name"]),
         "routines": [r.model_dump() for r in doc.routines],
         "active": {"routine": active.id, "next_day": service.next_day(doc, active.id, today),
                    "schedule": service.schedule(doc, active.id, today)} if active else None,
@@ -361,6 +364,81 @@ def set_cues(exercise_id: str, body: Cues) -> dict[str, Any]:
     return {"exercise": exercise_id, "cues": doc.cues.get(exercise_id) or library.CUES.get(exercise_id, ""), "yours": exercise_id in doc.cues}
 
 
+@router.get("/exercises/{exercise_id}/image")
+async def exercise_image(exercise_id: str, frame: int = 0) -> FileResponse:
+    """9.7: the exercise's picture: your photo, or the library's start (frame 0) or end (frame 1) of the movement."""
+    doc = store.load()
+    ex = service.exercises(doc).get(exercise_id)
+    pick = images.choice(doc, exercise_id, (ex or {}).get("name", exercise_id), (ex or {}).get("equipment", "")) if ex else None
+    if pick is None:
+        raise _missing("picture")
+    if pick["source"] == "yours":
+        path = store.photo_dir() / doc.images[exercise_id].split(":", 1)[1]
+    else:
+        path = await images.library_file(pick["id"], 1 if frame == 1 and pick["frames"] > 1 else 0)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=502, detail="Couldn't get the picture just now.")
+    return FileResponse(path, headers={"Cache-Control": "private, max-age=604800"})
+
+
+class ImageChoice(BaseModel):
+    library_id: str | None = Field(default=None, max_length=120)
+    none: bool = False
+
+
+@router.put("/exercises/{exercise_id}/image")
+def choose_image(exercise_id: str, body: ImageChoice) -> dict[str, Any]:
+    """9.7: a different library picture, no picture, or (neither) back to the automatic one."""
+    doc = store.load()
+    ex = service.exercises(doc).get(exercise_id)
+    if ex is None:
+        raise _missing("exercise")
+    if body.library_id and body.library_id not in images.library()["by_id"]:
+        raise HTTPException(status_code=422, detail="That isn't in the picture library.")
+    _drop_own_photo(doc, exercise_id)
+    if body.none:
+        doc.images[exercise_id] = images.NONE
+    elif body.library_id:
+        doc.images[exercise_id] = body.library_id
+    else:
+        doc.images.pop(exercise_id, None)
+    store.save(doc)
+    return {"image": images.choice(doc, exercise_id, ex.get("name", exercise_id), ex.get("equipment", ""))}
+
+
+def _drop_own_photo(doc: store.GymDoc, exercise_id: str) -> None:
+    old = doc.images.get(exercise_id) or ""
+    if old.startswith("photo:"):
+        (store.photo_dir() / old.split(":", 1)[1]).unlink(missing_ok=True)
+
+
+@router.post("/exercises/{exercise_id}/photo")
+async def exercise_photo(exercise_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+    """9.7: your own picture for an exercise (the machine at your gym, say). Kept on your server only."""
+    ext = PHOTO_TYPES.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(status_code=415, detail="Send a JPEG, PNG, WebP or HEIC photo.")
+    raw = await file.read(MAX_PHOTO + 1)
+    if len(raw) > MAX_PHOTO:
+        raise HTTPException(status_code=413, detail="That photo is over 20 MB.")
+    doc = store.load()
+    ex = service.exercises(doc).get(exercise_id)
+    if ex is None:
+        raise _missing("exercise")
+    _drop_own_photo(doc, exercise_id)
+    name = f"exercise-{re.sub(r'[^A-Za-z0-9_-]', '_', exercise_id)[:60]}-{store.new_id()}.{ext}"
+    (store.photo_dir() / name).write_bytes(raw)
+    doc.images[exercise_id] = f"photo:{name}"
+    store.save(doc)
+    return {"image": images.choice(doc, exercise_id, ex.get("name", exercise_id), ex.get("equipment", ""))}
+
+
+@router.get("/image-search")
+def image_search(q: str = "") -> dict[str, Any]:
+    """9.7: pictures in the library to choose from."""
+    return {"results": images.search(q[:80]), "source": images.library()["source"]}
+
+
 class Loading(BaseModel):
     assisted: bool | None = None
     per_side: bool | None = None
@@ -505,7 +583,8 @@ def exercise(exercise_id: str) -> dict[str, Any]:
             "history": list(reversed(rows[-30:])), "fitness": watch.fitness(doc, exercise_id),
             "videos": [v.model_dump(exclude={"file"}) for v in sorted(doc.videos, key=lambda v: v.date, reverse=True) if v.exercise == exercise_id],
             "cues": doc.cues.get(exercise_id) or _library_cues(exercise_id), "cues_yours": exercise_id in doc.cues,
-            "percents": service.percent_chart(doc, exercise_id)}
+            "percents": service.percent_chart(doc, exercise_id),
+            "image": images.choice(doc, exercise_id, ex.get("name", exercise_id), ex.get("equipment", ""))}
 
 
 def _library_cues(exercise_id: str) -> str:

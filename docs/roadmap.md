@@ -214,6 +214,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.63: SirisGym energy in kcal
 9.64: an empty workout comes back to SirisGym after the Watch Shortcut, like a routine
 9.65: SirisGym percentage chart of your best estimated 1RM on every exercise
+9.7: SirisGym: a picture for each exercise (start and end of the movement), your own photo, or none
 
 ## Terminal (ADR 113)
 
