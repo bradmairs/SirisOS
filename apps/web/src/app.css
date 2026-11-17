@@ -1357,3 +1357,8 @@ section:has(> .widget-grid:empty) { display: none; }
 .budget-line__pay label > span { white-space: nowrap; flex: none; }
 /* 9.51: a link that does something on the page */
 .link-button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+
+/* 9.65: the percentage chart on an exercise. */
+.gym-percents { width: 100%; max-width: 360px; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.gym-percents th { text-align: left; font-weight: 600; font-size: 12px; color: var(--ink-3); padding: 4px 8px 4px 0; }
+.gym-percents td { padding: 5px 8px 5px 0; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }

@@ -72,3 +72,19 @@ def test_a_saved_workout_says_which_exercises_are_assisted_or_per_side(client): 
     sid = "w1"
     got = client.get(f"/api/v1/gym/sessions/{sid}", headers=AUTH).json()["entries"][0]
     assert got["assisted"] is True and got["per_side"] is False
+
+
+def test_a_percentage_chart_of_your_best_rounded_to_the_gym():
+    """9.65: 50-95% of your best estimated 1RM, loadable at this gym, with about how many reps."""
+    doc = _doc(session("a", "2026-11-03", [(100, 5)], exercise="my-row"))   # e1RM 116.7
+    chart = service.percent_chart(doc, "my-row")
+    rows = {r["percent"]: r for r in chart["rows"]}
+    assert chart["best"] == 116.7 and [r["percent"] for r in chart["rows"]][:2] == [95, 90]
+    assert rows[80]["weight"] == 92.5 and rows[80]["reps"] == 8   # 93.4 kg on a 20 kg bar with 1.25s: 92.5
+    assert rows[95]["reps"] == 2 and rows[50]["reps"] is None
+    assert all((r["weight"] - 20) % 2.5 == 0 for r in chart["rows"])
+    # Assisted: the help that leaves you lifting that share (80 kg bodyweight).
+    doc = _doc(session("b", "2026-11-03", [(20, 5)], exercise="my-apu"))   # 60 kg lifted, e1RM 70
+    a = {r["percent"]: r for r in service.percent_chart(doc, "my-apu")["rows"]}
+    assert a[90]["weight"] > 0 and a[90]["weight"] < a[50]["weight"]
+    assert service.percent_chart(_doc(), "my-row") is None   # nothing logged yet

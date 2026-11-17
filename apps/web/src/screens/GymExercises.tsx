@@ -163,6 +163,31 @@ export function NewExercise({ onClose, onSaved }: { onClose: () => void; onSaved
   );
 }
 
+/** 9.65: percentages of your best estimated 1RM, rounded to what this gym can load, with about how many reps each is. */
+export function PercentChart({ chart, unit }: { chart: NonNullable<ExerciseDetail["percents"]>; unit: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      <button type="button" className="icon-link" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? "Hide" : "Show"} percentages of your best ({kg(chart.best, unit)})
+      </button>
+      {open && (
+        <>
+          <table className="gym-percents" aria-label="Percentages of your best estimated 1RM">
+            <thead><tr><th scope="col">%</th><th scope="col">{chart.assisted ? `Help (${unit})` : unit}</th><th scope="col">About</th></tr></thead>
+            <tbody>
+              {chart.rows.map((r) => (
+                <tr key={r.percent}><td>{r.percent}%</td><td>{r.weight}</td><td className="muted">{r.reps ? `${r.reps} rep${r.reps === 1 ? "" : "s"}` : "12+ reps"}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rounded to what {chart.gym} can load.{chart.assisted ? " The help that leaves you lifting that share of your best." : ""}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** 9.6: assisted (the weight is help) and one side at a time, worked out from the name until you change them. */
 function LoadingSwitches({ id, assisted, perSide, onSaved }: { id: string; assisted: boolean; perSide: boolean; onSaved: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -210,6 +235,7 @@ export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; un
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>Best for: {Object.entries(d.records.rep_max).map(([n, r]) => `${n} rep${n === "1" ? "" : "s"} ${kg(r.weight, unit)}`).join(" · ")}</p>
               )}
               <E1rmChart series={d.series} />
+              {d.percents && <PercentChart chart={d.percents} unit={unit} />}
               {d.fitness && <FitnessLine f={d.fitness} />}
               <ul className="items" aria-label="History">
                 {d.history.map((h) => {

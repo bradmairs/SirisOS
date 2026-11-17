@@ -257,6 +257,32 @@ def loadable(doc: GymDoc, exercise: str, weight: float, gym_id: str | None = Non
     return round(weight * 4) / 4
 
 
+PERCENTS = (95, 90, 85, 80, 75, 70, 65, 60, 55, 50)
+
+
+def percent_chart(doc: GymDoc, exercise: str, gym_id: str | None = None) -> dict[str, Any] | None:
+    """9.65: 50-95% of your best estimated 1RM, each rounded to what the gym can load, with about how many reps
+    that is (Epley turned round). On an assisted exercise each row is the help that leaves you lifting that much."""
+    info = exercises(doc).get(exercise) or {}
+    if info.get("kind", "weight") != "weight":
+        return None
+    best = best_e1rm(doc, exercise)
+    if not best:
+        return None
+    assisted = bool(info.get("assisted"))
+    bw = doc.settings.bodyweight_kg
+    if assisted and not bw:
+        return None
+    gym = doc.settings.gym(gym_id)
+    rows = []
+    for p in PERCENTS:
+        target = best * p / 100
+        weight = max(0.0, loadable(doc, exercise, (bw - target) if assisted else target, gym_id))
+        reps = max(1, round(30 * (100 / p - 1)))
+        rows.append({"percent": p, "weight": weight, "reps": reps if reps <= 12 else None})  # past 12 the estimate doesn't hold
+    return {"best": best, "gym": gym.name, "assisted": assisted, "rows": rows}
+
+
 def training_max(doc: GymDoc, exercise: str, today: date | None = None) -> float | None:
     rows = history(doc, exercise)
     since = ((today or utcnow().date()) - timedelta(days=90)).isoformat()

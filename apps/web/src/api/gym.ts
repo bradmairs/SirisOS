@@ -98,6 +98,8 @@ export interface ExerciseDetail {
   series: { date: string; e1rm: number | null; best: number | null; volume: number; reps: number }[];
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
   fitness?: Fitness | null; videos?: Video[]; cues?: string; cues_yours?: boolean;
+  /** 9.65: 50-95% of your best estimated 1RM, loadable at the current gym (assisted: the help for that share). */
+  percents?: { best: number; gym: string; assisted: boolean; rows: { percent: number; weight: number; reps: number | null }[] } | null;
 }
 
 export interface MergeDone { id: string; at: string; from_name: string; into: string; into_name: string; sets_moved: number; workouts: number }
