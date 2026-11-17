@@ -292,6 +292,8 @@ class GymDoc(BaseModel):
     # 9.6: assisted (the weight is help: less is harder) and per-side (one arm or leg at a time: volume counts both)
     # per exercise, when you've set them; otherwise worked out from the name (app/gym/service.py: loading()).
     loading: dict[str, dict[str, bool]] = Field(default_factory=dict)
+    # 9.7: each exercise's picture when you've chosen one: a library id, "none", or "photo:<file>" (app/gym/images.py).
+    images: dict[str, str] = Field(default_factory=dict)
     cues: dict[str, str] = Field(default_factory=dict)  # 8.8: your form cues per exercise (built-ins have defaults)
     # Sessions whose start wasn't a time (8.7), kept as they were rather than breaking every page or being deleted.
     quarantined: list[dict[str, Any]] = Field(default_factory=list, max_length=200)

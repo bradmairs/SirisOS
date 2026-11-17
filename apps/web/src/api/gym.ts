@@ -3,7 +3,9 @@ import { api, json, request } from "./client";
 export type Kind = "weight" | "bodyweight" | "time" | "cardio";
 export interface Exercise { id: string; name: string; primary: string; secondary: string[]; equipment: string; kind: Kind; custom: boolean;
   /** 9.6: the weight is help (less is harder), and one arm or leg at a time (volume counts both sides). */
-  assisted?: boolean; per_side?: boolean }
+  assisted?: boolean; per_side?: boolean;
+  /** 9.7: whether it has a picture (the library's, or yours). */
+  image?: boolean }
 export interface GoodSessions {
   findings: { key: string; text: string; gap: number; with: number; without: number; sessions: number; counts: string }[];
   scored: number; health: boolean; note: string | null;
@@ -91,6 +93,7 @@ export interface Plan { routine: string; day: number; title: string; gym?: strin
   cues?: string; gym_swap?: { from: string; gym: string } })[];
   mode?: DayMode; mode_note?: string | null }
 export interface GymRecord { exercise: string; name: string; kind: string; text: string }
+export interface ExerciseImageInfo { source: "library" | "yours"; id?: string; name?: string; frames: number; chosen?: boolean }
 export interface ExerciseDetail {
   exercise: Exercise;
   records: { heaviest?: { weight: number | null; reps: number | null; date: string; assisted?: boolean; load?: number | null }; e1rm?: { value: number; date: string }; rep_max?: Record<string, { weight: number; date: string }>;
@@ -99,6 +102,8 @@ export interface ExerciseDetail {
   history: { session: string; date: string; sets: SetLog[]; e1rm: number | null; volume: number }[];
   fitness?: Fitness | null; videos?: Video[]; cues?: string; cues_yours?: boolean;
   /** 9.65: 50-95% of your best estimated 1RM, loadable at the current gym (assisted: the help for that share). */
+  /** 9.7: its picture: the library's (start and end of the movement) or yours; null for none. */
+  image?: ExerciseImageInfo | null;
   percents?: { best: number; gym: string; assisted: boolean; rows: { percent: number; weight: number; reps: number | null }[] } | null;
 }
 
@@ -193,6 +198,16 @@ export const gym = {
     return (await r.json()) as Photo;
   },
   /** The photo as a blob URL (it needs the sign-in, so an <img src> can't fetch it itself). */
+  /** 9.7: an exercise's picture (frame 0 the start of the movement, 1 the end), as an object URL. */
+  imageUrl: async (id: string, frame = 0) => URL.createObjectURL(await (await request(`${G}/exercises/${encodeURIComponent(id)}/image?frame=${frame}`)).blob()),
+  chooseImage: (id: string, body: { library_id?: string | null; none?: boolean }) =>
+    api<{ image: ExerciseImageInfo | null }>(`${G}/exercises/${encodeURIComponent(id)}/image`, { method: "PUT", body: JSON.stringify(body) }),
+  exercisePhoto: async (id: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return api<{ image: ExerciseImageInfo | null }>(`${G}/exercises/${encodeURIComponent(id)}/photo`, { method: "POST", body });
+  },
+  imageSearch: (q: string) => api<{ results: { id: string; name: string; equipment: string }[]; source: string }>(`${G}/image-search?q=${encodeURIComponent(q)}`),
   photoUrl: async (id: string) => URL.createObjectURL(await (await request(`${G}/photos/${id}`)).blob()),
   deletePhoto: (id: string) => api<{ deleted: string }>(`${G}/photos/${id}`, { method: "DELETE" }),
   niggles: () => api<{ niggles: Niggle[]; areas: Area[] }>(`${G}/niggles`),

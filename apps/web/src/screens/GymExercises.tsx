@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dumbbell, HeartPulse, ListPlus, Pencil, Plus, Search } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, kcal, type Exercise, type Duplicate, type MergeDone, type ExerciseDetail, type Gym } from "../api/gym";
+import { ExerciseImage, clearExerciseImage } from "../components/ExerciseImage";
+import { gym, kcal, type ExerciseImageInfo, type Exercise, type Duplicate, type MergeDone, type ExerciseDetail, type Gym } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 import { FitnessLine, VideosCard } from "./GymCards";
@@ -163,6 +164,67 @@ export function NewExercise({ onClose, onSaved }: { onClose: () => void; onSaved
   );
 }
 
+/** 9.7: the exercise's picture, and changing it: another from the library, your own photo, or none. */
+function ImagePanel({ id, name, image, onChanged }: { id: string; name: string; image: ExerciseImageInfo | null; onChanged: () => void }) {
+  const [choosing, setChoosing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const change = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try { await fn(); clearExerciseImage(id); setVersion((v) => v + 1); setChoosing(false); onChanged(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Couldn't change it."); }
+    finally { setBusy(false); }
+  };
+  const key = `${image?.source ?? "none"}:${image?.id ?? ""}:${version}`;
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      {image && <ExerciseImage key={key} id={id} name={name} frames={image.frames} version={key} />}
+      <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="button" className="chip chip--button" disabled={busy} onClick={() => setChoosing(true)}>{image ? "Choose another picture" : "Choose a picture"}</button>
+        <label className="chip chip--button" style={{ cursor: "pointer" }}>
+          Use my photo
+          <input type="file" accept="image/*" hidden disabled={busy} aria-label="Use my photo"
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void change(() => gym.exercisePhoto(id, f)); }} />
+        </label>
+        {image && <button type="button" className="chip chip--button" disabled={busy} onClick={() => change(() => gym.chooseImage(id, { none: true }))}>No picture</button>}
+        {(image?.chosen || image?.source === "yours" || !image) && (
+          <button type="button" className="chip chip--button" disabled={busy} onClick={() => change(() => gym.chooseImage(id, {}))}>Automatic</button>
+        )}
+      </div>
+      {image?.source === "library" && <p className="muted" style={{ margin: 0, fontSize: 11 }}>{image.name} · Free Exercise DB (public domain)</p>}
+      {error && <p className="tone-critical" role="alert" style={{ margin: 0, fontSize: 13 }}>{error}</p>}
+      {choosing && <ImageChooser name={name} onPick={(libId) => change(() => gym.chooseImage(id, { library_id: libId }))} onClose={() => setChoosing(false)} />}
+    </div>
+  );
+}
+
+function ImageChooser({ name, onPick, onClose }: { name: string; onPick: (libId: string) => void; onClose: () => void }) {
+  const [q, setQ] = useState(name);
+  const [results, setResults] = useState<{ id: string; name: string; equipment: string }[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const t = window.setTimeout(() => { gym.imageSearch(q).then((r) => { if (alive) setResults(r.results); }).catch(() => { if (alive) setResults([]); }); }, 250);
+    return () => { alive = false; window.clearTimeout(t); };
+  }, [q]);
+  return (
+    <Sheet label="Choose a picture" onClose={onClose}>
+      <div className="stack" style={{ gap: 8 }}>
+        <input className="field" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search pictures" placeholder="Search pictures" />
+        {results === null ? <div className="skeleton" style={{ height: 80 }} /> : !results.length ? <p className="muted" style={{ margin: 0 }}>Nothing like that in the library.</p> : (
+          <ul className="items gym-picker">
+            {results.map((r) => (
+              <li key={r.id} className="item"><button type="button" className="item__text house__pick" onClick={() => onPick(r.id)}>
+                <span className="item__title">{r.name}</span><span className="item__subtitle">{r.equipment}</span></button></li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
 /** 9.65: percentages of your best estimated 1RM, rounded to what this gym can load, with about how many reps each is. */
 export function PercentChart({ chart, unit }: { chart: NonNullable<ExerciseDetail["percents"]>; unit: string }) {
   const [open, setOpen] = useState(false);
@@ -218,6 +280,7 @@ export function ExerciseSheet({ id, unit, onClose, onChanged }: { id: string; un
           <h2 className="sheet__title">{d.exercise.name}</h2>
           <p className="muted" style={{ margin: 0 }}>{d.exercise.primary}{d.exercise.secondary.length ? `, with ${d.exercise.secondary.join(", ")}` : ""} · {d.exercise.equipment}
             {d.exercise.custom && <> · <button type="button" className="icon-link" onClick={() => setEditing(true)}><Pencil size={12} aria-hidden="true" /> Edit</button></>}</p>
+          <ImagePanel id={id} name={d.exercise.name} image={d.image ?? null} onChanged={() => { void res.reload?.(true); onChanged?.(); }} />
           <LoadingSwitches id={id} assisted={!!d.exercise.assisted} perSide={!!d.exercise.per_side} onSaved={() => { void res.reload?.(true); onChanged?.(); }} />
           <CuesEditor key={d.cues ?? ""} id={id} cues={d.cues ?? ""} yours={!!d.cues_yours} onSaved={() => res.reload?.(true)} />
           {editing && <EditExerciseSheet exercise={d.exercise} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void res.reload?.(true); onChanged?.(); }} />}
