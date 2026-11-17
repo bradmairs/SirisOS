@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Battery, Link2, Wrench } from "lucide-react";
-import { gym, loadActive, newId, saveActive, shortcuts, type Exercise, type ExerciseFix, type HistoryLink, type Recovery, type Session, type SetLog } from "../api/gym";
+import { gym, loadActive, newId, saveActive, type Exercise, type ExerciseFix, type HistoryLink, type Recovery, type Session, type SetLog } from "../api/gym";
 import { useResource } from "../api/resource";
 import { DecimalInput } from "../components/DecimalInput";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
+import { runStartShortcut } from "./GymShared";
 
 /** SirisGym 8.7, from the review: link the routine to your history, tidy imported exercises, fix a set, how it felt,
  * recovery, and doing a workout again. */
@@ -246,6 +247,6 @@ export async function repeatWorkout(navigate: (to: string) => void, id: string, 
   };
   saveActive(fresh);
   navigate("/gym/workout");
-  shortcuts.run(shortcut, "/gym/workout");
+  await runStartShortcut(shortcut);
   return null;
 }

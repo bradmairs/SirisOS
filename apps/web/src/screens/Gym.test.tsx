@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { clearResources } from "../api/resource";
@@ -211,6 +211,7 @@ describe("SirisGym 6.92: Shortcuts", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><GymScreen /></MemoryRouter>);
     await user.click(await screen.findByRole("button", { name: "Start Push" }));
+    await waitFor(() => expect(opened).toHaveLength(1));  // 9.64: once the workout screen is up
     expect(opened[0]).toBe(`shortcuts://x-callback-url/run-shortcut?name=SirisGym%20Start&x-success=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`
       + `&x-cancel=${encodeURIComponent(`${window.location.origin}/gym/workout`)}&x-error=${encodeURIComponent(`${window.location.origin}/gym/workout`)}`);
     expect(window.localStorage.getItem("sirisos.gym.active")).not.toBeNull();
@@ -251,6 +252,21 @@ describe("SirisGym 6.92: Shortcuts", () => {
     mockFetch({ "/api/v1/gym": () => jsonResponse({ ...GYM, settings: { ...GYM.settings, shortcut_start: "SirisGym Start", shortcut_finish: "" } }) });
     render(<MemoryRouter initialEntries={["/gym?view=settings"]}><GymScreen /></MemoryRouter>);
     expect(await screen.findByText(/the Watch workout keeps running after you finish or discard here/)).toBeInTheDocument();
+  });
+
+  it("an empty workout runs the start Shortcut the same way, once the workout screen is up (9.64)", async () => {
+    signIn();
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
+    const opened: string[] = [];
+    const open = vi.spyOn(shortcuts, "open").mockImplementation((u: string) => { opened.push(u); });
+    mockFetch({ "/api/v1/gym": () => jsonResponse({ ...GYM, settings: { ...GYM.settings, shortcut_start: "SirisGym Start" } }) });
+    const user = userEvent.setup();
+    render(<MemoryRouter><GymScreen /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Empty workout" }));
+    expect(opened).toHaveLength(0);   // not in the same instant as the screen change
+    await waitFor(() => expect(opened).toHaveLength(1));
+    expect(opened[0]).toContain("run-shortcut?name=SirisGym%20Start");
+    open.mockRestore(); ua.mockRestore();
   });
 
   it("does nothing off iPhone or without a name", () => {
