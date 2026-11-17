@@ -63,7 +63,7 @@ _EQUIP_TOKENS = frozenset(_EQUIPMENT_WORDS) | {"bar"}
 _SYN = {"db": "dumbbell", "bb": "barbell", "kb": "kettlebell", "pullup": "pull up", "pullups": "pull up", "chinup": "chin up",
         "ohp": "overhead press", "rdl": "romanian deadlift", "tricep": "triceps", "bicep": "biceps", "flye": "fly", "flyes": "fly",
         "flys": "fly", "ext": "extension", "leverage": "machine", "single": "one", "adductor": "adductor", "hip": "hip", "pushdowns": "pushdown", "pushup": "push up", "pushups": "push up", "situp": "sit up"}
-_STOP = {"with", "the", "a", "on", "of", "and", "to", "on", "in", "grip", "medium", "standing", "seated", "exercise"}
+_STOP = {"with", "the", "a", "on", "of", "and", "to", "in", "grip", "medium", "standing", "seated", "exercise"}
 
 
 @lru_cache(maxsize=1)

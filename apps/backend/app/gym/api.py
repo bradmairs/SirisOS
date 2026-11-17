@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
@@ -373,7 +374,7 @@ async def exercise_image(exercise_id: str, frame: int = 0) -> FileResponse:
     if pick is None:
         raise _missing("picture")
     if pick["source"] == "yours":
-        path = store.photo_dir() / doc.images[exercise_id].split(":", 1)[1]
+        path = _own_photo(doc, exercise_id)
     else:
         path = await images.library_file(pick["id"], 1 if frame == 1 and pick["frames"] > 1 else 0)
     if path is None or not path.is_file():
@@ -406,10 +407,21 @@ def choose_image(exercise_id: str, body: ImageChoice) -> dict[str, Any]:
     return {"image": images.choice(doc, exercise_id, ex.get("name", exercise_id), ex.get("equipment", ""))}
 
 
+def _own_photo(doc: store.GymDoc, exercise_id: str) -> Path | None:
+    """Your photo for an exercise, only ever a plain file name inside the photo folder."""
+    kept = doc.images.get(exercise_id) or ""
+    if not kept.startswith("photo:"):
+        return None
+    name = kept.split(":", 1)[1]
+    if not re.fullmatch(r"exercise-[A-Za-z0-9]+\.(jpg|png|webp|heic)", name):
+        return None
+    return store.photo_dir() / name
+
+
 def _drop_own_photo(doc: store.GymDoc, exercise_id: str) -> None:
-    old = doc.images.get(exercise_id) or ""
-    if old.startswith("photo:"):
-        (store.photo_dir() / old.split(":", 1)[1]).unlink(missing_ok=True)
+    path = _own_photo(doc, exercise_id)
+    if path is not None:
+        path.unlink(missing_ok=True)
 
 
 @router.post("/exercises/{exercise_id}/photo")
@@ -426,7 +438,7 @@ async def exercise_photo(exercise_id: str, file: UploadFile = File(...)) -> dict
     if ex is None:
         raise _missing("exercise")
     _drop_own_photo(doc, exercise_id)
-    name = f"exercise-{re.sub(r'[^A-Za-z0-9_-]', '_', exercise_id)[:60]}-{store.new_id()}.{ext}"
+    name = f"exercise-{store.new_id()}.{ext}"  # nothing from the request in the file name
     (store.photo_dir() / name).write_bytes(raw)
     doc.images[exercise_id] = f"photo:{name}"
     store.save(doc)
