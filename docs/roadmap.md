@@ -216,6 +216,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.65: SirisGym percentage chart of your best estimated 1RM on every exercise
 9.7: SirisGym: a picture for each exercise (start and end of the movement), your own photo, or none
 9.71: workout exercise pictures beside the name, not over it; Air Bike shows a bike
+9.72: the tab bar floats lower on iPhone
 
 ## Terminal (ADR 113)
 

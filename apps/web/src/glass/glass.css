@@ -56,6 +56,9 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --dock-h: 68px;
+  /* 9.72: the dock floats low, mostly within the home-indicator strip (about 20 pt up on a Face ID iPhone), like
+     iOS's own floating tab bars, rather than 14 px above it. Phones without the strip keep a 10 px gap. */
+  --dock-bottom: max(10px, calc(var(--safe-bottom) - 14px));
 
   --spring: cubic-bezier(0.32, 1.32, 0.42, 1);
   --ease: cubic-bezier(0.25, 0.9, 0.3, 1);
@@ -324,7 +327,7 @@ a {
 .dock {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 14px);
+  bottom: var(--dock-bottom);
   transform: translateX(-50%);
   z-index: 30;
   display: flex;

@@ -55,7 +55,7 @@
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(var(--safe-bottom) + var(--dock-h) + 26px);
+  bottom: calc(var(--dock-bottom) + var(--dock-h) + 12px);  /* 9.72: just above the dock, wherever it sits */
   width: min(720px, calc(100vw - 2 * var(--gutter)));
   display: flex;
   align-items: flex-end;
