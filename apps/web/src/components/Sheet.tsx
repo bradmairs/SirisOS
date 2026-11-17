@@ -8,19 +8,25 @@ import { Glass } from "./Glass";
  * containing block for its fixed position). */
 export function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
-  const drag = useSwipeDown(ref, onClose);
   // A tap on the dimmed page closes it, but only one that started there (9.0): a drag that began in the sheet (scrolling
   // a list, selecting search text) and ended outside it used to close it.
   const downOnScrim = useRef(false);
+  // 9.61: the latest onClose in a ref, and focus taken once, when the sheet opens. With onClose in the effect's
+  // dependencies, a parent that re-renders every second (the workout's clock) re-ran it and pulled focus back to the
+  // sheet: the search box lost it and the iPhone keyboard closed before you could type.
+  const close = useRef(onClose);
+  close.current = onClose;
+  const drag = useSwipeDown(ref, () => close.current());
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close.current();
     window.addEventListener("keydown", onKey);
-    ref.current?.focus();
+    // A field inside that took focus itself (autoFocus) keeps it.
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
   return createPortal(
     <div className="scrim" onPointerDown={(e) => { downOnScrim.current = e.target === e.currentTarget; }}
-      onClick={(e) => { if (e.target === e.currentTarget && downOnScrim.current) onClose(); downOnScrim.current = false; }}>
+      onClick={(e) => { if (e.target === e.currentTarget && downOnScrim.current) close.current(); downOnScrim.current = false; }}>
       <Glass ref={ref} variant="strong" shape="xl" className="sheet" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
         {/* Drag down from here to close (9.0): only the tab at the top, so scrolling a list inside never closes it. */}
         <div className="sheet__handle" data-testid="sheet-handle" {...drag}><div className="sheet__grabber" /></div>

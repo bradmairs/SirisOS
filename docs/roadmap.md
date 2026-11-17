@@ -209,6 +209,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.52: feed cards keep line breaks, for SirisAI's plain-words weekly reports
 9.53: SirisAI's briefing card with Read it to me (SirisAI's voice, phone voice fallback)
 9.6: SirisGym: assisted and one-side exercises counted right, what makes a good session (sleep, resting HR, time of day, caffeine), a workout card to share
+9.61: exercise search mid-workout keeps the keyboard (sheets no longer steal focus on every tick)
 
 ## Terminal (ADR 113)
 
