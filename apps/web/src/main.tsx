@@ -1,3 +1,4 @@
+import { installViewportFix } from "./api/viewport";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -15,14 +16,5 @@ createRoot(document.getElementById("root")!).render(
 registerServiceWorker();
 startOutbox();
 
-// iOS leaves the page scrolled up after the keyboard closes, so fixed bars
-// (the dock) float mid-screen until the next scroll. Nudge it back.
-document.addEventListener("focusout", (event) => {
-  const target = event.target as HTMLElement | null;
-  if (!target || !target.matches("input, textarea, select, [contenteditable]")) return;
-  setTimeout(() => {
-    if (!document.activeElement?.matches("input, textarea, select, [contenteditable]")) {
-      window.scrollTo(window.scrollX, window.scrollY);
-    }
-  }, 50);
-});
+// 9.62: fixed bars back in place after the keyboard closes or you come back to the app (api/viewport.ts).
+installViewportFix();
