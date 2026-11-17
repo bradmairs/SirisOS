@@ -211,6 +211,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.6: SirisGym: assisted and one-side exercises counted right, what makes a good session (sleep, resting HR, time of day, caffeine), a workout card to share
 9.61: exercise search mid-workout keeps the keyboard (sheets no longer steal focus on every tick)
 9.62: bars stay at the bottom on iPhone after the keyboard closes or coming back to the app
+9.63: SirisGym energy in kcal
 
 ## Terminal (ADR 113)
 

@@ -260,6 +260,11 @@ export function setE1rm(ex: Exercise | undefined, weight: number | null | undefi
   return bodyweight ? e1rm(Math.max(0, bodyweight - (weight ?? 0)), reps) : null;
 }
 
+/** 9.63: SirisGym shows energy in kcal (as the Watch and most gym apps do); the data keeps kJ. */
+export function kcal(kj: number | null | undefined): string | null {
+  return kj ? `${Math.round(kj / 4.184).toLocaleString()} kcal` : null;
+}
+
 /** The plates for each side, largest first. */
 export function plates(target: number, bar: number, available: number[]): { perSide: number[]; left: number } {
   let rest = (target - bar) / 2;

@@ -52,6 +52,6 @@ describe("SirisGym 9.6", () => {
     expect(d.lifts).toEqual([{ name: "Bench Press", best: "2 × 4 · top 90 kg" }, { name: "Plank", best: "2 × 75 s" },
       { name: "Assisted Dip", best: "2 × 6 · 25 kg help" }, { name: "Single Arm Row", best: "1 × 10 · top 32 kg a side" }]);
     expect(d.records).toEqual(["Bench Press: best estimated 1RM, 102"]);
-    expect(d.heart).toBe("118 bpm average · 161 max · 1,520 kJ");
+    expect(d.heart).toBe("118 bpm average · 161 max · 363 kcal");
   });
 });

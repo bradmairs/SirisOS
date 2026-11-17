@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dumbbell, HeartPulse, ListPlus, Pencil, Plus, Search } from "lucide-react";
 import { useResource } from "../api/resource";
-import { gym, type Exercise, type Duplicate, type MergeDone, type ExerciseDetail, type Gym } from "../api/gym";
+import { gym, kcal, type Exercise, type Duplicate, type MergeDone, type ExerciseDetail, type Gym } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { Sheet } from "../components/Sheet";
 import { FitnessLine, VideosCard } from "./GymCards";
@@ -319,7 +319,7 @@ export function EffortCard({ id }: { id: string }) {
           </table>
         </div>
       )}
-      <p className="muted" style={{ margin: 0, fontSize: 12 }}>{[e.avg_hr && `${e.avg_hr} bpm average`, e.peak_hr && `${e.peak_hr} peak`, e.kj && `${e.kj.toLocaleString()} kJ`, e.watch?.name].filter(Boolean).join(" · ")}</p>
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>{[e.avg_hr && `${e.avg_hr} bpm average`, e.peak_hr && `${e.peak_hr} peak`, kcal(e.kj), e.watch?.name].filter(Boolean).join(" · ")}</p>
     </section>
   );
 }
