@@ -185,3 +185,30 @@ export const actuals = {
     api<Balances>(`${B}/accounts/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(c) }),
   removeAccount: (id: string) => api<Balances>(`${B}/accounts/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
+
+/** 10.1: the everyday balance day by day to after the next pay day. */
+export interface CashFlow {
+  ready: boolean; currency: string; why?: string;
+  start?: number; as_of?: string; per_day?: number; basis?: string; next_pay?: string | null;
+  days?: { date: string; balance: number; events: { name: string; amount: number }[] }[];
+  low?: { date: string; balance: number }; end?: number; warn?: boolean; low_mark?: number;
+  bills?: { date: string; name: string; amount: number }[];
+}
+export type RecurringFlag = "price_up" | "not_in_budget" | "check";
+export interface Recurring {
+  id: string; name: string; key: string; every: Every; amount: number; was: number | null; per_month: number; last: string; next: string;
+  times: number; line_id: string | null; line: string | null; subscription: boolean; status: "keep" | "cancelling" | "ignore" | null; flags: RecurringFlag[];
+}
+export interface RecurringOverview { items: Recurring[]; per_month: number; subscriptions_per_month: number; flagged: number; currency: string }
+export interface Suggestion {
+  line_id: string; name: string; section: Section; kind: "raise" | "lower" | "add"; plan: number; average: number;
+  amount: number; every: Every; monthly: number; where: { shop: string; per_month: number }[];
+}
+export interface Suggestions { ready: boolean; why?: string; months: string[]; items: Suggestion[]; currency: string }
+
+export const ahead = {
+  cashflow: () => api<CashFlow>(`${B}/cashflow`),
+  recurring: () => api<RecurringOverview>(`${B}/recurring`),
+  mark: (id: string, status: Recurring["status"]) => api<RecurringOverview>(`${B}/recurring/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
+  suggestions: () => api<Suggestions>(`${B}/suggestions`),
+};

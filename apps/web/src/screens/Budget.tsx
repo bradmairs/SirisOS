@@ -6,6 +6,7 @@ import {
 } from "../api/budget";
 import { Glass } from "../components/Glass";
 import { BalancesCard, SpendingCard } from "./BudgetActuals";
+import { CashFlowCard, RecurringCard, SuggestionsCard } from "./BudgetAhead";
 import { Donut, Legend, LineChart, RankBars, ShareBar, TargetBars, type Datum } from "../components/Charts";
 
 const COLOR: Record<Section | "left", string> = {
@@ -202,7 +203,10 @@ export function BudgetScreen() {
       </Glass>
 
       <div className="budget-charts">
+        <CashFlowCard />
         <SpendingCard plan={plan} />
+        <SuggestionsCard plan={plan} onApply={(id, amount) => change({ ...plan, sections: Object.fromEntries(SECTIONS.map((s) => [s, plan.sections[s].map((l) => (l.id === id ? { ...l, amount } : l))])) as Plan["sections"] })} />
+        <RecurringCard />
         <BalancesCard plan={plan} />
       </div>
 

@@ -9,6 +9,10 @@
     GET  /api/v1/budget/balances            accounts, latest balances, goal progress and forecasts, net worth by month
     POST /api/v1/budget/balances            a balance for an account (`account`, `balance`, optional `kind`, `line_id`, `date`)
     PATCH/DELETE /api/v1/budget/accounts/{id}  rename, change kind or goal line, or remove
+    GET  /api/v1/budget/cashflow            (10.1) the everyday balance day by day to after the next pay, and its lowest point
+    GET  /api/v1/budget/recurring           recurring charges found in the imports, flagged (price up, not in the budget, check)
+    PUT  /api/v1/budget/recurring/{id}      `status`: keep, cancelling, ignore, or null
+    GET  /api/v1/budget/suggestions         after two full months, lines that usually run over or under, with a new amount
     GET  /api/v1/budget/pay-days     (9.5) each income line's next pay day; `today` lists the ones paid today, for Home
 """
 
@@ -22,7 +26,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
-from app.budget import actuals, service
+from app.budget import actuals, forecast, service
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 
@@ -153,3 +157,31 @@ def remove_account(account_id: str) -> dict[str, Any]:
     if out is None:
         raise HTTPException(status_code=404, detail="No such account.")
     return out
+
+
+# -- 10.1: looking ahead -------------------------------------------------------------------------------
+
+@router.get("/cashflow")
+def get_cashflow() -> dict[str, Any]:
+    return forecast.cashflow()
+
+
+@router.get("/recurring")
+def get_recurring() -> dict[str, Any]:
+    return forecast.recurring_overview()
+
+
+class Mark(BaseModel):
+    status: str | None = Field(None, pattern="^(keep|cancelling|ignore)$")
+
+
+@router.put("/recurring/{rec_id}")
+def mark_recurring(rec_id: str, body: Mark) -> dict[str, Any]:
+    if not forecast.mark(_id(rec_id), body.status):
+        raise HTTPException(status_code=404, detail="No such recurring charge.")
+    return forecast.recurring_overview()
+
+
+@router.get("/suggestions")
+def get_suggestions() -> dict[str, Any]:
+    return forecast.suggestions()
