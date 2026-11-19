@@ -93,6 +93,15 @@ const lab = { clients: { total: 34, online: 21 }, sources: { network: true, serv
 const FIXTURES = [
   ["/api/v1/homelab", lab],
   ["/api/v1/budget/pay-days", { currency: "AUD", pay_days: [], today: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly", next: "2026-11-20", days: 0 }] }],
+  ["/api/v1/budget/cashflow", { ready: true, currency: "AUD", start: 400, as_of: "2026-11-19", per_day: 29.6, basis: "your spending over the last two months", next_pay: "2026-11-27",
+    days: Array.from({ length: 15 }, (_, i) => ({ date: `2026-11-${String(19 + i > 30 ? 19 + i - 30 : 19 + i).padStart(2, "0")}`.replace("2026-11-0", "2026-12-0"), balance: i < 8 ? 400 - i * 33 : 2900 - (i - 8) * 30, events: [] })),
+    low: { date: "2026-11-26", balance: 169 }, end: 2690, warn: true, low_mark: 200,
+    bills: [{ date: "2026-11-21", name: "NETFLIX.COM MELBOURNE", amount: -25.99 }, { date: "2026-11-27", name: "ANYTIME FITNESS RICHMOND", amount: -32 }] }],
+  ["/api/v1/budget/recurring", { per_month: 95.7, subscriptions_per_month: 26.37, flagged: 2, currency: "AUD", items: [
+    { id: "r1", name: "NETFLIX.COM MELBOURNE AUS CARD XX1234", key: "netflix.com melbourne", every: "monthly", amount: 25.99, was: 22.99, per_month: 26.37, last: "2026-10-22", next: "2026-11-21", times: 3, line_id: null, line: null, subscription: true, status: null, flags: ["price_up", "not_in_budget", "check"] },
+    { id: "r2", name: "ANYTIME FITNESS RICHMOND", key: "anytime fitness", every: "fortnightly", amount: 32, was: null, per_month: 69.57, last: "2026-11-13", next: "2026-11-27", times: 7, line_id: null, line: null, subscription: false, status: null, flags: ["not_in_budget"] }] }],
+  ["/api/v1/budget/suggestions", { ready: true, currency: "AUD", months: ["2026-09", "2026-10"], items: [{ line_id: "p1", name: "Groceries", section: "spending", kind: "raise",
+    plan: 866.67, average: 1104.2, amount: 254, every: "weekly", monthly: 1100, where: [{ shop: "Woolworths", per_month: 812.4 }, { shop: "Aldi", per_month: 291.8 }] }] }],
   ["/api/v1/budget/actuals", { month: "2026-11", through: 0.6, spent: 1240.5, currency: "AUD", has_data: true, months: ["2026-11", "2026-10"],
     lines: [{ id: "p1", name: "Groceries", section: "spending", plan: 866.67, spent: 1059.5, status: "over" },
       { id: "p3", name: "Fuel", section: "spending", plan: 303.33, spent: 211, status: "ahead" }, { id: "p2", name: "Eating out", section: "spending", plan: 300, spent: 96, status: "ok" }],

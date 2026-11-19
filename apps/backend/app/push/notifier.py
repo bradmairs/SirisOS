@@ -172,6 +172,9 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         from app.work import timesheet
 
         out += timesheet.push_message(now.astimezone(_local_zone()))  # 9.9: Friday afternoon
+        from app.budget import forecast
+
+        out += forecast.push_message(now.astimezone(_local_zone()))  # 10.1: money tight before pay
         from app.goals import service as goals
 
         out += goals.push_message(now)

@@ -188,8 +188,12 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `PUT /api/v1/budget/actuals/{tx_id}` |  |
 | `GET /api/v1/budget/balances` |  |
 | `POST /api/v1/budget/balances` |  |
+| `GET /api/v1/budget/cashflow` |  |
 | `GET /api/v1/budget/from-bills` | Each subscription or bill SirisAI found in email, as an expense line (renewals are taken as monthly unless the email says yearly). |
 | `GET /api/v1/budget/pay-days` |  |
+| `GET /api/v1/budget/recurring` |  |
+| `PUT /api/v1/budget/recurring/{rec_id}` |  |
+| `GET /api/v1/budget/suggestions` |  |
 
 ### `/api/v1/calendar`
 
