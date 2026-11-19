@@ -284,7 +284,9 @@ function WeekCard({ w }: { w: WorkDay }) {
 }
 
 const FOCUS_KEY = "sirisos.work.focus";
-type FocusState = { mode: "focus" | "break"; ends: number | null; left: number; sessions: number; day: string };
+type FocusState = { mode: "focus" | "break"; ends: number | null; left: number; sessions: number; day: string;
+  /** 9.9: what the block is for; when it ends it goes on the timesheet notes. */
+  label?: string; code?: string };
 const todayKey = () => new Date().toISOString().slice(0, 10);
 type Lengths = { focus: number; break: number };
 
@@ -316,7 +318,7 @@ function FocusCard({ settings, onLogged }: { settings?: WorkSettings; onLogged: 
     if (!s.ends || left > 0 || logged.current) return;
     logged.current = true;
     if (s.mode === "focus") {
-      work.focus(Math.round(len.focus / 60)).then(onLogged).catch(() => {});
+      work.focus(Math.round(len.focus / 60), s.label?.trim() || undefined, s.code?.trim() || undefined).then(onLogged).catch(() => {});
       try { navigator.vibrate?.(200); } catch { /* fine */ }
       save({ ...s, mode: "break", ends: null, left: len.break, sessions: s.sessions + 1 });
     } else {
@@ -354,6 +356,14 @@ function FocusCard({ settings, onLogged }: { settings?: WorkSettings; onLogged: 
           <button type="submit" className="button button--small button--primary">Save</button>
           {problem && <span className="tone-critical" role="alert" style={{ fontSize: 13 }}>{problem}</span>}
         </form>
+      )}
+      {s.mode === "focus" && (
+        <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+          <input className="field" style={{ flex: 1, minWidth: 140 }} placeholder="What's this block for? (goes on your timesheet)" aria-label="What this focus block is for"
+            value={s.label ?? ""} maxLength={200} onChange={(e) => save({ ...s, label: e.target.value })} />
+          <input className="field" style={{ width: 110 }} placeholder="Code" aria-label="Job code for this block" list="timesheet-codes"
+            value={s.code ?? ""} maxLength={40} onChange={(e) => save({ ...s, code: e.target.value })} />
+        </span>
       )}
       <div className="work-focus__body">
         <Ring value={1 - left / len[s.mode]} size={120} stroke={10} tone={s.mode === "focus" ? "accent" : "good"} label={`${s.mode}: ${mm} left`}>

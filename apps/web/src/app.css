@@ -1387,6 +1387,23 @@ section:has(> .widget-grid:empty) { display: none; }
 .mini-ring__value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mini-ring__label { font-size: 13px; font-weight: 600; margin-top: 4px; }
 .mini-ring__sub { font-size: 11px; white-space: nowrap; }
+.focus__sun { color: var(--warning, #fbbf24); }
+
+/* 9.9: spending against the plan, and balances */
+.budget-goal__track { position: relative; }
+.budget-actual--good { background: var(--good); }
+.budget-actual--warning { background: var(--warning); }
+.budget-actual--critical { background: var(--critical); }
+.budget-actual__now { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink-2, currentColor); opacity: .6; }
+.budget-unsorted summary { cursor: pointer; font-size: 14px; padding: 4px 0; }
+.budget-tx { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.budget-tx > select { grid-column: 1 / -1; }
+.budget-tx__what { display: flex; flex-direction: column; min-width: 0; font-size: 14px; }
+.budget-tx__what > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.budget-tx__what .muted { font-size: 12px; }
+.budget-tx__amount { font-variant-numeric: tabular-nums; }
+.budget-account__edit { margin-top: 6px; }
+.budget-tx > select, .budget-account__edit .field, .budget-account__edit select { min-width: 0; max-width: 100%; }
 
 /* Friday debrief card (9.9) */
 .debrief__field { gap: 4px; }

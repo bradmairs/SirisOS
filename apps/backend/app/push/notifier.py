@@ -168,6 +168,10 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         from app.work import service as work
 
         out += work.wrapup_push(now)
+        from app.brief.service import zone as _local_zone
+        from app.work import timesheet
+
+        out += timesheet.push_message(now.astimezone(_local_zone()))  # 9.9: Friday afternoon
         from app.goals import service as goals
 
         out += goals.push_message(now)

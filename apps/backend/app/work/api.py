@@ -36,6 +36,8 @@ async def work(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
 
 class Focus(BaseModel):
     minutes: int = Field(ge=1, le=240)
+    label: str | None = Field(default=None, max_length=200)  # 9.9: what it was for: onto the timesheet notes
+    code: str | None = Field(default=None, max_length=40)
 
 
 class WorkSettings(BaseModel):
@@ -54,7 +56,11 @@ def put_settings(body: WorkSettings) -> dict[str, Any]:
 
 @router.post("/focus")
 def focus(body: Focus) -> dict[str, Any]:
-    return {"today": service.add_focus(datetime.now(zone()).date(), body.minutes)}
+    day = datetime.now(zone()).date()
+    out: dict[str, Any] = {"today": service.add_focus(day, body.minutes)}
+    if body.label and body.label.strip():
+        out["timesheet"] = timesheet.add_time(body.label.strip(), body.minutes / 60, day, body.code or "")
+    return out
 
 
 @router.post("/todo-done")

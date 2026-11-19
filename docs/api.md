@@ -87,7 +87,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/assistant/conversations` |  |
 | `GET /api/v1/assistant/conversations/search` | Past conversations by words and dates, each with its title and summary (SirisAI 4.6). |
 | `GET /api/v1/assistant/conversations/{conversation_id}` |  |
-| `POST /api/v1/assistant/feedback` | "Not right" on SirisAI's last answer (9.91, SirisAI 7.17): SirisAI learns from it. |
+| `POST /api/v1/assistant/feedback` | "Not right" on SirisAI's last answer (10.01, SirisAI 7.17): SirisAI learns from it. |
 | `GET /api/v1/assistant/hud` |  |
 | `GET /api/v1/assistant/info` | Who SirisAI thinks is asking, whether guest mode is on, and which of its integrations are configured -- what the PWA shows and hides by. |
 | `GET /api/v1/assistant/network` | UniFi's gateway, switches, access points and clients with live traffic (SirisAI 2.76), for the house view. |
@@ -181,6 +181,13 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/budget` |  |
 | `PUT /api/v1/budget` |  |
+| `DELETE /api/v1/budget/accounts/{account_id}` |  |
+| `PATCH /api/v1/budget/accounts/{account_id}` |  |
+| `GET /api/v1/budget/actuals` |  |
+| `POST /api/v1/budget/actuals/import` |  |
+| `PUT /api/v1/budget/actuals/{tx_id}` |  |
+| `GET /api/v1/budget/balances` |  |
+| `POST /api/v1/budget/balances` |  |
 | `GET /api/v1/budget/from-bills` | Each subscription or bill SirisAI found in email, as an expense line (renewals are taken as monthly unless the email says yearly). |
 | `GET /api/v1/budget/pay-days` |  |
 
@@ -638,6 +645,9 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/tasks` | At the weekend, work tasks are left out unless ?all=true (9.51). |
 | `POST /api/v1/tasks` |  |
+| `GET /api/v1/tasks/lists` | Home Assistant's to-do lists (a shopping list, chores), through SirisAI. |
+| `POST /api/v1/tasks/lists/{entity_id}/done` |  |
+| `POST /api/v1/tasks/lists/{entity_id}/items` |  |
 | `DELETE /api/v1/tasks/{task_id}` |  |
 | `PATCH /api/v1/tasks/{task_id}` |  |
 | `POST /api/v1/tasks/{task_id}/done` |  |

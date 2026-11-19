@@ -125,7 +125,7 @@ describe("<Assistant /> voice", () => {
     expect(calls.filter((c) => c.url.endsWith("/voice/converse"))).toHaveLength(0);
   });
 
-  it("hears 'one moment' without writing it, and learns from 'not right' (9.91)", async () => {
+  it("hears 'one moment' without writing it, and learns from 'not right' (10.01)", async () => {
     signIn();
     heardPlan = [true];
     const calls = mockFetch({
@@ -154,7 +154,7 @@ describe("<Assistant /> voice", () => {
     expect(JSON.parse(sent!.init.body as string)).toEqual({ conversation_id: "c9", note: "" });
   });
 
-  it("'never mind' leaves no empty answer behind (9.91)", async () => {
+  it("'never mind' leaves no empty answer behind (10.01)", async () => {
     signIn();
     heardPlan = [true];
     mockFetch({

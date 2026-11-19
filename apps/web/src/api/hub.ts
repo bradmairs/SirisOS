@@ -110,7 +110,7 @@ export const assistant = {
     api<{ entity_id: string; action: string; state: string | null }>(`/api/v1/assistant/controls/${encodeURIComponent(entityId)}`, json({ action, confirmed })),
   scene: (id: string) => api<{ entity_id: string; action: string }>(`/api/v1/assistant/scenes/${encodeURIComponent(id)}/run`, { method: "POST" }),
   voice: () => api<{ stt: boolean; tts: boolean }>("/api/v1/assistant/voice"),
-  /** 9.91: "Not right" on the last answer; SirisAI (7.17) turns it into a test it keeps checking. */
+  /** 10.01: "Not right" on the last answer; SirisAI (7.17) turns it into a test it keeps checking. */
   feedback: (conversationId: string, note = "") =>
     api<{ request: string; case: { expect?: string[]; avoid?: string[] } | null }>("/api/v1/assistant/feedback", json({ conversation_id: conversationId, note })),
   /** One voice turn: a recording (or typed text) in, transcript + spoken sentences out. */

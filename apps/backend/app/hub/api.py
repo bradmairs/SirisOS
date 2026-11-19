@@ -227,7 +227,7 @@ class FeedbackRequest(BaseModel):
 
 @router.post("/assistant/feedback", tags=["assistant"])
 async def feedback(request: FeedbackRequest, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
-    """"Not right" on SirisAI's last answer (9.91, SirisAI 7.17): SirisAI learns from it."""
+    """"Not right" on SirisAI's last answer (10.01, SirisAI 7.17): SirisAI learns from it."""
     return await _forward(connector, "POST", "/siris/learning/feedback", json=request.model_dump())
 
 

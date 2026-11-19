@@ -23,7 +23,7 @@ export interface Message {
   voice?: boolean;
   /** Saved to Siris' inbox from this screen. */
   saved?: boolean;
-  /** 9.91: "Not right" was sent (SirisAI learns from it). */
+  /** 10.01: "Not right" was sent (SirisAI learns from it). */
   wrong?: "sent" | "failed";
 }
 
@@ -80,7 +80,7 @@ export function Assistant() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [historySince, setHistorySince] = useState("");
   const abort = useRef<AbortController | null>(null);
-  // 9.91: bumped when a tap cuts a reply off, so the old turn doesn't reset the orb under the new one.
+  // 10.01: bumped when a tap cuts a reply off, so the old turn doesn't reset the orb under the new one.
   const turn = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -196,7 +196,7 @@ export function Assistant() {
   const onConfirm = useCallback((i: number, approve: boolean) => handlers.current.confirm(i, approve), []);
   const onWrong = useCallback((i: number) => handlers.current.markWrong(i), []);
 
-  /** 9.91: "Not right" on the latest answer: SirisAI records it and keeps testing that request. */
+  /** 10.01: "Not right" on the latest answer: SirisAI records it and keeps testing that request. */
   async function markWrong(index: number) {
     const id = conversationRef.current;
     if (!id) return;
@@ -227,7 +227,7 @@ export function Assistant() {
       return;
     }
     if (orb === "speaking") {
-      // 9.91: cut it off and listen straight away, like interrupting a person.
+      // 10.01: cut it off and listen straight away, like interrupting a person.
       turn.current += 1;
       p.stop();
       abort.current?.abort();
@@ -304,7 +304,7 @@ export function Assistant() {
           started = true;
           setMessages((m) => [...m, { role: "user", text: event.text, voice: true }, { role: "assistant", text: "", streaming: true, status: "Thinking", voice: true }]);
         } else if (event.type === "sentence" && started) {
-          // 9.91: "One moment, sir." while a tool is slow is heard, not written into the answer.
+          // 10.01: "One moment, sir." while a tool is slow is heard, not written into the answer.
           if (!event.filler) update((m) => ({ ...m, text: m.text ? `${m.text} ${event.text}` : event.text, status: undefined }));
           if (event.audio) p.play(event.audio);
         } else if ((event.type === "tool_start" || event.type === "tool_end") && started) {
@@ -316,7 +316,7 @@ export function Assistant() {
           }
           expectsReply = !!event.expects_reply;
           if (event.stopped && started) {
-            // 9.91: "stop" / "never mind": nothing to answer.
+            // 10.01: "stop" / "never mind": nothing to answer.
             setMessages((all) => (all[all.length - 1]?.role === "assistant" && !all[all.length - 1].text ? all.slice(0, -1) : all));
             started = false;
           } else if (started) update((m) => ({ ...m, text: m.text || event.response || "", streaming: false, status: undefined }));

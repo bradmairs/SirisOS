@@ -348,6 +348,13 @@ def compose(at: datetime, user: str, parts: dict[str, Any], failed: list[str]) -
         if (today_fc.get("rain_chance_percent") or 0) >= 40:
             line += f", {round(today_fc['rain_chance_percent'])}% chance of rain: take a jacket"
         lines.append(line + ".")
+        # 9.9 (SirisAI 6.97): high UV and heat.
+        uv = today_fc.get("uv_index_max")
+        if uv is not None and uv >= 6:
+            when = f" from {today_fc['sun_protection_from']} to {today_fc['sun_protection_to']}" if today_fc.get("sun_protection_from") else ""
+            lines.append(f"UV {round(uv)}{when}: sunscreen, hat and shade.")
+        if (today_fc.get("high_c") or 0) >= 32:
+            lines.append(f"Hot: {round(today_fc['high_c'])}°. Drink water and keep out of the afternoon sun.")
     elif now_wx and now_wx.get("temperature_c") is not None:
         lines.append(f"{round(now_wx['temperature_c'])}° and {str(now_wx.get('conditions', '')).lower()} right now.")
     timed = [e for e in events if e["time"] != "All day"]

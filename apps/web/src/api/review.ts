@@ -23,6 +23,8 @@ export interface WeeklyReview {
   /** 8.9: the year's goals behind the pace, and overdue tasks. */
   goals?: { through_year: number; behind: { title: string; percent: number | null }[]; on_track: number; done: { title: string; percent: number | null }[]; total: number } | null;
   overdue?: { id: string; title: string; due: string | null }[];
+  /** 9.9: the budget lines over plan this month, from imported bank transactions. */
+  spending?: { month: string; spent: number; currency: string; unsorted: number; over: { name: string; spent: number; plan: number }[]; lines: string[] } | null;
   gym?: { sessions: number; sets: number; volume: number; records: string[]; under: string[]; deload: boolean; good?: string[] } | null;
   /** 9.4: mood and mindful minutes from Apple Health against last week, and each habit's ticks. */
   mind?: { mood: number | null; word: string | null; mood_before: number | null; mindful_minutes: number; mindful_before: number;

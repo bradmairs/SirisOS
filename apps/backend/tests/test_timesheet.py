@@ -59,3 +59,30 @@ def test_the_body_rings_join_a_saved_home_layout_hidden_where_the_defaults_hide_
     assert "body-rings" in plan.hidden["work"] and "body-rings" in plan.hidden["night"]
     assert "body-rings" not in plan.hidden["morning"] and "body-rings" not in plan.hidden["evening"]
     assert plan.body_rings and json.loads(path.read_text())["body_rings"] is True
+
+
+def test_a_named_focus_block_goes_on_the_timesheet(client):
+    from datetime import datetime
+
+    from app.brief.service import zone
+
+    today = datetime.now(zone()).date().isoformat()
+    client.post("/api/v1/work/focus", headers=AUTH, json={"minutes": 25, "label": "Hydraulic model", "code": "GVW-123"})
+    client.post("/api/v1/work/focus", headers=AUTH, json={"minutes": 25, "label": "hydraulic model", "code": "GVW-123"})
+    client.post("/api/v1/work/focus", headers=AUTH, json={"minutes": 25})   # no label: focus time only
+    w = client.get(f"/api/v1/work/timesheet?on={today}", headers=AUTH).json()
+    entries = [e for d in w["days"] for e in d["entries"]]
+    assert len(entries) == 1 and entries[0]["what"] == "Hydraulic model" and entries[0]["hours"] == round(50 / 60, 2)
+
+
+def test_the_friday_nudge_says_what_is_noted_and_what_looks_light(client):
+    from datetime import date, datetime
+
+    timesheet.add("Design 7.5h", None, date(2026, 11, 16))
+    timesheet.add("Meetings 2.5h", None, date(2026, 11, 17))
+    timesheet.add("Design 8h", None, date(2026, 11, 18))
+    assert timesheet.push_message(datetime(2026, 11, 19, 16, 0)) == []   # Thursday
+    assert timesheet.push_message(datetime(2026, 11, 20, 9, 0)) == []    # Friday morning
+    msg = timesheet.push_message(datetime(2026, 11, 20, 15, 30))[0]
+    assert msg["key"] == "timesheet:2026-11-16" and msg["url"] == "/work"
+    assert msg["body"] == "18 h noted this week. Light: Tue 2.5 h, Thu 0 h, Fri 0 h. Copy it from Work."

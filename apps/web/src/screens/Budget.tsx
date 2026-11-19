@@ -5,6 +5,7 @@ import {
   savingsProjection, totals, type Budget, type Every, type Line, type Period, type Section,
 } from "../api/budget";
 import { Glass } from "../components/Glass";
+import { BalancesCard, SpendingCard } from "./BudgetActuals";
 import { Donut, Legend, LineChart, RankBars, ShareBar, TargetBars, type Datum } from "../components/Charts";
 
 const COLOR: Record<Section | "left", string> = {
@@ -199,6 +200,11 @@ export function BudgetScreen() {
         <Tile label={over ? "Over by" : "Left over"} value={show(Math.abs(t.left))} tone={over ? "critical" : t.left > 0 ? "good" : undefined}
           sub={over ? "⚠ more going out than coming in" : t.income ? "✓ unallocated" : "Add your income to start"} />
       </Glass>
+
+      <div className="budget-charts">
+        <SpendingCard plan={plan} />
+        <BalancesCard plan={plan} />
+      </div>
 
       {t.income + t.expenses + t.savings + t.spending > 0 && (
         <div className="budget-charts">
