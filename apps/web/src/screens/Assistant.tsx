@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { takeHandoff, withContext } from "../api/pageContext";
 import { Link, useSearchParams } from "react-router-dom";
-import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, Wrench, X } from "lucide-react";
+import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, ThumbsDown, Wrench, X } from "lucide-react";
 import { assistant, brain } from "../api/hub";
 import type { ChatEvent, ChatResponse, ConversationSummary, PendingToolCall } from "../api/types";
 import { ReplyPlayer, micContext, micUnavailableReason, resetMicContext, startRecording, type Recording } from "../api/voice";
@@ -23,6 +23,8 @@ export interface Message {
   voice?: boolean;
   /** Saved to Siris' inbox from this screen. */
   saved?: boolean;
+  /** 9.91: "Not right" was sent (SirisAI learns from it). */
+  wrong?: "sent" | "failed";
 }
 
 /** Folds one stream event into the assistant message being written. */
@@ -78,6 +80,8 @@ export function Assistant() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [historySince, setHistorySince] = useState("");
   const abort = useRef<AbortController | null>(null);
+  // 9.91: bumped when a tap cuts a reply off, so the old turn doesn't reset the orb under the new one.
+  const turn = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   // Voice, as on SirisAI's HUD.
@@ -187,9 +191,23 @@ export function Assistant() {
   }, [params]);
 
   // Stable callbacks for the memoised bubbles, always calling the latest handlers.
-  const handlers = useRef({ saveToBrain: (_i: number) => {}, confirm: (_i: number, _a: boolean) => {} });
+  const handlers = useRef({ saveToBrain: (_i: number) => {}, confirm: (_i: number, _a: boolean) => {}, markWrong: (_i: number) => {} });
   const onSave = useCallback((i: number) => handlers.current.saveToBrain(i), []);
   const onConfirm = useCallback((i: number, approve: boolean) => handlers.current.confirm(i, approve), []);
+  const onWrong = useCallback((i: number) => handlers.current.markWrong(i), []);
+
+  /** 9.91: "Not right" on the latest answer: SirisAI records it and keeps testing that request. */
+  async function markWrong(index: number) {
+    const id = conversationRef.current;
+    if (!id) return;
+    let outcome: Message["wrong"] = "sent";
+    try {
+      await assistant.feedback(id);
+    } catch {
+      outcome = "failed";
+    }
+    setMessages((all) => all.map((m, j) => (j === index ? { ...m, wrong: outcome } : m)));
+  }
 
   function confirm(index: number, approve: boolean) {
     const message = messages[index];
@@ -209,9 +227,17 @@ export function Assistant() {
       return;
     }
     if (orb === "speaking") {
+      // 9.91: cut it off and listen straight away, like interrupting a person.
+      turn.current += 1;
       p.stop();
-      setOrb("idle");
-      setHint("Tap to talk");
+      abort.current?.abort();
+      if (voiceBlocked) {
+        setOrb("idle");
+        setHint("Tap to talk");
+        return;
+      }
+      micContext();
+      await listen(false);
       return;
     }
     if (busy) return;
@@ -259,6 +285,7 @@ export function Assistant() {
 
   async function converse(wav: Blob) {
     const p = player.current!;
+    const myTurn = ++turn.current;
     const controller = new AbortController();
     abort.current = controller;
     setBusy(true);
@@ -277,7 +304,8 @@ export function Assistant() {
           started = true;
           setMessages((m) => [...m, { role: "user", text: event.text, voice: true }, { role: "assistant", text: "", streaming: true, status: "Thinking", voice: true }]);
         } else if (event.type === "sentence" && started) {
-          update((m) => ({ ...m, text: m.text ? `${m.text} ${event.text}` : event.text, status: undefined }));
+          // 9.91: "One moment, sir." while a tool is slow is heard, not written into the answer.
+          if (!event.filler) update((m) => ({ ...m, text: m.text ? `${m.text} ${event.text}` : event.text, status: undefined }));
           if (event.audio) p.play(event.audio);
         } else if ((event.type === "tool_start" || event.type === "tool_end") && started) {
           update((m) => applyEvent(m, event.type === "tool_start" ? { type: "tool_start", name: event.name, arguments: {} } : { type: "tool_end", name: event.name, status: (event.status as "ok") ?? "ok" }));
@@ -287,7 +315,11 @@ export function Assistant() {
             setConversationId(event.conversation_id);
           }
           expectsReply = !!event.expects_reply;
-          if (started) update((m) => ({ ...m, text: m.text || event.response || "", streaming: false, status: undefined }));
+          if (event.stopped && started) {
+            // 9.91: "stop" / "never mind": nothing to answer.
+            setMessages((all) => (all[all.length - 1]?.role === "assistant" && !all[all.length - 1].text ? all.slice(0, -1) : all));
+            started = false;
+          } else if (started) update((m) => ({ ...m, text: m.text || event.response || "", streaming: false, status: undefined }));
         } else if (event.type === "error") {
           if (started) update((m) => ({ ...m, streaming: false, status: undefined, error: event.detail }));
           else setHint(event.detail);
@@ -302,6 +334,7 @@ export function Assistant() {
       refreshLearned();
     }
     await p.finished();
+    if (turn.current !== myTurn) return;   // cut off by a tap: the new turn owns the orb now
     setOrb("idle");
     setHint((h) => (h === "Thinking…" ? (expectsReply ? "Tap to answer" : "Tap to talk") : h));
     if (expectsReply && !controller.signal.aborted && alive.current) await listen(true);
@@ -358,7 +391,7 @@ export function Assistant() {
     send(input);
   }
 
-  handlers.current = { saveToBrain, confirm };
+  handlers.current = { saveToBrain, confirm, markWrong: (i: number) => void markWrong(i) };
 
   return (
     <div className="siris">
@@ -420,7 +453,7 @@ export function Assistant() {
           </div>
         )}
         {messages.map((m, i) => (
-          <Bubble key={i} m={m} index={i} onSave={onSave} onConfirm={onConfirm} />
+          <Bubble key={i} m={m} index={i} onSave={onSave} onConfirm={onConfirm} onWrong={i === messages.length - 1 ? onWrong : undefined} />
         ))}
         <div ref={endRef} />
       </div>
@@ -559,11 +592,14 @@ const Bubble = memo(function Bubble({
   index,
   onSave,
   onConfirm,
+  onWrong,
 }: {
   m: Message;
   index: number;
   onSave: (index: number) => void;
   onConfirm: (index: number, approve: boolean) => void;
+  /** Only on the latest answer: SirisAI's feedback is about the last turn. */
+  onWrong?: (index: number) => void;
 }) {
   return (
         <div className={`bubble-row bubble-row--${m.role}`}>
@@ -592,6 +628,17 @@ const Bubble = memo(function Bubble({
                   <button type="button" className="icon-link" onClick={() => onSave(index)} aria-label="Save to Siris" title="Save to Siris">
                     <BookmarkPlus size={15} aria-hidden="true" />
                   </button>
+                )}
+                {m.wrong === "sent" ? (
+                  <span className="bubble__saved">Noted, I'll learn from it</span>
+                ) : m.wrong === "failed" ? (
+                  <span className="tone-critical bubble__saved">Couldn't send that</span>
+                ) : (
+                  onWrong && (
+                    <button type="button" className="icon-link" onClick={() => onWrong(index)} aria-label="That answer was wrong" title="Not right">
+                      <ThumbsDown size={15} aria-hidden="true" />
+                    </button>
+                  )
                 )}
               </div>
             )}

@@ -220,6 +220,17 @@ async def conversation(conversation_id: str, connector: SirisAIConnector = Depen
     return await _forward(connector, "GET", f"/siris/conversations/{conversation_id}")
 
 
+class FeedbackRequest(BaseModel):
+    conversation_id: str = Field(min_length=1, max_length=200)
+    note: str = Field("", max_length=500)
+
+
+@router.post("/assistant/feedback", tags=["assistant"])
+async def feedback(request: FeedbackRequest, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """"Not right" on SirisAI's last answer (9.91, SirisAI 7.17): SirisAI learns from it."""
+    return await _forward(connector, "POST", "/siris/learning/feedback", json=request.model_dump())
+
+
 @router.get("/assistant/voice", tags=["assistant"])
 async def voice_status(connector: SirisAIConnector = Depends(_sirisai)) -> dict[str, bool]:
     """Whether SirisAI can hear (speech-to-text) and speak (text-to-speech)."""

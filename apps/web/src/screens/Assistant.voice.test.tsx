@@ -124,4 +124,55 @@ describe("<Assistant /> voice", () => {
     expect(await screen.findByText("The microphone didn't pick anything up. Tap to try again")).toBeInTheDocument();
     expect(calls.filter((c) => c.url.endsWith("/voice/converse"))).toHaveLength(0);
   });
+
+  it("hears 'one moment' without writing it, and learns from 'not right' (9.91)", async () => {
+    signIn();
+    heardPlan = [true];
+    const calls = mockFetch({
+      "/api/v1/assistant/voice/converse": () =>
+        ndjson([
+          { type: "transcript", text: "what have I watched?" },
+          { type: "sentence", text: "One moment, sir.", audio: null, filler: true },
+          { type: "sentence", text: "Dune, sir.", audio: null },
+          { type: "final", conversation_id: "c9", response: "Dune, sir.", expects_reply: false },
+        ]),
+      "/api/v1/assistant/feedback": () => jsonResponse({ request: "what have I watched?", case: { avoid: ["plex_now_playing"] } }),
+      "/api/v1/assistant/voice": () => jsonResponse({ stt: true, tts: true }),
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Assistant />
+      </MemoryRouter>,
+    );
+    await user.click((await screen.findAllByRole("button", { name: "Talk to SirisAI" }))[0]);
+    expect(await screen.findByText("Dune, sir.")).toBeInTheDocument();
+    expect(screen.queryByText(/One moment/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "That answer was wrong" }));
+    expect(await screen.findByText("Noted, I'll learn from it")).toBeInTheDocument();
+    const sent = calls.find((c) => c.url.endsWith("/assistant/feedback"));
+    expect(JSON.parse(sent!.init.body as string)).toEqual({ conversation_id: "c9", note: "" });
+  });
+
+  it("'never mind' leaves no empty answer behind (9.91)", async () => {
+    signIn();
+    heardPlan = [true];
+    mockFetch({
+      "/api/v1/assistant/voice/converse": () =>
+        ndjson([
+          { type: "transcript", text: "never mind" },
+          { type: "final", conversation_id: null, response: null, stopped: true, expects_reply: false },
+        ]),
+      "/api/v1/assistant/voice": () => jsonResponse({ stt: true, tts: true }),
+    });
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <Assistant />
+      </MemoryRouter>,
+    );
+    await user.click((await screen.findAllByRole("button", { name: "Talk to SirisAI" }))[0]);
+    expect(await screen.findByText("never mind")).toBeInTheDocument();
+    await waitFor(() => expect(container.querySelectorAll(".bubble--assistant")).toHaveLength(0));
+  });
 });
