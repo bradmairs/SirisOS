@@ -36,7 +36,12 @@ export const push = {
   },
   unsubscribe: (endpoint: string) => api<{ removed: boolean }>("/api/v1/push/unsubscribe", json({ endpoint })),
   test: (endpoint: string) => api<{ sent: boolean }>("/api/v1/push/test", json({ endpoint })),
+  /** 10.2: the morning and evening roundup. */
+  digest: () => api<Digest>("/api/v1/push/digest"),
+  setDigest: (d: { on?: boolean; times?: string[] }) => api<Digest>("/api/v1/push/digest", { method: "PUT", body: JSON.stringify(d) }),
 };
+
+export interface Digest { on: boolean; times: string[]; waiting: number; titles: string[] }
 
 /** Push works in this browser (on iPhone: only once SirisOS is on the Home Screen). */
 export function pushSupported(): boolean {

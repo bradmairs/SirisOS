@@ -6,6 +6,8 @@
                                          (7.9: the same install, or the endpoint it replaces, isn't kept twice)
     POST   /api/v1/push/unsubscribe      {endpoint}
     POST   /api/v1/push/test             {endpoint}: send this device a test notification
+    GET    /api/v1/push/digest           (10.2) the roundup: on, times, what's waiting
+    PUT    /api/v1/push/digest           {on?, times?}
 
 Notification buttons (3.8), no sign-in: the signed token is the permission (push/actions.py).
 
@@ -24,7 +26,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.hub.service import Hub, get_hub, shared_client
 from app.hub.sirisai_api import SirisAIError
-from app.push import actions, notifier, store, webpush
+from app.push import actions, digest, notifier, store, webpush
 
 router = APIRouter(prefix="/api/v1/push", tags=["push"], dependencies=[Depends(require_user)])
 act_router = APIRouter(prefix="/api/v1/push/act", tags=["push"])
@@ -126,3 +128,21 @@ async def test(body: Endpoint) -> dict[str, Any]:
         store.record(sub.endpoint, notifier.describe(exc))
         raise HTTPException(status_code=502, detail=f"Couldn't send: {exc}") from exc
     return {"sent": True}
+
+
+class DigestIn(BaseModel):
+    on: bool | None = None
+    times: list[str] | None = Field(None, max_length=4)
+
+
+@router.get("/digest")
+def get_digest() -> dict[str, Any]:
+    return digest.settings()
+
+
+@router.put("/digest")
+def put_digest(body: DigestIn) -> dict[str, Any]:
+    try:
+        return digest.change(body.on, body.times)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
