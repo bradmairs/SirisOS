@@ -1,4 +1,4 @@
-"""What you actually spend, and what you have (9.9): bank transactions against
+"""What you actually spend, and what you have (10.0): bank transactions against
 the budget, and account balances towards the savings goals.
 
 **Spending.** Import a bank's CSV export (CommBank, NAB, ANZ, Westpac, ING, Up

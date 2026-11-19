@@ -1,4 +1,4 @@
-"""9.9: actual spending from a bank's CSV against the budget, learning shops from corrections,
+"""10.0: actual spending from a bank's CSV against the budget, learning shops from corrections,
 the weekly review flagging lines over plan, and balances towards goals with a forecast."""
 
 from __future__ import annotations

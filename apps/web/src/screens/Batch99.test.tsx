@@ -28,7 +28,7 @@ const month: Actuals = {
   unsorted_count: 1, guessed: [],
 };
 
-describe("SirisOS 9.9", () => {
+describe("SirisOS 10.0", () => {
   it("shows spending against the plan and sorts a transaction onto a line", async () => {
     signIn();
     const calls = mockFetch({

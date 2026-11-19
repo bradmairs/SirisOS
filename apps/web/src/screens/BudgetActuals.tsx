@@ -6,7 +6,7 @@ import { useResource } from "../api/resource";
 import { actuals, KIND_LABEL, money, SECTION_LABEL, SECTIONS, type AccountKind, type Actuals, type Balances, type Budget } from "../api/budget";
 
 /**
- * 9.9: what you actually spend (from a bank's CSV export) against the plan, and what you actually have (balances,
+ * 10.0: what you actually spend (from a bank's CSV export) against the plan, and what you actually have (balances,
  * towards the savings goals, and net worth over time). Both sit on the Budget screen under the totals.
  */
 

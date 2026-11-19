@@ -219,7 +219,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.72: the tab bar floats lower on iPhone
 9.73: the tab bar back where it was
 9.8: readiness/strain/battery rings on Home, timesheet notes in Work, habits on chosen days, tap the tab to go to the top, honest 'Show N more', more health insights
-9.9: actual spending from bank CSVs against the budget, balances with goal forecasts and net worth, focus blocks onto the timesheet with a Friday reminder, Home Assistant lists in Tasks, and a sun and heat heads-up
+10.0: actual spending from bank CSVs against the budget, balances with goal forecasts and net worth, focus blocks onto the timesheet with a Friday reminder, Home Assistant lists in Tasks, and a sun and heat heads-up
 
 ## Terminal (ADR 113)
 
