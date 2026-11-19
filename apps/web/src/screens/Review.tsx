@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SleepWeekCard } from "./Health";
-import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, Smile, TrendingUp, Trophy } from "lucide-react";
+import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, Receipt, Smile, TrendingUp, Trophy } from "lucide-react";
+import { money } from "../api/budget";
 import { useResource } from "../api/resource";
 import { review, type WeeklyReview } from "../api/review";
 import { Glass } from "../components/Glass";
@@ -119,6 +120,17 @@ export function ReviewScreen() {
               </Glass>
             )}
 
+            {data.spending && (data.spending.over.length > 0 || data.spending.unsorted > 0) && (
+              <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Spending">
+                <header className="widget__head"><Receipt aria-hidden="true" /><span>Spending this month</span></header>
+                {data.spending.over.length > 0
+                  ? <ul className="stack" style={{ margin: 0, paddingLeft: 18 }}>{data.spending.over.map((o) => (
+                      <li key={o.name} className="tone-critical">⚠ {o.name}: {money(o.spent, data.spending!.currency)} of {money(o.plan, data.spending!.currency)}</li>))}</ul>
+                  : <p style={{ margin: 0 }}>✓ Nothing over plan.</p>}
+                {data.spending.unsorted > 0 && <p className="muted" style={{ margin: 0 }}>{data.spending.unsorted} spend{data.spending.unsorted === 1 ? "" : "s"} still to sort.</p>}
+                <Link to="/budget" className="button button--small" style={{ alignSelf: "flex-start" }}>Open Budget</Link>
+              </Glass>
+            )}
             {data.goals && (
               <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your goals">
                 <header className="widget__head"><Compass aria-hidden="true" /><span>Your goals</span><span className="widget__source">{data.goals.through_year}% through the year</span></header>

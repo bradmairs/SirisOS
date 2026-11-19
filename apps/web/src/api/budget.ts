@@ -152,3 +152,36 @@ export const budget = {
     clear() { try { localStorage.removeItem(DRAFT); } catch { /* blocked */ } },
   },
 };
+
+/** 9.9: what was actually spent, from a bank's CSV export, against each line's plan. */
+export interface Tx { id: string; date: string; description: string; amount: number; account: string; line_id?: string | null; ignored?: boolean; guessed?: boolean }
+export interface ActualLine { id: string; name: string; section: Section; plan: number; spent: number; status: "ok" | "ahead" | "over" }
+export interface Actuals {
+  month: string; through: number; lines: ActualLine[]; over: ActualLine[]; spent: number;
+  unsorted: Tx[]; unsorted_count: number; guessed: Tx[]; months: string[]; currency: string; has_data: boolean;
+}
+/** 9.9: accounts and balances, towards the savings goals, and net worth over time. */
+export type AccountKind = "everyday" | "savings" | "super" | "investment" | "loan" | "credit";
+export interface Account {
+  id: string; name: string; kind: AccountKind; line_id?: string | null; balance: number | null; as_of: string | null; per_month: number | null;
+  goal?: { line: string; target: number; percent: number | null; eta?: string; months?: number };
+}
+export interface Balances { accounts: Account[]; net_worth: number | null; series: { month: string; net_worth: number }[]; kinds: AccountKind[]; currency: string }
+export const KIND_LABEL: Record<AccountKind, string> = { everyday: "Everyday", savings: "Savings", super: "Super", investment: "Investments", loan: "Loan", credit: "Credit card" };
+
+export const actuals = {
+  get: (month?: string) => api<Actuals>(`${B}/actuals${month ? `?month=${encodeURIComponent(month)}` : ""}`),
+  import: (file: File, account: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("account", account);
+    return api<{ imported: number; skipped: number; account: string; month: Actuals }>(`${B}/actuals/import`, { method: "POST", body: form });
+  },
+  assign: (id: string, lineId: string | null) => api<{ sorted_too: number }>(`${B}/actuals/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ line_id: lineId }) }),
+  balances: () => api<Balances>(`${B}/balances`),
+  setBalance: (b: { account: string; balance: number; kind?: AccountKind; line_id?: string | null }) =>
+    api<Balances>(`${B}/balances`, { method: "POST", body: JSON.stringify(b) }),
+  changeAccount: (id: string, c: { name?: string; kind?: AccountKind; line_id?: string | null }) =>
+    api<Balances>(`${B}/accounts/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(c) }),
+  removeAccount: (id: string) => api<Balances>(`${B}/accounts/${encodeURIComponent(id)}`, { method: "DELETE" }),
+};
