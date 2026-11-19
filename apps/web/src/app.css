@@ -1401,7 +1401,7 @@ section:has(> .widget-grid:empty) { display: none; }
 .budget-tx__what { display: flex; flex-direction: column; min-width: 0; font-size: 14px; }
 .budget-tx__what > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .budget-tx__what .muted { font-size: 12px; }
-.budget-tx__amount { font-variant-numeric: tabular-nums; }
+.budget-tx__amount { font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
 .budget-account__edit { margin-top: 6px; }
 .budget-tx > select, .budget-account__edit .field, .budget-account__edit select { min-width: 0; max-width: 100%; }
 
@@ -1409,3 +1409,10 @@ section:has(> .widget-grid:empty) { display: none; }
 .debrief__field { gap: 4px; }
 .debrief__field > span { font-size: 13px; color: var(--ink-2, var(--ink-3)); }
 .debrief__field textarea { resize: vertical; min-height: 52px; }
+
+/* 10.2: meals and trips */
+.meal-day { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--chart-grid); }
+.meal-day:last-child { border-bottom: 0; }
+.meal-picker { padding: 8px 0 4px; }
+.trip-weather { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.trip-weather__day { display: flex; flex-direction: column; align-items: center; min-width: 58px; padding: 6px 4px; border-radius: 10px; background: color-mix(in srgb, var(--chart-grid) 50%, transparent); font-size: 13px; text-align: center; }

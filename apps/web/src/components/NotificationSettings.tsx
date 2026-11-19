@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BellOff, BellRing, Send } from "lucide-react";
-import { TOPIC_LABELS, currentSubscription, disablePush, enablePush, isIOS, isStandalone, push, pushSupported, type DeviceSubscription, type Topic } from "../api/push";
+import { TOPIC_LABELS, currentSubscription, disablePush, enablePush, isIOS, isStandalone, push, pushSupported, type DeviceSubscription, type Digest, type Topic } from "../api/push";
 import { Glass } from "./Glass";
 
 const ALL: Topic[] = ["apps", "inbox", "brief", "career", "home", "nudges", "gym"];
@@ -127,6 +127,7 @@ export function NotificationSettings() {
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>Last one went out {ago(state.delivery.last_ok)}.</p>
       )}
       {message && <p className="muted" role="status" style={{ margin: 0 }}>{message}</p>}
+      {state.kind === "on" && <DigestSettings />}
       <Devices current={state.kind === "on" ? state.endpoint : null} />
     </Glass>
   );
@@ -158,6 +159,42 @@ function Devices({ current }: { current: string | null }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+
+/** 10.2: what can wait comes together in a morning and evening roundup. */
+function DigestSettings() {
+  const [d, setD] = useState<Digest | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { push.digest().then(setD).catch(() => setD(null)); }, []);
+  if (!d || !Array.isArray(d.times)) return null;
+  const save = async (c: { on?: boolean; times?: string[] }) => {
+    setError(null);
+    try { setD(await push.setDigest(c)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  };
+  return (
+    <section aria-label="Roundup" className="stack" style={{ gap: 6 }}>
+      <label className="notify__topic">
+        <input type="checkbox" checked={d.on} onChange={() => void save({ on: !d.on })} />
+        <span>Bundle what can wait into a morning and evening roundup</span>
+      </label>
+      {d.on && (
+        <>
+          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+            {d.times.map((t, i) => (
+              <input key={i} type="time" className="field" aria-label={`Roundup ${i + 1}`} defaultValue={t} style={{ width: "auto" }}
+                onBlur={(e) => { if (e.target.value && e.target.value !== t) void save({ times: d.times.map((x, j) => (j === i ? e.target.value : x)) }); }} />
+            ))}
+          </div>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            Urgent alerts, tasks at their time, the Friday timesheet, money getting tight and bedtime still come straight away.
+            {d.waiting ? ` ${d.waiting} waiting for the next roundup.` : ""}
+          </p>
+        </>
+      )}
+      {error && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{error}</p>}
     </section>
   );
 }

@@ -29,3 +29,9 @@ def _weekdays_only(monkeypatch, request):
     from app.tasks import service as tasks_service
 
     monkeypatch.setattr(tasks_service, "weekend", lambda on: False)
+
+
+@pytest.fixture(autouse=True)
+def _own_digest(monkeypatch, tmp_path):
+    """10.2: each test starts with an empty notification roundup."""
+    monkeypatch.setenv("SIRISOS_DIGEST_PATH", str(tmp_path / "push-digest.json"))

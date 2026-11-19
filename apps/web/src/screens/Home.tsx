@@ -28,6 +28,9 @@ import { CamerasWidget, CarWidget, EnergyWidget, ProtocolsWidget, SirisParcelsWi
 import { HabitsHomeWidget } from "./HabitsWidget";
 import { PayDayCard } from "./PayDayCard";
 import { MoneyTightCard } from "./BudgetAhead";
+import { TonightCard } from "./Meals";
+import { TripHomeCard } from "./Travel";
+import { RecapCard } from "./RecapCard";
 
 /** 9.4: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
  * (with Mental health), Training, Work, Maintenance, SirisGym's cards and the inbox just for their Home cards. */
@@ -202,6 +205,9 @@ export function Home() {
   const today: Slot[] = [
     { id: "pay-day", label: "Pay day", node: !hideMine && <PayDayCard /> },
     { id: "money-tight", label: "Money before pay", node: !hideMine && <MoneyTightCard /> },
+    { id: "trip", label: "Trip", node: !hideMine && <TripHomeCard /> },
+    { id: "recap", label: "Last month in short", node: !hideMine && <RecapCard /> },
+    { id: "dinner", label: "Dinner tonight", node: !hideMine && <TonightCard /> },
     { id: "timeline", label: "Today timeline", node: !hideMine && <TodayTimeline events={comingUp} /> },
     { id: "tasks", label: "Tasks", node: !hideMine && <TasksWidget delay={20} area={adapt ? taskArea : undefined} /> },
     { id: "coming-up", label: "Coming up", node: !hideMine && (comingUp ? <ComingUpWidget events={comingUp} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },

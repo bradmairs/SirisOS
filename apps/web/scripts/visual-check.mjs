@@ -11,7 +11,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 const PORT = 4199;
 const OUT = "visual-check";
 const PICTURE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAkADADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDGooorgPrQooooAKKKKALvkRf3f1NHkRf3f1NS0VFzxPa1P5n95F5EX939TR5EX939TUtFFw9rU/mf3kXkRf3f1NHkRf3f1NS0UXD2tT+Z/eFFFFBmFFFFABRRRQB//9k=";
-const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/things", "/life", "/homelab"];
+const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/meals", "/travel", "/things", "/life", "/homelab"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -93,6 +93,23 @@ const lab = { clients: { total: 34, online: 21 }, sources: { network: true, serv
 const FIXTURES = [
   ["/api/v1/homelab", lab],
   ["/api/v1/budget/pay-days", { currency: "AUD", pay_days: [], today: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly", next: "2026-11-20", days: 0 }] }],
+  ["/api/v1/meals/tonight", { dinner: { title: "Chicken stir fry", slug: "chicken-stir-fry" } }],
+  ["/api/v1/meals/recipes", { configured: true, recipes: [] }],
+  ["/api/v1/meals/shopping", { start: "2026-11-19", items: [], no_ingredients: [], lists: [], list: null, staples: ["salt"] }],
+  ["/api/v1/meals", { start: "2026-11-19", staples: ["salt"], list: "todo.shopping_list", mealie: { configured: true, error: null },
+    often: [{ title: "Spag bol", slug: "spag-bol", recipe_id: "r2", times: 3 }],
+    days: ["2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22", "2026-11-23", "2026-11-24", "2026-11-25"].map((date, i) => ({ date,
+      dinner: i === 0 ? { title: "Chicken stir fry with a long name for wrapping", slug: "chicken-stir-fry", source: "mealie", url: "http://mealie/g/home/r/chicken-stir-fry" }
+        : i === 2 ? { title: "Tacos", source: "local", ingredients: ["Tortillas"] } : null })) }],
+  ["/api/v1/travel/current", { trip: null }],
+  ["/api/v1/travel", { next: { id: "abcdef1234", destination: "Hobart", place: "Hobart, Tasmania, Australia", country: "AU", start: "2026-11-27", end: "2026-11-30", notes: "",
+    ooo_done: false, packing: [{ item: "4 sets of clothes", done: true }, { item: "Rain jacket", done: false }, { item: "Warm jacket", done: false }],
+    days_to_go: 8, nights: 3, away: false, ooo_day: "2026-11-26", packed: 1, to_pack: 3,
+    weather: { note: null, days: ["2026-11-27", "2026-11-28", "2026-11-29", "2026-11-30"].map((date) => ({ date, conditions: "Showers", high_c: 15, low_c: 7, rain_chance: 60, uv: 4 })) },
+    bills: [{ date: "2026-11-28", name: "NETFLIX.COM MELBOURNE AUS CARD XX1234", amount: 25.99, kind: "charge" }] }, upcoming: [], past: [] }],
+  ["/api/v1/recap", { month: "2026-10", title: "October 2026 recap", text: "- Slept 7.2 h a night (from 6.8).", filed_as: null, seen: false, show: false,
+    money: null, health: null, work: { timesheet_hours: 0, cpd_hours: 0 }, habits: [] }],
+  ["/api/v1/push/digest", { on: true, times: ["07:30", "18:00"], waiting: 0, titles: [] }],
   ["/api/v1/budget/cashflow", { ready: true, currency: "AUD", start: 400, as_of: "2026-11-19", per_day: 29.6, basis: "your spending over the last two months", next_pay: "2026-11-27",
     days: Array.from({ length: 15 }, (_, i) => ({ date: `2026-11-${String(19 + i > 30 ? 19 + i - 30 : 19 + i).padStart(2, "0")}`.replace("2026-11-0", "2026-12-0"), balance: i < 8 ? 400 - i * 33 : 2900 - (i - 8) * 30, events: [] })),
     low: { date: "2026-11-26", balance: 169 }, end: 2690, warn: true, low_mark: 200,

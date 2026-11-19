@@ -64,6 +64,8 @@ const GymWorkoutScreen = lazy(() => loadGymWorkout().then((m) => ({ default: m.G
 const HealthScreen = lazy(() => loadHealth().then((m) => ({ default: m.HealthScreen })));
 const LifeScreen = lazy(() => loadLife().then((m) => ({ default: m.LifeScreen })));
 const BudgetScreen = lazy(() => loadBudget().then((m) => ({ default: m.BudgetScreen })));
+const MealsScreen = lazy(() => import("./screens/Meals").then((m) => ({ default: m.MealsScreen })));
+const TravelScreen = lazy(() => import("./screens/Travel").then((m) => ({ default: m.TravelScreen })));
 const ThingsScreen = lazy(() => loadThings().then((m) => ({ default: m.ThingsScreen })));
 const TrendsScreen = lazy(() => loadTrends().then((m) => ({ default: m.TrendsScreen })));
 const Talk = lazy(() => loadTalk().then((m) => ({ default: m.Talk })));
@@ -220,6 +222,8 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/health" element={<HealthScreen />} />
           <Route path="/life" element={<LifeScreen />} />
           <Route path="/budget" element={<BudgetScreen />} />
+          <Route path="/meals" element={<MealsScreen />} />
+          <Route path="/travel" element={<TravelScreen />} />
           <Route path="/things" element={<ThingsScreen />} />
           <Route path="/projects/:title" element={<ProjectScreen />} />
           <Route path="/wrapup" element={<WrapUpScreen />} />

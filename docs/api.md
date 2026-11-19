@@ -490,6 +490,19 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/maintenance/jobs/{job_id}/snooze` |  |
 | `POST /api/v1/maintenance/manuals/ask` | Ask the uploaded manuals (6.4): {answer, sources: [{appliance, page, snippet}], note?}. |
 
+### `/api/v1/meals`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/meals` |  |
+| `GET /api/v1/meals/recipes` |  |
+| `GET /api/v1/meals/shopping` |  |
+| `POST /api/v1/meals/shopping` |  |
+| `PUT /api/v1/meals/staples` |  |
+| `GET /api/v1/meals/tonight` | Tonight's dinner: Mealie's plan when it's set up (so one planned in Mealie shows too), else what was planned here. |
+| `DELETE /api/v1/meals/{on}` |  |
+| `PUT /api/v1/meals/{on}` |  |
+
 ### `/api/v1/memories`
 
 | Route | What it does |
@@ -567,11 +580,20 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/push/act` |  |
 | `POST /api/v1/push/act` |  |
+| `GET /api/v1/push/digest` |  |
+| `PUT /api/v1/push/digest` |  |
 | `GET /api/v1/push/key` |  |
 | `POST /api/v1/push/subscribe` |  |
 | `GET /api/v1/push/subscriptions` |  |
 | `POST /api/v1/push/test` |  |
 | `POST /api/v1/push/unsubscribe` |  |
+
+### `/api/v1/recap`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/recap` |  |
+| `POST /api/v1/recap/{month}/seen` |  |
 
 ### `/api/v1/renewals`
 
@@ -681,6 +703,16 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/training/feed/new` |  |
 | `DELETE /api/v1/training/race` |  |
 | `PUT /api/v1/training/race` |  |
+
+### `/api/v1/travel`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/travel` |  |
+| `POST /api/v1/travel` |  |
+| `GET /api/v1/travel/current` |  |
+| `DELETE /api/v1/travel/{trip_id}` |  |
+| `PATCH /api/v1/travel/{trip_id}` |  |
 
 ### `/api/v1/trends`
 

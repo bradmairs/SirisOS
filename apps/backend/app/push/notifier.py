@@ -175,11 +175,20 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         from app.budget import forecast
 
         out += forecast.push_message(now.astimezone(_local_zone()))  # 10.1: money tight before pay
+        from app.travel import service as travel
+
+        out += travel.push_message(now.astimezone(_local_zone()))  # 10.2: out-of-office before a trip
         from app.goals import service as goals
 
         out += goals.push_message(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: wrap-up unavailable: %s", exc)
+    try:  # 10.2: last month's recap, filed in Siris on the 1st
+        from app.recap import service as recap
+
+        out += await recap.push_message(hub, now.astimezone(_zone()))
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: recap unavailable: %s", exc)
     try:
         out += task_messages(now)
     except Exception as exc:  # noqa: BLE001
@@ -258,7 +267,7 @@ async def deliver(messages: list[dict[str, Any]]) -> int:
     count = 0
     client = shared_client()
     for msg in messages:
-        targets = [s for s in subs if msg["topic"] in s.topics]
+        targets = [s for s in subs if msg["topic"] in s.topics or set(msg.get("topics") or ()) & set(s.topics)]
         payload = payload_for(msg)
         for sub in targets:
             try:
@@ -322,7 +331,13 @@ async def run_once(hub: Hub, now: datetime | None = None) -> int:
     now = now or datetime.now(zone())
     already = store.sent()
     fresh = [m for m in await collect(hub, now) if m["key"] not in already]
-    sent = await deliver(fresh)
+    from app.push import digest  # 10.2: what can wait goes in the morning or evening roundup
+
+    send_now, later = digest.split(fresh)
+    digest.hold(later, now.astimezone(zone()))
+    store.mark_sent([m["key"] for m in later])
+    roundup = digest.due(now.astimezone(zone()))
+    sent = await deliver(send_now + ([roundup] if roundup else []))
     try:
         await check_in(now)
     except Exception as exc:  # noqa: BLE001
