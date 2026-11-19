@@ -140,6 +140,15 @@ class FakeApps:
         if path == "/siris/brain/done":
             body = json.loads(request.content)
             return httpx.Response(200, json={"action": "done" if "task" in body else "project-done", "task": body.get("task"), "note": body["note"]})
+        if path == "/siris/brain/debrief":
+            if request.method == "GET":
+                return httpx.Response(200, json={"asked": "2026-11-20", "answered": None, "open": True,
+                                                 "projects": ["Melrose East Pump Station"], "cpeng_question": "CPEng: …"})
+            body = json.loads(request.content)
+            if not any(body[k] for k in ("decided", "went_wrong", "differently", "cpeng")):
+                return httpx.Response(422, json={"detail": "Write at least one answer."})
+            return httpx.Response(200, json={"filed": body["project"] or "Work Debriefs", "decision": bool(body["decided"]),
+                                             "lesson": bool(body["differently"])})
         if path == "/siris/brain/unlink":
             body = json.loads(request.content)
             return httpx.Response(200, json={"action": "unlinked", **body})
@@ -570,3 +579,13 @@ def test_sirisais_version_is_its_version_not_its_model():
             return await SirisAIConnector({"SIRISAI_URL": "http://ai", "SIRISAI_API_KEY": "k"}).check(c)
 
     assert asyncio.run(go()) == "5.41"
+
+
+def test_brain_debrief_proxy(client, apps):
+    status = client.get("/api/v1/brain/debrief", headers=AUTH).json()
+    assert status["open"] and status["projects"] == ["Melrose East Pump Station"]
+    r = client.post("/api/v1/brain/debrief", headers=AUTH, json={"project": "Melrose East Pump Station", "decided": "Ductile iron",
+                                                                 "differently": "Order the survey earlier"})
+    assert r.json() == {"filed": "Melrose East Pump Station", "decision": True, "lesson": True}
+    assert client.post("/api/v1/brain/debrief", headers=AUTH, json={}).status_code == 422
+    assert client.post("/api/v1/brain/debrief", headers=AUTH, json={"decided": "x" * 2001}).status_code == 422
