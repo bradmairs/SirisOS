@@ -7,9 +7,9 @@
 export type VoiceEvent =
   | { type: "transcript"; text: string }
   | { type: "speaker"; user_id: string; score: number }
-  | { type: "sentence"; text: string; audio: string | null }
+  | { type: "sentence"; text: string; audio: string | null; filler?: boolean }
   | { type: "tool_start" | "tool_end"; name: string; status?: string }
-  | { type: "final"; conversation_id: string | null; response: string | null; expects_reply?: boolean; confirmation_required?: unknown }
+  | { type: "final"; conversation_id: string | null; response: string | null; expects_reply?: boolean; confirmation_required?: unknown; stopped?: boolean }
   | { type: "error"; detail: string };
 
 /** Reads newline-delimited JSON from a streamed response body. */

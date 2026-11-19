@@ -194,6 +194,10 @@ class FakeApps:
         if path == "/siris/voice/transcribe":
             assert b'filename="memo.wav"' in request.content
             return httpx.Response(200, json={"text": "Check the pit lids on Monday"})
+        if path == "/siris/learning/feedback":
+            body = json.loads(request.content)
+            self.captured.append(body)
+            return httpx.Response(200, json={"request": "what have I watched?", "case": {"avoid": ["plex_now_playing"]}})
         if path == "/siris/conversations":
             return httpx.Response(200, json=[{"id": "c1", "limit": request.url.params["limit"]}])
         if path == "/siris/chat/stream":
@@ -423,6 +427,9 @@ def test_brain_proxies(client, apps):
 
 def test_assistant_proxies(client, apps):
     assert client.get("/api/v1/assistant/conversations?limit=5", headers=AUTH).json() == [{"id": "c1", "limit": "5"}]
+    wrong = client.post("/api/v1/assistant/feedback", headers=AUTH, json={"conversation_id": "c1"})
+    assert wrong.json()["case"] == {"avoid": ["plex_now_playing"]} and apps.captured[-1] == {"conversation_id": "c1", "note": ""}
+    assert client.post("/api/v1/assistant/feedback", headers=AUTH, json={"conversation_id": ""}).status_code == 422
     assert client.get("/api/v1/assistant/hud", headers=AUTH).json()["weather"]["temperature_c"] == 17.6
 
 

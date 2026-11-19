@@ -87,6 +87,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/assistant/conversations` |  |
 | `GET /api/v1/assistant/conversations/search` | Past conversations by words and dates, each with its title and summary (SirisAI 4.6). |
 | `GET /api/v1/assistant/conversations/{conversation_id}` |  |
+| `POST /api/v1/assistant/feedback` | "Not right" on SirisAI's last answer (10.01, SirisAI 7.17): SirisAI learns from it. |
 | `GET /api/v1/assistant/hud` |  |
 | `GET /api/v1/assistant/info` | Who SirisAI thinks is asking, whether guest mode is on, and which of its integrations are configured -- what the PWA shows and hides by. |
 | `GET /api/v1/assistant/network` | UniFi's gateway, switches, access points and clients with live traffic (SirisAI 2.76), for the house view. |
