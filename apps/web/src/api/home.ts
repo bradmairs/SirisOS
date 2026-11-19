@@ -45,7 +45,26 @@ export type DayPhase = "morning" | "work" | "weekend" | "evening" | "winddown" |
 export interface DayEvent { title: string; start: string; end?: string | null; all_day: boolean; location: string | null }
 
 /** A day's forecast at home. */
-export interface DayWeather { date: string; conditions?: string | null; high_c?: number | null; low_c?: number | null; rain_chance_percent?: number | null; precipitation_mm?: number | null }
+export interface DayWeather { date: string; conditions?: string | null; high_c?: number | null; low_c?: number | null; rain_chance_percent?: number | null; precipitation_mm?: number | null;
+  /** 9.9 (SirisAI 6.97): the peak UV, and the hours it's 3 or more. */
+  uv_index_max?: number | null; sun_protection_from?: string | null; sun_protection_to?: string | null }
+
+export const HOT_C = 32;  // a hot day: worth a word about water and shade
+export const HIGH_UV = 6;  // high UV and up: worth saying (UV 3+ already needs protection)
+
+/** 9.9: a heads-up about the sun and the heat, or null on a mild day. "UV 11, 9am–4pm: sunscreen, hat and shade. Hot: 34°." */
+export function sunHeadsUp(w: DayWeather | null | undefined): string | null {
+  if (!w) return null;
+  const bits: string[] = [];
+  const uv = w.uv_index_max;
+  if (uv != null && uv >= HIGH_UV) {
+    const hour = (t: string) => { const h = +t.slice(0, 2); return `${h % 12 || 12}${h < 12 ? "am" : "pm"}`; };
+    const when = w.sun_protection_from && w.sun_protection_to ? ` ${hour(w.sun_protection_from)}–${hour(w.sun_protection_to)}` : "";
+    bits.push(`UV ${Math.round(uv)}${uv >= 11 ? " (extreme)" : uv >= 8 ? " (very high)" : " (high)"}${when}: sunscreen, hat and shade.`);
+  }
+  if (w.high_c != null && w.high_c >= HOT_C) bits.push(`Hot: ${Math.round(w.high_c)}°. Drink water and keep out of the afternoon sun.`);
+  return bits.length ? bits.join(" ") : null;
+}
 
 export interface HomeContext {
   phase: DayPhase;

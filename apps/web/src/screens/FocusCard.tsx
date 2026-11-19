@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarClock, Check, Circle, CloudRain, House, MapPin, MoonStar, Sun, Sunrise, Target } from "lucide-react";
-import type { DayEvent, DayWeather, HomeContext } from "../api/home";
+import { sunHeadsUp, type DayEvent, type DayWeather, type HomeContext } from "../api/home";
 import { tasks, type TaskItem } from "../api/tasks";
 import type { Hud } from "../api/types";
 import { Glass } from "../components/Glass";
@@ -34,6 +34,7 @@ function Weather({ w, label }: { w: DayWeather | null | undefined; label: string
       {wet ? <CloudRain size={14} aria-hidden="true" /> : <Sun size={14} aria-hidden="true" />}{" "}
       {label}: {w.high_c != null ? `${Math.round(w.high_c)}°` : ""}{w.conditions ? `, ${w.conditions}` : ""}{rain ? `, ${Math.round(rain)}% chance of rain` : ""}
       {wet ? ". Take an umbrella." : ""}
+      {sunHeadsUp(w) && <><br /><span className="focus__sun">{sunHeadsUp(w)}</span></>}
     </p>
   );
 }

@@ -133,8 +133,23 @@ async def overview(hub: Hub, today: date | None = None) -> dict[str, Any]:
         "overdue": [{"id": t.get("id"), "title": t.get("title") or t.get("text"), "due": t.get("due")} for t in listing["groups"].get("overdue", [])][:10],
         "sleep": await _sleep_week(hub),
         "mind": _mind_week(health.get("days") or [], monday, today),
+        "spending": _spending(today),
         "saved": saved(monday),
     }
+
+
+def _spending(today: date) -> dict[str, Any] | None:
+    """9.9: the budget lines over plan this month, from imported bank transactions (None until there are any)."""
+    try:
+        from app.budget import actuals
+
+        m = actuals.month(today.strftime("%Y-%m"))
+    except Exception:  # noqa: BLE001
+        return None
+    if not m["has_data"]:
+        return None
+    return {"month": m["month"], "spent": m["spent"], "currency": m["currency"], "unsorted": m["unsorted_count"],
+            "over": [{"name": r["name"], "spent": r["spent"], "plan": r["plan"]} for r in m["over"]][:8], "lines": actuals.review_line(today)}
 
 
 def _mind_week(days: list[dict[str, Any]], monday: date, today: date) -> dict[str, Any] | None:
@@ -252,9 +267,15 @@ def push_message(now: datetime) -> list[dict[str, Any]]:
     except Exception:  # noqa: BLE001
         pass
     body = (f"{numbers}. " if numbers else "") + (f"{overdue} overdue task{'s' * (overdue != 1)} to sort. " if overdue else "") \
-        + "Five minutes: how the week went, your goals, and what matters next week."
+        + _over_budget(local.date()) + "Five minutes: how the week went, your goals, and what matters next week."
     return [{"key": f"review:{local.date().isoformat()}", "topic": "brief", "title": "Your weekly review",
              "body": body, "url": "/review", "urgency": "normal"}]
+
+
+def _over_budget(today: date) -> str:
+    s = _spending(today)
+    n = len(s["over"]) if s else 0
+    return f"{n} budget line{'s' * (n != 1)} over this month. " if n else ""
 
 
 def week_numbers(today: date) -> str:

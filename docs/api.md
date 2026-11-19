@@ -180,6 +180,13 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/budget` |  |
 | `PUT /api/v1/budget` |  |
+| `DELETE /api/v1/budget/accounts/{account_id}` |  |
+| `PATCH /api/v1/budget/accounts/{account_id}` |  |
+| `GET /api/v1/budget/actuals` |  |
+| `POST /api/v1/budget/actuals/import` |  |
+| `PUT /api/v1/budget/actuals/{tx_id}` |  |
+| `GET /api/v1/budget/balances` |  |
+| `POST /api/v1/budget/balances` |  |
 | `GET /api/v1/budget/from-bills` | Each subscription or bill SirisAI found in email, as an expense line (renewals are taken as monthly unless the email says yearly). |
 | `GET /api/v1/budget/pay-days` |  |
 
@@ -637,6 +644,9 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/tasks` | At the weekend, work tasks are left out unless ?all=true (9.51). |
 | `POST /api/v1/tasks` |  |
+| `GET /api/v1/tasks/lists` | Home Assistant's to-do lists (a shopping list, chores), through SirisAI. |
+| `POST /api/v1/tasks/lists/{entity_id}/done` |  |
+| `POST /api/v1/tasks/lists/{entity_id}/items` |  |
 | `DELETE /api/v1/tasks/{task_id}` |  |
 | `PATCH /api/v1/tasks/{task_id}` |  |
 | `POST /api/v1/tasks/{task_id}/done` |  |

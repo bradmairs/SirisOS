@@ -52,7 +52,9 @@ export const work = {
   removeTime: (id: string) => api<{ deleted: string }>(`/api/v1/work/timesheet/${encodeURIComponent(id)}`, { method: "DELETE" }),
   settings: (s: Partial<WorkSettings>) => api<WorkSettings>("/api/v1/work/settings", { method: "PUT", body: JSON.stringify(s) }),
   get: () => api<WorkDay>("/api/v1/work"),
-  focus: (minutes: number) => api<{ today: number }>("/api/v1/work/focus", { method: "POST", body: JSON.stringify({ minutes }) }),
+  /** 9.9: with a label, the block also goes on the timesheet notes (added to an entry for the same thing today). */
+  focus: (minutes: number, label?: string, code?: string) =>
+    api<{ today: number; timesheet?: unknown }>("/api/v1/work/focus", { method: "POST", body: JSON.stringify({ minutes, ...(label ? { label } : {}), ...(label && code ? { code } : {}) }) }),
   todoDone: () => api<{ ok: boolean }>("/api/v1/work/todo-done", { method: "POST" }),
   logCpd: (c: { title: string; hours: number; category: CpdCategory; date?: string; provider?: string }) =>
     api<{ record: unknown; cpd: WorkDay["cpd"] }>("/api/v1/work/cpd", { method: "POST", body: JSON.stringify(c) }),

@@ -38,6 +38,17 @@ export interface NewTask {
   area?: "work" | "personal";
 }
 
+/** 9.9: Home Assistant's to-do lists, through SirisAI 6.97. */
+export interface HomeListItem { summary: string; status: "needs_action" | "completed"; due?: string | null }
+export interface HomeList { entity_id: string; name: string; items: HomeListItem[] }
+export interface HomeLists { guest_mode: boolean; available: boolean; lists: HomeList[] | null }
+
+export const homeLists = {
+  get: () => api<HomeLists>("/api/v1/tasks/lists"),
+  add: (id: string, item: string) => api<HomeLists>(`/api/v1/tasks/lists/${encodeURIComponent(id)}/items`, json({ item })),
+  done: (id: string, item: string, done: boolean) => api<HomeLists>(`/api/v1/tasks/lists/${encodeURIComponent(id)}/done`, json({ item, done })),
+};
+
 export const tasks = {
   list: (all = false) => api<TaskList>(`/api/v1/tasks${all ? "?all=true" : ""}`),
   add: (task: NewTask) => api<{ id: string; title: string; due: string | null; time: string | null; repeat: Repeat }>("/api/v1/tasks", json(task)),

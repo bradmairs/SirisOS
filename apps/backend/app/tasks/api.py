@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -50,6 +51,46 @@ class Snooze(BaseModel):
 class Done(BaseModel):
     note: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=500)
+
+
+# -- Home Assistant lists (9.9, SirisAI 6.97) -------------------------------------------------------
+
+_LIST_ID = re.compile(r"todo\.[a-z0-9_]{1,80}")  # Home Assistant's entity ids, and nothing else in the path
+
+
+class ListItemIn(BaseModel):
+    item: str = Field(min_length=1, max_length=200)
+    done: bool = True
+
+
+@router.get("/lists")
+async def home_lists(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """Home Assistant's to-do lists (a shopping list, chores), through SirisAI."""
+    try:
+        body = await sirisai_api.get(hub, "/siris/hub/v1/lists", timeout=10.0)
+    except sirisai_api.SirisAIError:
+        body = None
+    return body or {"guest_mode": False, "available": False, "lists": []}
+
+
+@router.post("/lists/{entity_id}/items")
+async def home_list_add(entity_id: str, body: ListItemIn, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    if not _LIST_ID.fullmatch(entity_id):
+        raise HTTPException(status_code=404, detail="No such list.")
+    try:
+        return await sirisai_api.post(hub, f"/siris/hub/v1/lists/{entity_id}/items", json={"item": body.item.strip()}, timeout=10.0)
+    except sirisai_api.SirisAIError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from None
+
+
+@router.post("/lists/{entity_id}/done")
+async def home_list_done(entity_id: str, body: ListItemIn, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    if not _LIST_ID.fullmatch(entity_id):
+        raise HTTPException(status_code=404, detail="No such list.")
+    try:
+        return await sirisai_api.post(hub, f"/siris/hub/v1/lists/{entity_id}/items/done", json={"item": body.item, "done": body.done}, timeout=10.0)
+    except sirisai_api.SirisAIError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from None
 
 
 @router.get("")

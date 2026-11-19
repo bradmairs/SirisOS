@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { keep, unreachable } from "../api/outbox";
-import { AlarmClock, BrainCircuit, Briefcase, Check, Circle, House, ListTodo, Plus, Repeat2, Sparkles, Trash2 } from "lucide-react";
+import { AlarmClock, BrainCircuit, Briefcase, Check, Circle, House, ListChecks, ListTodo, Plus, Repeat2, Sparkles, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
-import { dueLabel, GROUP_LABEL, tasks, type TaskGroup, type TaskItem, type TaskList } from "../api/tasks";
+import { dueLabel, GROUP_LABEL, homeLists, tasks, type HomeLists, type TaskGroup, type TaskItem, type TaskList } from "../api/tasks";
 import { Glass } from "../components/Glass";
 import { useShowMore } from "../components/ShowMore";
 
@@ -207,7 +207,60 @@ export function TasksScreen() {
         {!data && res.error && <p className="tone-critical">{res.error}</p>}
         {data && ORDER.every((g) => data.counts[g] === 0) && <p className="muted">No tasks. Add one above, or say “remind me to…” in quick capture.</p>}
         {data && ORDER.filter((g) => data.counts[g] > 0).map((g) => <Group key={g} group={g} items={data.groups[g]} onChanged={changed} />)}
+        <HomeListsCard />
       </div>
+    </>
+  );
+}
+
+/** 9.9: Home Assistant's lists (the shopping list, chores): tick things off and add to them, shared with whoever else uses them. */
+export function HomeListsCard() {
+  const res = useResource<HomeLists>("tasks:home-lists", () => homeLists.get(), { staleMs: 30_000, persist: true });
+  const lists = Array.isArray(res.data?.lists) ? res.data!.lists! : [];
+  const [adding, setAdding] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState<Record<string, boolean>>({});
+  if (!lists.length) return null;
+  const act = async (fn: () => Promise<HomeLists>) => {
+    setError(null);
+    try { res.mutate?.(await fn()); } catch (e) { setError(e instanceof Error ? e.message : "Home Assistant didn't take that."); }
+  };
+  return (
+    <>
+      {lists.map((l) => {
+        const todo = l.items.filter((i) => i.status !== "completed");
+        const done = l.items.filter((i) => i.status === "completed");
+        return (
+          <Glass key={l.entity_id} as="section" className="widget" style={{ minHeight: 0 }} aria-label={l.name}>
+            <header className="widget__head"><ListChecks aria-hidden="true" /><span>{l.name}</span><span className="widget__source">{todo.length ? `${todo.length} to get` : "All done"}</span></header>
+            <ul className="items">
+              {todo.map((i) => (
+                <li key={i.summary} className="item">
+                  <button type="button" className="gym-sets__done" aria-label={`${i.summary}: done`} onClick={() => act(() => homeLists.done(l.entity_id, i.summary, true))}><Check size={16} aria-hidden="true" /></button>
+                  <span className="item__text"><span className="item__title">{i.summary}</span></span>
+                </li>
+              ))}
+              {showDone[l.entity_id] && done.map((i) => (
+                <li key={`done-${i.summary}`} className="item muted">
+                  <button type="button" className="gym-sets__done gym-sets__done--on" aria-label={`${i.summary}: not done`} onClick={() => act(() => homeLists.done(l.entity_id, i.summary, false))}><Check size={16} aria-hidden="true" /></button>
+                  <span className="item__text"><span className="item__title" style={{ textDecoration: "line-through" }}>{i.summary}</span></span>
+                </li>
+              ))}
+            </ul>
+            <form className="row" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); const v = (adding[l.entity_id] ?? "").trim(); if (v) act(() => homeLists.add(l.entity_id, v)).then(() => setAdding({ ...adding, [l.entity_id]: "" })); }}>
+              <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder={`Add to ${l.name}`} aria-label={`Add to ${l.name}`} value={adding[l.entity_id] ?? ""} maxLength={200}
+                onChange={(e) => setAdding({ ...adding, [l.entity_id]: e.target.value })} />
+              <button type="submit" className="button">Add</button>
+            </form>
+            {done.length > 0 && (
+              <button type="button" className="brief-link link-button" style={{ alignSelf: "flex-start", fontSize: 13 }} onClick={() => setShowDone({ ...showDone, [l.entity_id]: !showDone[l.entity_id] })}>
+                {showDone[l.entity_id] ? "Hide done" : `${done.length} done`}
+              </button>
+            )}
+            {error && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{error}</p>}
+          </Glass>
+        );
+      })}
     </>
   );
 }

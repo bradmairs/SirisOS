@@ -103,6 +103,25 @@ def add(what: str, hours: float | None, on: date, code: str = "") -> dict[str, A
     return entry
 
 
+def add_time(what: str, hours: float, on: date, code: str = "") -> dict[str, Any]:
+    """9.9: time from a named focus block: added to today's entry for the same thing (and code), or a new one."""
+    entries = load()
+    code = code.strip()[:40]
+    same = next((e for e in entries if e["date"] == on.isoformat() and e["what"].lower() == what.lower() and (e.get("code") or "") == code), None)
+    minutes = hours * 60
+    if same is not None:
+        # Exact minutes kept, so two 25-minute blocks make 0.83 h, not two roundings of 0.42.
+        same["minutes"] = same.get("minutes", same["hours"] * 60) + minutes
+        same["hours"] = round(min(24.0, same["minutes"] / 60), 2)
+        save(entries)
+        return same
+    entry = {"id": uuid.uuid4().hex[:10], "date": on.isoformat(), "what": what[:200], "hours": round(hours, 2), "minutes": minutes,
+             "code": code, "from": "focus"}
+    entries.append(entry)
+    save(entries)
+    return entry
+
+
 def change(entry_id: str, **fields: Any) -> dict[str, Any] | None:
     entries = load()
     found = next((e for e in entries if e["id"] == entry_id), None)
@@ -115,6 +134,7 @@ def change(entry_id: str, **fields: Any) -> dict[str, Any] | None:
         if not 0 < fields["hours"] <= 24:
             raise ValueError("Hours must be between 0 and 24.")
         found["hours"] = round(float(fields["hours"]), 2)
+        found.pop("minutes", None)
     save(entries)
     return found
 
@@ -136,3 +156,25 @@ def codes() -> list[str]:
         if c and c not in seen:
             seen.append(c)
     return seen[:12]
+
+
+LIGHT_DAY_H = 6.0     # a weekday with less noted than this is pointed out
+FRIDAY_HOUR = 15      # the Friday nudge, from 3pm
+
+
+def push_message(local_now) -> list[dict[str, Any]]:
+    """9.9: on Friday afternoon, the week's notes to fill the real timesheet in from, and the days that look light."""
+    if local_now.weekday() != 4 or local_now.hour < FRIDAY_HOUR:
+        return []
+    w = week(local_now.date())
+    days = [d for d in w["days"][:5] if d["date"] <= local_now.date().isoformat()]
+    light = [d for d in days if d["hours"] < LIGHT_DAY_H]
+    if not w["hours"]:
+        body = "Nothing noted this week. Jot down what you worked on while it's fresh, then fill the timesheet in."
+    else:
+        body = f"{w['hours']:g} h noted this week."
+        if light:
+            body += " Light: " + ", ".join(f"{date.fromisoformat(d['date']):%a} {d['hours']:g} h" for d in light) + "."
+        body += " Copy it from Work."
+    return [{"key": f"timesheet:{w['week_of']}", "topic": "brief", "title": "Timesheet time", "body": body,
+             "url": "/work", "urgency": "normal"}]
