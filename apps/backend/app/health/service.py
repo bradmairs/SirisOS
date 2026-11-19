@@ -42,9 +42,9 @@ async def readiness(hub: Hub, on: date | None = None) -> dict[str, Any] | None:
 
 
 async def today(hub: Hub) -> dict[str, Any]:
-    """Readiness (kept from the morning) and the day's energy so far (5.9)."""
+    """Readiness (kept from the morning), the day's energy so far (5.9) and strain (9.8, for Home's rings)."""
     body = await overview(hub)
-    return {"readiness": body.get("readiness"), "energy": body.get("energy")}
+    return {"readiness": body.get("readiness"), "energy": body.get("energy"), "strain": body.get("strain")}
 
 
 async def workouts(hub: Hub, days: int = 42) -> list[dict[str, Any]]:

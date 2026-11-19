@@ -7,7 +7,7 @@ import { links, type LinkStatus } from "../api/links";
 import { useResource } from "../api/resource";
 import { tasks, type TaskItem } from "../api/tasks";
 import type { BrainHit } from "../api/types";
-import { dayFraction, span, work, type Chartership, type CpdCategory, type WorkDay, type WorkSettings } from "../api/work";
+import { dayFraction, span, work, type TimesheetWeek, type Chartership, type CpdCategory, type WorkDay, type WorkSettings } from "../api/work";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
@@ -70,6 +70,7 @@ export function WorkScreen() {
           <DayCard w={w} />
           <FocusCard settings={w.settings} onLogged={reload} />
           <WorkTasksCard w={w} onChange={reload} />
+          <TimesheetCard />
           <WeekCard w={w} />
           <AppsCard w={w} onChange={reload} />
           <CpdCard w={w} onChange={reload} />
@@ -79,6 +80,88 @@ export function WorkScreen() {
         </div>
       )}
     </>
+  );
+}
+
+const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function addDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 9.8: rough timesheet notes: what you worked on and for how long, a day at a time, to fill the real one in from. */
+export function TimesheetCard() {
+  const [on, setOn] = useState<string | null>(null);  // a day in the week shown; null, this week
+  const res = useResource<TimesheetWeek>(`work:timesheet:${on ?? "now"}`, () => work.timesheet(on ?? undefined), { staleMs: 30_000 });
+  const t = Array.isArray(res.data?.days) ? res.data : undefined;  // anything else (an old server) shows nothing rather than breaking Work
+  const [day, setDay] = useState<string | null>(null);
+  const [what, setWhat] = useState("");
+  const [hours, setHours] = useState("");
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const today = t?.today ?? new Date().toISOString().slice(0, 10);
+  const picked = day && t?.days.some((d) => d.date === day) ? day : (t?.days.find((d) => d.date === today)?.date ?? t?.days[0]?.date ?? today);
+  const shown = t?.days.find((d) => d.date === picked);
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!what.trim()) return;
+    setMsg(null);
+    try {
+      const h = hours.trim() ? Number(hours) : null;
+      res.mutate?.(await work.addTime({ what: what.trim(), hours: h, date: picked, code: code.trim() || undefined }));
+      setWhat(""); setHours("");
+    } catch (err) { setMsg(err instanceof Error ? err.message : "Couldn't save that."); }
+  };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(t?.text ?? ""); setMsg("Copied the week."); } catch { setMsg("Couldn't copy: select the text below instead."); }
+  };
+  return (
+    <Glass as="section" className="widget work-timesheet" style={{ minHeight: 0 }} aria-label="Timesheet notes">
+      <header className="widget__head"><Clock aria-hidden="true" /><span>Timesheet notes</span>
+        {t && <span className="widget__source">{t.hours ? `${t.hours} h this week` : "Nothing yet"}</span>}</header>
+      {!t ? (res.error ? <p className="muted" style={{ margin: 0, fontSize: 13 }}>Timesheet notes aren't available just now.</p> : <div className="skeleton" style={{ height: 80 }} />) : (
+        <>
+          <div className="row" style={{ gap: 6, alignItems: "center" }}>
+            <button type="button" className="chip chip--button" aria-label="The week before" onClick={() => { setOn(addDays(t.week_of, -7)); setDay(null); }}>‹</button>
+            <div className="row timesheet-days" role="tablist" aria-label="Day" style={{ gap: 4, flex: 1, flexWrap: "wrap" }}>
+              {t.days.map((d, i) => (
+                <button key={d.date} type="button" role="tab" aria-selected={d.date === picked} className={`chip chip--button ${d.date === picked ? "chip--active" : ""}`}
+                  onClick={() => setDay(d.date)} aria-label={`${DAY_LETTERS[i]} ${d.date}${d.hours ? `, ${d.hours} hours` : ""}`}>
+                  {DAY_LETTERS[i]}{d.hours ? <span className="muted" style={{ marginLeft: 4 }}>{d.hours}</span> : null}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="chip chip--button" aria-label="The week after" disabled={t.week_of >= addDays(today, -((new Date(`${today}T12:00:00`).getDay() + 6) % 7))}
+              onClick={() => { setOn(addDays(t.week_of, 7)); setDay(null); }}>›</button>
+          </div>
+          {shown && shown.entries.length > 0 ? (
+            <ul className="items" aria-label="That day">
+              {shown.entries.map((e) => (
+                <li key={e.id} className="item">
+                  <span className="item__text"><span className="item__title career-wrap">{e.what}</span>{e.code && <span className="item__subtitle">{e.code}</span>}</span>
+                  <span className="timesheet-hours">{e.hours} h</span>
+                  <button type="button" className="icon-link" aria-label={`Remove ${e.what}`} onClick={async () => { await work.removeTime(e.id); res.reload?.(true); }}><X size={14} aria-hidden="true" /></button>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="muted" style={{ margin: 0, fontSize: 13 }}>Nothing noted for this day.</p>}
+          <form className="stack" style={{ gap: 6 }} onSubmit={add} aria-label="Add a timesheet note">
+            <input className="field" placeholder="What, and how long (e.g. Pump station review 1.5h)" aria-label="What you worked on" value={what} maxLength={200} onChange={(e) => setWhat(e.target.value)} />
+            <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+              <input className="field" style={{ width: 90 }} type="number" min={0.25} max={24} step={0.25} placeholder="Hours" aria-label="Hours" value={hours} onChange={(e) => setHours(e.target.value)} />
+              <input className="field" style={{ flex: 1, minWidth: 120 }} placeholder="Job or project code (optional)" aria-label="Job code" list="timesheet-codes" value={code} maxLength={40} onChange={(e) => setCode(e.target.value)} />
+              <datalist id="timesheet-codes">{(t.recent_codes ?? []).map((c) => <option key={c} value={c} />)}</datalist>
+              <button type="submit" className="button">Add</button>
+            </span>
+          </form>
+          {t.by_code.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}>This week: {t.by_code.map((c) => `${c.code} ${c.hours} h`).join(" · ")}</p>}
+          {t.hours > 0 && <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }} onClick={copy}>Copy the week</button>}
+          {msg && <p className="muted" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
+        </>
+      )}
+    </Glass>
   );
 }
 

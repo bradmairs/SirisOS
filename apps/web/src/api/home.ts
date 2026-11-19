@@ -121,7 +121,7 @@ export const SECTION_ORDER: Record<DayPhase, string[]> = {
 export const DAY_WIDGETS: { id: string; label: string }[] = [
   { id: "clock", label: "Local time" }, { id: "weather", label: "Outside" }, { id: "server", label: "Home server" },
   { id: "app-health", label: "Siris apps" }, { id: "timeline", label: "Today timeline" }, { id: "tasks", label: "Tasks" }, { id: "coming-up", label: "Coming up" },
-  { id: "career", label: "Career" }, { id: "fitness", label: "Fitness" }, { id: "readiness", label: "Readiness" }, { id: "training", label: "Today's run" }, { id: "app:*", label: "App widgets (Engineering…)" },
+  { id: "career", label: "Career" }, { id: "fitness", label: "Fitness" }, { id: "body-rings", label: "Readiness, strain and battery" }, { id: "readiness", label: "Readiness" }, { id: "training", label: "Today's run" }, { id: "app:*", label: "App widgets (Engineering…)" },
   { id: "activity", label: "SirisAI activity" }, { id: "parcels", label: "Parcels" }, { id: "protocols", label: "Protocols" },
   { id: "cameras", label: "Cameras" }, { id: "car", label: "Car" }, { id: "upkeep", label: "Around the house" }, { id: "energy", label: "Power" },
   { id: "brain", label: "Learned today" }, { id: "resurface", label: "From your notes" }, { id: "capture", label: "Quick capture" },
@@ -130,10 +130,10 @@ export const DAY_WIDGETS: { id: string; label: string }[] = [
 /** Until the server's schedule answers: the same defaults as app/home/schedule.py. */
 const keep = (...ids: string[]) => DAY_WIDGETS.map((w) => w.id).filter((id) => !ids.includes(id));
 export const DAY_HIDDEN: Record<DayPhase, string[]> = {
-  morning: keep("clock", "weather", "timeline", "tasks", "coming-up", "readiness", "training", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
+  morning: keep("clock", "weather", "timeline", "tasks", "coming-up", "body-rings", "readiness", "training", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
   work: keep("clock", "weather", "timeline", "tasks", "coming-up", "career", "app:*", "brain", "protocols", "server", "app-health"),
-  weekend: keep("clock", "weather", "timeline", "tasks", "coming-up", "readiness", "training", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "resurface", "upkeep"),
-  evening: keep("clock", "weather", "timeline", "tasks", "coming-up", "training", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "upkeep"),
+  weekend: keep("clock", "weather", "timeline", "tasks", "coming-up", "body-rings", "readiness", "training", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "resurface", "upkeep"),
+  evening: keep("clock", "weather", "timeline", "tasks", "coming-up", "body-rings", "training", "fitness", "parcels", "car", "protocols", "cameras", "energy", "server", "app-health", "upkeep"),
   winddown: keep("brain", "resurface", "capture"),
   night: keep("clock"),
 };

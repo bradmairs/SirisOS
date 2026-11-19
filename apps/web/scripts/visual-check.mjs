@@ -117,6 +117,13 @@ const FIXTURES = [
   ["/api/v1/gym/last", { last: { "bench-press": { date: "2026-11-04", sets: [{ weight: 80, reps: 8, done: true, type: "normal" }, { weight: 80, reps: 7, done: true, type: "normal" }] } } }],
   ["/api/v1/gym/heatmap", heat],
   ["/api/v1/gym/strength", strength],
+  ["/api/v1/work/timesheet", { week_of: "2026-11-16", today: "2026-11-18", hours: 13.5, text: "Mon 16 Nov (7.5 h)", recent_codes: ["GVW-123"],
+    by_code: [{ code: "GVW-123", hours: 10 }, { code: "No code", hours: 3.5 }],
+    days: [
+      { date: "2026-11-16", hours: 7.5, entries: [{ id: "a", date: "2026-11-16", what: "Pump station review", hours: 4, code: "GVW-123" }, { id: "b", date: "2026-11-16", what: "Team meeting", hours: 3.5, code: "" }] },
+      { date: "2026-11-17", hours: 0, entries: [] },
+      { date: "2026-11-18", hours: 6, entries: [{ id: "c", date: "2026-11-18", what: "Hydraulic model calibration for the Melrose East catchment", hours: 6, code: "GVW-123" }] },
+      { date: "2026-11-19", hours: 0, entries: [] }, { date: "2026-11-20", hours: 0, entries: [] }, { date: "2026-11-21", hours: 0, entries: [] }, { date: "2026-11-22", hours: 0, entries: [] }] }],
   ["/api/v1/gym/good-sessions", { scored: 41, health: true, note: null, findings: [
     { key: "sleep", text: "You lift about 4% more after 7 hours' sleep or more than after less.", gap: 4.1, with: 98.2, without: 94.1, sessions: 38, counts: "21 sessions after a good night, 17 after a short one" },
     { key: "morning", text: "You lift about 3% less before noon than later in the day.", gap: -2.6, with: 94.9, without: 97.5, sessions: 41, counts: "12 morning sessions, 29 later" }] }],
@@ -126,7 +133,7 @@ const FIXTURES = [
   ["/api/v1/gym/sessions", { sessions: gymFixture.recent }],
   ["/api/v1/gym/templates", { templates: [] }],
   ["/api/v1/gym", gymFixture],
-  ["/api/v1/health/today", { readiness: health.readiness, energy: health.energy }],
+  ["/api/v1/health/today", { readiness: health.readiness, energy: health.energy, strain: health.strain ?? { today: 8.4, target: [10, 14], status: "under", advice: "", max_hr: 190, workouts: [], week: [] } }],
   ["/api/v1/health", health],
   ["/api/v1/assistant/hud", hud],
   ["/api/v1/attention", attention],

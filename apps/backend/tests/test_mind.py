@@ -152,9 +152,28 @@ def test_habits_with_streaks(client):
     got = client.get("/api/v1/mind/habits").json()["habits"][0]
     assert got["streak"] == 3 and got["best"] == 3 and got["today"] is False  # not done today yet: the streak holds
     got = client.post(f"/api/v1/mind/habits/{h['id']}/check", json={}).json()["habits"][0]
-    assert got["streak"] == 4 and got["today"] is True and got["month"][-1] == {"date": t.isoformat(), "done": True}
+    assert got["streak"] == 4 and got["today"] is True and got["month"][-1] == {"date": t.isoformat(), "done": True, "due": True}
     got = client.post(f"/api/v1/mind/habits/{h['id']}/check", json={"done": False, "date": (t - timedelta(days=2)).isoformat()}).json()["habits"][0]
     assert got["streak"] == 2 and got["best"] == 2
     assert client.post(f"/api/v1/mind/habits/{h['id']}/check", json={"date": (t + timedelta(days=1)).isoformat()}).status_code == 422
     assert client.patch(f"/api/v1/mind/habits/{h['id']}", json={"archived": True}).json()["habits"] == []
     assert client.post("/api/v1/mind/habits/nope/check", json={}).status_code == 404
+
+
+
+def test_a_habit_for_some_days_only(client):
+    """9.8: a habit for chosen weekdays: the other days neither count nor break the streak."""
+    t = service.today()
+    days = [t.weekday(), (t.weekday() - 2) % 7, (t.weekday() - 4) % 7]   # today, two days ago, four days ago
+    h = client.post("/api/v1/mind/habits", json={"name": "Gym", "days": days}).json()["habits"][0]
+    assert h["days"] == sorted(days) and h["due_today"] is True
+    for back in (4, 2, 0):
+        client.post(f"/api/v1/mind/habits/{h['id']}/check", json={"date": (t - timedelta(days=back)).isoformat()})
+    got = client.get("/api/v1/mind/habits").json()["habits"][0]
+    assert got["streak"] == 3 and got["best"] == 3 and got["rate"] == 100   # the days between weren't its days
+    assert [m["due"] for m in got["month"][-5:]] == [True, False, True, False, True]
+    # Every day again: the gaps now break it.
+    got = client.patch(f"/api/v1/mind/habits/{h['id']}", json={"days": []}).json()["habits"][0]
+    assert got["days"] == [] and got["when"] == "Every day" and got["streak"] == 1
+    got = client.patch(f"/api/v1/mind/habits/{h['id']}", json={"days": [0, 1, 2, 3, 4]}).json()["habits"][0]
+    assert got["when"] == "Weekdays"

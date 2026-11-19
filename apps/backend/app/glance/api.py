@@ -127,7 +127,7 @@ async def glance(key: str = Query(default="", max_length=100), hub: Hub = Depend
     def habits_part():
         from app.mind import service as mind
 
-        hs = mind.habits(today)
+        hs = [h for h in mind.habits(today) if h.get("due_today", True) or h["today"]]  # 9.8: today's habits only
         return {"done": sum(1 for h in hs if h["today"]), "of": len(hs), "left": [h["name"] for h in hs if not h["today"]][:3]} if hs else None
 
     def renewal_part():

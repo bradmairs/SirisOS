@@ -6,6 +6,8 @@
     POST /api/v1/work/todo-done   a work-note to-do ticked on the Work page, for the week's chart
     POST /api/v1/work/cpd      {title, hours, category, date?, provider?}: log CPD
     POST /api/v1/work/wrapup   {done, carry[], first, note, cpd?}: the end-of-work wrap-up (7.5)
+    GET  /api/v1/work/timesheet?on=YYYY-MM-DD   the week's timesheet notes (9.8); POST {what, hours?, date?, code?};
+         PATCH/DELETE /api/v1/work/timesheet/{id}
     PUT  /api/v1/work/settings {focus_min?, break_min?, apps? (link ids, or null for automatic), calculators?, career?} (8.21)
 """
 
@@ -16,13 +18,13 @@ from typing import Any
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.hub.service import Hub, get_hub
 from app.brief.service import zone
-from app.work import service
+from app.work import service, timesheet
 
 router = APIRouter(prefix="/api/v1/work", tags=["work"], dependencies=[Depends(require_user)])
 
@@ -95,3 +97,63 @@ class WorkWrapUp(BaseModel):
 async def wrap_up(body: WorkWrapUp, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
     day = datetime.now(zone()).date()
     return await service.wrapup(hub, day, body.done, body.carry, body.first, body.note, body.cpd.model_dump() if body.cpd else None)
+
+
+# -- Timesheet notes (9.8) -----------------------------------------------------------------------
+
+class TimesheetIn(BaseModel):
+    what: str = Field(min_length=1, max_length=200)
+    hours: float | None = Field(default=None, gt=0, le=24)
+    date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    code: str = Field(default="", max_length=40)
+
+
+class TimesheetChange(BaseModel):
+    what: str | None = Field(default=None, min_length=1, max_length=200)
+    hours: float | None = Field(default=None, gt=0, le=24)
+    date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    code: str | None = Field(default=None, max_length=40)
+
+
+def _today():
+    return datetime.now(zone()).date()
+
+
+@router.get("/timesheet")
+def get_timesheet(on: str | None = None) -> dict[str, Any]:
+    from datetime import date as _date
+
+    day = _date.fromisoformat(on) if on else _today()
+    return {**timesheet.week(day), "recent_codes": timesheet.codes(), "today": _today().isoformat()}
+
+
+@router.post("/timesheet")
+def add_timesheet(body: TimesheetIn) -> dict[str, Any]:
+    from datetime import date as _date
+
+    day = _date.fromisoformat(body.date) if body.date else _today()
+    try:
+        entry = timesheet.add(body.what, body.hours, day, body.code)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return {"entry": entry, **timesheet.week(day)}
+
+
+@router.patch("/timesheet/{entry_id}")
+def change_timesheet(entry_id: str, body: TimesheetChange) -> dict[str, Any]:
+    try:
+        entry = timesheet.change(entry_id, **body.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    if entry is None:
+        raise HTTPException(status_code=404, detail="No such entry.")
+    from datetime import date as _date
+
+    return {"entry": entry, **timesheet.week(_date.fromisoformat(entry["date"]))}
+
+
+@router.delete("/timesheet/{entry_id}")
+def delete_timesheet(entry_id: str) -> dict[str, Any]:
+    if not timesheet.remove(entry_id):
+        raise HTTPException(status_code=404, detail="No such entry.")
+    return {"deleted": entry_id}

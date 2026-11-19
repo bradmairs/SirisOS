@@ -51,7 +51,9 @@ export const kJ = (kcal: number | null | undefined) => Math.round((kcal ?? 0) * 
 export interface Workout { date: string; name: string; start: string; minutes: number | null; km: number | null; kcal: number | null; avg_hr: number | null; max_hr: number | null }
 
 export interface WeightTrend { latest: number; latest_date: string; trend: number; per_week: number; goal_kg?: number; to_go_kg?: number; weeks_to_goal?: number | null; series: { date: string; weight: number; trend: number }[] }
-export interface Insight { factor: string; minutes: number; nights_with: number; nights_without: number; text: string }
+export interface Insight { factor: string; minutes?: number; nights_with?: number; nights_without?: number; text: string;
+  /** SirisAI 6.78: sleep, the next morning's recovery, or the month's trend, and whether it's good news. */
+  kind?: "sleep" | "recovery" | "trend"; good?: boolean }
 export interface Bedtime { bedtime: string; wake: string; sleep_target_h: number; debt_7d: number; because: string; text: string }
 export interface HealthNote { id: number; day: string; kind: string; text: string; at: string }
 export interface Goal { goal_id: number; metric: string; target: number; start: string; end: string; title: string; done: number; expected_by_now: number; percent: number | null; on_pace: boolean; needed_per_week: number | null }
@@ -105,7 +107,7 @@ export interface Sources {
 export const health = {
   sources: (day: string) => api<Sources>(`/api/v1/health/sources?day=${day}`),
   get: () => api<Health>("/api/v1/health"),
-  today: () => api<{ readiness: Readiness | null; energy?: Energy | null }>("/api/v1/health/today"),
+  today: () => api<{ readiness: Readiness | null; energy?: Energy | null; strain?: Strain | null }>("/api/v1/health/today"),
   /** Kept on the phone and sent later when there's no connection (7.7). */
   log: async (kind: LogKind, amount?: number, text?: string): Promise<{ logged: unknown; queued?: boolean }> => {
     try {

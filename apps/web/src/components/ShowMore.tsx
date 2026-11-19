@@ -10,7 +10,8 @@ export function useShowMore<T>(items: readonly T[], limit = 3) {
     toggle: hidden > 0 && (
       <button type="button" className="show-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         {open ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
-        {open ? "Show fewer" : `Show all ${items.length}`}
+        {/* 9.8: how many are hidden, not the total ("Show all 4" read as 4 hidden when only 1 was). */}
+        {open ? "Show fewer" : `Show ${hidden} more`}
       </button>
     ),
   };

@@ -7,7 +7,8 @@ import { Glass } from "../components/Glass";
 /** Today's habits on Home (9.4): one tap to tick, and a streak at risk says so from the evening. Nothing when you have none. */
 export function HabitsHomeWidget() {
   const res = useResource<{ habits: Habit[] }>("mind:habits", () => mind.habits(), { staleMs: 60_000, persist: true });
-  const habits = res.data?.habits ?? [];
+  // 9.8: only today's habits (one for weekdays doesn't show on a Saturday), and any already ticked.
+  const habits = (res.data?.habits ?? []).filter((h) => h.due_today !== false || h.today);
   if (!habits.length) return null;
   const evening = new Date().getHours() >= 18;
   const done = habits.filter((h) => h.today).length;

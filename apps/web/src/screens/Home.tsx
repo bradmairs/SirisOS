@@ -38,6 +38,7 @@ const WorkHomeCard = lazyCard(() => import("./Work").then((m) => m.WorkHomeCard)
 const HomeJobsWidget = lazyCard(() => import("./Maintenance").then((m) => m.HomeJobsWidget));
 const TodaysRunWidget = lazyCard(() => import("./Training").then((m) => m.TodaysRunWidget));
 const ReadinessWidget = lazyCard(() => import("./Health").then((m) => m.ReadinessWidget));
+const BodyRingsWidget = lazyCard(() => import("./Health").then((m) => m.BodyRingsWidget));
 const InboxPanel = lazyCard(() => import("../components/Inbox").then((m) => m.InboxPanel));
 
 const REFRESH_MS = 60_000;
@@ -203,6 +204,7 @@ export function Home() {
     { id: "coming-up", label: "Coming up", node: !hideMine && (comingUp ? <ComingUpWidget events={comingUp} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },
     { id: "career", label: "Career", node: !hideMine && <CareerWidget delay={30} /> },
     { id: "fitness", label: "Fitness", node: !hideMine && <FitnessWidget delay={40} /> },
+    { id: "body-rings", label: "Readiness, strain and battery", node: !hideMine && <BodyRingsWidget /> },
     { id: "readiness", label: "Readiness", node: !hideMine && <ReadinessWidget /> },
     { id: "habits", label: "Habits", node: !hideMine && <HabitsHomeWidget /> },
     { id: "training", label: "Today's run", node: !hideMine && <TodaysRunWidget /> },

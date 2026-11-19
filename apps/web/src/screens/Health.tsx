@@ -72,6 +72,45 @@ export function EnergyMeter({ e, compact = false }: { e: Energy; compact?: boole
 }
 
 /** Home and the brief (5.7): today's readiness. Hidden until there's a score. */
+/** One small ring (9.8): a value out of its maximum, the number in the middle and a word under it. */
+function MiniRing({ value, max, shown, label, sub, tone }: { value: number; max: number; shown: string; label: string; sub: string; tone: string }) {
+  const size = 76, stroke = 8, radius = (size - stroke) / 2, length = 2 * Math.PI * radius;
+  const v = Math.max(0, Math.min(1, value / max));
+  return (
+    <Link to="/health" className="mini-ring" aria-label={`${label}: ${shown}, ${sub}`}>
+      <span className="rring" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+          <circle cx={size / 2} cy={size / 2} r={radius} className="rring__track" strokeWidth={stroke} />
+          {v > 0 && <circle cx={size / 2} cy={size / 2} r={radius} className={`rring__arc ${tone}`} strokeWidth={stroke}
+            strokeDasharray={`${v * length} ${length}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />}
+        </svg>
+        <span className="rring__label"><span className="mini-ring__value">{shown}</span></span>
+      </span>
+      <span className="mini-ring__label">{label}</span>
+      <span className="mini-ring__sub muted">{sub}</span>
+    </Link>
+  );
+}
+
+/** Home's three small rings (9.8): readiness, strain against today's target, and the body battery now. */
+export function BodyRingsWidget() {
+  const res = useResource("health:today", () => health.today(), { staleMs: 15 * 60_000, persist: true });
+  const r = res.data?.readiness;
+  const st = res.data?.strain;
+  const e = res.data?.energy;
+  if (!r && !st && !e) return null;
+  const strainTone = !st ? "" : st.status === "over" ? "tone-warning" : st.status === "in range" ? "tone-good" : "";
+  return (
+    <Glass as="section" className="widget body-rings" style={{ minHeight: 0 }} aria-label="Readiness, strain and battery">
+      <div className="body-rings__row">
+        {r && <MiniRing value={r.score} max={100} shown={String(r.score)} label="Readiness" sub={r.band} tone={BAND_TONE[r.band]} />}
+        {st && <MiniRing value={st.today} max={21} shown={st.today.toFixed(1)} label="Strain" sub={`aim ${st.target[0]}–${st.target[1]}`} tone={strainTone} />}
+        {e && <MiniRing value={e.now} max={100} shown={`${Math.round(e.now)}`} label="Battery" sub={e.estimated ? "estimated" : "now"} tone={energyTone(e.now)} />}
+      </div>
+    </Glass>
+  );
+}
+
 export function ReadinessWidget() {
   const res = useResource("health:today", () => health.today(), { staleMs: 15 * 60_000, persist: true });
   const r = res.data?.readiness;
@@ -211,9 +250,9 @@ function TodayView({ h }: { h: Health }) {
           sub={`Trend, ${h.weight.per_week >= 0 ? "+" : ""}${h.weight.per_week.toFixed(2)} kg a week${h.weight.to_go_kg != null ? ` · ${h.weight.to_go_kg} kg to go${h.weight.weeks_to_goal ? `, about ${h.weight.weeks_to_goal} weeks` : ""}` : ""}`} />}
       </div>
       {!!h.insights?.length && (
-        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="What your sleep goes with">
-          <header className="widget__head"><Lightbulb aria-hidden="true" /><span>What your sleep goes with</span></header>
-          <ul className="items">{h.insights.map((i) => <li key={i.factor} className="item"><span className={`item__dot ${i.minutes < 0 ? "dot-warning" : "dot-good"}`} aria-hidden="true" /><span className="item__text"><span className="item__title career-wrap">{i.text}</span></span></li>)}</ul>
+        <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Health insights">
+          <header className="widget__head"><Lightbulb aria-hidden="true" /><span>Health insights</span></header>
+          <ul className="items">{h.insights.map((i) => <li key={i.factor} className="item"><span className={`item__dot ${(i.good ?? (i.minutes ?? 0) >= 0) ? "dot-good" : "dot-warning"}`} aria-hidden="true" /><span className="item__text"><span className="item__title career-wrap">{i.text}</span></span></li>)}</ul>
         </Glass>
       )}
     </>

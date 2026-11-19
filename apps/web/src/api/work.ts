@@ -37,7 +37,19 @@ export type CpdCategory = "area" | "risk" | "business" | "other";
 
 export interface WorkSettings { focus_min: number; break_min: number; apps: string[] | null; calculators: boolean; career: boolean }
 
+/** 9.8: rough timesheet notes. */
+export interface TimesheetEntry { id: string; date: string; what: string; hours: number; code: string }
+export interface TimesheetWeek {
+  week_of: string; today?: string; hours: number; text: string;
+  days: { date: string; hours: number; entries: TimesheetEntry[] }[];
+  by_code: { code: string; hours: number }[]; recent_codes?: string[];
+}
+
 export const work = {
+  timesheet: (on?: string) => api<TimesheetWeek>(`/api/v1/work/timesheet${on ? `?on=${on}` : ""}`),
+  addTime: (e: { what: string; hours?: number | null; date?: string; code?: string }) =>
+    api<TimesheetWeek & { entry: TimesheetEntry }>("/api/v1/work/timesheet", { method: "POST", body: JSON.stringify(e) }),
+  removeTime: (id: string) => api<{ deleted: string }>(`/api/v1/work/timesheet/${encodeURIComponent(id)}`, { method: "DELETE" }),
   settings: (s: Partial<WorkSettings>) => api<WorkSettings>("/api/v1/work/settings", { method: "PUT", body: JSON.stringify(s) }),
   get: () => api<WorkDay>("/api/v1/work"),
   focus: (minutes: number) => api<{ today: number }>("/api/v1/work/focus", { method: "POST", body: JSON.stringify({ minutes }) }),
