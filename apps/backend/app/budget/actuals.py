@@ -231,7 +231,7 @@ def import_csv(raw: bytes, account: str = "") -> dict[str, Any]:
     for r in rows:
         key = f"{account}|{r['date']}|{r['amount']}|{r['description']}"
         counts[key] = counts.get(key, 0) + 1   # two identical coffees on one day are two transactions
-        tx_id = hashlib.sha1(f"{key}|{counts[key]}".encode()).hexdigest()[:16]
+        tx_id = hashlib.sha256(f"{key}|{counts[key]}".encode()).hexdigest()[:16]
         if tx_id in seen:
             continue
         tx = {"id": tx_id, "date": r["date"], "description": r["description"], "amount": r["amount"], "account": account}
