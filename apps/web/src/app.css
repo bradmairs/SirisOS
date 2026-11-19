@@ -1403,3 +1403,4 @@ section:has(> .widget-grid:empty) { display: none; }
 .budget-tx__what .muted { font-size: 12px; }
 .budget-tx__amount { font-variant-numeric: tabular-nums; }
 .budget-account__edit { margin-top: 6px; }
+.budget-tx > select, .budget-account__edit .field, .budget-account__edit select { min-width: 0; max-width: 100%; }

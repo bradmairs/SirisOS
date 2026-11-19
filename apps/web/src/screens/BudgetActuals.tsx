@@ -68,11 +68,6 @@ export function SpendingCard({ plan }: { plan: Plan }) {
   return (
     <Glass as="section" className="widget" aria-label="Spending this month">
       <header className="widget__head"><Receipt aria-hidden="true" /><span>{a ? `Spending in ${MONTH(a.month)}` : "Spending"}</span>
-        {a && a.months.length > 1 && (
-          <select className="field" aria-label="Month" value={a.month} onChange={(e) => setMonth(e.target.value)} style={{ marginLeft: "auto", width: "auto", flex: "none" }}>
-            {a.months.map((m) => <option key={m} value={m}>{SHORT(m)}</option>)}
-          </select>
-        )}
       </header>
       {a?.has_data ? (
         <>
@@ -80,6 +75,13 @@ export function SpendingCard({ plan }: { plan: Plan }) {
             {fmt(a.spent)} out so far{a.through < 1 ? `, ${Math.round(a.through * 100)}% of the way through the month` : ""}.
             {a.over.length ? ` ⚠ ${a.over.length} line${a.over.length === 1 ? "" : "s"} over plan.` : " ✓ Nothing over plan."}
           </p>
+          {a.months.length > 1 && (
+            <label className="row muted" style={{ gap: 6, fontSize: 13 }}>Month
+              <select className="field" aria-label="Month" value={a.month} onChange={(e) => setMonth(e.target.value)} style={{ width: "auto", maxWidth: "100%" }}>
+                {a.months.map((m) => <option key={m} value={m}>{SHORT(m)}</option>)}
+              </select>
+            </label>
+          )}
           <ul className="budget-goals" aria-label="Each line against its plan">
             {a.lines.map((l) => {
               const share = l.plan ? l.spent / l.plan : 1;
