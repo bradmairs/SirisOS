@@ -16,10 +16,10 @@ from typing import Any
 from app.services import json_store
 
 MAX_ENTRIES = 5000
-# "1.5h", "1.5 hrs", "2 hours", "90 min", "1h30", "1:30"
+# "1.5h", "1.5 hrs", "2 hours", "90 min", "1h30", "1:30". Digit counts are bounded so a long run of digits can't make it slow.
 _TIME = re.compile(
-    r"(?<![\w.])(?:(?P<h>\d+(?:\.\d+)?)\s*(?:hours|hour|hrs|hr|h)(?![a-z])\s*(?:(?P<hm>\d{1,2})\s*(?:mins|min|m)?\b)?"
-    r"|(?P<m>\d+)\s*(?:m|min|mins|minutes)\b|(?P<ch>\d{1,2}):(?P<cm>[0-5]\d)\b)",
+    r"(?<![\w.])(?:(?P<h>\d{1,2}(?:\.\d{1,2})?)\s*(?:hours|hour|hrs|hr|h)(?![a-z])\s*(?:(?P<hm>\d{1,2})\s*(?:mins|min|m)?\b)?"
+    r"|(?P<m>\d{1,4})\s*(?:m|min|mins|minutes)\b|(?P<ch>\d{1,2}):(?P<cm>[0-5]\d)\b)",
     re.I,
 )
 
