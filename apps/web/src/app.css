@@ -1387,3 +1387,8 @@ section:has(> .widget-grid:empty) { display: none; }
 .mini-ring__value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mini-ring__label { font-size: 13px; font-weight: 600; margin-top: 4px; }
 .mini-ring__sub { font-size: 11px; white-space: nowrap; }
+
+/* Friday debrief card (9.9) */
+.debrief__field { gap: 4px; }
+.debrief__field > span { font-size: 13px; color: var(--ink-2, var(--ink-3)); }
+.debrief__field textarea { resize: vertical; min-height: 52px; }
