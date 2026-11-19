@@ -493,6 +493,26 @@ async def brain_done(body: BrainDone, connector: SirisAIConnector = Depends(_sir
     return await _forward(connector, "POST", "/siris/brain/done", json=body.model_dump(exclude_none=True))
 
 
+class BrainDebrief(BaseModel):
+    project: str = Field(default="", max_length=200)
+    decided: str = Field(default="", max_length=2000)
+    went_wrong: str = Field(default="", max_length=2000)
+    differently: str = Field(default="", max_length=2000)
+    cpeng: str = Field(default="", max_length=4000)
+
+
+@router.get("/brain/debrief", tags=["brain"])
+async def brain_debrief(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """This week's Friday debrief: whether it's open, the GVW projects to pick from, and the CPEng question."""
+    return await _forward(connector, "GET", "/siris/brain/debrief")
+
+
+@router.post("/brain/debrief", tags=["brain"])
+async def brain_debrief_answer(body: BrainDebrief, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """File the debrief: on the project, the decision in the Decision Log, the lesson in Lessons Learned."""
+    return await _forward(connector, "POST", "/siris/brain/debrief", json=body.model_dump())
+
+
 @router.post("/brain/autolink", tags=["brain"])
 async def brain_autolink(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """Link the pairs the brain is confident about now, instead of at the nightly tidy."""

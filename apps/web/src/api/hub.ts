@@ -18,6 +18,22 @@ export const hub = {
   app: (id: string, fresh = false) => api<HubApp>(`/api/v1/hub/apps/${encodeURIComponent(id)}?fresh=${fresh}`),
 };
 
+export interface BrainDebrief {
+  asked: string | null;
+  answered: string | null;
+  open: boolean;
+  projects: string[];
+  cpeng_question: string | null;
+}
+
+export interface BrainDebriefAnswers {
+  project: string;
+  decided: string;
+  went_wrong: string;
+  differently: string;
+  cpeng: string;
+}
+
 export const brain = {
   search: (q: string, limit = 12) => api<BrainHit[]>(`/api/v1/brain/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   map: () => request("/api/v1/brain/map.html").then((r) => r.text()),
@@ -30,6 +46,10 @@ export const brain = {
   /** Tick a task in a note, or with no task mark the project finished. */
   done: (note: string, task?: string) =>
     api<{ action: "done" | "project-done" | "already-done"; note: string; task: string | null }>("/api/v1/brain/done", json(task ? { note, task } : { note })),
+  /** This week's Friday debrief (SirisAI 7.07): open from Friday until answered. */
+  debrief: () => api<BrainDebrief>("/api/v1/brain/debrief"),
+  answerDebrief: (answers: BrainDebriefAnswers) =>
+    api<{ filed: string; decision: boolean; lesson: boolean }>("/api/v1/brain/debrief", json(answers)),
   autolink: () => api<{ linked: { a: string; b: string; confidence: number | null }[]; deferred: number }>("/api/v1/brain/autolink", { method: "POST" }),
   note: (title: string) => api<BrainNote>(`/api/v1/brain/note?title=${encodeURIComponent(title)}`),
   /** Leaves search, links and the map. Restorable unless `permanent`. */

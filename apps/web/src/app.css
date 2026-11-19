@@ -1404,3 +1404,8 @@ section:has(> .widget-grid:empty) { display: none; }
 .budget-tx__amount { font-variant-numeric: tabular-nums; }
 .budget-account__edit { margin-top: 6px; }
 .budget-tx > select, .budget-account__edit .field, .budget-account__edit select { min-width: 0; max-width: 100%; }
+
+/* Friday debrief card (9.9) */
+.debrief__field { gap: 4px; }
+.debrief__field > span { font-size: 13px; color: var(--ink-2, var(--ink-3)); }
+.debrief__field textarea { resize: vertical; min-height: 52px; }
