@@ -347,23 +347,47 @@ def set_plan(reasons: list[str], plan: list[str]) -> dict[str, Any]:
 
 # -- habits (9.2) --------------------------------------------------------------------------------------------------
 
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _due(h: dict[str, Any], d: date) -> bool:
+    """9.8: a habit can be for some days only (0 = Monday); none set means every day."""
+    days = h.get("days") or []
+    return not days or d.weekday() in days
+
+
 def _habit_stats(h: dict[str, Any], on: date) -> dict[str, Any]:
     done = set(h.get("done", []))
-    streak, d = 0, on if on.isoformat() in done else on - timedelta(days=1)  # today not done yet doesn't break it
-    while d.isoformat() in done:
-        streak += 1
-        d -= timedelta(days=1)
-    best, run, prev = 0, 0, None
-    for day in sorted(done):
-        cur = date.fromisoformat(day)
-        run = run + 1 if prev and (cur - prev).days == 1 else 1
-        best, prev = max(best, run), cur
-    month = [(on - timedelta(days=i)).isoformat() for i in range(29, -1, -1)]
     created = h.get("created", on.isoformat())
-    span = [x for x in month if x >= created]
+    # The streak counts the habit's own days: a day it isn't for neither adds to it nor breaks it,
+    # and today not done yet doesn't break it either.
+    streak, d = 0, on if on.isoformat() in done else on - timedelta(days=1)
+    first = date.fromisoformat(min([created, *done])) - timedelta(days=1)  # days ticked from before it was added count too
+    while d > first:
+        if d.isoformat() in done:
+            streak += 1
+        elif _due(h, d):
+            break
+        d -= timedelta(days=1)
+    best, run = 0, 0
+    if done:
+        d, last = min(date.fromisoformat(min(done)), date.fromisoformat(created)), max(on, date.fromisoformat(max(done)))
+        while d <= last:
+            if d.isoformat() in done:
+                run += 1
+                best = max(best, run)
+            elif _due(h, d) and d < on:
+                run = 0
+            d += timedelta(days=1)
+    month = [on - timedelta(days=i) for i in range(29, -1, -1)]
+    span = [x for x in month if x.isoformat() >= created and _due(h, x)]
+    days = sorted(h.get("days") or [])
     return {"id": h["id"], "name": h["name"], "created": created, "streak": streak, "best": best, "today": on.isoformat() in done,
-            "month": [{"date": x, "done": x in done} for x in month],
-            "rate": round(100 * sum(1 for x in span if x in done) / len(span)) if span else 0}
+            "days": days, "due_today": _due(h, on),
+            "when": "Every day" if not days or len(days) == 7 else ("Weekdays" if days == [0, 1, 2, 3, 4] else
+                    "Weekends" if days == [5, 6] else ", ".join(WEEKDAYS[i] for i in days)),
+            "month": [{"date": x.isoformat(), "done": x.isoformat() in done, "due": _due(h, x)} for x in month],
+            "rate": round(100 * sum(1 for x in span if x.isoformat() in done) / len(span)) if span else 0}
 
 
 def habits(on: date | None = None) -> list[dict[str, Any]]:
@@ -371,9 +395,14 @@ def habits(on: date | None = None) -> list[dict[str, Any]]:
     return [_habit_stats(h, on) for h in load()["habits"] if not h.get("archived")]
 
 
-def add_habit(name: str) -> list[dict[str, Any]]:
+def _clean_days(days: list[int] | None) -> list[int]:
+    out = sorted({int(d) for d in days or [] if 0 <= int(d) <= 6})
+    return [] if len(out) == 7 else out
+
+
+def add_habit(name: str, days: list[int] | None = None) -> list[dict[str, Any]]:
     doc = load()
-    doc["habits"].append({"id": _id(), "name": name.strip(), "created": today().isoformat(), "done": []})
+    doc["habits"].append({"id": _id(), "name": name.strip(), "created": today().isoformat(), "done": [], "days": _clean_days(days)})
     doc["habits"] = doc["habits"][-50:]
     save(doc)
     return habits()
@@ -396,13 +425,16 @@ def mark_habit(habit_id: str, done: bool, day: str | None = None) -> list[dict[s
     return habits()
 
 
-def change_habit(habit_id: str, name: str | None = None, archived: bool | None = None) -> list[dict[str, Any]] | None:
+def change_habit(habit_id: str, name: str | None = None, archived: bool | None = None,
+                 days: list[int] | None = None) -> list[dict[str, Any]] | None:
     doc = load()
     h = _habit(doc, habit_id)
     if h is None:
         return None
     if name:
         h["name"] = name.strip()
+    if days is not None:
+        h["days"] = _clean_days(days)
     if archived:
         h["archived"] = True
     save(doc)

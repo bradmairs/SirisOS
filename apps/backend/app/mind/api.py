@@ -210,6 +210,7 @@ def nudge(body: NudgeIn) -> dict[str, Any]:
 
 class HabitIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
+    days: list[int] | None = Field(default=None, max_length=7)  # 9.8: 0 = Monday; none, every day
 
 
 class HabitCheck(BaseModel):
@@ -220,6 +221,7 @@ class HabitCheck(BaseModel):
 class HabitChange(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
     archived: bool | None = None
+    days: list[int] | None = Field(default=None, max_length=7)
 
 
 @router.get("/habits")
@@ -229,7 +231,7 @@ def habits() -> dict[str, Any]:
 
 @router.post("/habits")
 def add_habit(body: HabitIn) -> dict[str, Any]:
-    return {"habits": service.add_habit(body.name)}
+    return {"habits": service.add_habit(body.name, body.days)}
 
 
 @router.post("/habits/{habit_id}/check")
@@ -244,7 +246,7 @@ def check_habit(habit_id: str, body: HabitCheck) -> dict[str, Any]:
 
 @router.patch("/habits/{habit_id}")
 def change_habit(habit_id: str, body: HabitChange) -> dict[str, Any]:
-    out = service.change_habit(habit_id, body.name, body.archived)
+    out = service.change_habit(habit_id, body.name, body.archived, body.days)
     if out is None:
         raise HTTPException(status_code=404, detail="No such habit.")
     return {"habits": out}

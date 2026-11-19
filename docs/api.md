@@ -685,6 +685,10 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/work/cpd` |  |
 | `POST /api/v1/work/focus` |  |
 | `PUT /api/v1/work/settings` |  |
+| `GET /api/v1/work/timesheet` |  |
+| `POST /api/v1/work/timesheet` |  |
+| `DELETE /api/v1/work/timesheet/{entry_id}` |  |
+| `PATCH /api/v1/work/timesheet/{entry_id}` |  |
 | `POST /api/v1/work/todo-done` |  |
 | `POST /api/v1/work/wrapup` |  |
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Sunrise } from "lucide-react";
 import { brain } from "../api/hub";
 import { adaptive, homeContext, localPhase, type DayPhase, type HomeContext } from "../api/home";
@@ -10,6 +10,10 @@ import { useInbox } from "./Inbox";
 import { NAV } from "./Sidebar";
 
 type Tab = (typeof NAV)[number];
+
+function reducedMotion(): boolean {
+  return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
 
 /** Every screen a tab can be, with the short labels the bar has room for. */
 const SCREENS: Record<string, Tab> = {
@@ -81,10 +85,18 @@ export function Dock() {
       document.removeEventListener("visibilitychange", tick);
     };
   }, []);
+  const location = useLocation();
   return (
     <Glass as="nav" shape="pill" className="dock" aria-label="Main">
       {dockItems(ctx.data ?? null, adaptive(), now).map(({ to, label, Icon, end }) => (
-        <NavLink key={to} to={to} end={end} className="dock__item" aria-label={badges[to] ? `${label}: ${badges[to]}` : undefined}>
+        <NavLink key={to} to={to} end={end} className="dock__item" aria-label={badges[to] ? `${label}: ${badges[to]}` : undefined}
+          onClick={(e) => {
+            // 9.8: tapping the tab you're already on goes back to the top of the page, as in iOS apps.
+            if (location.pathname === to && !location.search) {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+            }
+          }}>
           <span className="dock__icon">
             <Icon size={22} strokeWidth={2} aria-hidden="true" />
             {badges[to] && <span className="dock__dot" aria-hidden="true" />}

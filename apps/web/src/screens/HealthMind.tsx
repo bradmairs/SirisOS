@@ -461,9 +461,29 @@ function SupportCard() {
 /* -- habits (9.2) ------------------------------------------------------------------------------------------------ */
 
 /** Daily habits, each with a streak, your best and the last 30 days. Tap a day in the grid to fix it. */
+const WEEK = ["M", "T", "W", "T", "F", "S", "S"];
+const WEEK_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** 9.8: which days a habit is for. None picked means every day. */
+export function DayPicker({ days, onChange, label }: { days: number[]; onChange: (days: number[]) => void; label: string }) {
+  return (
+    <span className="row habit-days" role="group" aria-label={label} style={{ gap: 4, flexWrap: "wrap" }}>
+      {WEEK.map((d, i) => {
+        const on = days.includes(i);
+        return (
+          <button key={i} type="button" className={`chip chip--button habit-day ${on ? "chip--active" : ""}`} aria-pressed={on} aria-label={WEEK_NAMES[i]}
+            onClick={() => onChange(on ? days.filter((x) => x !== i) : [...days, i].sort())}>{d}</button>
+        );
+      })}
+    </span>
+  );
+}
+
 export function HabitsView() {
   const res = useResource<{ habits: Habit[] }>("mind:habits", () => mind.habits(), { staleMs: 30_000, persist: true });
   const [name, setName] = useState("");
+  const [newDays, setNewDays] = useState<number[]>([]);
+  const [daysOf, setDaysOf] = useState<string | null>(null);  // the habit whose days are being changed
   const [msg, setMsg] = useState<string | null>(null);
   const habits = res.data?.habits ?? [];
   const run = async (fn: () => Promise<{ habits: Habit[] }>) => {
@@ -483,11 +503,16 @@ export function HabitsView() {
                 onClick={() => run(() => mind.markHabit(h.id, !h.today))}><Check size={16} aria-hidden="true" /></button>
               <span className="item__text">
                 <span className="item__title">{h.name}</span>
-                <span className="item__subtitle" style={{ whiteSpace: "normal" }}>{h.streak ? `${h.streak}-day streak` : "No streak yet"} · best {h.best} · {h.rate}% in 30 days</span>
+                <span className="item__subtitle" style={{ whiteSpace: "normal" }}>
+                  <button type="button" className="habit-when" aria-expanded={daysOf === h.id} onClick={() => setDaysOf(daysOf === h.id ? null : h.id)}>{h.when ?? "Every day"}</button>
+                  {" · "}{h.streak ? `${h.streak}-day streak` : "No streak yet"} · best {h.best} · {h.rate}% in 30 days</span>
+                {daysOf === h.id && (
+                  <DayPicker label={`Days for ${h.name}`} days={h.days ?? []} onChange={(days) => run(() => mind.changeHabit(h.id, { days }))} />
+                )}
                 <span className="mind-month mind-month--small" role="group" aria-label={`${h.name}, the last 30 days`}>
                   {h.month.map((d) => (
-                    <button key={d.date} type="button" className={`mind-month__day ${d.done ? "mind-month__day--clear" : ""}`} aria-pressed={d.done}
-                      aria-label={`${shortDay(d.date)}: ${d.done ? "done" : "not done"}`} title={shortDay(d.date)} onClick={() => run(() => mind.markHabit(h.id, !d.done, d.date))} />
+                    <button key={d.date} type="button" className={`mind-month__day ${d.done ? "mind-month__day--clear" : ""} ${d.due === false && !d.done ? "mind-month__day--off" : ""}`} aria-pressed={d.done}
+                      aria-label={`${shortDay(d.date)}: ${d.done ? "done" : d.due === false ? "not one of its days" : "not done"}`} title={shortDay(d.date)} onClick={() => run(() => mind.markHabit(h.id, !d.done, d.date))} />
                   ))}
                 </span>
               </span>
@@ -496,9 +521,17 @@ export function HabitsView() {
             </li>
           ))}
         </ul>
-        <form className="row" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) run(() => mind.addHabit(name.trim())).then(() => setName("")); }}>
-          <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder="A new habit" aria-label="New habit" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-          <button type="submit" className="button">Add</button>
+        <form className="stack" style={{ gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) run(() => mind.addHabit(name.trim(), newDays)).then(() => { setName(""); setNewDays([]); }); }}>
+          <span className="row" style={{ gap: 8 }}>
+            <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder="A new habit" aria-label="New habit" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            <button type="submit" className="button">Add</button>
+          </span>
+          {name.trim() && (
+            <span className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <span className="muted" style={{ fontSize: 12 }}>{newDays.length && newDays.length < 7 ? "On" : "Every day, or pick days:"}</span>
+              <DayPicker label="Days for the new habit" days={newDays} onChange={setNewDays} />
+            </span>
+          )}
         </form>
         {msg && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
       </Glass>

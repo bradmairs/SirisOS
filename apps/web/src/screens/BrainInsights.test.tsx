@@ -213,13 +213,13 @@ describe("coming up and long lists", () => {
 
     expect(await screen.findByText("C ↔ Hub")).toBeInTheDocument();
     expect(screen.queryByText("D ↔ Hub")).not.toBeInTheDocument();
-    const more = screen.getByRole("button", { name: "Show all 5" });
+    const more = screen.getByRole("button", { name: "Show 2 more" });
     expect(more).toHaveAttribute("aria-expanded", "false");
     await user.click(more);
     expect(screen.getByText("E ↔ Hub")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show fewer" }));
     expect(screen.queryByText("E ↔ Hub")).not.toBeInTheDocument();
     // Short lists have no button.
-    expect(screen.getAllByRole("button", { name: /^Show all/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Show \d+ more/ })).toHaveLength(1);
   });
 });

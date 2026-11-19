@@ -64,7 +64,7 @@ def _default_sections() -> dict[str, list[str]]:
     }
 
 
-EVERYTHING = ["clock", "weather", "server", "app-health", "timeline", "tasks", "coming-up", "career", "fitness", "readiness", "training", "app:*", "activity",
+EVERYTHING = ["clock", "weather", "server", "app-health", "timeline", "tasks", "coming-up", "career", "fitness", "body-rings", "readiness", "training", "app:*", "activity",
               "parcels", "protocols", "cameras", "car", "upkeep", "energy", "brain", "resurface", "capture"]
 
 
@@ -73,11 +73,11 @@ def _default_hidden() -> dict[str, list[str]]:
     something needs you, and the car in the evening only when it needs charging (Home decides)."""
     keep = lambda *ids: [w for w in EVERYTHING if w not in ids]  # noqa: E731
     return {
-        "morning": keep("clock", "weather", "timeline", "tasks", "coming-up", "readiness", "training", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
+        "morning": keep("clock", "weather", "timeline", "tasks", "coming-up", "body-rings", "readiness", "training", "parcels", "protocols", "server", "app-health", "energy", "resurface"),
         "work": keep("clock", "weather", "timeline", "tasks", "coming-up", "career", "app:*", "brain", "protocols", "server", "app-health"),
-        "weekend": keep("clock", "weather", "timeline", "tasks", "coming-up", "readiness", "training", "fitness", "parcels", "car", "protocols", "cameras",
+        "weekend": keep("clock", "weather", "timeline", "tasks", "coming-up", "body-rings", "readiness", "training", "fitness", "parcels", "car", "protocols", "cameras",
                         "energy", "server", "app-health", "resurface", "upkeep"),
-        "evening": keep("clock", "weather", "timeline", "tasks", "coming-up", "training", "fitness", "parcels", "car", "protocols", "cameras",
+        "evening": keep("clock", "weather", "timeline", "tasks", "coming-up", "body-rings", "training", "fitness", "parcels", "car", "protocols", "cameras",
                         "energy", "server", "app-health", "upkeep"),
         "winddown": keep("brain", "resurface", "capture"),
         "night": keep("clock"),
@@ -117,6 +117,8 @@ class Schedule(BaseModel):
     leave_minutes: int = Field(default=30, ge=0, le=180)
     # 7.2: work starts at 8:00 (Brad's hours, 8 to 4:30). A schedule still on the old 8:30 default is moved once.
     work_8am: bool = True
+    # 9.8: Home's readiness, strain and battery rings, added once to a saved schedule's hidden lists the way the defaults have them.
+    body_rings: bool = True
 
     @field_validator("dock")
     @classmethod
@@ -158,13 +160,20 @@ def _path():
 def load() -> Schedule:
     raw = json_store.read(_path(), {})
     try:
-        plan = Schedule.model_validate({"work_8am": False, **raw} if isinstance(raw, dict) and raw else {})
+        plan = Schedule.model_validate({"work_8am": False, "body_rings": False, **raw} if isinstance(raw, dict) and raw else {})
     except ValueError:
         return Schedule()   # a broken file never breaks Home
     if not plan.work_8am:
         if plan.weekday.day == "08:30" and plan.weekday.evening == "16:30" and _minutes(plan.weekday.morning) < _minutes("08:00"):
             plan.weekday = plan.weekday.model_copy(update={"day": "08:00"})
         plan.work_8am = True
+        save(plan)
+    if not plan.body_rings:
+        defaults = _default_hidden()
+        for p, ids in defaults.items():
+            if "body-rings" in ids and "body-rings" not in plan.hidden.get(p, []):
+                plan.hidden[p] = [*plan.hidden.get(p, []), "body-rings"]
+        plan.body_rings = True
         save(plan)
     return plan
 

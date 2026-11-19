@@ -218,6 +218,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 9.71: workout exercise pictures beside the name, not over it; Air Bike shows a bike
 9.72: the tab bar floats lower on iPhone
 9.73: the tab bar back where it was
+9.8: readiness/strain/battery rings on Home, timesheet notes in Work, habits on chosen days, tap the tab to go to the top, honest 'Show N more', more health insights
 
 ## Terminal (ADR 113)
 

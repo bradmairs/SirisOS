@@ -1374,3 +1374,16 @@ section:has(> .widget-grid:empty) { display: none; }
 .gym-entry__name-row { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
 /* 9.71: its own button, sized to the picture (the round 32px icon button let the 44px picture spill over the name). */
 .gym-entry__thumb { flex: none; padding: 0; border: 0; background: none; border-radius: 10px; cursor: pointer; line-height: 0; }
+
+/* 9.8: habits on chosen days. */
+.habit-day { min-width: 30px; justify-content: center; padding: 4px 0; }
+.habit-when { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
+.mind-month__day--off { opacity: 0.25; }
+.timesheet-hours { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+
+/* 9.8: Home's three small rings. */
+.body-rings__row { display: flex; justify-content: space-around; gap: 8px; }
+.mini-ring { display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: inherit; min-width: 0; }
+.mini-ring__value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mini-ring__label { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.mini-ring__sub { font-size: 11px; white-space: nowrap; }

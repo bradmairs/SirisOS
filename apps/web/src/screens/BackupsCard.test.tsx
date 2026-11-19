@@ -26,7 +26,7 @@ describe("<BackupsCard />", () => {
     render(<BackupsCard />);
     const card = await screen.findByRole("region", { name: "SirisOS backups" });
     expect(within(card).getAllByText(/Nightly · 51 KB/)).toHaveLength(3);
-    await user.click(within(card).getByRole("button", { name: "Show all 4" }));
+    await user.click(within(card).getByRole("button", { name: "Show 1 more" }));
     expect(within(card).getAllByText(/Nightly/)).toHaveLength(4);
     await user.click(within(card).getByRole("button", { name: /Back up now/ }));
     expect(await within(card).findByText("Backed up 12 files.")).toBeInTheDocument();
