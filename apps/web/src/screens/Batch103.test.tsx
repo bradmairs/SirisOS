@@ -65,6 +65,11 @@ describe("SirisOS 10.3", () => {
     fireEvent.pointerUp(bar, { pointerId: 2, clientX: 101 });
     await userEvent.setup().click(within(bar).getByText("SirisAI"));
     expect(screen.getByTestId("where").textContent).toBe("/assistant");
+    // 10.32: a tap slides the lens over (the CSS spring, not an instant jump) and swells it on the way.
+    const lens = document.querySelector(".dock__lens") as HTMLElement;
+    expect(lens.style.transform).toBe("translate3d(70px, 0, 0)");
+    expect(lens.style.transition).toBe("");
+    expect(bar.className).toContain("dock--moving");
   });
 
   const plan: Pick<Budget, "currency" | "income" | "sections"> = { currency: "AUD", income: [], sections: { expenses: [], savings: [], spending: [{ id: "groc", name: "Groceries", amount: 200, every: "weekly" }] } };
