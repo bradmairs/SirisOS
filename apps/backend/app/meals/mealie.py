@@ -33,13 +33,21 @@ def configured() -> bool:
     return bool(base_url() and os.getenv("SIRISOS_MEALIE_TOKEN", "").strip())
 
 
+def _with_scheme(url: str) -> str:
+    """10.34: "192.168.0.100:9000" works as well as "http://192.168.0.100:9000" (http unless it says https)."""
+    url = url.strip().rstrip("/")
+    if url and "://" not in url:
+        url = f"http://{url}"
+    return url
+
+
 def base_url() -> str:
-    return os.getenv("SIRISOS_MEALIE_URL", "").strip().rstrip("/")
+    return _with_scheme(os.getenv("SIRISOS_MEALIE_URL", ""))
 
 
 def public_url() -> str:
     """Where your browser reaches Mealie (SIRISOS_MEALIE_PUBLIC_URL), for links; the API address otherwise."""
-    return (os.getenv("SIRISOS_MEALIE_PUBLIC_URL", "").strip() or base_url()).rstrip("/")
+    return _with_scheme(os.getenv("SIRISOS_MEALIE_PUBLIC_URL", "")) or base_url()
 
 
 def _headers() -> dict[str, str]:
@@ -51,6 +59,12 @@ async def _call(method: str, path: str, **kw: Any) -> httpx.Response:
         raise MealieError("Mealie isn't set up.")
     try:
         r = await shared_client().request(method, f"{base_url()}{path}", headers=_headers(), timeout=TIMEOUT, **kw)
+    except httpx.UnsupportedProtocol as exc:
+        raise MealieError(f"SIRISOS_MEALIE_URL isn't a web address SirisOS can use ({base_url()}): it should look like http://192.168.0.100:9000.") from exc
+    except httpx.ConnectError as exc:
+        raise MealieError(f"Nothing answered at {base_url()}: check Mealie is running and the address and port are right.") from exc
+    except httpx.TimeoutException as exc:
+        raise MealieError(f"Mealie at {base_url()} took too long to answer.") from exc
     except httpx.HTTPError as exc:
         raise MealieError(f"Mealie can't be reached ({type(exc).__name__}).") from exc
     if r.status_code in (401, 403):
