@@ -518,6 +518,12 @@ async def brain_debrief(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     return await _forward(connector, "GET", "/siris/brain/debrief")
 
 
+@router.post("/brain/debrief/dismiss", tags=["brain"])
+async def brain_debrief_dismiss(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """10.33: nothing to add this week; the card stays away until next Friday (SirisAI 7.29)."""
+    return await _forward(connector, "POST", "/siris/brain/debrief/dismiss")
+
+
 @router.post("/brain/debrief", tags=["brain"])
 async def brain_debrief_answer(body: BrainDebrief, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """File the debrief: on the project, the decision in the Decision Log, the lesson in Lessons Learned."""

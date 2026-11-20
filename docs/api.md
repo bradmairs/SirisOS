@@ -149,6 +149,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/brain/capture` |  |
 | `GET /api/v1/brain/debrief` | This week's Friday debrief: whether it's open, the GVW projects to pick from, and the CPEng question. |
 | `POST /api/v1/brain/debrief` | File the debrief: on the project, the decision in the Decision Log, the lesson in Lessons Learned. |
+| `POST /api/v1/brain/debrief/dismiss` | 10.33: nothing to add this week; the card stays away until next Friday (SirisAI 7.29). |
 | `POST /api/v1/brain/delete` | Delete a note: it leaves search, links and the map. Restorable unless `permanent`. |
 | `GET /api/v1/brain/deleted` | Deleted notes, newest first, and whether each can be restored. |
 | `POST /api/v1/brain/done` | Tick an overdue task in its note, or (no task) mark a project finished. |

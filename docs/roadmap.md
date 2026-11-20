@@ -227,6 +227,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 10.3: slide the bubble along the phone tab bar (Liquid Glass), fold the spending lines, bank files listed with Take out and Add another, no duplicate transactions
 10.31: the tab bar's bubble lines up with the tab, swells while you drag, and follows smoothly
 10.32: tapping a tab slides the tab bar bubble across (with a small swell) instead of jumping
+10.33: the Friday debrief on Fridays only, with Add another after saving and Nothing this week (SirisAI 7.29)
 
 ## Terminal (ADR 113)
 
