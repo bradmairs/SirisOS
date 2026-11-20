@@ -1072,6 +1072,7 @@ h3.note__heading { font-size: 17px; }
   .work-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-flow: row dense; align-items: stretch; }
   .work-day { grid-column: span 4; } .work-focus { grid-column: span 2; }
   .work-tasks { grid-column: span 4; } .work-week { grid-column: span 2; }
+  .work-timesheet { grid-column: span 2; }  /* 10.22: as wide as the focus card beside the tasks */
   .work-apps, .work-cpd, .work-grid > [aria-label="To-dos in work notes"] { grid-column: span 2; }
   .work-notes { grid-column: span 4; }
   .work-wrap { grid-column: span 6; } .work-chartership { grid-column: span 2; }
