@@ -225,6 +225,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 10.21: SirisGym moved up the side menu, just below Tasks
 10.22: Work's Timesheet notes card as wide as the Focus card on a computer
 10.3: slide the bubble along the phone tab bar (Liquid Glass), fold the spending lines, bank files listed with Take out and Add another, no duplicate transactions
+10.31: the tab bar's bubble lines up with the tab, swells while you drag, and follows smoothly
 
 ## Terminal (ADR 113)
 

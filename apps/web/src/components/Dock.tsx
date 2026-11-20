@@ -92,76 +92,128 @@ export function Dock() {
 
   // 10.3: one bubble (the "lens") that slides to the tab you're on, and follows your finger when you drag along the
   // bar, like iOS's Liquid Glass tab bar. Let go over a tab to open it.
+  // 10.31: the lens is moved straight on the element (no re-render per finger move), measured again whenever the bar
+  // changes size, and swells on an inner layer with its own spring, so it lines up and stays smooth on iPhone.
   const bar = useRef<HTMLElement>(null);
-  const [spots, setSpots] = useState<{ x: number; w: number }[]>([]);
-  const [drag, setDrag] = useState<{ x: number; over: number } | null>(null);
-  const gesture = useRef({ id: -1, startX: 0, moved: false, over: -1, swallowClick: false });
+  const lens = useRef<HTMLSpanElement>(null);
+  const spots = useRef<{ x: number; w: number }[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [over, setOver] = useState(-1);
+  const gesture = useRef({ id: -1, startX: 0, moved: false, over: -1, swallowClick: false, frame: 0, x: 0 });
 
+  const place = useCallback((x: number, w: number, instant: boolean) => {
+    const el = lens.current;
+    if (!el) return;
+    el.style.transition = instant ? "width 0.18s ease, opacity 0.2s ease" : "";
+    el.style.transform = `translate3d(${x}px, 0, 0)`;
+    el.style.width = `${w}px`;
+    el.style.opacity = "1";
+  }, []);
+  const settle = useCallback((instant = false) => {
+    const s = spots.current[active];
+    const el = lens.current;
+    if (!el) return;
+    if (!s) { el.style.opacity = "0"; return; }
+    place(s.x, s.w, instant);
+  }, [active, place]);
   const measure = useCallback(() => {
     const el = bar.current;
     if (!el) return;
-    const items = Array.from(el.querySelectorAll<HTMLElement>(".dock__item"));
-    setSpots(items.map((i) => ({ x: i.offsetLeft, w: i.offsetWidth })));
+    const left = el.getBoundingClientRect().left;
+    spots.current = Array.from(el.querySelectorAll<HTMLElement>(".dock__item")).map((i) => {
+      const r = i.getBoundingClientRect();
+      return { x: r.left - left - el.clientLeft, w: r.width };
+    });
   }, []);
-  useLayoutEffect(measure, [measure, tabs.map((t) => t.to).join("|")]);
-  useEffect(() => {
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [measure]);
+  // When the bar's size changes (fonts, rotation, the safe area settling), the lens jumps to the right place.
+  const remeasure = useCallback(() => {
+    measure();
+    if (!gesture.current.moved) settle(true);
+  }, [measure, settle]);
 
-  const overAt = (clientX: number): number => {
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    // The first placement doesn't slide in from the left; a change of tab after that slides.
+    measure();
+    settle(!placed.current);
+    placed.current = true;
+  }, [measure, settle, tabs.map((t) => t.to).join("|")]);
+  useEffect(() => {
     const el = bar.current;
-    if (!el || !spots.length) return -1;
-    const x = clientX - el.getBoundingClientRect().left;
+    if (!el) return;
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => remeasure()) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", remeasure);
+    document.fonts?.ready.then(remeasure).catch(() => undefined);
+    return () => { ro?.disconnect(); window.removeEventListener("resize", remeasure); };
+  }, [remeasure]);
+
+  const overAt = (x: number): number => {
     let best = 0;
-    spots.forEach((s, i) => { if (x >= s.x) best = i; });
+    spots.current.forEach((s, i) => { if (x >= s.x) best = i; });
     return best;
   };
   const down = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    gesture.current = { id: e.pointerId, startX: e.clientX, moved: false, over: overAt(e.clientX), swallowClick: false };
+    const left = bar.current?.getBoundingClientRect().left ?? 0;
+    gesture.current = { ...gesture.current, id: e.pointerId, startX: e.clientX, moved: false, over: overAt(e.clientX - left), swallowClick: false };
   };
   const move = (e: ReactPointerEvent<HTMLElement>) => {
     const g = gesture.current;
-    if (g.id !== e.pointerId) return;
+    const el = bar.current;
+    if (g.id !== e.pointerId || !el || !spots.current.length) return;
     if (!g.moved && Math.abs(e.clientX - g.startX) < 8) return;
     if (!g.moved) {
       g.moved = true;
-      bar.current?.setPointerCapture?.(e.pointerId);  // only once it's a drag, so a plain tap still taps the tab
+      el.setPointerCapture?.(e.pointerId);  // only once it's a drag, so a plain tap still taps the tab
+      setDragging(true);
     }
-    const el = bar.current;
-    if (!el || !spots.length) return;
-    const over = overAt(e.clientX);
-    if (over !== g.over) {
-      g.over = over;
+    g.x = e.clientX - el.getBoundingClientRect().left;
+    const o = overAt(g.x);
+    if (o !== g.over) {
+      g.over = o;
+      setOver(o);
       navigator.vibrate?.(8);
     }
-    const w = spots[over]?.w ?? spots[0].w;
-    const left = e.clientX - el.getBoundingClientRect().left - w / 2;
-    const max = spots[spots.length - 1].x;
-    setDrag({ x: Math.min(max, Math.max(spots[0].x, left)), over });
+    if (!g.frame) {
+      g.frame = requestAnimationFrame(() => {
+        g.frame = 0;
+        const s = spots.current;
+        const w = s[g.over]?.w ?? s[0].w;
+        const x = Math.min(s[s.length - 1].x, Math.max(s[0].x, g.x - w / 2));
+        place(x, w, true);
+      });
+    }
   };
-  const up = (e: ReactPointerEvent<HTMLElement>) => {
+  const finish = (e: ReactPointerEvent<HTMLElement>, go: boolean) => {
     const g = gesture.current;
     if (g.id !== e.pointerId) return;
     g.id = -1;
+    if (g.frame) { cancelAnimationFrame(g.frame); g.frame = 0; }
     if (!g.moved) return;
+    g.moved = false;
     g.swallowClick = true;
     window.setTimeout(() => { g.swallowClick = false; }, 80);
-    setDrag(null);
+    setDragging(false);
+    setOver(-1);
     const to = tabs[g.over]?.to;
-    if (to && g.over !== active) navigate(to);
+    const s = spots.current[g.over];
+    if (go && to && g.over !== active) {
+      if (s) place(s.x, s.w, false);  // land on the tab now; the page follows
+      navigate(to);
+    } else {
+      settle(false);
+    }
   };
-  const cancel = () => { gesture.current.id = -1; setDrag(null); };
 
-  const spot = drag ? { x: drag.x, w: spots[drag.over]?.w ?? 0 } : active >= 0 ? spots[active] : undefined;
   return (
-    <Glass as="nav" shape="pill" className={`dock${drag ? " dock--dragging" : ""}`} aria-label="Main" ref={bar}
-      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel}
+    <Glass as="nav" shape="pill" className={`dock${dragging ? " dock--dragging" : ""}`} aria-label="Main" ref={bar}
+      onPointerDown={down} onPointerMove={move} onPointerUp={(e: ReactPointerEvent<HTMLElement>) => finish(e, true)}
+      onPointerCancel={(e: ReactPointerEvent<HTMLElement>) => finish(e, false)}
       onClickCapture={(e: React.MouseEvent) => { if (gesture.current.swallowClick) { e.preventDefault(); e.stopPropagation(); } }}>
-      {spot && <span className="dock__lens" aria-hidden="true" style={{ transform: `translateX(${spot.x}px)`, width: spot.w }} />}
+      <span className="dock__lens" ref={lens} aria-hidden="true" style={{ opacity: 0 }}><span className="dock__lens-glass" /></span>
       {tabs.map(({ to, label, Icon, end }, i) => (
-        <NavLink key={to} to={to} end={end} className={`dock__item${drag?.over === i ? " dock__item--over" : ""}`} aria-label={badges[to] ? `${label}: ${badges[to]}` : undefined}
+        <NavLink key={to} to={to} end={end} className={`dock__item${dragging && over === i ? " dock__item--over" : ""}`} aria-label={badges[to] ? `${label}: ${badges[to]}` : undefined}
           onClick={(e) => {
             // 9.8: tapping the tab you're already on goes back to the top of the page, as in iOS apps.
             if (location.pathname === to && !location.search) {
