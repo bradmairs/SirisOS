@@ -154,3 +154,24 @@ def test_a_broken_token_is_said_plainly(world):
     assert "API token" in w["mealie"]["error"]
     r = c.get("/api/v1/meals/recipes?q=x", headers=AUTH)
     assert r.status_code == 502 and "API token" in r.json()["detail"]
+
+
+def test_an_address_without_http_works_and_bad_ones_are_explained(world, monkeypatch):
+    """10.34: Brad set SIRISOS_MEALIE_URL=192.168.0.100:9000 and got "UnsupportedProtocol"."""
+    from app.meals import mealie
+
+    c, state = world
+    monkeypatch.setenv("SIRISOS_MEALIE_URL", "mealie.local:9925/")
+    assert mealie.base_url() == MEALIE and mealie.public_url() == MEALIE
+    assert c.get("/api/v1/meals/recipes?q=stir", headers=AUTH).json()["recipes"][0]["slug"] == "chicken-stir-fry"
+    monkeypatch.setenv("SIRISOS_MEALIE_URL", "https://mealie.example")
+    assert mealie.base_url() == "https://mealie.example"
+
+    def down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    hub_service.transport = httpx.MockTransport(down)
+    reset_hub(ENV)
+    monkeypatch.setenv("SIRISOS_MEALIE_URL", "192.168.0.100:9000")
+    w = c.get(f"/api/v1/meals?start={START}", headers=AUTH).json()
+    assert w["mealie"]["error"] == "Nothing answered at http://192.168.0.100:9000: check Mealie is running and the address and port are right."

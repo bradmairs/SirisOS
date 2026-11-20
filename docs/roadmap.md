@@ -228,6 +228,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 10.31: the tab bar's bubble lines up with the tab, swells while you drag, and follows smoothly
 10.32: tapping a tab slides the tab bar bubble across (with a small swell) instead of jumping
 10.33: the Friday debrief on Fridays only, with Add another after saving and Nothing this week (SirisAI 7.29)
+10.34: Mealie's address works without http://, and its errors say what's wrong
 
 ## Terminal (ADR 113)
 
