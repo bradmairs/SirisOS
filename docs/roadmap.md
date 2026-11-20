@@ -223,6 +223,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 10.1: until pay day (the balance forward to after pay, lowest point, a Home card and notification when it's tight), recurring charges and subscriptions flagged from bank imports, suggestions for the plan
 10.2: Meals with Mealie (its meal plan, the week's shopping onto Home Assistant's list), notification roundups, Trips (weather, packing, bills while away, out-of-office, away mode), a better doctor's summary (SirisAI 7.28), last month in short on Home and in Siris
 10.21: SirisGym moved up the side menu, just below Tasks
+10.22: Work's Timesheet notes card as wide as the Focus card on a computer
 
 ## Terminal (ADR 113)
 
