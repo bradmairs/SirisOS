@@ -362,37 +362,46 @@ a {
 }
 
 /* The "lens": one bubble that slides to the active tab, and follows your finger
-   along the bar while you drag (10.3, like iOS's Liquid Glass tab bar). */
-.dock { touch-action: none; -webkit-user-select: none; user-select: none; }
+   along the bar while you drag (10.3, like iOS's Liquid Glass tab bar). 10.31: the
+   outer layer only moves (Dock.tsx sets its transform and width straight on it);
+   the inner glass swells with its own spring while you drag, so the two never fight. */
+.dock { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .dock > .dock__lens {
   position: absolute;
   top: 6px;
   bottom: 6px;
   left: 0;
+  width: 0;
   z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+  transition: transform 0.55s var(--spring), width 0.35s var(--ease), opacity 0.2s var(--ease);
+}
+.dock__lens-glass {
+  position: absolute;
+  inset: 0;
   border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   box-shadow: inset 0 1px 0 rgba(150, 222, 255, 0.35), inset 0 -1px 0 rgba(95, 211, 255, 0.08), 0 0 18px rgba(95, 211, 255, 0.18);
-  pointer-events: none;
-  transition: transform 0.5s var(--spring), width 0.35s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease), scale 0.3s var(--spring);
-  animation: lens-appear 0.45s var(--spring);  /* opacity and `scale` only: a transform here would hold the bubble in place */
+  transform: scale(1);
+  transition: transform 0.45s var(--spring), background 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
-@keyframes lens-appear {
-  from { scale: 0.7; opacity: 0; }
-  to { scale: 1; opacity: 1; }
-}
-/* While dragging: it follows the finger at once, swells a little and turns clearer, like a drop of glass. */
-.dock--dragging > .dock__lens {
-  transition: width 0.2s var(--ease), scale 0.3s var(--spring), background 0.2s var(--ease);
-  scale: 1.12 1.08;
-  background: color-mix(in srgb, var(--accent) 7%, rgba(255, 255, 255, 0.08));
-  -webkit-backdrop-filter: blur(1px) saturate(1.8) brightness(1.15);
-  backdrop-filter: blur(1px) saturate(1.8) brightness(1.15);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 1px rgba(95, 211, 255, 0.25), 0 6px 22px rgba(0, 0, 0, 0.35), 0 0 22px rgba(95, 211, 255, 0.25);
+/* While dragging: a bigger, clearer drop of glass that stands out past the bar. */
+.dock--dragging .dock__lens-glass {
+  transform: scale(1.32, 1.28);
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(0.5px) saturate(1.9) brightness(1.2);
+  backdrop-filter: blur(0.5px) saturate(1.9) brightness(1.2);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.55), inset 0 -1.5px 2px rgba(95, 211, 255, 0.3), inset 0 0 12px rgba(255, 255, 255, 0.08),
+    0 10px 28px rgba(0, 0, 0, 0.4), 0 0 24px rgba(95, 211, 255, 0.22);
 }
 .dock--dragging .dock__item[aria-current="page"] { color: var(--ink-2); text-shadow: none; }
 .dock__item--over { color: var(--accent) !important; }
-@media (prefers-reduced-motion: reduce) { .dock > .dock__lens { transition: none; animation: none; } }
+.dock__item .dock__icon { transition: transform 0.35s var(--spring); }
+.dock--dragging .dock__item--over .dock__icon { transform: scale(1.15); }
+@media (prefers-reduced-motion: reduce) {
+  .dock > .dock__lens, .dock__lens-glass { transition: none; }
+}
 
 /* Phones: the dock spans the screen and its items share it evenly, so it
    never runs off the edge whatever the width (a Pro Max is 430px). */
