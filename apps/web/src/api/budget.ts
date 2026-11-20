@@ -159,7 +159,10 @@ export interface ActualLine { id: string; name: string; section: Section; plan: 
 export interface Actuals {
   month: string; through: number; lines: ActualLine[]; over: ActualLine[]; spent: number;
   unsorted: Tx[]; unsorted_count: number; guessed: Tx[]; months: string[]; currency: string; has_data: boolean;
+  /** 10.3: the files added, newest first ("earlier": from before files were listed), and duplicates taken out. */
+  imports?: CsvFile[]; dupes_removed?: number;
 }
+export interface CsvFile { id: string; name: string; account: string; at: string | null; added: number; transactions: number; first: string; last: string }
 /** 9.9: accounts and balances, towards the savings goals, and net worth over time. */
 export type AccountKind = "everyday" | "savings" | "super" | "investment" | "loan" | "credit";
 export interface Account {
@@ -177,6 +180,7 @@ export const actuals = {
     form.append("account", account);
     return api<{ imported: number; skipped: number; account: string; month: Actuals }>(`${B}/actuals/import`, { method: "POST", body: form });
   },
+  removeFile: (id: string) => api<{ removed: number; month: Actuals }>(`${B}/actuals/imports/${encodeURIComponent(id)}`, { method: "DELETE" }),
   assign: (id: string, lineId: string | null) => api<{ sorted_too: number }>(`${B}/actuals/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ line_id: lineId }) }),
   balances: () => api<Balances>(`${B}/balances`),
   setBalance: (b: { account: string; balance: number; kind?: AccountKind; line_id?: string | null }) =>
