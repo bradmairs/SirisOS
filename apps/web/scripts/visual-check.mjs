@@ -124,7 +124,9 @@ const FIXTURES = [
       { id: "p3", name: "Fuel", section: "spending", plan: 303.33, spent: 211, status: "ahead" }, { id: "p2", name: "Eating out", section: "spending", plan: 300, spent: 96, status: "ok" }],
     over: [{ id: "p1", name: "Groceries", section: "spending", plan: 866.67, spent: 1059.5, status: "over" }],
     unsorted: [{ id: "t1", date: "2026-11-06", description: "JB HIFI 0042 MELBOURNE AUS CARD XX1234", amount: -39, account: "Everyday" }],
-    unsorted_count: 1, guessed: [] }],
+    unsorted_count: 1, guessed: [], dupes_removed: 0, imports: [
+      { id: "abcdef1234", name: "CommBank-Everyday-November-2026-export.csv", account: "Everyday", at: "2026-11-20T09:00", added: 42, transactions: 42, first: "2026-11-01", last: "2026-11-19" },
+      { id: "earlier", name: "Added before files were listed", account: "Bank", at: null, added: 6, transactions: 6, first: "2026-10-03", last: "2026-10-30" }] }],
   ["/api/v1/budget/balances", { currency: "AUD", net_worth: 61300, kinds: ["everyday", "savings", "super", "investment", "loan", "credit"],
     series: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11"].map((month, i) => ({ month, net_worth: 58000 + i * 820 })),
     accounts: [{ id: "a1", name: "Everyday", kind: "everyday", balance: 3962.5, as_of: "2026-11-12", per_month: null },

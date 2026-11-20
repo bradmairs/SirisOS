@@ -126,3 +126,56 @@ def test_merchant_keys():
     assert actuals.merchant("WOOLWORTHS 1234 MELBOURNE AU Card xx1234") == "woolworths melbourne"
     assert actuals.merchant("VISA PURCHASE NETFLIX.COM") == "netflix.com"
     _ = datetime  # keep import for clarity of dates above
+
+
+# 10.3: files are listed and can be taken out; the same purchase is never in twice.
+
+OVERLAP = b"""Date,Description,Amount,Balance
+12/11/2026,WOOLWORTHS 1234 MELBOURNE AU,-910.00,3962.50
+13/11/2026,BP CONNECT RICHMOND,-70.00,3892.50
+13/11/2026,BP CONNECT RICHMOND,-70.00,3822.50
+"""
+
+
+def test_overlapping_files_and_other_account_names_add_nothing_twice(c):
+    first = c.post("/api/v1/budget/actuals/import", files={"file": ("nov-1.csv", COMMBANK, "text/csv")}, data={"account": "Everyday"}, headers=AUTH).json()
+    assert first["imported"] == 6
+    # The same file under another account name: nothing new.
+    again = c.post("/api/v1/budget/actuals/import", files={"file": ("copy.csv", COMMBANK, "text/csv")}, data={"account": ""}, headers=AUTH).json()
+    assert again["imported"] == 0 and again["skipped"] == 6
+    # An export that overlaps on the 12th (same Woolworths, written differently) and adds two fuel stops on the 13th.
+    nxt = c.post("/api/v1/budget/actuals/import", files={"file": ("nov-2.csv", OVERLAP, "text/csv")}, data={"account": "Everyday"}, headers=AUTH).json()
+    assert nxt["imported"] == 2 and nxt["skipped"] == 1
+    m = c.get("/api/v1/budget/actuals?month=2026-11", headers=AUTH).json()
+    assert m["spent"] == pytest.approx(1137.5 + 140)
+    files = c.get("/api/v1/budget/actuals/imports", headers=AUTH).json()["imports"]
+    assert [(f["name"], f["transactions"]) for f in files] == [("nov-2.csv", 2), ("nov-1.csv", 6)]
+    assert files[1]["first"] == "2026-11-03" and files[1]["last"] == "2026-11-12"
+
+
+def test_removing_a_file_takes_its_transactions_out_and_it_can_be_added_again(c):
+    a = c.post("/api/v1/budget/actuals/import", files={"file": ("nov-1.csv", COMMBANK, "text/csv")}, headers=AUTH).json()
+    c.post("/api/v1/budget/actuals/import", files={"file": ("nov-2.csv", OVERLAP, "text/csv")}, headers=AUTH)
+    r = c.delete(f"/api/v1/budget/actuals/imports/{a['import_id']}", headers=AUTH).json()
+    assert r["removed"] == 6 and r["month"]["spent"] == pytest.approx(140)
+    assert [f["name"] for f in c.get("/api/v1/budget/actuals/imports", headers=AUTH).json()["imports"]] == ["nov-2.csv"]
+    back = c.post("/api/v1/budget/actuals/import", files={"file": ("nov-1.csv", COMMBANK, "text/csv")}, headers=AUTH).json()
+    assert back["imported"] == 6
+    assert c.delete("/api/v1/budget/actuals/imports/abcdef1234", headers=AUTH).status_code == 404
+    assert c.delete("/api/v1/budget/actuals/imports/..%2Fx", headers=AUTH).status_code == 404
+
+
+def test_duplicates_already_in_are_cleaned_up_once_and_older_files_can_go(c):
+    from app.services import json_store
+
+    tx = lambda i, acct, n: {"id": f"t{i}", "date": "2026-11-05", "description": f"ALDI STORES 402 RICHMOND{n}", "amount": -64.1, "account": acct}  # noqa: E731
+    # Before 10.3: the same file twice under two account names, and two real identical buys in one.
+    json_store.write(actuals._path(), {"transactions": [tx(1, "Bank", ""), tx(2, "Bank", ""), tx(3, "Everyday", ""), tx(4, "Everyday", "  "),
+                                                        tx(5, "Bank", " Card xx1234")], "rules": {}, "accounts": [], "balances": []})
+    doc = actuals.load()
+    assert len(doc["transactions"]) == 3 and doc["dupes_removed"] == 2  # Bank had 3 (two coffees + the card-number copy)
+    files = actuals.imports()
+    assert files == [{"id": "earlier", "name": "Added before files were listed", "account": "Bank, Everyday", "at": None, "added": 3,
+                      "transactions": 3, "first": "2026-11-05", "last": "2026-11-05"}]
+    assert c.delete("/api/v1/budget/actuals/imports/earlier", headers=AUTH).json()["removed"] == 3
+    assert actuals.load()["transactions"] == []

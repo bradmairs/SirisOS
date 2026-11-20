@@ -5,6 +5,8 @@
     GET  /api/v1/budget/from-bills   SirisAI's renewals and bills found in email, as expense lines to add
     POST /api/v1/budget/actuals/import      (9.9) a bank's CSV export (multipart `file`, `account`)
     GET  /api/v1/budget/actuals?month=      the month's spending against the plan, line by line, and what's to sort
+    GET  /api/v1/budget/actuals/imports     (10.3) the files added, each with its transactions still in
+    DELETE /api/v1/budget/actuals/imports/{id}  take a file's transactions out ("earlier": the ones from before files were listed)
     PUT  /api/v1/budget/actuals/{id}        put a transaction on a line (`line_id`, or "ignore"); the shop is learned
     GET  /api/v1/budget/balances            accounts, latest balances, goal progress and forecasts, net worth by month
     POST /api/v1/budget/balances            a balance for an account (`account`, `balance`, optional `kind`, `line_id`, `date`)
@@ -93,7 +95,7 @@ async def import_actuals(file: UploadFile = File(...), account: str = Form("")) 
     if len(raw) > MAX_CSV:
         raise HTTPException(status_code=413, detail="That file is too big (5 MB at most).")
     try:
-        out = actuals.import_csv(raw, account)
+        out = actuals.import_csv(raw, account, (file.filename or "").rsplit("/", 1)[-1])
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     return {**out, "month": actuals.month()}
@@ -104,6 +106,21 @@ def get_actuals(month: str | None = None) -> dict[str, Any]:
     if month and not _MONTH.fullmatch(month):
         raise HTTPException(status_code=422, detail="Month as YYYY-MM.")
     return actuals.month(month)
+
+
+@router.get("/actuals/imports")
+def get_imports() -> dict[str, Any]:
+    return {"imports": actuals.imports()}
+
+
+@router.delete("/actuals/imports/{import_id}")
+def delete_import(import_id: str) -> dict[str, Any]:
+    if import_id != actuals.EARLIER:
+        _id(import_id)
+    gone = actuals.remove_import(import_id)
+    if gone is None:
+        raise HTTPException(status_code=404, detail="No such file.")
+    return {"removed": gone, "month": actuals.month()}
 
 
 class Assign(BaseModel):

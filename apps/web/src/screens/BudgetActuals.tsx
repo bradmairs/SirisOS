@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { Landmark, Receipt, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Landmark, Receipt, Trash2, Upload } from "lucide-react";
 import { Glass } from "../components/Glass";
 import { LineChart } from "../components/Charts";
 import { useResource } from "../api/resource";
-import { actuals, KIND_LABEL, money, SECTION_LABEL, SECTIONS, type AccountKind, type Actuals, type Balances, type Budget } from "../api/budget";
+import { actuals, KIND_LABEL, money, SECTION_LABEL, SECTIONS, type AccountKind, type Actuals, type Balances, type CsvFile, type Budget } from "../api/budget";
 
 /**
  * 10.0: what you actually spend (from a bank's CSV export) against the plan, and what you actually have (balances,
@@ -13,6 +13,8 @@ import { actuals, KIND_LABEL, money, SECTION_LABEL, SECTIONS, type AccountKind, 
 type Plan = Pick<Budget, "currency" | "income" | "sections">;
 const MONTH = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 const SHORT = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+const FOLD = "sirisos.budget.spending.folded";
+const SHORTDAY = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const DAY = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 function LinePicker({ plan, value, onPick, label }: { plan: Plan; value?: string | null; onPick: (id: string | null) => void; label: string }) {
@@ -38,6 +40,20 @@ export function SpendingCard({ plan }: { plan: Plan }) {
   const file = useRef<HTMLInputElement>(null);
   const a: Actuals | undefined = res.data && Array.isArray(res.data.lines) ? res.data : undefined;
   const c = plan.currency;
+  // 10.3: the lines fold away to the month's total; remembered on this device.
+  const [folded, setFolded] = useState(() => { try { return localStorage.getItem(FOLD) === "1"; } catch { return false; } });
+  const fold = () => setFolded((f) => { try { localStorage.setItem(FOLD, f ? "0" : "1"); } catch { /* fine */ } return !f; });
+  const files = Array.isArray(a?.imports) ? a!.imports! : [];
+  const removeFile = async (f: CsvFile) => {
+    if (!window.confirm(`Take out ${f.name}? Its ${f.transactions} transaction${f.transactions === 1 ? "" : "s"} go, and anything you sorted from it.`)) return;
+    setNote(null);
+    try {
+      const out = await actuals.removeFile(f.id);
+      setMonth(undefined);
+      res.mutate(out.month);
+      setNote(`Took out ${out.removed} transaction${out.removed === 1 ? "" : "s"}.`);
+    } catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
+  };
   const fmt = (v: number) => money(v, c);
 
   const upload = async (f: File) => {
@@ -45,7 +61,9 @@ export function SpendingCard({ plan }: { plan: Plan }) {
     setNote(null);
     try {
       const out = await actuals.import(f, account || "Bank");
-      setNote(`Added ${out.imported} transaction${out.imported === 1 ? "" : "s"}${out.skipped ? ` (${out.skipped} already in)` : ""}.`);
+      setNote(out.imported
+        ? `Added ${out.imported} transaction${out.imported === 1 ? "" : "s"}${out.skipped ? `; ${out.skipped} ${out.skipped === 1 ? "was" : "were"} already in, so not added again` : ""}.`
+        : `Nothing new: all ${out.skipped} ${out.skipped === 1 ? "was" : "were"} already in.`);
       setMonth(undefined);
       res.mutate(out.month);
     } catch (e) {
@@ -68,6 +86,11 @@ export function SpendingCard({ plan }: { plan: Plan }) {
   return (
     <Glass as="section" className="widget" aria-label="Spending this month">
       <header className="widget__head"><Receipt aria-hidden="true" /><span>{a ? `Spending in ${MONTH(a.month)}` : "Spending"}</span>
+        {a?.has_data && (
+          <button type="button" className="icon-link" style={{ marginLeft: "auto" }} aria-expanded={!folded} aria-label={folded ? "Show the lines" : "Hide the lines"} onClick={fold}>
+            {folded ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
+          </button>
+        )}
       </header>
       {a?.has_data ? (
         <>
@@ -82,6 +105,7 @@ export function SpendingCard({ plan }: { plan: Plan }) {
               </select>
             </label>
           )}
+          {!folded && <>
           <ul className="budget-goals" aria-label="Each line against its plan">
             {a.lines.map((l) => {
               const share = l.plan ? l.spent / l.plan : 1;
@@ -132,6 +156,7 @@ export function SpendingCard({ plan }: { plan: Plan }) {
               </ul>
             </details>
           )}
+          </>}
         </>
       ) : (
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
@@ -139,12 +164,29 @@ export function SpendingCard({ plan }: { plan: Plan }) {
           shows against the plan. Correct one and it remembers the shop.
         </p>
       )}
+      {files.length > 0 && (
+        <details className="budget-unsorted">
+          <summary>{files.length} file{files.length === 1 ? "" : "s"} added</summary>
+          <ul className="stack" style={{ gap: 6, padding: 0, listStyle: "none" }} aria-label="Files added">
+            {files.map((f) => (
+              <li key={f.id} className="budget-tx">
+                <span className="budget-tx__what">
+                  <span><FileText size={13} aria-hidden="true" /> {f.name}</span>
+                  <span className="muted">{f.account} · {f.transactions} transaction{f.transactions === 1 ? "" : "s"} · {SHORTDAY(f.first)} to {SHORTDAY(f.last)}</span>
+                </span>
+                <button type="button" className="icon-link" aria-label={`Take out ${f.name}`} onClick={() => void removeFile(f)}><Trash2 size={15} aria-hidden="true" /></button>
+              </li>
+            ))}
+          </ul>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>The same purchase in two files is only counted once.</p>
+        </details>
+      )}
       <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
         <input className="field" placeholder="Account (e.g. Everyday)" aria-label="Which account the file is from" value={account}
           onChange={(e) => setAccount(e.target.value)} style={{ flex: "1 1 140px" }} />
         <input ref={file} type="file" accept=".csv,text/csv" hidden aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }} />
         <button type="button" className="button button--small" disabled={busy} onClick={() => file.current?.click()}>
-          <Upload size={14} aria-hidden="true" /> {busy ? "Adding…" : "Add a bank CSV"}
+          <Upload size={14} aria-hidden="true" /> {busy ? "Adding…" : files.length ? "Add another CSV" : "Add a bank CSV"}
         </button>
       </div>
       {note && <p className="muted" role="status" style={{ margin: 0, fontSize: 13 }}>{note}</p>}

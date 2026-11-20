@@ -69,7 +69,51 @@ def load() -> dict[str, Any]:
     doc.setdefault("rules", {})
     doc.setdefault("accounts", [])
     doc.setdefault("balances", [])
+    doc.setdefault("imports", [])
+    if doc["transactions"] and doc.get("deduped") != DEDUPE_VERSION:
+        removed = dedupe(doc)
+        doc["deduped"] = DEDUPE_VERSION
+        if removed:
+            doc["dupes_removed"] = doc.get("dupes_removed", 0) + removed
+        save(doc)
     return doc
+
+
+# -- the same transaction twice --------------------------------------------------------------------------
+# 10.3: the same purchase in two files (overlapping exports, or the same file under another account name) is
+# one transaction. Two identical buys in one file (two coffees) are still two.
+
+DEDUPE_VERSION = 1
+_VALUE_DATE = re.compile(r"\bvalue date:?\s*\d{1,2}/\d{1,2}/\d{2,4}", re.I)
+_CARD = re.compile(r"\bcard\s+x+\d{2,6}\b", re.I)
+
+
+def same_key(date_: str, amount: float, description: str) -> str:
+    d = _CARD.sub(" ", _VALUE_DATE.sub(" ", description.lower()))
+    d = re.sub(r"[^a-z0-9]+", " ", d).strip()
+    return f"{date_}|{amount:.2f}|{d}"
+
+
+def dedupe(doc: dict[str, Any]) -> int:
+    """Drop transactions already in from another file or account: for each purchase, keep as many as the one file
+    (or account) with the most of it had. Ones you've sorted by hand are kept first."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for t in doc["transactions"]:
+        groups.setdefault(same_key(t["date"], t["amount"], t["description"]), []).append(t)
+    keep: list[dict[str, Any]] = []
+    removed = 0
+    for txs in groups.values():
+        by_source: dict[str, int] = {}
+        for t in txs:
+            src = t.get("import_id") or t.get("account") or ""
+            by_source[src] = by_source.get(src, 0) + 1
+        n = max(by_source.values())
+        txs.sort(key=lambda t: (not t.get("by_hand"), not t.get("line_id"), t["id"]))
+        keep += txs[:n]
+        removed += len(txs) - n
+    if removed:
+        doc["transactions"] = keep
+    return removed
 
 
 def save(doc: dict[str, Any]) -> None:
@@ -218,34 +262,81 @@ def _sort(tx: dict[str, Any], rules: dict[str, str], lines: list[dict[str, Any]]
         tx["guessed"] = bool(tx["line_id"])
 
 
-def import_csv(raw: bytes, account: str = "") -> dict[str, Any]:
+def import_csv(raw: bytes, account: str = "", name: str = "") -> dict[str, Any]:
     rows = parse_csv(raw)
     if not rows:
         raise ValueError("No transactions in that file.")
     doc = load()
     lines = _lines()
-    seen = {t["id"] for t in doc["transactions"]}
+    ids = {t["id"] for t in doc["transactions"]}
+    have: dict[str, int] = {}
+    for t in doc["transactions"]:
+        k = same_key(t["date"], t["amount"], t["description"])
+        have[k] = have.get(k, 0) + 1
     account = account.strip()[:60] or "Bank"
+    import_id = uuid.uuid4().hex[:10]
     added = 0
-    counts: dict[str, int] = {}
+    in_file: dict[str, int] = {}
     for r in rows:
-        key = f"{account}|{r['date']}|{r['amount']}|{r['description']}"
-        counts[key] = counts.get(key, 0) + 1   # two identical coffees on one day are two transactions
-        tx_id = hashlib.sha256(f"{key}|{counts[key]}".encode()).hexdigest()[:16]
-        if tx_id in seen:
-            continue
-        tx = {"id": tx_id, "date": r["date"], "description": r["description"], "amount": r["amount"], "account": account}
+        key = same_key(r["date"], r["amount"], r["description"])
+        in_file[key] = in_file.get(key, 0) + 1   # two identical coffees on one day are two transactions
+        if in_file[key] <= have.get(key, 0):
+            continue  # already in, from this file before or another one
+        tx_id = hashlib.sha256(f"{key}|{in_file[key]}".encode()).hexdigest()[:16]
+        while tx_id in ids:
+            tx_id = hashlib.sha256(tx_id.encode()).hexdigest()[:16]
+        tx = {"id": tx_id, "date": r["date"], "description": r["description"], "amount": r["amount"], "account": account, "import_id": import_id}
         _sort(tx, doc["rules"], lines)
         doc["transactions"].append(tx)
-        seen.add(tx_id)
+        ids.add(tx_id)
         added += 1
+    for k, n in in_file.items():
+        have[k] = max(have.get(k, 0), n)
+    if added:
+        dates = sorted(r["date"] for r in rows)
+        doc["imports"].append({"id": import_id, "name": (name or "Bank CSV").strip()[:80], "account": account,
+                               "at": datetime.now().isoformat(timespec="minutes"), "added": added,  # noqa: DTZ005 (shown as is)
+                               "first": dates[0], "last": dates[-1]})
+        doc["imports"] = doc["imports"][-100:]
     # The newest balance in the file, for the account's balance history.
     with_balance = [r for r in rows if "balance" in r]
     if with_balance:
         last = max(with_balance, key=lambda r: r["date"])
         _record_balance(doc, account, last["balance"], last["date"])
     save(doc)
-    return {"imported": added, "skipped": len(rows) - added, "account": account}
+    return {"imported": added, "skipped": len(rows) - added, "account": account, "import_id": import_id if added else None}
+
+
+EARLIER = "earlier"
+
+
+def imports() -> list[dict[str, Any]]:
+    """The files added, newest first, each with how many of its transactions are still in. Transactions from before
+    files were kept track of (10.3) are one entry, "earlier"."""
+    doc = load()
+    counts: dict[str, int] = {}
+    for t in doc["transactions"]:
+        counts[t.get("import_id") or EARLIER] = counts.get(t.get("import_id") or EARLIER, 0) + 1
+    out = [{**i, "transactions": counts.get(i["id"], 0)} for i in reversed(doc["imports"]) if counts.get(i["id"])]
+    if counts.get(EARLIER):
+        old = [t for t in doc["transactions"] if not t.get("import_id")]
+        dates = sorted(t["date"] for t in old)
+        out.append({"id": EARLIER, "name": "Added before files were listed", "account": ", ".join(sorted({t["account"] for t in old})),
+                    "at": None, "added": len(old), "transactions": len(old), "first": dates[0], "last": dates[-1]})
+    return out
+
+
+def remove_import(import_id: str) -> int | None:
+    """Take a file's transactions out (what you sorted by hand goes with them). None when there's no such file."""
+    doc = load()
+    match = (lambda t: not t.get("import_id")) if import_id == EARLIER else (lambda t: t.get("import_id") == import_id)
+    gone = [t for t in doc["transactions"] if match(t)]
+    if not gone and not any(i["id"] == import_id for i in doc["imports"]):
+        return None
+    doc["transactions"] = [t for t in doc["transactions"] if not match(t)]
+    doc["imports"] = [i for i in doc["imports"] if i["id"] != import_id]
+    save(doc)
+    return len(gone)
 
 
 def assign(tx_id: str, line_id: str | None, learn: bool = True) -> dict[str, Any] | None:
@@ -308,7 +399,8 @@ def month(ym: str | None = None) -> dict[str, Any]:
             "unsorted": sorted(unsorted, key=lambda t: t["date"], reverse=True)[:100], "unsorted_count": len(unsorted),
             "guessed": [t for t in txs if t.get("guessed")][:50],
             "months": sorted({t["date"][:7] for t in doc["transactions"]}, reverse=True)[:24],
-            "currency": budget.get().get("currency", "AUD"), "has_data": bool(doc["transactions"])}
+            "currency": budget.get().get("currency", "AUD"), "has_data": bool(doc["transactions"]), "imports": imports(),
+            "dupes_removed": doc.get("dupes_removed", 0)}
 
 
 def review_line(today: date) -> list[str]:

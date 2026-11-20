@@ -185,6 +185,8 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `PATCH /api/v1/budget/accounts/{account_id}` |  |
 | `GET /api/v1/budget/actuals` |  |
 | `POST /api/v1/budget/actuals/import` |  |
+| `GET /api/v1/budget/actuals/imports` |  |
+| `DELETE /api/v1/budget/actuals/imports/{import_id}` |  |
 | `PUT /api/v1/budget/actuals/{tx_id}` |  |
 | `GET /api/v1/budget/balances` |  |
 | `POST /api/v1/budget/balances` |  |
