@@ -109,13 +109,17 @@ export function Dock() {
     el.style.width = `${w}px`;
     el.style.opacity = "1";
   }, []);
+  // The tab you're on, read through a ref so the size watcher below never has to be rebuilt (10.32: rebuilding it on
+  // every tab change fired it at once, which jumped the lens instead of sliding it).
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const settle = useCallback((instant = false) => {
-    const s = spots.current[active];
+    const s = spots.current[activeRef.current];
     const el = lens.current;
     if (!el) return;
     if (!s) { el.style.opacity = "0"; return; }
     place(s.x, s.w, instant);
-  }, [active, place]);
+  }, [place]);
   const measure = useCallback(() => {
     const el = bar.current;
     if (!el) return;
@@ -125,19 +129,36 @@ export function Dock() {
       return { x: r.left - left - el.clientLeft, w: r.width };
     });
   }, []);
-  // When the bar's size changes (fonts, rotation, the safe area settling), the lens jumps to the right place.
+  // When the bar's size really changes (fonts, rotation, the safe area settling), the lens jumps to the right place.
+  const width = useRef(0);
   const remeasure = useCallback(() => {
+    const w = bar.current?.getBoundingClientRect().width ?? 0;
+    if (Math.abs(w - width.current) < 0.5) return;
+    width.current = w;
     measure();
     if (!gesture.current.moved) settle(true);
   }, [measure, settle]);
 
   const placed = useRef(false);
+  const lastActive = useRef(active);
+  const moving = useRef(0);
   useLayoutEffect(() => {
-    // The first placement doesn't slide in from the left; a change of tab after that slides.
+    // The first placement doesn't slide in from the left; a change of tab after that (a tap, or the page changing
+    // some other way) slides the lens across, like iOS.
     measure();
+    width.current = bar.current?.getBoundingClientRect().width ?? 0;
     settle(!placed.current);
+    // A tap (not a drag): the glass swells a little while it travels and settles as it lands.
+    const el = bar.current;
+    if (placed.current && el && !gesture.current.moved && lastActive.current !== active && lastActive.current >= 0 && active >= 0) {
+      el.classList.add("dock--moving");
+      window.clearTimeout(moving.current);
+      moving.current = window.setTimeout(() => el.classList.remove("dock--moving"), 260);
+    }
+    lastActive.current = active;
     placed.current = true;
-  }, [measure, settle, tabs.map((t) => t.to).join("|")]);
+  }, [measure, settle, active, tabs.map((t) => t.to).join("|")]);
+  useEffect(() => () => window.clearTimeout(moving.current), []);
   useEffect(() => {
     const el = bar.current;
     if (!el) return;
