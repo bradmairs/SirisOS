@@ -13,6 +13,7 @@ import { hueFor, iconFor } from "./icons";
 export const NAV: { to: string; label: string; Icon: typeof House; end: boolean; dock?: boolean }[] = [
   { to: "/", label: "Home", Icon: House, end: true },
   { to: "/tasks", label: "Tasks", Icon: ListTodo, end: false, dock: false },
+  { to: "/gym", label: "SirisGym", Icon: Dumbbell, end: false, dock: false },
   { to: "/projects", label: "Projects", Icon: FolderKanban, end: false, dock: false },
   { to: "/house", label: "Smart Home", Icon: HousePlug, end: false, dock: false },
   { to: "/wrapup", label: "Wrap Up", Icon: MoonStar, end: false, dock: false },
@@ -25,7 +26,6 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/travel", label: "Trips", Icon: Plane, end: false, dock: false },
   { to: "/things", label: "Things & People", Icon: Package, end: false, dock: false },
   { to: "/fitness", label: "Fitness", Icon: Footprints, end: false, dock: false },
-  { to: "/gym", label: "SirisGym", Icon: Dumbbell, end: false, dock: false },
   { to: "/assistant", label: "SirisAI", Icon: Sparkles, end: false },
   { to: "/brain", label: "Siris", Icon: Brain, end: false },
   { to: "/links", label: "Links", Icon: LayoutGrid, end: false },
