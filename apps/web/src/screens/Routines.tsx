@@ -156,7 +156,7 @@ export function FuelCard() {
   if (!f || !f.for || !f.configured) return null;
   return (
     <Glass as="section" className="widget" aria-label="Fuel on the way">
-      <header className="widget__head"><FuelIcon aria-hidden="true" /><span>Fuel on the way to {f.settings.destination.name}</span>{SETUP}</header>
+      <header className="widget__head"><FuelIcon aria-hidden="true" /><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`To ${f.settings.destination.name}`}>Fuel on the way</span>{SETUP}</header>
       <FuelBody f={f} />
     </Glass>
   );
