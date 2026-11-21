@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { today as seenToday, useSeenPage } from "../components/Smart";
 import { EnergyMeter, ReadinessRing } from "./Health";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -427,6 +428,7 @@ function PastBriefs({ onClose }: { onClose: () => void }) {
 export function BriefScreen() {
   const [params] = useSearchParams();
   const day = params.get("date") ?? undefined;
+  useSeenPage(!day || day === seenToday() ? `brief:${seenToday()}` : null);  // 10.6: here already, so no notification about it
   return <BriefView key={day ?? "today"} day={day} />;
 }
 

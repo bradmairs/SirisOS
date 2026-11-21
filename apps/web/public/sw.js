@@ -75,7 +75,7 @@ self.addEventListener("push", (event) => {
       badge: "/siris-icon.png",
       tag: data.tag || undefined,
       actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : [],
-      data: { url: data.url || "/" },
+      data: { url: data.url || "/", key: data.key || null },
     })]),
   );
 });
@@ -98,8 +98,16 @@ async function press(notification, action) {
   });
 }
 
+// 10.6: tell SirisOS a notification was opened, so kinds you never open move to the roundup.
+function opened(notification) {
+  const key = notification.data && notification.data.key;
+  if (!key) return Promise.resolve();
+  return fetch("/api/v1/push/act/opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) }).catch(() => undefined);
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  event.waitUntil(opened(event.notification));
   if (event.action) {
     event.waitUntil(press(event.notification, event.action));
     return;

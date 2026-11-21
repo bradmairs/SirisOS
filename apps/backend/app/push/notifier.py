@@ -265,7 +265,9 @@ def nudges_on() -> bool:
 def payload_for(msg: dict[str, Any]) -> dict[str, Any]:
     """What the service worker gets. With buttons, a tap opens the /act page
     (iPhone shows no buttons) and each button posts the signed token."""
-    payload = {k: msg[k] for k in ("title", "body", "url")} | {"tag": msg["key"]}
+    from app.push import smart
+
+    payload = {k: msg[k] for k in ("title", "body", "url")} | {"tag": smart.tag(msg), "key": msg["key"]}
     if msg.get("target") and msg.get("actions"):
         token = actions.sign(msg["target"], msg["actions"], msg["title"], msg["body"], msg["url"])
         payload |= {"actions": [{"action": a["id"], "title": a["title"]} for a in msg["actions"]], "url": f"/act?t={token}"}
@@ -281,7 +283,9 @@ async def deliver(messages: list[dict[str, Any]]) -> int:
     count = 0
     client = shared_client()
     for msg in messages:
-        targets = [s for s in subs if msg["topic"] in s.topics or set(msg.get("topics") or ()) & set(s.topics)]
+        from app.push import smart
+
+        targets = smart.targets([s for s in subs if msg["topic"] in s.topics or set(msg.get("topics") or ()) & set(s.topics)], msg)
         payload = payload_for(msg)
         for sub in targets:
             try:
@@ -346,12 +350,22 @@ async def run_once(hub: Hub, now: datetime | None = None) -> int:
     already = store.sent()
     fresh = [m for m in await collect(hub, now) if m["key"] not in already]
     from app.push import digest  # 10.2: what can wait goes in the morning or evening roundup
+    from app.push import smart  # 10.6: seen, still true, asleep or busy, at home, in the app, one device, the cap
 
-    send_now, later = digest.split(fresh)
-    digest.hold(later, now.astimezone(zone()))
-    store.mark_sent([m["key"] for m in later])
-    roundup = digest.due(now.astimezone(zone()))
-    sent = await deliver(send_now + ([roundup] if roundup else []))
+    local = now.astimezone(zone())
+    send_now, later, done = await smart.route(hub, fresh, local)
+    digest.hold(later, local)
+    store.mark_sent([m["key"] for m in later] + done)
+    if digest.slot_due(local):
+        digest.replace_held(await smart.prune_held(hub, digest.load()["held"], local.date()))
+    roundup = digest.due(local)
+    push, banners = smart.deliver_plan(send_now + ([roundup] if roundup else []), local)
+    over_cap = [m for m in push if m.get("hold")]
+    push = [m for m in push if not m.get("hold")]
+    digest.hold(over_cap, local)
+    store.mark_sent([m["key"] for m in banners + over_cap] + [m["key"] for m in send_now if m not in push])
+    sent = await deliver(push)
+    smart.pushed([m["key"] for m in push], local)
     try:
         await check_in(now)
     except Exception as exc:  # noqa: BLE001

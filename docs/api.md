@@ -630,9 +630,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/push/act` |  |
 | `POST /api/v1/push/act` |  |
+| `POST /api/v1/push/act/opened` | A notification was tapped (from the service worker, no sign-in): only counts keys SirisOS actually pushed. |
+| `POST /api/v1/push/active` | The app is open on this device (every minute while it's on screen); returns the in-app banners waiting. |
 | `GET /api/v1/push/digest` |  |
 | `PUT /api/v1/push/digest` |  |
 | `GET /api/v1/push/key` |  |
+| `POST /api/v1/push/seen` | Cards on screen: their notifications won't be sent (and any waiting are dropped). |
+| `GET /api/v1/push/smart` |  |
+| `PUT /api/v1/push/smart` |  |
+| `PUT /api/v1/push/smart/kinds/{kind}` |  |
 | `POST /api/v1/push/subscribe` |  |
 | `GET /api/v1/push/subscriptions` |  |
 | `POST /api/v1/push/test` |  |

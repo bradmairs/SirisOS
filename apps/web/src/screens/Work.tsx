@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { SeenMark, today as seenToday } from "../components/Smart";
 import { usePageContext } from "../api/pageContext";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, Award, BriefcaseBusiness, Settings2, X, GraduationCap, Sunset, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer } from "lucide-react";
@@ -597,7 +598,7 @@ function WrapUpCard({ w, onSaved }: { w: WorkDay; onSaved: () => void }) {
   };
   return (
     <Glass as="section" className="widget work-wrap" style={{ minHeight: 0 }} aria-label="Work wrap-up">
-      <header className="widget__head"><Sunset aria-hidden="true" /><span>Wrap up work</span><span className="widget__source">two minutes</span></header>
+      <header className="widget__head"><Sunset aria-hidden="true" /><span>Wrap up work</span><SeenMark k={`work-wrapup:${seenToday()}`} /><span className="widget__source">two minutes</span></header>
       <form className="work-wrap__form" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <label className="work-wrap__step">
           <span className="work-wrap__n">1</span>

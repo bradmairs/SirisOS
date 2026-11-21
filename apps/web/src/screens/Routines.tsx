@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Clapperboard, Droplets, Fuel as FuelIcon, Gauge, Mountain, PackageCheck, Plus, Thermometer, Trash2, Users } from "lucide-react";
 import { Glass } from "../components/Glass";
+import { SeenMark, today as seenToday } from "../components/Smart";
 import { PageHead } from "../components/PageHead";
 import { useResource } from "../api/resource";
 import { assistant } from "../api/hub";
@@ -33,7 +34,7 @@ export function WeekendCard() {
   const best = w.windows.slice(0, 3);
   return (
     <Glass as="section" className="widget" aria-label="This weekend">
-      <header className="widget__head"><Mountain aria-hidden="true" /><span>This weekend</span>{SETUP}</header>
+      <header className="widget__head"><Mountain aria-hidden="true" /><span>This weekend</span><SeenMark k={`weekend:${w.days[0]}`} />{SETUP}</header>
       {best.length === 0 ? <p className="muted" style={{ margin: 0 }}>{w.note ?? "No dry, free daylight this weekend."}</p> : (
         <ul className="items">
           {best.map((x) => <WindowRow key={`${x.date}${x.start}`} w={x} />)}
@@ -102,7 +103,7 @@ export function BinsCard() {
   if (!b || !b.show || !b.next) return null;
   return (
     <Glass as="section" className="widget" aria-label="Bins">
-      <header className="widget__head"><Trash2 aria-hidden="true" /><span>Bins out {b.when ?? ""}</span>{SETUP}</header>
+      <header className="widget__head"><Trash2 aria-hidden="true" /><span>Bins out {b.when ?? ""}</span><SeenMark k={`bins:${b.next.date}`} />{SETUP}</header>
       <p style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{b.next.text}</p>
     </Glass>
   );
@@ -115,7 +116,7 @@ export function BedroomCard() {
   if (!b || !b.show) return null;
   return (
     <Glass as="section" className="widget" aria-label="Bedroom">
-      <header className="widget__head"><Thermometer aria-hidden="true" /><span>Bedroom</span>{SETUP}</header>
+      <header className="widget__head"><Thermometer aria-hidden="true" /><span>Bedroom</span><SeenMark k={`bedroom:${seenToday()}`} />{SETUP}</header>
       <p style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{b.temp != null ? `${b.temp}°` : "No reading"}{b.humidity != null ? <span className="muted" style={{ fontSize: 14 }}> · {Math.round(b.humidity)}% humidity</span> : null}</p>
       {b.advice && <p style={{ margin: 0 }}>{b.advice}</p>}
       {b.best && <p className="muted" style={{ margin: 0, fontSize: 12 }}>You sleep best at {b.best.low}–{b.best.high}°: {b.best.sleep} h against {b.best.other} h ({b.best.nights} nights).</p>}
@@ -133,7 +134,7 @@ export function GardenCard() {
   if (!g || !g.on || !g.water || g.last_watered === today) return null;
   return (
     <Glass as="section" className="widget" aria-label="Garden">
-      <header className="widget__head"><Droplets aria-hidden="true" /><span>Water the garden</span>{SETUP}</header>
+      <header className="widget__head"><Droplets aria-hidden="true" /><span>Water the garden</span><SeenMark k={`garden:${seenToday()}`} />{SETUP}</header>
       <p style={{ margin: 0 }}>{g.why}</p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {g.protocol && (
@@ -156,7 +157,7 @@ export function FuelCard() {
   if (!f || !f.for || !f.configured) return null;
   return (
     <Glass as="section" className="widget" aria-label="Fuel on the way">
-      <header className="widget__head"><FuelIcon aria-hidden="true" /><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`To ${f.settings.destination.name}`}>Fuel on the way</span>{SETUP}</header>
+      <header className="widget__head"><FuelIcon aria-hidden="true" /><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`To ${f.settings.destination.name}`}>Fuel on the way</span><SeenMark k={`fuel:${f.for}`} />{SETUP}</header>
       <FuelBody f={f} />
     </Glass>
   );
@@ -194,7 +195,7 @@ export function CatchupsCard() {
   const free = Array.isArray(c.free) ? c.free.slice(0, 3).map((x) => `${DAY(x.date, "long")} ${x.part}`) : [];
   return (
     <Glass as="section" className="widget" aria-label="Catch-ups">
-      <header className="widget__head"><Users aria-hidden="true" /><span>Catch up</span></header>
+      <header className="widget__head"><Users aria-hidden="true" /><span>Catch up</span><SeenMark k={`catchup:${seenToday()}`} /></header>
       <ul className="items">
         {c.overdue.slice(0, 3).map((p) => (
           <li key={p.id} className="item"><span className="item__text"><span className="item__title">{p.name}</span>
@@ -260,7 +261,7 @@ export function InternetCard() {
   const outages = Array.isArray(d.outages) ? d.outages : [];
   return (
     <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Internet speed">
-      <header className="widget__head"><Gauge aria-hidden="true" /><span>Internet speed</span>
+      <header className="widget__head"><Gauge aria-hidden="true" /><span>Internet speed</span><SeenMark k={(d.slow ?? []).length ? `internet-slow:${seenToday()}` : null} />
         {d.share_of_plan != null && <span className="widget__source">{d.share_of_plan}% of plan lately</span>}</header>
       {days.length === 0 ? <p className="muted" style={{ margin: 0 }}>No speed tests yet.</p> : <SpeedChart days={days} plan={d.plan?.down ?? null} slow={d.slow ?? []} />}
       {(d.slow ?? []).length > 0 && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Orange days were under half the plan.</p>}

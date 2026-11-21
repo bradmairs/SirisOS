@@ -13,6 +13,15 @@ Notification buttons (3.8), no sign-in: the signed token is the permission (push
 
     GET    /api/v1/push/act?t=           what the notification is, its buttons, and what was already pressed
     POST   /api/v1/push/act              {token, action}: press one
+    POST   /api/v1/push/act/opened       {key}: a notification was tapped (10.6; counts only keys SirisOS pushed)
+
+Smarter notifications (10.6, push/smart.py):
+
+    POST   /api/v1/push/seen             {keys}: cards that have been on screen
+    POST   /api/v1/push/active           {device, endpoint?, label?, focus_until?}: the app is open; returns in-app banners
+    GET    /api/v1/push/smart            the week by kind, the cap, on or off
+    PUT    /api/v1/push/smart            {on?, cap?}
+    PUT    /api/v1/push/smart/kinds/{kind}  {mode: auto, normal, roundup or off}
 """
 
 from __future__ import annotations
@@ -146,3 +155,86 @@ def put_digest(body: DigestIn) -> dict[str, Any]:
         return digest.change(body.on, body.times)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+# 10.6: smarter notifications (push/smart.py).
+
+class SeenIn(BaseModel):
+    keys: list[str] = Field(max_length=50)
+
+
+class ActiveIn(BaseModel):
+    device: str = Field(min_length=4, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+    endpoint: str | None = Field(default=None, max_length=2000)
+    label: str | None = Field(default=None, max_length=60)
+    focus_until: str | None = Field(default=None, max_length=40)
+
+
+class SmartIn(BaseModel):
+    on: bool | None = None
+    cap: int | None = Field(default=None, ge=1, le=30)
+
+
+class KindIn(BaseModel):
+    mode: str = Field(pattern=r"^(auto|normal|roundup|off)$")
+
+
+class OpenedIn(BaseModel):
+    key: str = Field(min_length=3, max_length=160)
+
+
+def _now():
+    from datetime import datetime
+
+    from app.brief.service import zone
+
+    return datetime.now(zone())
+
+
+@router.post("/seen")
+def seen(body: SeenIn) -> dict[str, Any]:
+    """Cards on screen: their notifications won't be sent (and any waiting are dropped)."""
+    from app.push import smart
+
+    return {"seen": smart.mark_seen(body.keys, _now())}
+
+
+@router.post("/active")
+def active(body: ActiveIn) -> dict[str, Any]:
+    """The app is open on this device (every minute while it's on screen); returns the in-app banners waiting."""
+    from app.push import smart
+
+    return {"inapp": smart.heartbeat(body.device, body.endpoint, body.label, body.focus_until, _now())}
+
+
+@router.get("/smart")
+def get_smart() -> dict[str, Any]:
+    from app.push import smart
+
+    return smart.report(_now())
+
+
+@router.put("/smart")
+def put_smart(body: SmartIn) -> dict[str, Any]:
+    from app.push import smart
+
+    smart.change(body.on, body.cap)
+    return smart.report(_now())
+
+
+@router.put("/smart/kinds/{kind}")
+def put_kind(kind: str, body: KindIn) -> dict[str, Any]:
+    from app.push import smart
+
+    if not kind.replace("-", "").isalnum() or len(kind) > 40:
+        raise HTTPException(status_code=404, detail="No such kind of notification.")
+    smart.set_mode(kind, body.mode)
+    return smart.report(_now())
+
+
+@act_router.post("/opened")
+def opened(body: OpenedIn) -> dict[str, Any]:
+    """A notification was tapped (from the service worker, no sign-in): only counts keys SirisOS actually pushed."""
+    from app.push import smart
+
+    return {"counted": smart.opened(body.key, _now())}

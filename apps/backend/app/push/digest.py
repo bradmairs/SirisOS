@@ -95,6 +95,18 @@ def _slot(local_now: datetime, times: list[str]) -> str | None:
     return f"{local_now.date().isoformat()} {passed[-1]}" if passed else None
 
 
+def slot_due(local_now: datetime) -> bool:
+    doc = load()
+    slot = _slot(local_now, doc["times"])
+    return bool(slot and not (doc["last"] and doc["last"] >= slot) and doc["held"])
+
+
+def replace_held(held: list[dict[str, Any]]) -> None:
+    doc = load()
+    doc["held"] = held
+    save(doc)
+
+
 def due(local_now: datetime) -> dict[str, Any] | None:
     """The roundup to send now, if a roundup time has passed since the last one and something's waiting; it's then cleared."""
     doc = load()

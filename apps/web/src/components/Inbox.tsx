@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { SeenMark } from "./Smart";
 import { Link, useSearchParams } from "react-router-dom";
 import { keep, unreachable } from "../api/outbox";
 import { AlertTriangle, ArrowUpRight, Bell, CheckCircle2, Clock, Inbox as InboxIcon, Lightbulb, ShieldAlert } from "lucide-react";
@@ -205,6 +206,7 @@ export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; on
 
   return (
     <li ref={row} className={`inbox-row inbox-row--${item.severity}${focused ? " inbox-row--focused" : ""}`} aria-label={item.title}>
+      <SeenMark k={`inbox:${item.id}`} />
       <Icon className="inbox-row__icon" aria-hidden="true" />
       <div className="inbox-row__text">
         <div className="inbox-row__title">{item.title}</div>
