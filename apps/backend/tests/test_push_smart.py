@@ -35,7 +35,7 @@ def world(monkeypatch, tmp_path):
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
-        if url.startswith("https://push.example.com"):
+        if request.url.host == "push.example.com":
             state["got"].append((url.rsplit("/", 1)[1], json.loads(who[url].decrypt(request.content))))
             return httpx.Response(201)
         path = request.url.path
