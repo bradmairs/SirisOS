@@ -1417,3 +1417,12 @@ section:has(> .widget-grid:empty) { display: none; }
 .meal-picker { padding: 8px 0 4px; }
 .trip-weather { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
 .trip-weather__day { display: flex; flex-direction: column; align-items: center; min-width: 58px; padding: 6px 4px; border-radius: 10px; background: color-mix(in srgb, var(--chart-grid) 50%, transparent); font-size: 13px; text-align: center; }
+
+/* 10.5: the side menu's group headings, and the tabs above screens that share a menu entry. */
+.sidebar__group { margin: 14px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.section-tabs { display: flex; gap: 4px; margin: 0 0 12px; padding: 3px; width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none;
+  border-radius: var(--r-pill); background: var(--glass-fill); border: 1px solid var(--hairline); }
+.section-tabs::-webkit-scrollbar { display: none; }
+.section-tabs__tab { flex: none; padding: 6px 14px; border-radius: var(--r-pill); color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.section-tabs__tab:hover { color: var(--ink); }
+.section-tabs__tab--on { background: var(--accent); color: var(--accent-ink); }

@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
+import { SECTIONS, sectionFor, sectionHref } from "./Sections";
 import { AskAbout } from "./AskAbout";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed, CalendarHeart } from "lucide-react";
@@ -72,6 +73,7 @@ export function Sidebar({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  const current = sectionFor(location.pathname);
   const launchable = (apps ?? []).filter((a) => a.launch_url);
 
   return (
@@ -105,12 +107,18 @@ export function Sidebar({
         <AskAbout variant="sidebar" />
 
         <nav className="sidebar__nav" aria-label="Screens">
-          {NAV.map(({ to, label, Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className="sidebar__link">
-              <Icon size={19} aria-hidden="true" />
-              <span>{label}</span>
-            </NavLink>
+          {SECTIONS.map((g) => (
+            <Fragment key={g.heading ?? "top"}>
+              {g.heading && <p className="sidebar__group">{g.heading}</p>}
+              {g.sections.map((sec) => (
+                <Link key={sec.id} to={sectionHref(sec)} className={`sidebar__link${current?.section.id === sec.id ? " active" : ""}`} aria-current={current?.section.id === sec.id ? "page" : undefined}>
+                  <sec.Icon size={19} aria-hidden="true" />
+                  <span>{sec.label}</span>
+                </Link>
+              ))}
+            </Fragment>
           ))}
+          <p className="sidebar__group">More</p>
           <NavLink to="/inbox" className="sidebar__link">
             <Inbox size={19} aria-hidden="true" />
             <span>Inbox</span>

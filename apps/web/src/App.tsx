@@ -1,4 +1,5 @@
 import { syncPush } from "./api/push";
+import { SectionTabs } from "./components/Sections";
 import { WorkoutBar } from "./components/WorkoutBar";
 import { AskAbout } from "./components/AskAbout";
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
@@ -197,6 +198,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
       </header>
       <main className="shell">
         <WorkoutBar />
+        <SectionTabs />
         <Suspense fallback={<ScreenFallback />}>
         <Routes>
           <Route path="/" element={<HomeOrApproval />} />
