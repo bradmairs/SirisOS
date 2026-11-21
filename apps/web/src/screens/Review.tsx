@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { today as seenToday, useSeenPage } from "../components/Smart";
 import { Link } from "react-router-dom";
 import { SleepWeekCard } from "./Health";
 import { Award, CalendarRange, Check, Compass, Dumbbell, Hourglass, Receipt, Smile, TrendingUp, Trophy } from "lucide-react";
@@ -18,6 +19,7 @@ function Metric({ value, label }: { value: string | number | null; label: string
 
 /** Sunday's look back and ahead (3.5). */
 export function ReviewScreen() {
+  useSeenPage(`review:${seenToday()}`);  // 10.6: here already, so no notification about it
   const res = useResource<WeeklyReview>("review:week", () => review.get(), { staleMs: 60_000, persist: true });
   const data = res.data ?? null;
   const [focus, setFocus] = useState<string | null>(null);

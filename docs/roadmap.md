@@ -229,6 +229,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 10.32: tapping a tab slides the tab bar bubble across (with a small swell) instead of jumping
 10.33: the Friday debrief on Fridays only, with Add another after saving and Nothing this week (SirisAI 7.29)
 10.34: Mealie's address works without http://, and its errors say what's wrong
+10.6 Smarter notifications: seen in the app, still true, banner while using it, one device, asleep/busy/home aware, learns what's ignored, daily cap, replacing
 10.5 Shorter side menu: 13 sections under headings, with tabs across grouped screens
 10.4 Around the week: fuel on the Shepparton drive, weekend planner, watch tonight, bin night, bedroom before bed, garden and rain, catch-ups; Home Lab container updates and internet speed
 

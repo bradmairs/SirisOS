@@ -41,6 +41,16 @@ export const push = {
   setDigest: (d: { on?: boolean; times?: string[] }) => api<Digest>("/api/v1/push/digest", { method: "PUT", body: JSON.stringify(d) }),
 };
 
+/** 10.6: smarter notifications. */
+export type KindMode = "auto" | "normal" | "roundup" | "off";
+export interface SmartKind { kind: string; label: string; pushed: number; opened: number; ignored: number; spared: number; mode: KindMode; effective: "normal" | "roundup" | "off"; demoted: boolean; explicit: boolean }
+export interface Smart { on: boolean; cap: number; kinds: SmartKind[]; week: { pushed: number; opened: number; ignored: number; spared: number }; using_now: boolean; devices: number; waiting: number }
+export const smart = {
+  get: () => api<Smart>("/api/v1/push/smart"),
+  set: (c: { on?: boolean; cap?: number }) => api<Smart>("/api/v1/push/smart", { method: "PUT", body: JSON.stringify(c) }),
+  setKind: (kind: string, mode: KindMode) => api<Smart>(`/api/v1/push/smart/kinds/${encodeURIComponent(kind)}`, { method: "PUT", body: JSON.stringify({ mode }) }),
+};
+
 export interface Digest { on: boolean; times: string[]; waiting: number; titles: string[] }
 
 /** Push works in this browser (on iPhone: only once SirisOS is on the Home Screen). */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BellOff, BellRing, Send } from "lucide-react";
-import { TOPIC_LABELS, currentSubscription, disablePush, enablePush, isIOS, isStandalone, push, pushSupported, type DeviceSubscription, type Digest, type Topic } from "../api/push";
+import { TOPIC_LABELS, currentSubscription, disablePush, enablePush, isIOS, isStandalone, push, pushSupported, type DeviceSubscription, type Digest, type Topic, smart, type KindMode, type Smart } from "../api/push";
 import { Glass } from "./Glass";
 
 const ALL: Topic[] = ["apps", "inbox", "brief", "career", "home", "nudges", "gym"];
@@ -128,6 +128,7 @@ export function NotificationSettings() {
       )}
       {message && <p className="muted" role="status" style={{ margin: 0 }}>{message}</p>}
       {state.kind === "on" && <DigestSettings />}
+      {state.kind === "on" && <SmartSettings />}
       <Devices current={state.kind === "on" ? state.endpoint : null} />
     </Glass>
   );
@@ -192,6 +193,66 @@ function DigestSettings() {
             Urgent alerts, tasks at their time, the Friday timesheet, money getting tight and bedtime still come straight away.
             {d.waiting ? ` ${d.waiting} waiting for the next roundup.` : ""}
           </p>
+        </>
+      )}
+      {error && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{error}</p>}
+    </section>
+  );
+}
+
+const MODE_LABEL: Record<KindMode, string> = { auto: "Automatic", normal: "Always", roundup: "Roundup only", off: "Off" };
+
+/** 10.6: what was sent this week, by kind, and a choice for each. */
+export function SmartSettings() {
+  const [d, setD] = useState<Smart | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { smart.get().then(setD).catch(() => setD(null)); }, []);
+  if (!d || !Array.isArray(d.kinds)) return null;
+  const save = async (job: () => Promise<Smart>) => {
+    setError(null);
+    try { setD(await job()); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  };
+  return (
+    <section aria-label="Smarter notifications" className="stack" style={{ gap: 8 }}>
+      <label className="notify__topic">
+        <input type="checkbox" checked={d.on} onChange={() => void save(() => smart.set({ on: !d.on }))} />
+        <span>Smarter notifications</span>
+      </label>
+      {d.on && (
+        <>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            Nothing you've already seen here. While you're using SirisOS, a banner instead of a buzz. One device, the one you used last.
+            Quiet while you're asleep or in a meeting, and home things once you're home. Urgent alerts and things at a time you chose still come straight away.
+          </p>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+            At most
+            <input className="field" type="number" min={1} max={30} aria-label="Most notifications a day" defaultValue={d.cap} style={{ width: 70 }}
+              onBlur={(e) => { const n = Number(e.target.value); if (n >= 1 && n <= 30 && n !== d.cap) void save(() => smart.set({ cap: n })); }} />
+            a day (the rest wait for the roundup)
+          </label>
+          <p style={{ margin: 0, fontSize: 13 }}>
+            <strong>This week:</strong> {d.week.pushed} sent, {d.week.opened} opened, {d.week.spared} spared
+            {d.waiting ? `, ${d.waiting} waiting for you to be home or free` : ""}.
+          </p>
+          {d.kinds.length > 0 && (
+            <ul className="items" aria-label="By kind">
+              {d.kinds.map((k) => (
+                <li key={k.kind} className="item">
+                  <span className="item__text">
+                    <span className="item__title">{k.label}</span>
+                    <span className="item__subtitle">
+                      {k.pushed} sent · {k.opened} opened{k.spared ? ` · ${k.spared} spared` : ""}
+                      {k.demoted && k.mode === "auto" ? " · moved to the roundup: you weren't opening these" : ""}
+                    </span>
+                  </span>
+                  <select className="field" aria-label={`${k.label}: how`} value={k.mode} style={{ width: "auto" }}
+                    onChange={(e) => void save(() => smart.setKind(k.kind, e.target.value as KindMode))}>
+                    {(Object.keys(MODE_LABEL) as KindMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
+                  </select>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
       {error && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{error}</p>}

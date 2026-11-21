@@ -162,7 +162,7 @@ def test_each_notification_is_sent_once_and_gone_devices_are_dropped(monkeypatch
 
     monkeypatch.setattr(notifier, "collect", fake_collect)
     assert asyncio.run(notifier.run_once(hub_service.Hub({}))) == 1
-    assert received == [{"title": "Approve the lock-down?", "body": "Front door", "url": "/inbox", "tag": "inbox:ai:1"}]
+    assert received == [{"title": "Approve the lock-down?", "body": "Front door", "url": "/inbox", "tag": "inbox:ai:1", "key": "inbox:ai:1"}]
     # The gone device was subscribed to every topic, got a 410 and was removed.
     assert [s.endpoint for s in store.subscriptions()] == ["https://push.example.com/send/abc"]
     # Already sent: nothing more.

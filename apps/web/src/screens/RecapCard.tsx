@@ -2,6 +2,7 @@ import { CalendarCheck } from "lucide-react";
 import { Glass } from "../components/Glass";
 import { useResource } from "../api/resource";
 import { recap } from "../api/recap";
+import { SeenMark } from "../components/Smart";
 
 /** Home (10.2): last month in short, the first week of the month until you've seen it. Also filed in Siris. */
 export function RecapCard() {
@@ -11,7 +12,7 @@ export function RecapCard() {
   const month = new Date(`${r.month}-01T00:00:00`).toLocaleDateString(undefined, { month: "long" });
   return (
     <Glass as="section" className="widget" aria-label={`${month} in short`}>
-      <header className="widget__head"><CalendarCheck aria-hidden="true" /><span>{month} in short</span>
+      <header className="widget__head"><CalendarCheck aria-hidden="true" /><span>{month} in short</span><SeenMark k={`recap:${r.month}`} />
         {r.filed_as && <span className="widget__source">In Siris</span>}
       </header>
       <ul className="stack" style={{ gap: 4, margin: 0, paddingLeft: 18, fontSize: 14 }}>

@@ -92,6 +92,7 @@ const lab = { clients: { total: 34, online: 21 }, sources: { network: true, serv
   { id: "own:ups", label: "Eaton UPS", kind: "ups", parent: "net:sw", online: null, found: "you" }] };
 const FIXTURES = [
   ["/api/v1/homelab", lab],
+  ["/api/v1/push/active", { inapp: [{ key: "task:t1", title: "Call the plumber about the hot water", body: "Before 5pm, they close early on Fridays.", url: "/tasks", at: "2026-11-21T01:00:00Z" }] }],
   ["/api/v1/weekend", { days: ["2026-11-28", "2026-11-29"], recover: false, note: null, readiness: { score: 72, band: "Steady" },
     routes: [{ id: "r1", name: "You Yangs loop", kind: "hike", hours: 2.5, km: 9, link: null, notes: "" }, { id: "r2", name: "Merri Creek walk", kind: "walk", hours: 1, km: 4, link: null, notes: "" }],
     windows: [{ date: "2026-11-28", start: "06:00", end: "10:00", hours: 4, low_c: 14, high_c: 19, rain_chance: 5, conditions: "mainly clear", score: 9,

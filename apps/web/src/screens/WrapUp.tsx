@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { today as seenToday, useSeenPage } from "../components/Smart";
 import { Link } from "react-router-dom";
 import { Award, BatteryMedium, CalendarCheck, Check, CheckCircle2, MoonStar, PenLine, Target } from "lucide-react";
 import { useResource } from "../api/resource";
@@ -66,6 +67,7 @@ function Done({ saved }: { saved: NonNullable<WrapUpOverview["saved"]> }) {
 
 /** Two minutes at the end of the day (2.10). */
 export function WrapUpScreen() {
+  useSeenPage(`wrapup:${seenToday()}`);  // 10.6: here already, so no notification about it
   const res = useResource<WrapUpOverview>("wrapup:today", () => wrapup.get(), { staleMs: 15_000 });
   const data = res.data ?? null;
   const [top3, setTop3] = useState<string[] | null>(null);
