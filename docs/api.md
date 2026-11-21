@@ -141,6 +141,20 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/backups/{name}` |  |
 | `POST /api/v1/backups/{name}/restore` |  |
 
+### `/api/v1/bedroom`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/bedroom` |  |
+| `PUT /api/v1/bedroom` |  |
+
+### `/api/v1/bins`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/bins` |  |
+| `PUT /api/v1/bins` |  |
+
 ### `/api/v1/brain`
 
 | Route | What it does |
@@ -227,6 +241,14 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `PUT /api/v1/career/cpd/{record_id}/category` | Correct a guessed category (null puts the guess back). Survives re-imports. |
 | `GET /api/v1/career/overview` |  |
 
+### `/api/v1/catchups`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/catchups` |  |
+| `PUT /api/v1/catchups/{person_id}` |  |
+| `POST /api/v1/catchups/{person_id}/done` |  |
+
 ### `/api/v1/command`
 
 | Route | What it does |
@@ -261,6 +283,21 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/fitness` |  |
 | `PUT /api/v1/fitness/goal` |  |
+
+### `/api/v1/fuel`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/fuel` |  |
+| `PUT /api/v1/fuel/settings` |  |
+
+### `/api/v1/garden`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/garden` |  |
+| `PUT /api/v1/garden` |  |
+| `POST /api/v1/garden/watered` |  |
 
 ### `/api/v1/glance`
 
@@ -430,6 +467,16 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/hub/upkeep/check` | Ask SirisAI to look for a new release now. |
 | `POST /api/v1/hub/upkeep/update` | Update both apps now (6.4): asks SirisAI's updater (deploy/updater.sh) for the latest release; it rebuilds and restarts SirisAI and SirisOS, and rolls back on its own if they don't come back healthy. |
 | `GET /api/v1/hub/widgets` |  |
+
+### `/api/v1/lab`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/lab/containers` |  |
+| `POST /api/v1/lab/containers/check` |  |
+| `POST /api/v1/lab/containers/update` |  |
+| `GET /api/v1/lab/internet` |  |
+| `PUT /api/v1/lab/internet/plan` |  |
 
 ### `/api/v1/life`
 
@@ -723,11 +770,24 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/trends` |  |
 
+### `/api/v1/watch`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/watch/tonight` |  |
+
 ### `/api/v1/week`
 
 | Route | What it does |
 | --- | --- |
 | `GET /api/v1/week` |  |
+
+### `/api/v1/weekend`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/weekend` |  |
+| `PUT /api/v1/weekend/routes` |  |
 
 ### `/api/v1/work`
 

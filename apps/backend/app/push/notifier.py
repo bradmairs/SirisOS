@@ -183,6 +183,20 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
         out += goals.push_message(now)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: wrap-up unavailable: %s", exc)
+    try:  # 10.4: weekend, garden, fuel, bins, bedroom, slow internet, catch-ups
+        from app.household import bedroom, bins
+        from app.outdoors import fuel, garden, weekend
+        from app.routines import catchups, lab
+
+        local = now.astimezone(_zone())
+        out += bins.push_message(local)
+        for job in (weekend.push_message, garden.push_message, fuel.push_message, bedroom.push_message, lab.push_message, catchups.push_message):
+            try:
+                out += await job(hub, local)
+            except Exception as exc:  # noqa: BLE001 - one never stops the rest
+                logger.info("Push: %s unavailable: %s", job.__module__, exc)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: 10.4 routines unavailable: %s", exc)
     try:  # 10.2: last month's recap, filed in Siris on the 1st
         from app.recap import service as recap
 

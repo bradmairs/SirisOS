@@ -5,6 +5,7 @@ import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
+import { ContainerUpdatesCard, InternetCard } from "./Routines";
 
 const ICON: Record<LabKind, LucideIcon> = {
   internet: Cloud, modem: Router, gateway: Router, switch: Network, access_point: Wifi, server: Server, nas: HardDrive, ups: Zap,
@@ -40,6 +41,8 @@ export function HomeLabScreen() {
               {!d.sources.servers && " Servers come from the terminal's machines (SIRISOS_TERMINAL_HOSTS)."}
             </p>
           </Glass>
+          <ContainerUpdatesCard />
+          <InternetCard />
           <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Hardware list">
             <header className="widget__head"><Server aria-hidden="true" /><span>Hardware</span></header>
             <ul className="items">
