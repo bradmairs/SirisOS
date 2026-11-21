@@ -31,6 +31,7 @@ import { MoneyTightCard } from "./BudgetAhead";
 import { TonightCard } from "./Meals";
 import { TripHomeCard } from "./Travel";
 import { RecapCard } from "./RecapCard";
+import { BedroomCard, BinsCard, CatchupsCard, FuelCard, GardenCard, WatchTonightCard, WeekendCard } from "./Routines";
 
 /** 9.4: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
  * (with Mental health), Training, Work, Maintenance, SirisGym's cards and the inbox just for their Home cards. */
@@ -207,7 +208,14 @@ export function Home() {
     { id: "money-tight", label: "Money before pay", node: !hideMine && <MoneyTightCard /> },
     { id: "trip", label: "Trip", node: !hideMine && <TripHomeCard /> },
     { id: "recap", label: "Last month in short", node: !hideMine && <RecapCard /> },
+    { id: "fuel", label: "Fuel on the way", node: !hideMine && <FuelCard /> },
+    { id: "bins", label: "Bin night", node: !hideMine && <BinsCard /> },
+    { id: "garden", label: "Garden", node: !hideMine && <GardenCard /> },
     { id: "dinner", label: "Dinner tonight", node: !hideMine && <TonightCard /> },
+    { id: "watch", label: "Watch tonight", node: !hideMine && <WatchTonightCard /> },
+    { id: "bedroom", label: "Bedroom before bed", node: !hideMine && <BedroomCard /> },
+    { id: "weekend", label: "This weekend", node: !hideMine && <WeekendCard /> },
+    { id: "catchups", label: "Catch-ups", node: !hideMine && <CatchupsCard /> },
     { id: "timeline", label: "Today timeline", node: !hideMine && <TodayTimeline events={comingUp} /> },
     { id: "tasks", label: "Tasks", node: !hideMine && <TasksWidget delay={20} area={adapt ? taskArea : undefined} /> },
     { id: "coming-up", label: "Coming up", node: !hideMine && (comingUp ? <ComingUpWidget events={comingUp} /> : hudLoading && <LoadingWidget title="Coming up" Icon={CalendarClock} />) },

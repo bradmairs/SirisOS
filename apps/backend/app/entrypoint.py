@@ -59,6 +59,7 @@ from app.budget.api import router as budget_router
 from app.meals.api import router as meals_router
 from app.travel.api import router as travel_router
 from app.recap.api import router as recap_router
+from app.routines.api import router as routines_router
 from app.week.api import router as week_router
 
 # app.main owns health and sign-in. Every feature router is mounted here so
@@ -108,6 +109,7 @@ for router in (
     meals_router,
     travel_router,
     recap_router,
+    routines_router,
     career_router,
     links_router,
     push_router,

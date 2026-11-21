@@ -25,7 +25,7 @@ from typing import Any
 from app.services import json_store
 
 DEFAULT_TIMES = ["07:30", "18:00"]
-NOW_PREFIXES = ("task:", "timesheet:", "cashflow:", "nudge:", "push-check:", "digest:", "travel:")
+NOW_PREFIXES = ("task:", "timesheet:", "cashflow:", "nudge:", "push-check:", "digest:", "travel:", "fuel:", "bins:", "bedroom:")
 MAX_HELD = 60
 _TIME = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 

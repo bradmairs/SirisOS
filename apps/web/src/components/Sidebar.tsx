@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { AskAbout } from "./AskAbout";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed, CalendarHeart } from "lucide-react";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -23,6 +23,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/life", label: "Life Admin", Icon: FileText, end: false, dock: false },
   { to: "/budget", label: "Budget", Icon: Wallet, end: false, dock: false },
   { to: "/meals", label: "Meals", Icon: UtensilsCrossed, end: false, dock: false },
+  { to: "/week", label: "Around the Week", Icon: CalendarHeart, end: false, dock: false },
   { to: "/travel", label: "Trips", Icon: Plane, end: false, dock: false },
   { to: "/things", label: "Things & People", Icon: Package, end: false, dock: false },
   { to: "/fitness", label: "Fitness", Icon: Footprints, end: false, dock: false },

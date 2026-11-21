@@ -11,7 +11,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 const PORT = 4199;
 const OUT = "visual-check";
 const PICTURE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAkADADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDGooorgPrQooooAKKKKALvkRf3f1NHkRf3f1NS0VFzxPa1P5n95F5EX939TR5EX939TUtFFw9rU/mf3kXkRf3f1NHkRf3f1NS0UXD2tT+Z/eFFFFBmFFFFABRRRQB//9k=";
-const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/meals", "/travel", "/things", "/life", "/homelab"];
+const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/meals", "/travel", "/things", "/life", "/homelab", "/week"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -92,6 +92,32 @@ const lab = { clients: { total: 34, online: 21 }, sources: { network: true, serv
   { id: "own:ups", label: "Eaton UPS", kind: "ups", parent: "net:sw", online: null, found: "you" }] };
 const FIXTURES = [
   ["/api/v1/homelab", lab],
+  ["/api/v1/weekend", { days: ["2026-11-28", "2026-11-29"], recover: false, note: null, readiness: { score: 72, band: "Steady" },
+    routes: [{ id: "r1", name: "You Yangs loop", kind: "hike", hours: 2.5, km: 9, link: null, notes: "" }, { id: "r2", name: "Merri Creek walk", kind: "walk", hours: 1, km: 4, link: null, notes: "" }],
+    windows: [{ date: "2026-11-28", start: "06:00", end: "10:00", hours: 4, low_c: 14, high_c: 19, rain_chance: 5, conditions: "mainly clear", score: 9,
+      route: { id: "r1", name: "You Yangs loop", kind: "hike", hours: 2.5, km: 9, link: null, notes: "" } },
+      { date: "2026-11-29", start: "14:00", end: "17:00", hours: 3, low_c: 20, high_c: 23, rain_chance: 10, conditions: "partly cloudy", score: 7,
+      route: { id: "r1", name: "You Yangs loop", kind: "hike", hours: 2.5, km: 9, link: null, notes: "" } }] }],
+  ["/api/v1/garden", { on: true, protocol: "Water the garden", last_watered: "2026-11-18", water: true, why: "Dry for days and none coming: give it a good drink.", past_mm: 0, coming_mm: 0, high_c: 27 }],
+  ["/api/v1/fuel", { settings: { on: true, weekday: 2, leave: "06:00", fuel_type: "U91", first_km: 30, off_route_km: 1.5, destination: { name: "Shepparton", lat: -36.38, lon: 145.4 }, home: null },
+    configured: true, attribution: "© State of Victoria accessed via the Victorian Government Service Victoria Platform", for: "2026-11-25",
+    best: { id: "s2", name: "BP Wallan", brand: "BP", address: "", lat: -37.47, lon: 144.96, price: 176.5, updated: null, off_km: 0.9, km_in: 25.6, maps: "https://maps.apple.com/?daddr=-37.47,144.96" },
+    options: [{ id: "s2", name: "BP Wallan", brand: "BP", address: "", lat: -37.47, lon: 144.96, price: 176.5, updated: null, off_km: 0.9, km_in: 25.6, maps: "https://maps.apple.com/?daddr=-37.47,144.96" },
+      { id: "s1", name: "United Craigieburn", brand: "United", address: "", lat: -37.6, lon: 144.94, price: 181.9, updated: null, off_km: 0.2, km_in: 11.1, maps: "https://maps.apple.com/?daddr=-37.6,144.94" }],
+    average: 179.2, saving_cents: 2.7, route_km: 30, note: "Prices are about a day old (Fair Fuel's open data)." }],
+  ["/api/v1/bins", { bins: [{ kind: "rubbish", every_weeks: 1, first: "2026-11-06" }, { kind: "recycling", every_weeks: 2, first: "2026-11-06" }],
+    next: { date: "2026-11-27", kinds: ["rubbish", "recycling"], text: "Rubbish and recycling" }, show: true, when: "tonight" }],
+  ["/api/v1/bedroom", { temp_entity: "sensor.bedroom_temperature", humidity_entity: "sensor.bedroom_humidity", low: 17, high: 20, show: true, temp: 23.4, humidity: 52,
+    advice: "Bedroom is 23.4°: fan or aircon for half an hour before bed?", bedtime: "22:30", best: { low: 18, high: 20, sleep: 7.6, other: 6.9, nights: 21 }, nights: 21 }],
+  ["/api/v1/watch/tonight", { available: true, minutes_to_bed: 150, bedtime: "22:30", plex: true, on_deck: [], new_unwatched: [],
+    picks: [{ title: "Slow Horses: S04E03", type: "episode", why: "Carry on where you left off" }, { title: "Dune: Part Two", type: "movie", why: "A film fits before bed" }],
+    episodes: [{ series: "Severance", season: 2, number: 4, air_date: "2026-11-28" }], movies: [] }],
+  ["/api/v1/lab/containers", { available: true, checked_at: "2026-11-21T02:00:00Z", running: false, up_to_date: ["plex"], skipped: {},
+    updates: [{ container: "sonarr", image: "linuxserver/sonarr", current: "4.0.1", available: "4.0.2" }, { container: "radarr", image: "linuxserver/radarr" }] }],
+  ["/api/v1/lab/internet", { available: true, speeds: [], outages: [{ start: "2026-11-19T03:00:00Z", end: "2026-11-19T03:12:00Z", seconds: 720 }], plan: { down: 100, up: 20 }, slow: ["2026-11-19", "2026-11-20"], share_of_plan: 52,
+    daily: [["2026-11-14", 94], ["2026-11-15", 92], ["2026-11-16", 95], ["2026-11-17", 88], ["2026-11-18", 71], ["2026-11-19", 44], ["2026-11-20", 47], ["2026-11-21", 61]].map(([date, down]) => ({ date, down, up: 19, tests: 6 })) }],
+  ["/api/v1/catchups", { available: true, keeping_up: 4, overdue: [{ id: 1, name: "Sam", relation: "friend", days_since: 86, gap: 30, over_by: 56 }],
+    free: [{ date: "2026-11-28", part: "morning" }, { date: "2026-11-29", part: "afternoon" }] }],
   ["/api/v1/budget/pay-days", { currency: "AUD", pay_days: [], today: [{ id: "i1", name: "Salary", amount: 3000, every: "fortnightly", next: "2026-11-20", days: 0 }] }],
   ["/api/v1/meals/tonight", { dinner: { title: "Chicken stir fry", slug: "chicken-stir-fry" } }],
   ["/api/v1/meals/recipes", { configured: true, recipes: [] }],
