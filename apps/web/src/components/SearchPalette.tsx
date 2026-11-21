@@ -24,6 +24,7 @@ import { CALCULATORS } from "../engineering/calculators";
 import { Glass } from "./Glass";
 import { iconFor } from "./icons";
 import { NAV } from "./Sidebar";
+import { sectionFor } from "./Sections";
 
 const DEBOUNCE_MS = 180;
 const RECENT_KEY = "sirisos.search.recent";
@@ -44,7 +45,12 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
 };
 
 const SCREENS: { title: string; subtitle: string; url: string; words?: string }[] = [
-  ...NAV.map((n) => ({ title: n.label, subtitle: "Screen", url: n.to, words: n.label === "SirisAI" ? "assistant chat ai" : n.to === "/brain" ? "brain second notes memory" : "" })),
+  ...NAV.map((n) => {
+    const sec = sectionFor(n.to)?.section;
+    const group = sec && sec.tabs.length > 1 ? sec.label : "";
+    return { title: n.label, subtitle: group ? `Screen · ${group}` : "Screen", url: n.to,
+      words: `${n.label === "SirisAI" ? "assistant chat ai" : n.to === "/brain" ? "brain second notes memory" : ""} ${group} ${n.to === "/wrapup" ? "tonight" : n.to === "/year" ? "this year" : n.to === "/review" ? "this week" : ""}`.trim() };
+  }),
   { title: "Today's brief", subtitle: "Screen", url: "/brief", words: "daily morning news weather" },
   { title: "SirisHydro", subtitle: "Engineering", url: "/engineering/hydro", words: "evidence question standards" },
   { title: "Calculators", subtitle: "Engineering", url: "/engineering/calculators", words: "calc" },
