@@ -21,11 +21,13 @@ from typing import Any
 from app.tasks.service import WEEKDAYS
 
 _WHEN = r"(today|tonight|tomorrow|" + "|".join(WEEKDAYS) + r")"
-_MONEY = re.compile(r"^\s*(?:(?:i\s+)?(?:spent|paid)\s+)?\$\s*(\d{1,6}(?:\.\d{1,2})?)\s+(?:(?:at|on|for)\s+)?(.+?)\s*$", re.I)
-_MONEY_WORDS = re.compile(r"^\s*(?:i\s+)?(?:spent|paid)\s+\$?\s*(\d{1,6}(?:\.\d{1,2})?)\s*(?:dollars?)?\s+(?:at|on|for)\s+(.+?)\s*$", re.I)
-_DINNER_LEAD = re.compile(rf"^\s*(?:dinner|tea)\s*(?:on\s+)?{_WHEN}?\s*[:\-–]?\s*(.+?)\s*$", re.I)
-_DINNER_TAIL = re.compile(rf"^\s*(.+?)\s+for\s+(?:dinner|tea)(?:\s+(?:on\s+)?{_WHEN})?\s*$", re.I)
-_DISH_DAY = re.compile(r"^\s*([a-z][a-z' &-]{1,40}?)\s+(?:on\s+)?(tonight|tomorrow|" + "|".join(WEEKDAYS) + r")\s*$", re.I)
+# The line's spaces are collapsed to single ones first (understand), so these match one space at a time: no runs of
+# optional whitespace for a long line of spaces to make slow (CodeQL's polynomial-regex check).
+_MONEY = re.compile(r"^(?:(?:i )?(?:spent|paid) )?\$ ?(\d{1,6}(?:\.\d{1,2})?) (?:(?:at|on|for) )?(.+)$", re.I)
+_MONEY_WORDS = re.compile(r"^(?:i )?(?:spent|paid) \$?(\d{1,6}(?:\.\d{1,2})?) (?:dollars? )?(?:at|on|for) (.+)$", re.I)
+_DINNER_LEAD = re.compile(rf"^(?:dinner|tea)(?: on)?(?: {_WHEN})?(?: ?[:\-–])? (.+)$", re.I)
+_DINNER_TAIL = re.compile(rf"^(.+?) for (?:dinner|tea)(?: (?:on )?{_WHEN})?$", re.I)
+_DISH_DAY = re.compile(r"^([a-z][a-z'&-]*(?: [a-z][a-z'&-]*){0,3}) (?:on )?(tonight|tomorrow|" + "|".join(WEEKDAYS) + r")$", re.I)
 _NOT_FOOD = {"meeting", "notes", "note", "from", "with", "about", "call", "email", "the", "my", "our", "work", "due", "until", "since",
              "after", "before", "back", "off", "out", "leave", "flight", "trip", "gym", "class", "appointment", "dentist", "doctor"}
 _TASK_VERBS = ("call", "ring", "phone", "email", "text", "message", "buy", "get", "book", "pay", "pick", "drop", "send", "fix", "check",
@@ -33,7 +35,7 @@ _TASK_VERBS = ("call", "ring", "phone", "email", "text", "message", "buy", "get"
                "organise", "organize", "follow", "chase", "sort", "print", "sign", "lodge", "visit", "see", "meet", "collect")
 _GYM = re.compile(r"\b(bench|squat|squats|deadlift|deadlifts|press|ohp|row|rows|pull[- ]?ups?|chin[- ]?ups?|dips?|curls?|lunges?|"
                   r"gym|workout|session|sets?|reps?|pb|pr|warm[- ]?up|lifts?|lifted|spotter)\b", re.I)
-_WHEN_WORD = re.compile(rf"\b{_WHEN}\b|\b\d{{1,2}}(?::\d{{2}})?\s*(?:am|pm)\b|\bnext week\b|\bthis weekend\b|\b\d{{1,2}}/\d{{1,2}}\b", re.I)
+_WHEN_WORD = re.compile(rf"\b{_WHEN}\b|\b\d{{1,2}}(?::\d{{2}})? ?(?:am|pm)\b|\bnext week\b|\bthis weekend\b|\b\d{{1,2}}/\d{{1,2}}\b", re.I)
 
 
 def _day(word: str | None, today: date) -> date:
@@ -52,7 +54,7 @@ def _cap(text: str) -> str:
 
 def understand(text: str, today: date) -> dict[str, Any] | None:
     """What a line is, without doing anything: {kind, ...} or None for a Siris note."""
-    t = text.strip()
+    t = " ".join(text.split())
     if not t or len(t) > 300 or re.match(r"https?://", t):
         return None
     if (m := _MONEY_WORDS.match(t)) or (m := _MONEY.match(t)):
