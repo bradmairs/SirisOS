@@ -28,7 +28,7 @@ describe("Is this right? (11.6.0)", () => {
     expect(await screen.findByText("Plex")).toBeInTheDocument();
     expect(screen.getByText("Runs in Docker on the home server.")).toBeInTheDocument();
     expect(screen.getByText("status: running")).toBeInTheDocument();
-    expect(screen.getByText(/2 waiting/)).toBeInTheDocument();
+    expect(screen.getByText(/2 left this week/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(await screen.findByText("Home Server")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Fix it" }));
