@@ -59,3 +59,31 @@ describe("SirisOS 10.5", () => {
     expect(screen.queryByRole("navigation", { name: "Budget" })).not.toBeInTheDocument();
   });
 });
+
+describe("SirisOS 10.61", () => {
+  it("opens each screen at its top, but keeps your place going back", async () => {
+    const { ScrollToTop } = await import("../components/Sections");
+    const { Link, useNavigate } = await import("react-router-dom");
+    const spy = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    function Back() { const nav = useNavigate(); return <button type="button" onClick={() => nav(-1)}>Back</button>; }
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <ScrollToTop />
+        <Link to="/health">Health</Link><Link to="/health?view=sleep">Sleep</Link><Link to="/fitness">Fitness</Link><Back />
+        <Routes><Route path="*" element={<Where />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(spy).not.toHaveBeenCalled();  // first load: the browser's place
+    await userEvent.click(screen.getByRole("link", { name: "Health" }));
+    expect(spy).toHaveBeenLastCalledWith(0, 0);
+    spy.mockClear();
+    await userEvent.click(screen.getByRole("link", { name: "Sleep" }));  // a tab within Health: no jump
+    expect(spy).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("link", { name: "Fitness" }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByTestId("where")).toHaveTextContent("/health");
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
