@@ -4,7 +4,7 @@ Read [README.md](README.md) (the handover) and [docs/roadmap.md](docs/roadmap.md
 
 ## Versions and shipping (Brad's standing instructions)
 
-- **Bump the version in every pull request**: `scripts/bump-version.sh patch` (+0.01) for fixes, tweaks and small changes; `scripts/bump-version.sh minor` (+0.1) for a new feature, screen, integration or other notable change. Fill in the `docs/releases/<version>.md` it starts. See [docs/releases.md](docs/releases.md).
+- **Bump the version in every pull request.** Versions are **Section.Feature.Fix** (e.g. 11.2.1), Brad's rule since 2026-11-22: `scripts/bump-version.sh fix` (+0.0.1) for a fix or minor change; `scripts/bump-version.sh feature` (+0.1.0) for a new feature or a bigger upgrade; `scripts/bump-version.sh section` (+1.0.0) only for a significant new section, like Health or SirisGym. Fill in the `docs/releases/<version>.md` it starts. See [docs/releases.md](docs/releases.md).
 - **Merge to main automatically**: open the pull request, wait for CI to go green, then mark it ready and merge it (squash) without asking. Fix red CI first; never merge red.
 - Merging a `VERSION` change tags `v<version>` and publishes the GitHub release by itself (`.github/workflows/release.yml`).
 

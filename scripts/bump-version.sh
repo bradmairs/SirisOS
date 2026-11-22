@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Bump the SirisOS version (docs/releases.md):
-#   scripts/bump-version.sh patch   # +0.01: fixes and small changes (1.0 -> 1.01)
-#   scripts/bump-version.sh minor   # +0.1: a new feature or a notable change (1.07 -> 1.1)
-# Writes VERSION, the API's and the web app's version, and starts
+# Bump the SirisOS version (docs/releases.md). Versions are Section.Feature.Fix, e.g. 11.2.1:
+#   scripts/bump-version.sh fix       # a fix or minor change          11.2.1 -> 11.2.2
+#   scripts/bump-version.sh feature   # a new feature or bigger upgrade  11.2.1 -> 11.3.0
+#   scripts/bump-version.sh section   # a significant new section (like Health or SirisGym)  11.2.1 -> 12.0.0
+# (patch, minor and major still work, as fix, feature and section.) Each part counts on its own and never rolls over
+# into the next, so a whole-number change always means a new section.
+# Writes VERSION, the API's and the web app's version, the README's version line, and starts
 # docs/releases/<version>.md. Merging the bump to main tags and releases it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -11,15 +14,20 @@ kind="${1:-}"
 current="$(tr -d '[:space:]' < VERSION)"
 next="$(python3 - "$current" "$kind" <<'PY'
 import sys
-from decimal import Decimal
-current, kind = Decimal(sys.argv[1]), sys.argv[2]
-step = {"patch": Decimal("0.01"), "minor": Decimal("0.1")}.get(kind)
-if step is None:
-    sys.exit("usage: scripts/bump-version.sh patch|minor")
-# A minor bump lands on the next tenth: 1.07 -> 1.1, not 1.17.
-nxt = (current + step).quantize(Decimal("0.01")) if kind == "patch" else ((current * 10).to_integral_value(rounding="ROUND_FLOOR") + 1) / 10
-s = format(nxt.normalize(), "f")
-print(s if "." in s else s + ".0")
+current, kind = sys.argv[1], {"patch": "fix", "minor": "feature", "major": "section"}.get(sys.argv[2], sys.argv[2])
+parts = current.split(".")
+if len(parts) != 3 or not all(p.isdigit() for p in parts):
+    sys.exit(f"VERSION should be Section.Feature.Fix, like 11.2.1, not {current}")
+s, f, x = (int(p) for p in parts)
+if kind == "fix":
+    x += 1
+elif kind == "feature":
+    f, x = f + 1, 0
+elif kind == "section":
+    s, f, x = s + 1, 0, 0
+else:
+    sys.exit("usage: scripts/bump-version.sh fix|feature|section")
+print(f"{s}.{f}.{x}")
 PY
 )"
 

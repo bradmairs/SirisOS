@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def test_api_and_web_versions_match_the_version_file() -> None:
     version = (ROOT / "VERSION").read_text().strip()
-    assert re.fullmatch(r"\d+\.\d{1,2}", version), version
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version), version  # Section.Feature.Fix (docs/releases.md)
     web = (ROOT / "apps/web/src/version.ts").read_text()
     assert API_VERSION == version
     assert f'APP_VERSION = "{version}"' in web
