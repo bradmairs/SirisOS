@@ -11,6 +11,12 @@
     GET  /api/v1/away              after 20 hours away, what changed and what's waiting ({away: false} otherwise)
     POST /api/v1/away/done         {keys}: got it (marks them seen)
     GET  /api/v1/facts?topic=      SirisOS's own data for SirisAI: spending, budget, subscriptions, meals, goals, plan
+
+11.4, working offline:
+
+    POST /api/v1/assistant/ask-later  {prompt, conversation_id?, asked_at?}: a question asked offline (answered in the background, pushed)
+    GET  /api/v1/assistant/asked      the questions asked offline and their answers
+    GET  /api/v1/brain/recent         the most recently updated Siris notes, for Get ready for offline
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.assist import away, capture, dayplan, facts, goals_steer, homeuse, patterns
@@ -130,3 +136,36 @@ async def get_facts(topic: str, q: str | None = None, period: str | None = None,
         return {"topic": topic, **(await facts.answer(hub, topic, now.date(), now, q, period, start, end))}
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+# 11.4: working offline.
+
+class AskLaterIn(BaseModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+    conversation_id: str | None = Field(default=None, max_length=80)
+    asked_at: str | None = Field(default=None, max_length=40)
+
+
+@router.post("/assistant/ask-later", status_code=202)
+async def ask_later(body: AskLaterIn, background: BackgroundTasks, hub: Hub = Depends(get_hub)) -> dict[str, Any]:
+    """A question asked offline: SirisAI answers it in the background and the answer comes as a notification."""
+    from app.assist import asklater
+
+    background.add_task(asklater.answer, hub, body.prompt, body.conversation_id, body.asked_at)
+    return {"asking": True}
+
+
+@router.get("/assistant/asked")
+def asked() -> dict[str, Any]:
+    from app.assist import asklater
+
+    return {"asked": list(reversed(asklater.history()))[:20]}
+
+
+@router.get("/brain/recent")
+async def brain_recent(limit: int = 30, hub: Hub = Depends(get_hub)) -> list[dict[str, Any]]:
+    """The most recently updated Siris notes (titles), for Get ready for offline."""
+    from app.hub import sirisai_api
+
+    found = await sirisai_api.get(hub, "/siris/brain/recent", params={"limit": max(1, min(30, limit))}, timeout=15.0)
+    return [{"title": n.get("title")} for n in (found or []) if isinstance(n, dict) and n.get("title")]

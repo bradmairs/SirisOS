@@ -1,4 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { keep, unreachable } from "../api/outbox";
+const OFFLINE_ASK = "You're offline, so I've kept your question. I'll ask SirisAI as soon as SirisOS can reach it, and the answer will come as a notification.";
 import { takeHandoff, withContext } from "../api/pageContext";
 import { Link, useSearchParams } from "react-router-dom";
 import { Activity, ArrowUp, Brain as BrainIcon, BookmarkPlus, Check, Cpu, History, Mic, Plus, Square, ThumbsDown, Wrench, X } from "lucide-react";
@@ -120,7 +122,7 @@ export function Assistant() {
     endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  const run = useCallback(async (events: (signal: AbortSignal) => AsyncGenerator<ChatEvent>) => {
+  const run = useCallback(async (events: (signal: AbortSignal) => AsyncGenerator<ChatEvent>, prompt?: string) => {
     const controller = new AbortController();
     abort.current = controller;
     setBusy(true);
@@ -150,6 +152,11 @@ export function Assistant() {
       cancelFrame(frame);
       flush();
       const aborted = controller.signal.aborted;
+      // 11.4: no connection: the question waits on this phone and the answer comes as a notification once you're back.
+      if (!aborted && prompt && unreachable(err) && keep({ kind: "ask", prompt, conversationId })) {
+        update((m) => (m.text ? { ...m, streaming: false, status: undefined } : { ...m, streaming: false, status: undefined, text: OFFLINE_ASK }));
+        return;
+      }
       update((m) => ({ ...m, streaming: false, status: undefined, error: aborted ? undefined : err instanceof Error ? err.message : "SirisAI is unavailable." }));
     } finally {
       setBusy(false);
@@ -163,7 +170,11 @@ export function Assistant() {
       if (!prompt.trim() || busy) return;
       setMessages((m) => [...m, { role: "user", text: prompt.trim() }]);
       setInput("");
-      run((signal) => assistant.chat((full ?? prompt).trim(), conversationId, signal));
+      if (typeof navigator !== "undefined" && navigator.onLine === false && keep({ kind: "ask", prompt: (full ?? prompt).trim(), conversationId })) {
+        setMessages((m) => [...m, { role: "assistant", text: OFFLINE_ASK }]);
+        return;
+      }
+      run((signal) => assistant.chat((full ?? prompt).trim(), conversationId, signal), (full ?? prompt).trim());
     },
     [busy, conversationId, run],
   );

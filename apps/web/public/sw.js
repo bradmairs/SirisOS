@@ -8,8 +8,9 @@
      here, with the signed token in its /act?t= link; no sign-in needed.
      iPhone shows no buttons, so a tap opens that /act page instead. */
 
-const SHELL = "sirisos-shell-v2";
-const MAX_ASSETS = 150;
+const SHELL = "sirisos-shell-v3";
+// 11.4: every screen's code is kept (Get ready for offline opens them all), so there's room for all of it.
+const MAX_ASSETS = 400;
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) =>
@@ -55,6 +56,19 @@ self.addEventListener("fetch", (event) => {
         if (response.ok) cache.put(request, response.clone()).then(() => trim(cache));
         return response;
       }),
+    );
+    return;
+  }
+
+  // 11.4: icons, images and fonts from the app itself: the network when there is one, the kept copy when there isn't.
+  if (/\.(png|svg|jpe?g|webp|gif|ico|woff2?|webmanifest)$/.test(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) caches.open(SHELL).then((c) => c.put(request, response.clone()));
+          return response;
+        })
+        .catch(() => caches.open(SHELL).then((c) => c.match(request)).then((r) => r || Response.error())),
     );
   }
 });

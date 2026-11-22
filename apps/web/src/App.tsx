@@ -1,5 +1,7 @@
 import { syncPush } from "./api/push";
 import { ScrollToTop, SectionTabs } from "./components/Sections";
+import { inPrepFrame } from "./api/prepare";
+import { SyncBar } from "./components/SyncBar";
 import { AppPresence } from "./components/Smart";
 import { WorkoutBar } from "./components/WorkoutBar";
 import { AskAbout } from "./components/AskAbout";
@@ -173,7 +175,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
   const sheetApp = sheetFor ? apps?.find((a) => a.id === sheetFor) : undefined;
   useEffect(warmScreens, []);
   // 7.9: keep this install registered once for notifications (see syncPush).
-  useEffect(() => { syncPush().catch(() => undefined); }, []);
+  useEffect(() => { if (!inPrepFrame()) syncPush().catch(() => undefined); }, []);
 
   return (
     <div className="frame">
@@ -200,6 +202,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
       <main className="shell">
         <WorkoutBar />
         <AppPresence />
+        <SyncBar />
         <ScrollToTop />
         <SectionTabs />
         <Suspense fallback={<ScreenFallback />}>

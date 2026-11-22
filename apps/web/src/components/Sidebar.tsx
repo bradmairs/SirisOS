@@ -2,7 +2,8 @@ import { Fragment, useEffect } from "react";
 import { SECTIONS, sectionFor, sectionHref } from "./Sections";
 import { AskAbout } from "./AskAbout";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed, CalendarHeart } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed, CalendarHeart, CloudOff } from "lucide-react";
+import { openOffline } from "./SyncBar";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
 import { Glass } from "./Glass";
@@ -128,6 +129,10 @@ export function Sidebar({
             <Sunrise size={19} aria-hidden="true" />
             <span>Today's brief</span>
           </NavLink>
+          <button type="button" className="sidebar__link" style={{ border: 0, background: "none", width: "100%", font: "inherit", cursor: "pointer" }} onClick={() => { onClose(); openOffline(); }}>
+            <CloudOff size={19} aria-hidden="true" />
+            <span>Offline</span>
+          </button>
         </nav>
 
         {launchable.length > 0 && (
