@@ -31,6 +31,8 @@ import { MoneyTightCard } from "./BudgetAhead";
 import { TonightCard } from "./Meals";
 import { TripHomeCard } from "./Travel";
 import { RecapCard } from "./RecapCard";
+import { AwayCard, GoalsPaceCard, PatternsCard, PlanCard } from "./Assist";
+import { usage as homeUsage, type Usage } from "../api/assist";
 import { BedroomCard, BinsCard, CatchupsCard, FuelCard, GardenCard, WatchTonightCard, WeekendCard } from "./Routines";
 
 /** 9.4: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
@@ -168,6 +170,37 @@ export function AppGrid({ apps, onOpen, layout = "grid" }: { apps: HubApp[]; onO
   );
 }
 
+/** 11.3: tell SirisOS which Home cards showed (once a day per part of the day) and which you tapped. A card counts as
+ * shown only if it drew something; it's "interactive" if it has a button, link or field. */
+function useHomeUsage(phase: string) {
+  useEffect(() => {
+    const queue: { phase: string; widget: string; kind: "seen" | "tap"; interactive?: boolean }[] = [];
+    const flush = () => { if (queue.length) homeUsage.send(queue.splice(0, queue.length)).catch(() => undefined); };
+    const onClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.("[data-home-widget]");
+      const id = el?.getAttribute("data-home-widget");
+      if (id && (e.target as HTMLElement).closest("a, button, input, select, [role=button]")) queue.push({ phase, widget: id, kind: "tap" });
+    };
+    document.addEventListener("click", onClick, true);
+    const seen = window.setTimeout(() => {
+      const key = `sirisos.home.seen.${new Date().toLocaleDateString("en-CA")}.${phase}`;
+      let done: string[] = [];
+      try { done = JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { /* none */ }
+      document.querySelectorAll<HTMLElement>("[data-home-widget]").forEach((el) => {
+        const id = el.getAttribute("data-home-widget")!;
+        const drew = Array.from(el.children).some((c) => (c as HTMLElement).getBoundingClientRect?.().height > 0 || c.childElementCount > 0);
+        if (!drew || done.includes(id)) return;
+        done.push(id);
+        queue.push({ phase, widget: id, kind: "seen", interactive: !!el.querySelector("a, button, input, select, [role=button]") });
+      });
+      try { localStorage.setItem(key, JSON.stringify(done)); } catch { /* fine */ }
+      flush();
+    }, 2500);
+    const timer = window.setInterval(flush, 15_000);
+    return () => { document.removeEventListener("click", onClick, true); window.clearTimeout(seen); window.clearInterval(timer); flush(); };
+  }, [phase]);
+}
+
 export function Home() {
   const { apps, guest, testMode, error, stale, refreshing, reload } = useApps(true);
   const online = useOnline();
@@ -191,6 +224,8 @@ export function Home() {
   const widgets = useMemo(() => (apps ?? []).filter((a) => a.widget && (isWidget(a.widget) || a.status.state !== "unconfigured")), [apps]);
   const phase = ctx?.phase ?? localPhase();
   const [showAll, setShowAll] = useState(false);
+  const usageRes = useResource<Usage>("home:usage", () => homeUsage.get(), { staleMs: 30 * 60_000, persist: true });
+  useHomeUsage(phase);
   // Tasks and Coming up follow the part of the day (4.9): work tasks in work hours, yours after.
   const taskArea = phase === "work" ? "work" : phase === "morning" ? undefined : "personal";
   const comingUp = dayEvents(phase, ctx, hud?.next_events, now);
@@ -204,7 +239,10 @@ export function Home() {
     { id: "app-health", label: "Siris apps", node: apps ? <AppHealthWidget apps={apps} delay={120} /> : appsLoading && <LoadingWidget title="Siris apps" Icon={ShieldCheck} delay={120} /> },
   ];
   const today: Slot[] = [
+    { id: "plan", label: "Your plan for today", node: !hideMine && <PlanCard /> },
     { id: "pay-day", label: "Pay day", node: !hideMine && <PayDayCard /> },
+    { id: "goals-pace", label: "Goals off pace", node: !hideMine && <GoalsPaceCard /> },
+    { id: "patterns", label: "Patterns in your days", node: !hideMine && <PatternsCard /> },
     { id: "money-tight", label: "Money before pay", node: !hideMine && <MoneyTightCard /> },
     { id: "trip", label: "Trip", node: !hideMine && <TripHomeCard /> },
     { id: "recap", label: "Last month in short", node: !hideMine && <RecapCard /> },
@@ -261,8 +299,12 @@ export function Home() {
     if (id === "car") return phase === "evening" && !carNeedsCharge(siris?.car);
     return false;
   };
-  const leftOut = (id: string) => adapt && !showAll && !id.startsWith("loading-") && (hiddenNow(id, dayHidden) || quiet(id));
-  const daySections = sectionList.map((sec) => ({ ...sec, slots: { ...sec.slots, shown: sec.slots.shown.filter((slot) => !leftOut(slot.id)) } }));
+  // 11.3: Home learns what you use: cards you never tap are tucked away, ones you tap rise (assist/homeuse.py).
+  const learned = usageRes.data?.on ? usageRes.data.phases?.[phase] ?? {} : {};
+  const tucked = (id: string) => !!learned[id]?.tucked;
+  const leftOut = (id: string) => adapt && !showAll && !id.startsWith("loading-") && (hiddenNow(id, dayHidden) || quiet(id) || tucked(id));
+  const byUse = (a: Slot, b: Slot) => (learned[b.id]?.score ?? 0) - (learned[a.id]?.score ?? 0);
+  const daySections = sectionList.map((sec) => ({ ...sec, slots: { ...sec.slots, shown: sec.slots.shown.filter((slot) => !leftOut(slot.id)).sort(adapt ? byUse : () => 0) } }));
   const leftOutCount = sectionList.reduce((n, sec) => n + sec.slots.shown.filter((slot) => leftOut(slot.id)).length, 0);
   // The part of the day decides which section leads (3.1); widgets inside keep your order.
   const order = sectionOrder(phase, ctx);
@@ -317,6 +359,7 @@ export function Home() {
       {hideMine && (
         <p className="guest-banner" role="status">Guest mode is on: your calendar, email, health and notes are hidden.</p>
       )}
+      {!hideMine && <AwayCard />}
       <InboxPanel />
 
       {(!online || stale) && apps && <OfflineNote online={online} />}
@@ -338,7 +381,11 @@ export function Home() {
           <section key={title} aria-label={title}>
             <h2 className="section-title">{title}</h2>
             <div className="widget-grid">
-              {slots.shown.map((slot) => <WidgetBoundary key={slot.id} name={slot.id}>{slot.node}</WidgetBoundary>)}
+              {slots.shown.map((slot) => (
+                <div key={slot.id} data-home-widget={slot.id} style={{ display: "contents" }}>
+                  <WidgetBoundary name={slot.id}>{slot.node}</WidgetBoundary>
+                </div>
+              ))}
             </div>
           </section>
         ),

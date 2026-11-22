@@ -2,6 +2,8 @@ import { ArrowDown, ArrowUp, Eye, EyeOff, RotateCcw } from "lucide-react";
 import type { DeviceLayout } from "../api/home";
 import { move } from "../api/home";
 import { Sheet } from "../components/Sheet";
+import { useResource } from "../api/resource";
+import { usage, type Usage } from "../api/assist";
 
 export interface SlotInfo {
   id: string;
@@ -12,6 +14,18 @@ export interface SectionInfo {
   title: string;
   /** In their current (arranged) order, hidden ones included. */
   slots: SlotInfo[];
+}
+
+/** 11.3: Home learns what you use (cards you tap rise; ones you never tap are tucked under Show everything). */
+function LearnToggle() {
+  const res = useResource<Usage>("home:usage", () => usage.get(), { staleMs: 30 * 60_000, persist: true });
+  if (!res.data) return null;
+  return (
+    <label className="notify__topic" style={{ marginTop: 10 }}>
+      <input type="checkbox" checked={res.data.on} onChange={async () => res.mutate(await usage.setOn(!res.data!.on))} />
+      <span>Learn from what I use: cards I tap move up, and ones I never tap are tucked under Show everything</span>
+    </label>
+  );
 }
 
 /** "Customise Home": reorder and show/hide widgets for this kind of device. */
@@ -44,6 +58,7 @@ export function HomeCustomise({ device, sections, layout, onChange, onClose }: {
           Your {device} layout. {device === "phone" ? "Desktop" : "Phone"} keeps its own.
         </p>
       </header>
+      <LearnToggle />
       {sections.map((section) => (
         <section key={section.title} className="customise__section" aria-label={section.title}>
           <h3 className="section-title" style={{ marginTop: 14 }}>{section.title}</h3>

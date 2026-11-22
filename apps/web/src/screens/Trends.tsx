@@ -6,6 +6,7 @@ import { trends, type TrendMonth, type Trends } from "../api/trends";
 import { gym } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { GoalsCard } from "./Goals";
+import { GoalsPaceCard } from "./Assist";
 
 const monthName = (m: string, style: "short" | "long" = "short") => new Date(`${m}-01T00:00:00`).toLocaleDateString(undefined, { month: style, ...(style === "long" ? { year: "numeric" } : {}) });
 const fmt = (v: number, unit = "") => `${Number.isInteger(v) ? v : v.toFixed(1)}${unit}`;
@@ -33,6 +34,7 @@ export function TrendsScreen() {
       {error && !data && <div className="error-banner" role="alert">{error}</div>}
       {!data && loading && <div className="skeleton" style={{ height: 300, marginTop: 16 }} />}
       <div style={{ marginTop: 16 }}><GoalsCard thisYear={Number((data?.today ?? new Date().toISOString()).slice(0, 4))} /></div>
+      <div style={{ marginTop: 16 }}><GoalsPaceCard all /></div>
       <GymYear />
       {data && (table ? <TrendsTable data={data} /> : <TrendsCharts data={data} />)}
     </>

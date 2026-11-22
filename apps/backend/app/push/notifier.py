@@ -197,6 +197,19 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
                 logger.info("Push: %s unavailable: %s", job.__module__, exc)
     except Exception as exc:  # noqa: BLE001
         logger.info("Push: 10.4 routines unavailable: %s", exc)
+    try:  # 11.3: a repeating charge's price went up; a goal that's slipping (Monday evening); a pattern worth knowing (weekly)
+        from app.assist import goals_steer, patterns
+        from app.budget import forecast as _forecast
+
+        local = now.astimezone(_zone())
+        out += _forecast.price_rise_messages(local)
+        for job in (goals_steer.push_message, patterns.push_message):
+            try:
+                out += await job(hub, local)
+            except Exception as exc:  # noqa: BLE001
+                logger.info("Push: %s unavailable: %s", job.__module__, exc)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: 11.3 assist unavailable: %s", exc)
     try:  # 10.2: last month's recap, filed in Siris on the 1st
         from app.recap import service as recap
 

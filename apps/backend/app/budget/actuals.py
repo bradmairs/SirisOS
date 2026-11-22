@@ -292,6 +292,8 @@ def import_csv(raw: bytes, account: str = "", name: str = "") -> dict[str, Any]:
         added += 1
     for k, n in in_file.items():
         have[k] = max(have.get(k, 0), n)
+    # 11.3: a spend you captured by hand ("spent $42 at Bunnings") is replaced by the bank's own line for it.
+    replaced = _replace_manual(doc, import_id)
     if added:
         dates = sorted(r["date"] for r in rows)
         doc["imports"].append({"id": import_id, "name": (name or "Bank CSV").strip()[:80], "account": account,
@@ -304,7 +306,51 @@ def import_csv(raw: bytes, account: str = "", name: str = "") -> dict[str, Any]:
         last = max(with_balance, key=lambda r: r["date"])
         _record_balance(doc, account, last["balance"], last["date"])
     save(doc)
-    return {"imported": added, "skipped": len(rows) - added, "account": account, "import_id": import_id if added else None}
+    return {"imported": added, "skipped": len(rows) - added, "account": account, "import_id": import_id if added else None,
+            "replaced_by_hand": replaced}
+
+
+# -- spends captured by hand (11.3) ------------------------------------------------------------------------
+
+def add_manual(on: date, description: str, amount: float, account: str = "By hand") -> dict[str, Any]:
+    """A spend from quick capture: sorted onto a line like an imported one, until the bank's file brings the real one."""
+    doc = load()
+    tx = {"id": "m" + uuid.uuid4().hex[:15], "date": on.isoformat(), "description": description.strip()[:120],
+          "amount": -abs(round(float(amount), 2)), "account": account, "manual": True}
+    _sort(tx, doc["rules"], _lines())
+    doc["transactions"].append(tx)
+    save(doc)
+    return tx
+
+
+def remove_tx(tx_id: str) -> bool:
+    doc = load()
+    before = len(doc["transactions"])
+    doc["transactions"] = [t for t in doc["transactions"] if not (t["id"] == tx_id and t.get("manual"))]
+    if len(doc["transactions"]) == before:
+        return False
+    save(doc)
+    return True
+
+
+def _replace_manual(doc: dict[str, Any], import_id: str) -> int:
+    """Drop each by-hand spend the new import has: the same amount within three days, the same shop if it says one."""
+    new = [t for t in doc["transactions"] if t.get("import_id") == import_id]
+    gone: set[str] = set()
+    for m in [t for t in doc["transactions"] if t.get("manual")]:
+        md = date.fromisoformat(m["date"])
+        for t in new:
+            if abs(t["amount"] - m["amount"]) > 0.005 or abs((date.fromisoformat(t["date"]) - md).days) > 3:
+                continue
+            shop = merchant(m["description"]).split(" ")[0] if merchant(m["description"]) else ""
+            if shop and shop not in t["description"].lower():
+                continue
+            if m.get("line_id") and not t.get("line_id"):
+                t["line_id"], t["guessed"] = m["line_id"], False
+            gone.add(m["id"])
+            break
+    doc["transactions"] = [t for t in doc["transactions"] if t["id"] not in gone]
+    return len(gone)
 
 
 EARLIER = "earlier"

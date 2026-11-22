@@ -3,6 +3,7 @@ import { dueLabel, isTaskText, tasks } from "../api/tasks";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Check, Mic, Square, X } from "lucide-react";
 import { brain } from "../api/hub";
+import { capture } from "../api/assist";
 import { micUnavailableReason, startRecording, type Recording } from "../api/voice";
 import { Sheet } from "./Sheet";
 
@@ -53,6 +54,9 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
   const [recording, setRecording] = useState<Recording | null>(null);
   const [busy, setBusy] = useState<"photo" | "memo" | "save" | null>(null);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // 11.3: what smart capture did, so it can be taken back.
+  const [undo, setUndo] = useState<Record<string, unknown> | null>(null);
+  const closing = useRef<number | null>(null);
   const [saved, setSaved] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -112,6 +116,18 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
         return;
       }
       const isUrl = /^https?:\/\/\S+$/.test(value);
+      // 11.3: one line goes where it belongs (a spend, a dinner, a gym note, a task); anything else is a note for Siris.
+      if (!photo && value && !isUrl && !value.includes("\n")) {
+        const routed = await capture.route(value).catch(() => null);
+        if (routed?.handled) {
+          if (routed.error) { setNote({ ok: false, text: `${routed.said} ${routed.error}` }); return; }
+          setSaved(true);
+          setNote({ ok: true, text: `Added to ${routed.where}: ${routed.said}.` });
+          setUndo(routed.undo ?? null);
+          closing.current = window.setTimeout(onClose, 4000);
+          return;
+        }
+      }
       const result = await brain.capture({ ...(isUrl ? { url: value } : value ? { text: value } : {}), ...(photo ? { image: photo } : {}) });
       setSaved(true);
       setNote({ ok: true, text: `Saved to Siris' inbox as “${result.title}”.` });
@@ -158,6 +174,15 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       {note && <p className={note.ok ? "tone-good" : "tone-critical"} role="status" style={{ margin: "10px 0 0", fontSize: 14 }}>{note.text}</p>}
+      {undo && (
+        <button type="button" className="button button--small" style={{ marginTop: 8 }} onClick={async () => {
+          if (closing.current) window.clearTimeout(closing.current);
+          const done = await capture.undo(undo).then((r) => r.undone).catch(() => false);
+          setUndo(null);
+          setSaved(false);
+          setNote({ ok: done, text: done ? "Taken back. Edit it, or save it to Siris instead." : "Couldn't take that back." });
+        }}>Undo</button>
+      )}
     </Sheet>
   );
 }
