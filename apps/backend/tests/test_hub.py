@@ -621,3 +621,7 @@ def test_brain_review_proxy(client, apps):
     r = client.post("/api/v1/brain/reviewed", headers=AUTH, json={"title": "Plex"})
     assert r.json() == {"reviewed": True, "title": "Plex", "date": "2026-11-22"}
     assert client.post("/api/v1/brain/reviewed", headers=AUTH, json={"title": ""}).status_code == 422
+    # 11.6.1: the week's one note is checked, so the card is empty until Sunday, though SirisAI still offers it.
+    assert client.get("/api/v1/brain/review", headers=AUTH).json() == []
+    assert client.post("/api/v1/brain/review/later", headers=AUTH, json={"title": "Plex"}).json() == {"ok": True}
+    assert client.post("/api/v1/brain/review/later", json={"title": "Plex"}).status_code == 401

@@ -237,6 +237,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.3.0: Smart capture, a plan for the day, Home that learns, bills on the timeline and price rises, patterns across sections, SirisAI reads SirisOS's data, goals that steer themselves, while you were away
 11.4.0: SirisOS works offline: Get ready for offline (by itself before a flight), every screen keeps its last data, everyday changes queue and sync, IndexedDB storage, a sync bar, safe merging, SirisAI questions asked offline
 11.5.0: Siris link suggestions end: a weekly batch that counts down to All done, 75% plus a second reason, Skip, Looks right on unsure automatic links
+11.6.1: Is this right? asks about five notes a week, picked on Sunday, and is gone once they're done
 
 ## Terminal (ADR 113)
 

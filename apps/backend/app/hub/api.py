@@ -530,14 +530,37 @@ class BrainReviewed(BaseModel):
 
 @router.get("/brain/review", tags=["brain"])
 async def brain_review(count: int = Query(5, ge=1, le=20), connector: SirisAIConnector = Depends(_sirisai)) -> Any:
-    """Notes Siris wrote that Brad hasn't checked yet, the most connected first, each with its card."""
-    return await _forward(connector, "GET", "/siris/brain/review", params={"count": count})
+    """This week's notes to check (11.6.1): five picked each Sunday, the most connected unchecked notes Siris wrote,
+    each with its card. Ones checked or put off leave it, and nothing new comes until next Sunday."""
+    from datetime import datetime
+
+    from app.brief.service import zone
+    from app.hub import review_week
+
+    async def fetch(n: int) -> list[dict[str, Any]]:
+        found = await _forward(connector, "GET", "/siris/brain/review", params={"count": n})
+        return [x for x in (found or []) if isinstance(x, dict)]
+
+    return (await review_week.this_week(datetime.now(zone()).date(), fetch))[:count]
 
 
 @router.post("/brain/reviewed", tags=["brain"])
 async def brain_reviewed(body: BrainReviewed, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """Brad checked this note and it's right: it leaves the queue and Siris trusts it a little more."""
-    return await _forward(connector, "POST", "/siris/brain/reviewed", json=body.model_dump())
+    from app.hub import review_week
+
+    out = await _forward(connector, "POST", "/siris/brain/reviewed", json=body.model_dump())
+    review_week.mark(body.title, "done")
+    return out
+
+
+@router.post("/brain/review/later", tags=["brain"])
+def brain_review_later(body: BrainReviewed) -> dict[str, Any]:
+    """"Not now" on the Is this right? card: off this week's card (it can come up another week)."""
+    from app.hub import review_week
+
+    review_week.mark(body.title, "later")
+    return {"ok": True}
 
 
 @router.get("/brain/debrief", tags=["brain"])

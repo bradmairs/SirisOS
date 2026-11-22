@@ -188,7 +188,8 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/brain/purge` | Permanently remove a note that's already deleted. |
 | `GET /api/v1/brain/recent` | The most recently updated Siris notes (titles), for Get ready for offline. |
 | `POST /api/v1/brain/restore` | Undo a delete: the note returns where it was, with its connections. |
-| `GET /api/v1/brain/review` | Notes Siris wrote that Brad hasn't checked yet, the most connected first, each with its card. |
+| `GET /api/v1/brain/review` | This week's notes to check (11.6.1): five picked each Sunday, the most connected unchecked notes Siris wrote, each with its card. Ones checked or put off leave it, and nothing new comes until next Sunday. |
+| `POST /api/v1/brain/review/later` | "Not now" on the Is this right? card: off this week's card (it can come up another week). |
 | `POST /api/v1/brain/reviewed` | Brad checked this note and it's right: it leaves the queue and Siris trusts it a little more. |
 | `GET /api/v1/brain/search` |  |
 | `POST /api/v1/brain/skip-link` | Skip a "could be linked" suggestion: off this week's list and not suggested again (11.5). |

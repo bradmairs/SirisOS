@@ -36,3 +36,4 @@ def _own_digest(monkeypatch, tmp_path):
     """10.2: each test starts with an empty notification roundup."""
     monkeypatch.setenv("SIRISOS_PUSH_SMART_PATH", str(tmp_path / "push-smart.json"))  # 10.6
     monkeypatch.setenv("SIRISOS_DIGEST_PATH", str(tmp_path / "push-digest.json"))
+    monkeypatch.setenv("SIRISOS_REVIEW_WEEK_PATH", str(tmp_path / "review-week.json"))  # 11.6.1
