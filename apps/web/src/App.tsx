@@ -1,5 +1,5 @@
 import { syncPush } from "./api/push";
-import { SectionTabs } from "./components/Sections";
+import { ScrollToTop, SectionTabs } from "./components/Sections";
 import { AppPresence } from "./components/Smart";
 import { WorkoutBar } from "./components/WorkoutBar";
 import { AskAbout } from "./components/AskAbout";
@@ -200,6 +200,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
       <main className="shell">
         <WorkoutBar />
         <AppPresence />
+        <ScrollToTop />
         <SectionTabs />
         <Suspense fallback={<ScreenFallback />}>
         <Routes>

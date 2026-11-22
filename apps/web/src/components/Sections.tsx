@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { Link, useLocation, useNavigationType } from "react-router-dom";
 import {
   Brain, BriefcaseBusiness, Dumbbell, HeartPulse, House, HousePlug, LayoutGrid, ListTodo, MoonStar, Server, Sparkles, Wallet, FileText,
 } from "lucide-react";
@@ -86,4 +86,20 @@ export function SectionTabs() {
       ))}
     </nav>
   );
+}
+
+/** 10.61: every screen opens at its top. Moving between screens (the menu, the tab bar, a section's tabs, a link)
+ * used to keep the last screen's scroll, so Health could open part-way down with its title and tabs out of sight.
+ * Back and forward keep where you were; a link to a spot on a page (#id) goes there; tabs within a screen
+ * (?view=) don't jump. */
+export function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  const type = useNavigationType();
+  const first = useRef(true);
+  useLayoutEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (type === "POP" || hash) return;
+    window.scrollTo(0, 0);
+  }, [pathname]);  // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }
