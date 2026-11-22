@@ -40,6 +40,8 @@ SERVICE_ROUTES: list[tuple[str, re.Pattern[str]]] = [
     # SirisGym's workouts, for SirisAI's gym_sessions ("what did I do on Monday", "my last leg day"). Read only.
     ("GET", re.compile(r"^/api/v1/gym/sessions$")),
     ("GET", re.compile(r"^/api/v1/gym/sessions/[A-Za-z0-9_-]{1,40}$")),
+    # 11.3: SirisOS's own data for SirisAI's sirisos_facts ("what did I spend on fuel", "when did we last have spag bol"). Read only.
+    ("GET", re.compile(r"^/api/v1/facts$")),
 ]
 
 _warned_short = False

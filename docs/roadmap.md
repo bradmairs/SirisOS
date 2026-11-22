@@ -234,6 +234,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.2.0: Smarter notifications: seen in the app, still true, banner while using it, one device, asleep/busy/home aware, learns what's ignored, daily cap, replacing
 11.2.1: Every screen opens at its top (back and forward keep your place)
 11.2.2: Versions are Section.Feature.Fix, and the whole history renumbered that way (10.61 became 11.2.1)
+11.3.0: Smart capture, a plan for the day, Home that learns, bills on the timeline and price rises, patterns across sections, SirisAI reads SirisOS's data, goals that steer themselves, while you were away
 
 ## Terminal (ADR 113)
 

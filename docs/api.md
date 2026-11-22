@@ -131,6 +131,14 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/auth/passkeys/register/options` |  |
 | `DELETE /api/v1/auth/passkeys/{cred_id}` |  |
 
+### `/api/v1/away`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/away` |  |
+| `POST /api/v1/away/done` |  |
+| `POST /api/v1/away/touch` | The app is open (no summary showing): the clock starts again. |
+
 ### `/api/v1/backups`
 
 | Route | What it does |
@@ -218,6 +226,13 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/calendar` |  |
 
+### `/api/v1/capture`
+
+| Route | What it does |
+| --- | --- |
+| `POST /api/v1/capture/route` |  |
+| `POST /api/v1/capture/undo` |  |
+
 ### `/api/v1/career`
 
 | Route | What it does |
@@ -277,6 +292,12 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/engineering/standards/{document_id}/replace` |  |
 | `POST /api/v1/engineering/standards/{document_id}/restore` |  |
 
+### `/api/v1/facts`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/facts` |  |
+
 ### `/api/v1/fitness`
 
 | Route | What it does |
@@ -317,6 +338,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/goals/prompt` |  |
 | `POST /api/v1/goals/review` |  |
 | `POST /api/v1/goals/set` |  |
+| `GET /api/v1/goals/steer` |  |
 | `DELETE /api/v1/goals/{goal_id}` |  |
 | `PATCH /api/v1/goals/{goal_id}` |  |
 
@@ -439,6 +461,9 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `PUT /api/v1/home/layout` |  |
 | `GET /api/v1/home/schedule` |  |
 | `PUT /api/v1/home/schedule` |  |
+| `GET /api/v1/home/usage` |  |
+| `POST /api/v1/home/usage` |  |
+| `PUT /api/v1/home/usage` |  |
 
 ### `/api/v1/homelab`
 
@@ -593,6 +618,18 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/netwatch/{node_id}/block` |  |
 | `POST /api/v1/netwatch/{node_id}/important` |  |
 | `POST /api/v1/netwatch/{node_id}/trust` |  |
+
+### `/api/v1/patterns`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/patterns` |  |
+
+### `/api/v1/plan`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/plan/today` |  |
 
 ### `/api/v1/power`
 

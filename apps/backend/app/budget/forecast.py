@@ -217,6 +217,25 @@ def cashflow(today: date | None = None) -> dict[str, Any]:
 CASHFLOW_HOUR = 9
 
 
+def price_rise_messages(local_now) -> list[dict[str, Any]]:
+    """11.3: once per new price, after 9am: a repeating charge that went up ("Netflix went up $3")."""
+    if local_now.hour < CASHFLOW_HOUR:
+        return []
+    try:
+        items = recurring(local_now.date())
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for r in items:
+        if "price_up" not in r["flags"] or not r.get("was") or r.get("status") in ("ignore", "cancelling"):
+            continue
+        up = r["amount"] - r["was"]
+        out.append({"key": f"price-up:{r['id']}:{r['amount']:.2f}", "topic": "brief", "title": f"{r['name']} went up ${up:,.2f}",
+                    "body": f"Now ${r['amount']:,.2f} {r['every']} (was ${r['was']:,.2f}). Keep it, or mark it cancelling in Budget.",
+                    "url": "/budget", "urgency": "normal"})
+    return out[:3]
+
+
 def push_message(local_now) -> list[dict[str, Any]]:
     """10.1: at 9am, when the balance looks like dipping under the low mark before pay (once per low point)."""
     if local_now.hour < CASHFLOW_HOUR:

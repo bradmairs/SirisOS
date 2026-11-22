@@ -92,6 +92,20 @@ const lab = { clients: { total: 34, online: 21 }, sources: { network: true, serv
   { id: "own:ups", label: "Eaton UPS", kind: "ups", parent: "net:sw", online: null, found: "you" }] };
 const FIXTURES = [
   ["/api/v1/homelab", lab],
+  ["/api/v1/plan/today", { date: "2026-11-24", readiness: 78, until: "20:00", free_minutes: 120, tasks: 4, events: [{ start: "09:00", end: "10:00" }],
+    blocks: [{ start: "23:00", end: "23:15", minutes: 15, kind: "quick", title: "Call Sam back about the trailer", task_id: "t1", area: "personal" },
+      { start: "23:15", end: "23:45", minutes: 30, kind: "errand", title: "Errands: Buy milk, Pick up the parcel", task_id: null, area: "personal" },
+      { start: "23:45", end: "23:59", minutes: 14, kind: "goal", title: "Run about 8 km", task_id: null, area: "personal", goal: "Run 1,200 km" }],
+    left: [{ id: "t4", title: "Write the drainage report", why: "No gap long enough today." }] }],
+  ["/api/v1/away", { away: true, away_for: "2 days", keys: ["inbox:a1"], items: [
+    { kind: "inbox", title: "2 things need you", lines: ["Backup failed on the NAS", "New device on IoT"], url: "/inbox" },
+    { kind: "tasks", title: "Tasks: 1 overdue, 3 due today", lines: ["Pay rego", "Call Sam back", "Buy milk"], url: "/tasks" },
+    { kind: "money", title: "Charges that went up", lines: ["Netflix: $18.99 → $22.99"], url: "/budget" }] }],
+  ["/api/v1/patterns", { at: "2026-11-24T07:00", days: 120, sources: ["sleep_hours"], patterns: [
+    { id: "drinks-hrv", text: "After drinking, your HRV next morning 57 ms on average, against 72 ms after a day without.", try: "Try a dry week and watch whether HRV comes back up.", strength: 1.2, worse: true, days: 99 },
+    { id: "busy-sleep", text: "After a busy calendar, you slept 6.6 h on average, against 7.4 h after a lighter one.", try: "On busy days, keep the evening quiet and wind down on time.", strength: 0.6, worse: true, days: 88 }] }],
+  ["/api/v1/goals/steer", { year: 2026, through_year: 90, goals: [], behind: [{ id: "g1", title: "Run 1,200 km", state: "behind", value: 900, target: 1200, unit: "km", projected: 1007.7, projected_percent: 84, weekly: 50, weeks_left: 6, step: { text: "Run 50 km this week: 4 runs of about 12 km." } }] }],
+  ["/api/v1/home/usage", { on: true, phases: {} }],
   ["/api/v1/push/active", { inapp: [{ key: "task:t1", title: "Call the plumber about the hot water", body: "Before 5pm, they close early on Fridays.", url: "/tasks", at: "2026-11-21T01:00:00Z" }] }],
   ["/api/v1/weekend", { days: ["2026-11-28", "2026-11-29"], recover: false, note: null, readiness: { score: 72, band: "Steady" },
     routes: [{ id: "r1", name: "You Yangs loop", kind: "hike", hours: 2.5, km: 9, link: null, notes: "" }, { id: "r2", name: "Merri Creek walk", kind: "walk", hours: 1, km: 4, link: null, notes: "" }],

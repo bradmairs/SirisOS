@@ -4,12 +4,14 @@ import { useResource } from "../api/resource";
 import { life, people } from "../api/life";
 import { tasks } from "../api/tasks";
 import { renewals } from "../api/renewals";
+import { ahead } from "../api/budget";
 import { Glass } from "../components/Glass";
 
 export interface Entry { key: string; time: string | null; text: string; kind: "event" | "task" | "bill" | "birthday" | "trip" | "renewal"; sub?: string }
 
 const ICON: Record<Entry["kind"], typeof CalendarClock> = { event: CalendarClock, task: CheckSquare, bill: Receipt, birthday: Cake, trip: Plane, renewal: IdCard };
 const pad = (n: number) => String(n).padStart(2, "0");
+const money = (n: number) => `$${Math.abs(n).toFixed(2)}`;
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /** Everything about today in one list (7.7): the calendar and tasks by time,
@@ -19,6 +21,8 @@ export function buildDay(now: Date, src: {
   bills?: { id: number; label: string; due_date: string | null }[]; people?: { id: number; name: string; days_to_birthday?: number; turning?: number | null }[];
   trips?: { key: string; destination: string; start: string; nights: number }[];
   renewals?: { id: string; name: string; days_left: number }[];
+  /** 11.3: repeating charges found in the bank CSVs (Budget → Ahead), due in the next three days. */
+  charges?: { id: string; name: string; amount: number; next: string; status: string | null }[];
 }): { timed: Entry[]; anytime: Entry[]; soon: Entry[] } {
   const today = ymd(now);
   const timed: Entry[] = [], anytime: Entry[] = [], soon: Entry[] = [];
@@ -33,6 +37,13 @@ export function buildDay(now: Date, src: {
     (t.time ? timed : anytime).push({ key: `t:${t.id}`, kind: "task", text: t.title, time: t.time, sub: t.group === "overdue" ? "overdue" : undefined });
   }
   const horizon = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3));
+  const billNames = (src.bills ?? []).map((b) => b.label.toLowerCase());
+  for (const c of Array.isArray(src.charges) ? src.charges : []) {
+    if (c.status === "ignore" || c.status === "cancelling" || !c.next || c.next < today || c.next > horizon) continue;
+    if (billNames.some((l) => l.includes(c.name.toLowerCase()))) continue;  // SirisAI already lists it
+    const when = c.next === today ? "today" : new Date(`${c.next}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+    soon.push({ key: `c:${c.id}`, kind: "bill", time: null, text: `${c.name} ${money(c.amount)}`, sub: when });
+  }
   for (const b of src.bills ?? []) {
     if (b.due_date && b.due_date >= today && b.due_date <= horizon) soon.push({ key: `b:${b.id}`, kind: "bill", text: b.label, time: null, sub: b.due_date === today ? "today" : undefined });
   }
@@ -70,12 +81,12 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 export function TodayTimeline({ events }: { events?: { summary: string; start: string }[] }) {
   const { data } = useResource("home:today", async () => {
-    const [t, b, p, tr, rn] = await Promise.allSettled([tasks.list(), life.bills(), people.list(), life.travel(), renewals.list()]);
+    const [t, b, p, tr, rn, ch] = await Promise.allSettled([tasks.list(), life.bills(), people.list(), life.travel(), renewals.list(), ahead.recurring()]);
     const ok = <T,>(r: PromiseSettledResult<T>) => (r.status === "fulfilled" ? r.value : undefined);
     const list = ok(t);
     return {
       tasks: list ? [...list.groups.overdue, ...list.groups.today] : [],
-      bills: ok(b) ?? [], people: ok(p) ?? [], trips: ok(tr) ?? [], renewals: ok(rn)?.renewals ?? [],
+      bills: ok(b) ?? [], people: ok(p) ?? [], trips: ok(tr) ?? [], renewals: ok(rn)?.renewals ?? [], charges: ok(ch)?.items ?? [],
     };
   }, { refreshMs: 5 * 60_000, persist: true });
   const now = new Date();
