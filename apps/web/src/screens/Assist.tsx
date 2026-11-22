@@ -4,6 +4,7 @@ import { Compass, Lightbulb, ListChecks, Target } from "lucide-react";
 import { Glass } from "../components/Glass";
 import { useResource } from "../api/resource";
 import { away, patterns, plan, steer, type Away, type DayPlan, type Patterns, type SteerGoal } from "../api/assist";
+import { inPrepFrame } from "../api/prepare";
 
 /** 11.3: the day's plan, while you were away, patterns across sections, and goals off pace. */
 
@@ -44,7 +45,7 @@ export function AwayCard() {
   const [a, setA] = useState<Away | null>(null);
   const asked = useRef(false);
   useEffect(() => {
-    if (asked.current) return;
+    if (asked.current || inPrepFrame()) return;
     asked.current = true;
     away.get().then((r) => {
       if (r?.away && Array.isArray(r.items)) setA(r);

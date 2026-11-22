@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Bell, X } from "lucide-react";
 import { api, json } from "../api/client";
 import { deviceId, deviceLabel } from "../api/push";
+import { inPrepFrame } from "../api/prepare";
 
 /** 10.6: smarter notifications, the app's side.
  * - `useSeen(key)`: a card reports the notification it stands for once it's been on screen for two seconds, so
@@ -18,6 +19,7 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 const sent = new Set<string>();
 
 export function markSeen(keys: (string | null | undefined)[]) {
+  if (inPrepFrame()) return;  // Get ready for offline opening screens out of sight isn't you seeing them
   for (const k of keys) if (k && !sent.has(k)) queue.add(k);
   if (!queue.size || timer) return;
   timer = setTimeout(() => {
@@ -85,6 +87,7 @@ function endpoint(): string | null {
 export function AppPresence() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const beat = useCallback(async () => {
+    if (inPrepFrame()) return;
     const device = deviceId();
     if (document.visibilityState === "hidden" || device.length < 4) return;
     try {

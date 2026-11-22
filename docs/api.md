@@ -78,6 +78,8 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 
 | Route | What it does |
 | --- | --- |
+| `POST /api/v1/assistant/ask-later` | A question asked offline: SirisAI answers it in the background and the answer comes as a notification. |
+| `GET /api/v1/assistant/asked` |  |
 | `GET /api/v1/assistant/cameras/{camera}/latest.jpg` | The camera's latest frame, through SirisAI (which proxies Frigate), so neither Frigate nor the SirisAI key is exposed to the browser. |
 | `POST /api/v1/assistant/cameras/{camera}/look` | SirisAI's vision model describes the camera's latest frame. |
 | `POST /api/v1/assistant/chat/confirm/stream` |  |
@@ -183,6 +185,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/brain/not-related` | Dismiss a "could be linked" suggestion so it isn't suggested again. |
 | `GET /api/v1/brain/note` | One note with its links and backlinks, to review or unlink its connections. |
 | `POST /api/v1/brain/purge` | Permanently remove a note that's already deleted. |
+| `GET /api/v1/brain/recent` | The most recently updated Siris notes (titles), for Get ready for offline. |
 | `POST /api/v1/brain/restore` | Undo a delete: the note returns where it was, with its connections. |
 | `GET /api/v1/brain/search` |  |
 | `GET /api/v1/brain/today` |  |

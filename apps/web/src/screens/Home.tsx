@@ -33,6 +33,7 @@ import { TripHomeCard } from "./Travel";
 import { RecapCard } from "./RecapCard";
 import { AwayCard, GoalsPaceCard, PatternsCard, PlanCard } from "./Assist";
 import { usage as homeUsage, type Usage } from "../api/assist";
+import { inPrepFrame } from "../api/prepare";
 import { BedroomCard, BinsCard, CatchupsCard, FuelCard, GardenCard, WatchTonightCard, WeekendCard } from "./Routines";
 
 /** 9.4: cards from big screens load when Home shows them, not with the app: Home used to pull in all of Health
@@ -174,6 +175,7 @@ export function AppGrid({ apps, onOpen, layout = "grid" }: { apps: HubApp[]; onO
  * shown only if it drew something; it's "interactive" if it has a button, link or field. */
 function useHomeUsage(phase: string) {
   useEffect(() => {
+    if (inPrepFrame()) return undefined;
     const queue: { phase: string; widget: string; kind: "seen" | "tap"; interactive?: boolean }[] = [];
     const flush = () => { if (queue.length) homeUsage.send(queue.splice(0, queue.length)).catch(() => undefined); };
     const onClick = (e: MouseEvent) => {

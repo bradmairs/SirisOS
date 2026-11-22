@@ -1435,3 +1435,10 @@ section:has(> .widget-grid:empty) { display: none; }
 .inapp__banner > svg { flex: none; margin-top: 2px; color: var(--accent); }
 .inapp__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; font-size: 14px; }
 .inapp__text span { color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* 11.4: the sync bar (offline, waiting, synced). */
+.syncbar { display: flex; align-items: center; gap: 8px; width: max-content; max-width: 100%; margin: 0 0 10px; padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline); background: var(--glass-fill); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.syncbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.syncbar--offline { color: var(--ink); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
+.syncbar--warn { color: var(--warning); }

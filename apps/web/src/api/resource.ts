@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { bigStore, getItem, keys, removeItem, setItem } from "./store";
 
 /**
  * A tiny shared data cache (stale-while-revalidate) for API reads.
@@ -39,19 +40,12 @@ export interface Snapshot<T> {
 const entries = new Map<string, Entry<unknown>>();
 
 const PERSIST_PREFIX = "sirisos.cache.";
-const PERSIST_MAX_CHARS = 500_000;
-
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
+// 11.4: kept in IndexedDB (api/store.ts), so a screen's data can be big; localStorage (the fallback) keeps it smaller.
+const PERSIST_MAX_CHARS = () => (bigStore() ? 5_000_000 : 500_000);
 
 function readPersisted<T>(key: string): { data: T; updatedAt: number } | null {
   try {
-    const raw = storage()?.getItem(PERSIST_PREFIX + key);
+    const raw = getItem(PERSIST_PREFIX + key);
     if (!raw) return null;
     const value = JSON.parse(raw);
     return value && typeof value.updatedAt === "number" ? value : null;
@@ -63,20 +57,19 @@ function readPersisted<T>(key: string): { data: T; updatedAt: number } | null {
 function writePersisted<T>(key: string, data: T, updatedAt: number) {
   try {
     const raw = JSON.stringify({ data, updatedAt });
-    if (raw.length <= PERSIST_MAX_CHARS) storage()?.setItem(PERSIST_PREFIX + key, raw);
+    if (raw.length <= PERSIST_MAX_CHARS()) setItem(PERSIST_PREFIX + key, raw);
   } catch {
     /* full or blocked: the in-memory cache still works */
   }
 }
 
 function clearPersisted() {
-  const store = storage();
-  if (!store) return;
-  try {
-    Object.keys(store).filter((k) => k.startsWith(PERSIST_PREFIX)).forEach((k) => store.removeItem(k));
-  } catch {
-    /* blocked */
-  }
+  keys(PERSIST_PREFIX).forEach((k) => removeItem(k));
+}
+
+/** 11.4: a queued offline write answers {queued: true}; it isn't data, so a screen keeps what it shows. */
+function isQueued(data: unknown): boolean {
+  return !!data && typeof data === "object" && (data as { queued?: unknown }).queued === true && Object.keys(data as object).length <= 2;
 }
 
 function entry<T>(key: string, fetcher: (fresh: boolean) => Promise<T>, refreshMs: number, persist = false): Entry<T> {
@@ -110,8 +103,12 @@ function publish<T>(e: Entry<T>) {
   e.listeners.forEach((fn) => fn());
 }
 
+// Bumped by clearResources (sign-out): a request that finishes after it never writes into the cleared store.
+let generation = 0;
+
 function load<T>(e: Entry<T>, fresh = false): Promise<T> {
   if (e.inflight && !fresh) return e.inflight;
+  const gen = generation;
   e.loading = true;
   publish(e);
   const run = e
@@ -120,7 +117,7 @@ function load<T>(e: Entry<T>, fresh = false): Promise<T> {
       e.data = data;
       e.error = null;
       e.updatedAt = Date.now();
-      if (e.persist) writePersisted(e.key, data, e.updatedAt);
+      if (e.persist && gen === generation) writePersisted(e.key, data, e.updatedAt);
       return data;
     })
     .catch((err: unknown) => {
@@ -172,12 +169,12 @@ export interface ResourceOptions {
   staleMs?: number;
   /** Skip fetching entirely (e.g. no query yet). */
   enabled?: boolean;
-  /** Keep the last good result on this device for the next launch (Home's data). */
+  /** Keep the last good result on this device for the next launch and offline. On by default since 11.4. */
   persist?: boolean;
 }
 
 export function useResource<T>(key: string, fetcher: (fresh: boolean) => Promise<T>, options: ResourceOptions = {}) {
-  const { refreshMs = 0, staleMs = 15_000, enabled = true, persist = false } = options;
+  const { refreshMs = 0, staleMs = 15_000, enabled = true, persist = true } = options;
   const e = entry(key, fetcher, refreshMs, persist);
 
   const subscribe = useCallback(
@@ -201,6 +198,7 @@ export function useResource<T>(key: string, fetcher: (fresh: boolean) => Promise
   /** Update the cached value locally (optimistic edits), notifying every reader. */
   const mutate = useCallback(
     (data: T) => {
+      if (isQueued(data)) return;  // saved offline: keep showing what's there until it syncs
       e.data = data;
       e.updatedAt = Date.now();
       if (e.persist) writePersisted(e.key, data, e.updatedAt);
@@ -225,6 +223,7 @@ export function refreshResource(key: string) {
 
 /** Forget everything (sign-out, tests). */
 export function clearResources() {
+  generation += 1;
   entries.forEach((e) => {
     if (e.timer !== null) window.clearInterval(e.timer);
   });
@@ -236,4 +235,34 @@ export function clearResources() {
 export function oldestUpdate(keys: string[]): number | null {
   const times = keys.map((k) => entries.get(k)?.updatedAt ?? 0).filter((t) => t > 0);
   return times.length ? Math.min(...times) : null;
+}
+
+/** 11.4: change a key's data on this device (an offline edit shown straight away), whether or not anything's reading it. */
+export function patchResource<T>(key: string, fn: (data: T) => T): boolean {
+  const e = entries.get(key) as Entry<T> | undefined;
+  const base = e?.data ?? readPersisted<T>(key)?.data;
+  if (base === undefined) return false;
+  const next = fn(base);
+  if (e) {
+    e.data = next;
+    publish(e);
+  }
+  writePersisted(key, next, e?.updatedAt || readPersisted<T>(key)?.updatedAt || Date.now());
+  return true;
+}
+
+/** 11.4: the oldest data on screen right now, for "Offline · showing what it had at…". */
+export function shownSince(): number | null {
+  const times = [...entries.values()].filter((e) => e.listeners.size > 0 && e.updatedAt > 0).map((e) => e.updatedAt);
+  return times.length ? Math.min(...times) : null;
+}
+
+/** 11.4: after Get ready for offline filled the store in the background, forget what's in memory so screens read it. */
+export function forgetLoaded(): void {
+  entries.forEach((e) => {
+    if (e.listeners.size === 0) {
+      if (e.timer !== null) window.clearInterval(e.timer);
+      entries.delete(e.key);
+    }
+  });
 }

@@ -20,7 +20,8 @@ describe("outbox (6.3)", () => {
     });
     expect(await flush()).toBe(2);
     expect(waiting()).toBe(0);
-    expect(calls.map((c) => c.url)).toEqual(["/api/v1/brain/capture", "/api/v1/tasks"]);
+    // 11.4: a line is offered to smart capture first; an older SirisOS without it (404) gets it as a Siris note.
+    expect(calls.map((c) => c.url)).toEqual(["/api/v1/capture/route", "/api/v1/brain/capture", "/api/v1/tasks"]);
   });
 
   it("won't keep a big photo", () => {

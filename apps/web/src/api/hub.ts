@@ -1,4 +1,5 @@
 import { api, json, request } from "./client";
+import { noteWithCopy, searchWithCopy } from "./offlineNotes";
 import { readEvents } from "./sse";
 import { readNdjson, type VoiceEvent } from "./voice";
 import type {
@@ -37,7 +38,9 @@ export interface BrainDebriefAnswers {
 }
 
 export const brain = {
-  search: (q: string, limit = 12) => api<BrainHit[]>(`/api/v1/brain/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  search: (q: string, limit = 12) => searchWithCopy(() => api<BrainHit[]>(`/api/v1/brain/search?q=${encodeURIComponent(q)}&limit=${limit}`), q, limit),
+  /** 11.4: the most recently updated notes (for Get ready for offline). */
+  recent: (limit = 30) => api<{ title: string }[]>(`/api/v1/brain/recent?limit=${limit}`),
   map: () => request("/api/v1/brain/map.html").then((r) => r.text()),
   today: () => api<{ date: string; items: { title: string; action: string }[] }>("/api/v1/brain/today"),
   inboxCount: () => api<{ count: number }>("/api/v1/brain/inbox/count"),
@@ -54,7 +57,7 @@ export const brain = {
   answerDebrief: (answers: BrainDebriefAnswers) =>
     api<{ filed: string; decision: boolean; lesson: boolean }>("/api/v1/brain/debrief", json(answers)),
   autolink: () => api<{ linked: { a: string; b: string; confidence: number | null }[]; deferred: number }>("/api/v1/brain/autolink", { method: "POST" }),
-  note: (title: string) => api<BrainNote>(`/api/v1/brain/note?title=${encodeURIComponent(title)}`),
+  note: (title: string) => noteWithCopy(() => api<BrainNote>(`/api/v1/brain/note?title=${encodeURIComponent(title)}`), title),
   /** Leaves search, links and the map. Restorable unless `permanent`. */
   remove: (title: string, permanent = false) => api<BrainDeleteResult>("/api/v1/brain/delete", json({ title, permanent })),
   restore: (title: string) => api<BrainDeleteResult>("/api/v1/brain/restore", json({ title })),
