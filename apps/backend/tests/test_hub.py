@@ -140,6 +140,11 @@ class FakeApps:
         if path == "/siris/brain/done":
             body = json.loads(request.content)
             return httpx.Response(200, json={"action": "done" if "task" in body else "project-done", "task": body.get("task"), "note": body["note"]})
+        if path == "/siris/brain/review":
+            return httpx.Response(200, json=[{"title": "Plex", "path": "Notes/Plex.md", "links": 9, "as_of": "2026-11-20",
+                                              "excerpt": "Media server.", "card": "Plex — Media server on the home server."}][: int(request.url.params["count"])])
+        if path == "/siris/brain/reviewed":
+            return httpx.Response(200, json={"reviewed": True, "title": json.loads(request.content)["title"], "date": "2026-11-22"})
         if path == "/siris/brain/debrief":
             if request.method == "GET":
                 return httpx.Response(200, json={"asked": "2026-11-20", "answered": None, "open": True,
@@ -608,3 +613,11 @@ def test_brain_debrief_proxy(client, apps):
     assert r.json() == {"filed": "Melrose East Pump Station", "decision": True, "lesson": True}
     assert client.post("/api/v1/brain/debrief", headers=AUTH, json={}).status_code == 422
     assert client.post("/api/v1/brain/debrief", headers=AUTH, json={"decided": "x" * 2001}).status_code == 422
+
+
+def test_brain_review_proxy(client, apps):
+    queue = client.get("/api/v1/brain/review?count=1", headers=AUTH).json()
+    assert queue[0]["title"] == "Plex" and queue[0]["card"].startswith("Plex")
+    r = client.post("/api/v1/brain/reviewed", headers=AUTH, json={"title": "Plex"})
+    assert r.json() == {"reviewed": True, "title": "Plex", "date": "2026-11-22"}
+    assert client.post("/api/v1/brain/reviewed", headers=AUTH, json={"title": ""}).status_code == 422

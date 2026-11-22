@@ -19,6 +19,15 @@ export const hub = {
   app: (id: string, fresh = false) => api<HubApp>(`/api/v1/hub/apps/${encodeURIComponent(id)}?fresh=${fresh}`),
 };
 
+export interface BrainReviewItem {
+  title: string;
+  path: string;
+  links: number;
+  as_of: string;
+  excerpt: string;
+  card?: string;
+}
+
 export interface BrainDebrief {
   asked: string | null;
   answered: string | null;
@@ -53,6 +62,10 @@ export const brain = {
   /** Tick a task in a note, or with no task mark the project finished. */
   done: (note: string, task?: string) =>
     api<{ action: "done" | "project-done" | "already-done"; note: string; task: string | null }>("/api/v1/brain/done", json(task ? { note, task } : { note })),
+  /** Notes Siris wrote that Brad hasn't checked, most connected first, each with its card (vault engine 3.02). */
+  review: (count = 5) => api<BrainReviewItem[]>(`/api/v1/brain/review?count=${count}`),
+  /** Brad checked this note and it's right. */
+  reviewed: (title: string) => api<{ reviewed: boolean; title: string; date?: string }>("/api/v1/brain/reviewed", json({ title })),
   /** This week's Friday debrief (SirisAI 7.07; 7.29: open on Friday only, until answered or dismissed). */
   debrief: () => api<BrainDebrief>("/api/v1/brain/debrief"),
   dismissDebrief: () => api<BrainDebrief>("/api/v1/brain/debrief/dismiss", { method: "POST" }),
