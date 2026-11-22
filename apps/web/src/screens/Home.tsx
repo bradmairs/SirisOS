@@ -20,6 +20,7 @@ import { TodayTimeline } from "./TodayTimeline";
 import { FocusCard } from "./FocusCard";
 import { GoalsPromptCard } from "./GoalsPrompt";
 import { DebriefCard } from "./DebriefCard";
+import { ReviewCard } from "./ReviewCard";
 import { BrainTodayWidget, CaptureWidget, ResurfaceWidget } from "./DayWidgets";
 import { FitnessWidget } from "./FitnessWidget";
 import { CareerWidget } from "./CareerWidget";
@@ -374,6 +375,7 @@ export function Home() {
 
       {!hideMine && <GoalsPromptCard />}
       {!hideMine && <DebriefCard />}
+      {!hideMine && <ReviewCard />}
       {adapt && !hideMine && <MorningGymCard />}
       {adapt && phase === "work" && !hideMine && <WorkHomeCard />}
       {adapt && ctx && !hideMine && <FocusCard ctx={ctx} events={hud?.next_events} parcels={siris?.parcels?.length ?? 0} inbox={siris?.attention?.open ?? 0} />}

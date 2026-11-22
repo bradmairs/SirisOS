@@ -1442,3 +1442,6 @@ section:has(> .widget-grid:empty) { display: none; }
 .syncbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .syncbar--offline { color: var(--ink); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
 .syncbar--warn { color: var(--warning); }
+
+/* Is this right? (11.6.0) */
+.review-card__note { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ink-3, #888) 10%, transparent); }

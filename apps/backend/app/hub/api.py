@@ -524,6 +524,22 @@ class BrainDebrief(BaseModel):
     cpeng: str = Field(default="", max_length=4000)
 
 
+class BrainReviewed(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+
+@router.get("/brain/review", tags=["brain"])
+async def brain_review(count: int = Query(5, ge=1, le=20), connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Notes Siris wrote that Brad hasn't checked yet, the most connected first, each with its card."""
+    return await _forward(connector, "GET", "/siris/brain/review", params={"count": count})
+
+
+@router.post("/brain/reviewed", tags=["brain"])
+async def brain_reviewed(body: BrainReviewed, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Brad checked this note and it's right: it leaves the queue and Siris trusts it a little more."""
+    return await _forward(connector, "POST", "/siris/brain/reviewed", json=body.model_dump())
+
+
 @router.get("/brain/debrief", tags=["brain"])
 async def brain_debrief(connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """This week's Friday debrief: whether it's open, the GVW projects to pick from, and the CPEng question."""
