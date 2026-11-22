@@ -1,6 +1,6 @@
 name: Release
 
-# Merging a version bump (VERSION) to main tags it vX.YY and publishes a
+# Merging a version bump (VERSION) to main tags it vX.Y.Z and publishes a
 # GitHub release from docs/releases/X.YY.md. See docs/releases.md.
 on:
   push:
