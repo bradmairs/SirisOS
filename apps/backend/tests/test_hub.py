@@ -179,6 +179,9 @@ class FakeApps:
             if body["b"] == "Nope":
                 return httpx.Response(422, json={"detail": "No note called 'Nope'"})
             return httpx.Response(200, json={"action": "linked" if path.endswith("link") else "dismissed", **body})
+        if path in ("/siris/brain/skip-link", "/siris/brain/looks-right"):
+            body = json.loads(request.content)
+            return httpx.Response(200, json={"action": "skipped" if path.endswith("skip-link") else "kept", **body})
         if path == "/siris/brain/today":
             return httpx.Response(200, json={"date": "2026-10-02", "items": [{"title": "Pump curves", "action": "learned"}]})
         if path == "/siris/brain/insights":
@@ -519,6 +522,15 @@ def test_brain_link_and_not_related_proxies(client, apps):
     assert missing.status_code == 422 and "No note called 'Nope'" in missing.json()["detail"]
     assert client.post("/api/v1/brain/link", headers=AUTH, json={"a": "", "b": "x"}).status_code == 422
     assert client.post("/api/v1/brain/link", json={"a": "a", "b": "b"}).status_code == 401
+
+
+def test_brain_skip_link_and_looks_right_proxies(client, apps):
+    """11.5: skip a suggestion, keep an automatic link."""
+    r = client.post("/api/v1/brain/skip-link", headers=AUTH, json={"a": "Valves", "b": "Pumps"})
+    assert r.json() == {"action": "skipped", "a": "Valves", "b": "Pumps"}
+    r = client.post("/api/v1/brain/looks-right", headers=AUTH, json={"a": "Pumps", "b": "Meters"})
+    assert r.json()["action"] == "kept"
+    assert client.post("/api/v1/brain/skip-link", json={"a": "a", "b": "b"}).status_code == 401
 
 
 def test_cmp_capabilities_is_not_part_of_the_hub(client, monkeypatch):

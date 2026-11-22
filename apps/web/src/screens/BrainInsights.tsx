@@ -132,21 +132,26 @@ function ComingUp({ items, done, onDone }: { items: Due[]; done: string | null; 
 
 type Pair = Insights["suggested_links"][number];
 
-/** "Could be linked": link the two notes, or say they aren't related. Either way the
- *  suggestion goes, and the list refreshes so the next best one moves up. */
-function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string | null; onDone: (pair: Pair, text: string) => void }) {
+type Batch = NonNullable<Insights["link_batch"]>;
+
+const sunday = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+
+/** "Could be linked": this week's batch (11.5). Link, skip or say they aren't related: each pair is decided
+ *  once, and when the batch is done the list says so until next Sunday. Nothing new moves up mid-week. */
+function SuggestedLinks({ pairs, batch, done, onDone }: { pairs: Pair[]; batch?: Batch; done: string | null; onDone: (pair: Pair, text: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { shown, toggle } = useShowMore(pairs);
 
-  async function act(pair: Pair, kind: "link" | "unrelate") {
+  async function act(pair: Pair, kind: "link" | "unrelate" | "skip") {
     const key = `${pair.a}|${pair.b}`;
     setBusy(key);
     setErrors((e) => ({ ...e, [key]: "" }));
     try {
       if (kind === "link") await brain.link(pair.a, pair.b);
+      else if (kind === "skip") await brain.skipLink(pair.a, pair.b);
       else await brain.notRelated(pair.a, pair.b);
-      onDone(pair, kind === "link" ? `Linked ${pair.a} and ${pair.b}` : `Won't suggest ${pair.a} and ${pair.b} again`);
+      onDone(pair, kind === "link" ? `Linked ${pair.a} and ${pair.b}` : kind === "skip" ? `Skipped ${pair.a} and ${pair.b}` : `Won't suggest ${pair.a} and ${pair.b} again`);
     } catch (err) {
       setErrors((e) => ({ ...e, [key]: err instanceof Error ? err.message : "That didn't work." }));
     } finally {
@@ -161,7 +166,16 @@ function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string |
           <Check size={14} aria-hidden="true" /> {done}
         </p>
       )}
-      {pairs.length === 0 && <p className="muted" style={{ margin: 0 }}>No more suggestions for now.</p>}
+      {batch && batch.total > 0 && pairs.length > 0 && (
+        <p className="muted suggest__hint">{batch.left} of {batch.total} left this week. Each pair is asked about once.</p>
+      )}
+      {pairs.length === 0 && (
+        <p className="muted" style={{ margin: 0 }}>
+          {batch
+            ? `${batch.total > 0 ? "All done for this week." : "Nothing to link this week."} The next few come on ${sunday(batch.next)}, if any notes are new or changed.`
+            : "No more suggestions for now."}
+        </p>
+      )}
       <ul className="items insights__list">
         {shown.map((p) => {
           const key = `${p.a}|${p.b}`;
@@ -170,12 +184,16 @@ function SuggestedLinks({ pairs, done, onDone }: { pairs: Pair[]; done: string |
               <span className="item__dot" style={{ background: "var(--brain)" }} aria-hidden="true" />
               <span className="item__text">
                 <div className="item__title">{p.a} ↔ {p.b}</div>
-                <div className="item__subtitle">{errors[key] ? <span className="tone-critical">{errors[key]}</span> : p.why}</div>
+                <div className="item__subtitle">{errors[key] ? <span className="tone-critical">{errors[key]}</span> : [p.why, ...(p.reasons ?? [])].join(" · ")}</div>
               </span>
               <span className="suggest__actions">
                 <button type="button" className="chip chip--button suggest__link" disabled={busy !== null}
                   onClick={() => act(p, "link")} aria-label={`Link ${p.a} and ${p.b}`}>
                   <Link2 size={13} aria-hidden="true" /> {busy === key ? "…" : "Link"}
+                </button>
+                <button type="button" className="chip chip--button" disabled={busy !== null}
+                  onClick={() => act(p, "skip")} aria-label={`Skip ${p.a} and ${p.b}`}>
+                  Skip
                 </button>
                 <button type="button" className="icon-link" disabled={busy !== null}
                   onClick={() => act(p, "unrelate")} aria-label={`${p.a} and ${p.b} aren't related`} title="Not related">
@@ -212,8 +230,8 @@ export function thresholdSentence(t: Thresholds | undefined): string {
 }
 
 
-/** Links Siris made on its own: glance over them, and undo any that are wrong. Undoing
- *  unlinks both notes and stops Siris from ever linking them again. */
+/** Links Siris made on its own that it wasn't sure of (under 85%): keep each with Looks right, or undo it.
+ *  Undoing unlinks both notes and stops Siris from ever linking them again. Either way it leaves the list. */
 function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -250,7 +268,7 @@ function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: stri
       )}
       {error && <p className="tone-critical" style={{ margin: 0 }}>{error}</p>}
       {pairs.length === 0 ? (
-        pending === 0 && <p className="muted" style={{ margin: 0 }}>Nothing linked automatically in the last two weeks.</p>
+        pending === 0 && <p className="muted" style={{ margin: 0 }}>Nothing to look over. Links Siris is sure of (85% or more) don't ask.</p>
       ) : (
         <>
         <ul className="items insights__list">
@@ -264,6 +282,14 @@ function AutoLinks({ data, onChanged }: { data: Insights; onChanged: (text: stri
                   <div className="item__subtitle">{p.confidence ? `${p.confidence}% match · ` : ""}{dayLabel(p.date)}</div>
                 </span>
                 <span className="suggest__actions">
+                  <button type="button" className="chip chip--button suggest__link" disabled={busy !== null}
+                    onClick={() => run(`${key}|ok`, async () => {
+                      await brain.looksRight(p.a, p.b);
+                      return `Kept the link between ${p.a} and ${p.b}`;
+                    })}
+                    aria-label={`Looks right: ${p.a} and ${p.b}`}>
+                    <Check size={13} aria-hidden="true" /> {busy === `${key}|ok` ? "…" : "Looks right"}
+                  </button>
                   <button type="button" className="chip chip--button" disabled={busy !== null}
                     onClick={() => run(key, async () => {
                       await brain.unlink(p.a, p.b);
@@ -423,15 +449,17 @@ export function BrainInsights({ map }: { map?: ReactNode } = {}) {
           </Glass>
         )}
 
-        {(data.suggested_links.length > 0 || linkDone) && (
+        {(data.suggested_links.length > 0 || linkDone || data.link_batch) && (
           <Glass className="widget">
-            <div className="widget__head"><Link2 aria-hidden="true" /> Could be linked: your call</div>
+            <div className="widget__head"><Link2 aria-hidden="true" /> Could be linked: this week</div>
             <SuggestedLinks
               pairs={data.suggested_links}
+              batch={data.link_batch}
               done={linkDone}
               onDone={(pair, text) => {
                 setLinkDone(text);
-                mutate({ ...data, suggested_links: data.suggested_links.filter((p) => p !== pair) });
+                mutate({ ...data, suggested_links: data.suggested_links.filter((p) => p !== pair),
+                  link_batch: data.link_batch && { ...data.link_batch, left: Math.max(0, data.link_batch.left - 1) } });
                 reload(true).catch(() => undefined);
               }}
             />

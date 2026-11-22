@@ -181,6 +181,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/brain/inbox/count` | How many notes wait in the brain's inbox: all the tab bar's dot needs, without working out the insights. |
 | `GET /api/v1/brain/insights` | How Siris is growing and what needs attention, worked out by the vault's engine. |
 | `POST /api/v1/brain/link` | Accept a "could be linked" suggestion: the two notes are linked both ways. |
+| `POST /api/v1/brain/looks-right` | Keep a link Siris made itself; it leaves the review list for good (11.5). |
 | `GET /api/v1/brain/map.html` | Siris' living mind map, drawn fresh from the vault by SirisAI. The PWA renders it in a sandboxed iframe, so it never sees the SirisAI key. |
 | `POST /api/v1/brain/not-related` | Dismiss a "could be linked" suggestion so it isn't suggested again. |
 | `GET /api/v1/brain/note` | One note with its links and backlinks, to review or unlink its connections. |
@@ -188,6 +189,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/brain/recent` | The most recently updated Siris notes (titles), for Get ready for offline. |
 | `POST /api/v1/brain/restore` | Undo a delete: the note returns where it was, with its connections. |
 | `GET /api/v1/brain/search` |  |
+| `POST /api/v1/brain/skip-link` | Skip a "could be linked" suggestion: off this week's list and not suggested again (11.5). |
 | `GET /api/v1/brain/today` |  |
 | `POST /api/v1/brain/unlink` | Disconnect two notes both ways; nothing automatic links them again. |
 

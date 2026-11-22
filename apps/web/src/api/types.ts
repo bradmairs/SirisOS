@@ -116,9 +116,11 @@ export interface BrainInsights {
   overdue_tasks: { task: string; note: string; due: string; days_late: number }[];
   inbox: { count: number; oldest: string | null };
   gaps: Record<string, number>;
-  /** Only the unsure pairs: confident ones are linked automatically. */
-  suggested_links: { a: string; b: string; score: number; confidence?: number | null; why: string }[];
-  /** Links Siris made itself in the last two weeks that are still in place. */
+  /** What's left of this week's batch (11.5): unsure pairs with a second reason, each decided once. */
+  suggested_links: { a: string; b: string; score: number; confidence?: number | null; why: string; reasons?: string[] }[];
+  /** This week's batch: how many, how many are left, and when the next one comes (Siris 3.02). */
+  link_batch?: { week: string; next: string; total: number; left: number };
+  /** Links Siris made itself in the last two weeks, under 85% sure, that you haven't kept or undone. */
   auto_linked?: { a: string; b: string; confidence: number | null; date: string }[];
   /** Confident pairs waiting for the next tidy (or "Link now"). */
   pending_auto_links?: number;

@@ -47,6 +47,8 @@ export const brain = {
   insights: (days = 30) => api<BrainInsights>(`/api/v1/brain/insights?days=${days}`),
   link: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/link", json({ a, b })),
   notRelated: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/not-related", json({ a, b })),
+  skipLink: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/skip-link", json({ a, b })),
+  looksRight: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/looks-right", json({ a, b })),
   unlink: (a: string, b: string) => api<{ action: string; a: string; b: string }>("/api/v1/brain/unlink", json({ a, b })),
   /** Tick a task in a note, or with no task mark the project finished. */
   done: (note: string, task?: string) =>

@@ -155,7 +155,7 @@ describe("automatic links", () => {
     expect(await screen.findByText(/Siris links notes that are 78% alike or more by itself \(tuned from your 451 link decisions\)/)).toBeInTheDocument();
     expect(screen.getByText("Pump Stations ↔ Wet Wells")).toBeInTheDocument();
     expect(screen.getByText(/91% match/)).toBeInTheDocument();
-    expect(screen.getByText("Could be linked: your call")).toBeInTheDocument();
+    expect(screen.getByText("Could be linked: this week")).toBeInTheDocument();
     expect(screen.getByText("4 confident links waiting for tonight's tidy.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /link now/i }));
@@ -221,5 +221,51 @@ describe("coming up and long lists", () => {
     expect(screen.queryByText("E ↔ Hub")).not.toBeInTheDocument();
     // Short lists have no button.
     expect(screen.getAllByRole("button", { name: /^Show \d+ more/ })).toHaveLength(1);
+  });
+});
+
+describe("SirisOS 11.5: link suggestions end", () => {
+  const BATCH: Insights = {
+    ...INSIGHTS,
+    suggested_links: [{ a: "Valves", b: "Pump Stations", score: 0.78, confidence: 78, why: "78% similar in meaning", reasons: ["both link to [[Wet Wells]]"] }],
+    link_batch: { week: "2026-11-22", next: "2026-11-29", total: 8, left: 1 },
+    auto_linked: [{ a: "Pump Stations", b: "Meters", confidence: 81, date: "2026-11-21" }],
+  };
+
+  it("counts down this week's batch, skips, and says it's done until Sunday", async () => {
+    signIn();
+    let served = BATCH;
+    const calls = mockFetch({
+      "/api/v1/brain/insights": () => jsonResponse(served),
+      "/api/v1/brain/skip-link": () => {
+        served = { ...BATCH, suggested_links: [], link_batch: { ...BATCH.link_batch!, left: 0 } };
+        return jsonResponse({ action: "skipped", a: "Valves", b: "Pump Stations" });
+      },
+    });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+    expect(await screen.findByText("1 of 8 left this week. Each pair is asked about once.")).toBeInTheDocument();
+    expect(screen.getByText(/78% similar in meaning · both link to \[\[Wet Wells\]\]/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Skip Valves and Pump Stations" }));
+    expect(await screen.findByText(/All done for this week\. The next few come on Sunday/)).toBeInTheDocument();
+    expect(JSON.parse(calls.find((c) => c.url === "/api/v1/brain/skip-link")!.init.body as string)).toEqual({ a: "Valves", b: "Pump Stations" });
+  });
+
+  it("keeps an unsure automatic link with Looks right", async () => {
+    signIn();
+    let served = BATCH;
+    const calls = mockFetch({
+      "/api/v1/brain/insights": () => jsonResponse(served),
+      "/api/v1/brain/looks-right": () => {
+        served = { ...BATCH, auto_linked: [] };
+        return jsonResponse({ action: "kept", a: "Pump Stations", b: "Meters" });
+      },
+    });
+    const user = userEvent.setup();
+    render(<BrainInsights />);
+    await user.click(await screen.findByRole("button", { name: "Looks right: Pump Stations and Meters" }));
+    expect(await screen.findByText("Kept the link between Pump Stations and Meters")).toBeInTheDocument();
+    expect(calls.some((c) => c.url === "/api/v1/brain/looks-right")).toBe(true);
+    await waitFor(() => expect(screen.queryByText("Pump Stations ↔ Meters")).not.toBeInTheDocument());
   });
 });
