@@ -487,6 +487,18 @@ async def brain_not_related(pair: BrainPair, connector: SirisAIConnector = Depen
     return await _forward(connector, "POST", "/siris/brain/not-related", json=pair.model_dump())
 
 
+@router.post("/brain/skip-link", tags=["brain"])
+async def brain_skip_link(pair: BrainPair, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Skip a "could be linked" suggestion: off this week's list and not suggested again (11.5)."""
+    return await _forward(connector, "POST", "/siris/brain/skip-link", json=pair.model_dump())
+
+
+@router.post("/brain/looks-right", tags=["brain"])
+async def brain_looks_right(pair: BrainPair, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
+    """Keep a link Siris made itself; it leaves the review list for good (11.5)."""
+    return await _forward(connector, "POST", "/siris/brain/looks-right", json=pair.model_dump())
+
+
 @router.post("/brain/unlink", tags=["brain"])
 async def brain_unlink(pair: BrainPair, connector: SirisAIConnector = Depends(_sirisai)) -> Any:
     """Disconnect two notes both ways; nothing automatic links them again."""
