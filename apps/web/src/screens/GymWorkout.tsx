@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeftRight, ArrowUp, BellRing, Check, Link2, Mic, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, BellRing, Check, ChevronLeft, ChevronRight, GalleryHorizontal, Link2, List, Mic, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from "lucide-react";
 import { type Compare, changeSet, chime, gym, loadActive, loadPlan, loadRest, moveEntry, parseSpoken, plates, saveActive, setE1rm, savePlan, saveRest, shortcuts, type Exercise, type GymRecord, type Plan, type Rest, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { brain } from "../api/hub";
@@ -36,6 +36,11 @@ export function GymWorkoutScreen() {
   const [, tick] = useState(0);
   const [listening, setListening] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
+  // 11.7: the whole workout as a list, or one exercise at a time (kept on this phone).
+  const [view, setViewState] = useState<View>(() => readView());
+  const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* private mode */ } };
+  const [cur, setCur] = useState(() => { const a = loadActive(); return a ? firstUndone(a.entries) : 0; });
+  const touchAt = useRef<{ x: number; y: number } | null>(null);
   const plan = useMemo<Plan | null>(() => (s ? loadPlan(s.id) : null), [s?.id]);
   // Last time for exercises the plan doesn't cover (9.0): an empty workout, one added or swapped in. Kept on the phone.
   const unplanned = [...new Set((s?.entries ?? []).map((e) => e.exercise).filter((id) => !(plan?.exercises.find((p) => p.exercise === id)?.last ?? []).length))].sort();
@@ -180,11 +185,32 @@ export function GymWorkoutScreen() {
       setInfo(e instanceof Error ? e.message : "Couldn't listen.");
     } finally { setListening(false); }
   }
+  /** One at a time: go to an exercise and back to the top of the page. */
+  const goTo = (i: number) => {
+    setCur(Math.max(0, Math.min(i, s.entries.length - 1)));
+    setMenu(null);
+    window.scrollTo?.({ top: 0, behavior: "smooth" });
+  };
+  /** A swipe left or right on the card turns the page; one that starts on the sets (swipe a set to delete it) or a box doesn't. */
+  const swipeStart = (e: React.TouchEvent) => {
+    const el = e.target as HTMLElement;
+    touchAt.current = el.closest(".gym-sets, input, textarea, .gym-entry__menu") ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const swipeEnd = (e: React.TouchEvent) => {
+    const from = touchAt.current;
+    touchAt.current = null;
+    if (!from) return;
+    const dx = e.changedTouches[0].clientX - from.x, dy = e.changedTouches[0].clientY - from.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) goTo(cur + (dx < 0 ? 1 : -1));
+  };
   restAfterRef.current = restAfter;
   startRestRef.current = startRest;
   nextTextRef.current = nextText;
   /** Move an exercise up or down (8.6). */
-  const move = (ei: number, by: number) => update({ ...s, entries: moveEntry(s.entries, ei, ei + by) });
+  const move = (ei: number, by: number) => {
+    update({ ...s, entries: moveEntry(s.entries, ei, ei + by) });
+    if (view === "focus") setCur(ei + by);   // one at a time, the page follows the exercise
+  };
   const unlink = (ei: number) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, group: null } : e)) });
   const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
   const doneSets = s.entries.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0);
@@ -232,6 +258,89 @@ export function GymWorkoutScreen() {
     }
   }
 
+  /** One exercise's card (11.7: the list and One at a time share it; `focus` is the full-page one). */
+  const renderEntry = (entry: Session["entries"][number], ei: number, focus: boolean) => {
+    const ex = byId.get(entry.exercise);
+    const p = plan?.exercises.find((x) => x.exercise === entry.exercise);
+    return (
+      <Glass key={`${entry.exercise}-${ei}`} as="section" className={`widget gym-entry ${entry.group ? "gym-entry--grouped" : ""}${focus ? " gym-focus__card" : ""}`} style={{ minHeight: 0 }} aria-label={ex?.name ?? entry.exercise}
+        {...(focus ? { onTouchStart: swipeStart, onTouchEnd: swipeEnd } : {})}>
+        {focus && ex?.image && (
+          <button type="button" className="gym-focus__hero" aria-label={`Picture of ${ex.name}`} onClick={() => setOpenEx(entry.exercise)}>
+            <ExerciseImage id={entry.exercise} name={ex.name} />
+          </button>
+        )}
+        {entry.group && <span className="gym-group">SUPERSET {entry.group}<button type="button" className="icon-link" aria-label={`Take ${ex?.name} out of the superset`} onClick={() => unlink(ei)}><X size={10} aria-hidden="true" /></button></span>}
+        <header className="widget__head">
+          <span className="gym-entry__name-row">
+            {!focus && ex?.image && <button type="button" className="gym-entry__thumb" aria-label={`Picture of ${ex.name}`} onClick={() => setOpenEx(entry.exercise)}><ExerciseImage id={entry.exercise} name={ex.name} size="thumb" /></button>}
+            <button type="button" className={`icon-link gym-entry__name${focus ? " gym-focus__name" : ""}`} onClick={() => setOpenEx(entry.exercise)}>{ex?.name ?? entry.exercise}</button>
+          </span>
+          <button type="button" className="widget__source icon-link gym-entry__more" aria-label={`More for ${ex?.name ?? entry.exercise}`} aria-expanded={menu === ei}
+            onClick={() => setMenu(menu === ei ? null : ei)}><MoreHorizontal size={18} aria-hidden="true" /></button>
+        </header>
+        {menu === ei && (
+          <div className="gym-entry__menu" role="group" aria-label={`${ex?.name ?? entry.exercise}: more`}>
+            {ei > 0 && <button type="button" className="chip chip--button" aria-label={`Move ${ex?.name ?? entry.exercise} up`} onClick={() => move(ei, -1)}><ArrowUp size={12} aria-hidden="true" /> Up</button>}
+            {ei < s.entries.length - 1 && <button type="button" className="chip chip--button" aria-label={`Move ${ex?.name ?? entry.exercise} down`} onClick={() => move(ei, 1)}><ArrowDown size={12} aria-hidden="true" /> Down</button>}
+            <button type="button" className="chip chip--button" aria-label={`Swap ${ex?.name ?? entry.exercise}`} onClick={() => { setMenu(null); setSwapping(ei); }}><ArrowLeftRight size={12} aria-hidden="true" /> Swap</button>
+            {ei < s.entries.length - 1 && !(entry.group && entry.group === s.entries[ei + 1].group) && (
+              <button type="button" className="chip chip--button" onClick={() => { link(ei); setMenu(null); }}><Link2 size={12} aria-hidden="true" /> Superset with the next</button>
+            )}
+            <button type="button" className="chip chip--button" onClick={() => setNotes((n) => new Set(n).add(ei))}><StickyNote size={12} aria-hidden="true" /> Note</button>
+            {(() => {
+              // Filmed during the set it's for: the next one to tick (or the last, once they're all done).
+              const work = entry.sets.filter((x) => x.type !== "warmup");
+              const k = work.findIndex((x) => !x.done);
+              const at = k >= 0 ? work[k] : work.at(-1);
+              return <FilmButton exercise={entry.exercise} session={s.id} set={k >= 0 ? k + 1 : work.length || undefined} weight={at?.weight ?? null}
+                reps={at?.reps ?? null} name={ex?.name ?? entry.exercise} />;
+            })()}
+            <button type="button" className="chip chip--button tone-critical" aria-label={`Remove ${ex?.name ?? entry.exercise}`}
+              onClick={() => { if (!entry.sets.some((x) => x.done) || window.confirm(`Remove ${ex?.name ?? entry.exercise} and its ticked sets?`)) { setMenu(null); update({ ...s, entries: s.entries.filter((_, i) => i !== ei) }); } }}>
+              <X size={12} aria-hidden="true" /> Remove</button>
+          </div>
+        )}
+        {(ex?.assisted || ex?.per_side) && (
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+            {ex.assisted ? "Assisted: the weight is the help, so less is harder." : "One side at a time: log one side's weight and reps; the volume counts both."}
+          </p>
+        )}
+        {p && (focus
+          ? <p className="gym-focus__target"><strong>{p.sets} × {p.reps}</strong><span className="muted"> · {p.suggest.why}</span></p>
+          : <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>)}
+        <LastTime last={lastFor(entry.exercise)} kind={ex?.kind ?? "weight"} />
+        {p?.cues && <p className="gym-cues" style={{ margin: 0, fontSize: 12 }}>{p.cues}</p>}
+        {p?.gym_swap && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Instead of {byId.get(p.gym_swap.from)?.name ?? p.gym_swap.from}, as always at this gym.</p>}
+        {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
+        {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
+        {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
+        <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here}
+          guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null} bodyweight={s.bodyweight ?? g?.settings.bodyweight_kg ?? null}
+          onChange={(si, patch, opts) => {
+            const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
+            update({ ...s, entries });
+            if (patch.done) {
+              chime.prime();  // a tap, so the end of the rest can make a sound
+              const t = restAfter(entries, ei);
+              if (t) startRest(t, nextText(ei, si)); else { setRest(null); setOver(null); }
+              // 11.7: one at a time, the next exercise (or the superset's other half) comes up by itself.
+              if (view === "focus") { const n = nextUp(entries, ei); if (n !== ei) window.setTimeout(() => goTo(n), 600); }
+            }
+          }}
+          onRemove={(si) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) })} />
+        <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }}
+          onClick={() => { const prev = entry.sets.at(-1); update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets, { weight: prev?.weight ?? null, reps: null, done: false, type: "normal" }] } : e)) }); }}>
+          <Plus size={12} aria-hidden="true" /> Set
+        </button>
+        {(entry.note || notes.has(ei)) && (
+          <input className="field" style={{ fontSize: 13 }} placeholder="Note for this exercise (a niggle, the setup, the seat height)" aria-label={`Note for ${ex?.name ?? entry.exercise}`}
+            value={entry.note ?? ""} onChange={(e) => update({ ...s, entries: s.entries.map((x, i) => (i === ei ? { ...x, note: e.target.value } : x)) })} />
+        )}
+      </Glass>
+    );
+  };
+
   return (
     <>
       <div className="gym-top">
@@ -249,80 +358,21 @@ export function GymWorkoutScreen() {
           <button type="button" className="button button--primary" onClick={finish}>{s.editing ? "Save" : "Finish"}</button>
         </div>
       </div>
+      <div className="gym-view" role="group" aria-label="Show">
+        <button type="button" className={`gym-view__btn${view === "list" ? " gym-view__btn--on" : ""}`} aria-pressed={view === "list"} onClick={() => setView("list")}>
+          <List size={14} aria-hidden="true" /> All exercises</button>
+        <button type="button" className={`gym-view__btn${view === "focus" ? " gym-view__btn--on" : ""}`} aria-pressed={view === "focus"}
+          onClick={() => { setView("focus"); goTo(firstUndone(s.entries)); }}>
+          <GalleryHorizontal size={14} aria-hidden="true" /> One at a time</button>
+      </div>
       {info && <p className="tone-warning" role="status">{info}</p>}
       {plan?.mode_note && <p className="muted" role="status" style={{ margin: "4px 0 0", fontSize: 13 }}>{plan.mode_note}</p>}
       <div className="stack" style={{ marginTop: 12 }}>
-        {s.entries.map((entry, ei) => {
-          const ex = byId.get(entry.exercise);
-          const p = plan?.exercises.find((x) => x.exercise === entry.exercise);
-          return (
-            <Glass key={`${entry.exercise}-${ei}`} as="section" className={`widget gym-entry ${entry.group ? "gym-entry--grouped" : ""}`} style={{ minHeight: 0 }} aria-label={ex?.name ?? entry.exercise}>
-              {entry.group && <span className="gym-group">SUPERSET {entry.group}<button type="button" className="icon-link" aria-label={`Take ${ex?.name} out of the superset`} onClick={() => unlink(ei)}><X size={10} aria-hidden="true" /></button></span>}
-              <header className="widget__head">
-                <span className="gym-entry__name-row">
-                  {ex?.image && <button type="button" className="gym-entry__thumb" aria-label={`Picture of ${ex.name}`} onClick={() => setOpenEx(entry.exercise)}><ExerciseImage id={entry.exercise} name={ex.name} size="thumb" /></button>}
-                  <button type="button" className="icon-link gym-entry__name" onClick={() => setOpenEx(entry.exercise)}>{ex?.name ?? entry.exercise}</button>
-                </span>
-                <button type="button" className="widget__source icon-link gym-entry__more" aria-label={`More for ${ex?.name ?? entry.exercise}`} aria-expanded={menu === ei}
-                  onClick={() => setMenu(menu === ei ? null : ei)}><MoreHorizontal size={18} aria-hidden="true" /></button>
-              </header>
-              {menu === ei && (
-                <div className="gym-entry__menu" role="group" aria-label={`${ex?.name ?? entry.exercise}: more`}>
-                  {ei > 0 && <button type="button" className="chip chip--button" aria-label={`Move ${ex?.name ?? entry.exercise} up`} onClick={() => move(ei, -1)}><ArrowUp size={12} aria-hidden="true" /> Up</button>}
-                  {ei < s.entries.length - 1 && <button type="button" className="chip chip--button" aria-label={`Move ${ex?.name ?? entry.exercise} down`} onClick={() => move(ei, 1)}><ArrowDown size={12} aria-hidden="true" /> Down</button>}
-                  <button type="button" className="chip chip--button" aria-label={`Swap ${ex?.name ?? entry.exercise}`} onClick={() => { setMenu(null); setSwapping(ei); }}><ArrowLeftRight size={12} aria-hidden="true" /> Swap</button>
-                  {ei < s.entries.length - 1 && !(entry.group && entry.group === s.entries[ei + 1].group) && (
-                    <button type="button" className="chip chip--button" onClick={() => { link(ei); setMenu(null); }}><Link2 size={12} aria-hidden="true" /> Superset with the next</button>
-                  )}
-                  <button type="button" className="chip chip--button" onClick={() => setNotes((n) => new Set(n).add(ei))}><StickyNote size={12} aria-hidden="true" /> Note</button>
-                  {(() => {
-                    // Filmed during the set it's for: the next one to tick (or the last, once they're all done).
-                    const work = entry.sets.filter((x) => x.type !== "warmup");
-                    const k = work.findIndex((x) => !x.done);
-                    const at = k >= 0 ? work[k] : work.at(-1);
-                    return <FilmButton exercise={entry.exercise} session={s.id} set={k >= 0 ? k + 1 : work.length || undefined} weight={at?.weight ?? null}
-                      reps={at?.reps ?? null} name={ex?.name ?? entry.exercise} />;
-                  })()}
-                  <button type="button" className="chip chip--button tone-critical" aria-label={`Remove ${ex?.name ?? entry.exercise}`}
-                    onClick={() => { if (!entry.sets.some((x) => x.done) || window.confirm(`Remove ${ex?.name ?? entry.exercise} and its ticked sets?`)) { setMenu(null); update({ ...s, entries: s.entries.filter((_, i) => i !== ei) }); } }}>
-                    <X size={12} aria-hidden="true" /> Remove</button>
-                </div>
-              )}
-              {(ex?.assisted || ex?.per_side) && (
-                <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                  {ex.assisted ? "Assisted: the weight is the help, so less is harder." : "One side at a time: log one side's weight and reps; the volume counts both."}
-                </p>
-              )}
-              {p && <p className="muted" style={{ margin: 0, fontSize: 12 }}>{p.sets} × {p.reps} · {p.suggest.why}</p>}
-              <LastTime last={lastFor(entry.exercise)} kind={ex?.kind ?? "weight"} />
-              {p?.cues && <p className="gym-cues" style={{ margin: 0, fontSize: 12 }}>{p.cues}</p>}
-              {p?.gym_swap && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Instead of {byId.get(p.gym_swap.from)?.name ?? p.gym_swap.from}, as always at this gym.</p>}
-              {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
-              {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
-              {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
-              <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here}
-                guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null} bodyweight={s.bodyweight ?? g?.settings.bodyweight_kg ?? null}
-                onChange={(si, patch, opts) => {
-                  const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
-                  update({ ...s, entries });
-                  if (patch.done) {
-                    chime.prime();  // a tap, so the end of the rest can make a sound
-                    const t = restAfter(entries, ei);
-                    if (t) startRest(t, nextText(ei, si)); else { setRest(null); setOver(null); }
-                  }
-                }}
-                onRemove={(si) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) })} />
-              <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }}
-                onClick={() => { const prev = entry.sets.at(-1); update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets, { weight: prev?.weight ?? null, reps: null, done: false, type: "normal" }] } : e)) }); }}>
-                <Plus size={12} aria-hidden="true" /> Set
-              </button>
-              {(entry.note || notes.has(ei)) && (
-                <input className="field" style={{ fontSize: 13 }} placeholder="Note for this exercise (a niggle, the setup, the seat height)" aria-label={`Note for ${ex?.name ?? entry.exercise}`}
-                  value={entry.note ?? ""} onChange={(e) => update({ ...s, entries: s.entries.map((x, i) => (i === ei ? { ...x, note: e.target.value } : x)) })} />
-              )}
-            </Glass>
-          );
-        })}
+        {view === "list" ? s.entries.map((entry, ei) => renderEntry(entry, ei, false)) : s.entries.length > 0 && (
+          <FocusPager s={s} byId={byId} cur={Math.min(cur, s.entries.length - 1)} onGo={goTo}>
+            {renderEntry(s.entries[Math.min(cur, s.entries.length - 1)], Math.min(cur, s.entries.length - 1), true)}
+          </FocusPager>
+        )}
         <button type="button" className="button" onClick={() => setPicking(true)}><Plus size={14} aria-hidden="true" /> Add an exercise</button>
         <textarea className="field" rows={2} placeholder="Notes (how it felt, the gym, anything)" aria-label="Workout notes" value={s.note ?? ""} onChange={(e) => update({ ...s, note: e.target.value })} />
         <div className="row" style={{ gap: 12, justifyContent: "space-between" }}>
@@ -362,6 +412,89 @@ export function GymWorkoutScreen() {
       )}
       {openEx && <ExerciseSheet id={openEx} unit={unit} onClose={() => setOpenEx(null)} />}
     </>
+  );
+}
+
+type View = "list" | "focus";
+const VIEW_KEY = "sirisos.gym.view";
+
+function readView(): View {
+  try { return localStorage.getItem(VIEW_KEY) === "focus" ? "focus" : "list"; } catch { return "list"; }
+}
+
+const allDone = (e: Session["entries"][number]) => e.sets.length > 0 && e.sets.every((x) => x.done);
+
+/** The first exercise with a set still to do (or the first, when they're all done). */
+export function firstUndone(entries: Session["entries"]): number {
+  const i = entries.findIndex((e) => !allDone(e));
+  return i < 0 ? 0 : i;
+}
+
+/** Where One at a time goes after a set's ticked (11.7). In a superset it's the group's next exercise with a set to do
+ * (you go back and forth); once an exercise (or its whole superset) is done, the next one that isn't, wrapping round to
+ * any skipped earlier. Otherwise it stays put. */
+export function nextUp(entries: Session["entries"], ei: number): number {
+  const grp = entries[ei]?.group;
+  if (grp) {
+    const members = entries.map((e, i) => (e.group === grp ? i : -1)).filter((i) => i >= 0);
+    const at = members.indexOf(ei);
+    for (let k = 1; k <= members.length; k++) {
+      const i = members[(at + k) % members.length];
+      if (!allDone(entries[i])) return i;
+    }
+  } else if (!allDone(entries[ei])) {
+    return ei;
+  }
+  for (let k = 1; k < entries.length; k++) {
+    const i = (ei + k) % entries.length;
+    if (!allDone(entries[i]) && !(grp && entries[i].group === grp)) return i;
+  }
+  return ei;
+}
+
+/** One at a time (11.7): a strip of the workout's exercises to jump between, the current one as a full page, and
+ * Previous / Next under it. Swiping the card turns the page too. */
+function FocusPager({ s, byId, cur, onGo, children }: {
+  s: Session; byId: Map<string, Exercise>; cur: number; onGo: (i: number) => void; children: React.ReactNode;
+}) {
+  const strip = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = strip.current?.querySelector<HTMLElement>("[aria-current='step']");
+    el?.scrollIntoView?.({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [cur]);
+  const n = s.entries.length;
+  const name = (i: number) => byId.get(s.entries[i]?.exercise)?.name ?? s.entries[i]?.exercise ?? "";
+  const doneCount = s.entries.filter(allDone).length;
+  return (
+    <div className="gym-focus">
+      <div className="gym-focus__strip" ref={strip} role="tablist" aria-label="Exercises">
+        {s.entries.map((e, i) => {
+          const done = allDone(e);
+          const ticked = e.sets.filter((x) => x.done).length;
+          return (
+            <button key={`${e.exercise}-${i}`} type="button" role="tab" aria-selected={i === cur} aria-current={i === cur ? "step" : undefined}
+              className={`gym-focus__step${i === cur ? " gym-focus__step--on" : ""}${done ? " gym-focus__step--done" : ""}`}
+              aria-label={`${i + 1}. ${name(i)}${done ? ", done" : ""}`} onClick={() => onGo(i)}>
+              <span className="gym-focus__num">{done ? <Check size={12} aria-hidden="true" /> : i + 1}</span>
+              <span className="gym-focus__label">{name(i)}</span>
+              <span className="gym-focus__bar" aria-hidden="true"><span style={{ width: `${e.sets.length ? (ticked / e.sets.length) * 100 : 0}%` }} /></span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="muted gym-focus__count">Exercise {cur + 1} of {n} · {doneCount} done</p>
+      {children}
+      <div className="gym-focus__nav">
+        <button type="button" className="button gym-focus__navbtn" disabled={cur <= 0} onClick={() => onGo(cur - 1)}
+          aria-label={cur > 0 ? `Previous: ${name(cur - 1)}` : "Previous"}>
+          <ChevronLeft size={18} aria-hidden="true" /><span className="gym-focus__navtext">{cur > 0 ? name(cur - 1) : "Previous"}</span>
+        </button>
+        <button type="button" className="button button--primary gym-focus__navbtn" disabled={cur >= n - 1} onClick={() => onGo(cur + 1)}
+          aria-label={cur < n - 1 ? `Next: ${name(cur + 1)}` : "Next"}>
+          <span className="gym-focus__navtext">{cur < n - 1 ? name(cur + 1) : "Last one"}</span><ChevronRight size={18} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -11,7 +11,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 const PORT = 4199;
 const OUT = "visual-check";
 const PICTURE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAkADADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDGooorgPrQooooAKKKKALvkRf3f1NHkRf3f1NS0VFzxPa1P5n95F5EX939TR5EX939TUtFFw9rU/mf3kXkRf3f1NHkRf3f1NS0UXD2tT+Z/eFFFFBmFFFFABRRRQB//9k=";
-const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/meals", "/travel", "/things", "/life", "/homelab", "/week"];
+const SCREENS = ["/", "/brief", "/health", "/health?view=mind", "/health?view=habits", "/inbox", "/tasks", "/career", "/fitness", "/fitness?view=activity", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress", "/gym?view=settings", "/gym/workout", "/gym/workout#one", "/status", "/assistant", "/wrapup", "/year", "/work", "/work?wrapup=1", "/budget", "/meals", "/travel", "/things", "/life", "/homelab", "/week"];
 // 7.5: an iPad too (the Work page is meant to stay open on one at work).
 const SIZES = [{ name: "phone", width: 390, height: 844, mobile: true }, { name: "tablet", width: 820, height: 1180, mobile: true },
   { name: "desktop", width: 1280, height: 900, mobile: false }];
@@ -233,6 +233,8 @@ try {
     const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height }, isMobile: size.mobile, hasTouch: size.mobile, colorScheme: "dark" });
     await ctx.addInitScript(() => {
       localStorage.setItem("sirisos.token", "t"); localStorage.setItem("sirisos.user", "brad");
+      // 11.7: the workout one exercise at a time.
+      if (location.hash === "#one") localStorage.setItem("sirisos.gym.view", "focus"); else localStorage.removeItem("sirisos.gym.view");
       localStorage.setItem("sirisos.gym.active", JSON.stringify({ id: "w1", title: "Push, pull, legs: Push", started_at: new Date(Date.now() - 1500000).toISOString(), entries: [
         { exercise: "bench-press", group: "A", note: "Elbows in", sets: [{ weight: 20, reps: 10, done: true, type: "warmup" }, { weight: 82.5, reps: 8, done: true, type: "normal", rpe: 8 }, { weight: 82.5, reps: null, done: false, type: "normal" }] },
         { exercise: "plank", group: "A", sets: [{ seconds: 60, done: false, type: "normal" }] }] }));
