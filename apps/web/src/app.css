@@ -1445,3 +1445,47 @@ section:has(> .widget-grid:empty) { display: none; }
 
 /* Is this right? (11.6.0) */
 .review-card__note { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ink-3, #888) 10%, transparent); }
+
+/* 11.7: SirisGym, one exercise at a time. */
+.gym-view { display: inline-flex; gap: 2px; padding: 3px; margin: 10px 4px 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent); }
+.gym-view__btn { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 7px 14px; font: inherit;
+  font-size: 13px; font-weight: 600; color: var(--ink-2); background: transparent; cursor: pointer; }
+.gym-view__btn--on { background: var(--accent); color: #fff; box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+.gym-focus { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.gym-focus__strip { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 6px; scrollbar-width: none; }
+.gym-focus__strip::-webkit-scrollbar { display: none; }
+.gym-focus__step { flex: none; scroll-snap-align: center; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 8px;
+  width: 132px; padding: 8px 10px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--ink-3) 25%, transparent);
+  background: color-mix(in srgb, var(--ink-3) 10%, transparent); color: var(--ink-2); font: inherit; text-align: left; cursor: pointer; }
+.gym-focus__step--on { border-color: var(--accent); color: var(--ink); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.gym-focus__num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  background: color-mix(in srgb, var(--ink-3) 22%, transparent); }
+.gym-focus__step--on .gym-focus__num { background: var(--accent); color: #fff; }
+.gym-focus__step--done .gym-focus__num { background: var(--good); color: #04110a; }
+.gym-focus__label { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gym-focus__bar { grid-column: 1 / -1; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--ink-3) 20%, transparent); overflow: hidden; }
+.gym-focus__bar > span { display: block; height: 100%; background: var(--good); border-radius: inherit; transition: width 0.3s ease; }
+.gym-focus__count { margin: -4px 4px 0; font-size: 12px; }
+/* The card fills most of the screen, above the dock and the rest timer. */
+.gym-focus__card { gap: 12px; padding: 16px; min-height: calc(100dvh - var(--dock-h, 64px) - var(--safe-bottom, 0px) - 330px);
+  animation: gym-focus-in 0.25s ease; }
+@keyframes gym-focus-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .gym-focus__card { animation: none; } }
+.gym-focus__hero { display: block; width: 100%; padding: 0; border: 0; cursor: pointer; border-radius: 18px; overflow: hidden; line-height: 0;
+  background: color-mix(in srgb, var(--ink-3) 10%, transparent); }
+.gym-focus__hero .gym-image { width: 100%; max-width: none; aspect-ratio: auto; height: min(30vh, 260px); border-radius: 0; }
+.gym-focus__hero .gym-image img { width: 100%; height: 100%; object-fit: contain; }
+.widget__head .gym-entry__name.gym-focus__name { font-size: 24px; font-weight: 700; line-height: 1.2; white-space: normal; }
+.gym-focus__target { margin: 0; font-size: 15px; }
+.gym-focus__target strong { font-size: 18px; }
+.gym-focus__card .gym-sets { gap: 10px; }
+.gym-focus__card .gym-sets__row { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 84px) minmax(0, 70px) 48px; gap: 8px; }
+.gym-focus__card .gym-sets__head { font-size: 12px; }
+.gym-focus__card .gym-sets__in { padding: 12px 6px; font-size: 18px; font-weight: 600; }
+.gym-focus__card .gym-sets__type, .gym-focus__card .gym-sets__done { height: 46px; border-radius: 12px; }
+.gym-focus__card .gym-sets__prev { font-size: 14px; }
+.gym-focus__nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gym-focus__navbtn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 52px; min-width: 0; font-weight: 600; }
+.gym-focus__navtext { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 960px) { .gym-focus__hero .gym-image { height: 300px; } }
