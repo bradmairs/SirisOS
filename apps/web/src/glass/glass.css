@@ -756,3 +756,28 @@ textarea.field { height: auto; min-height: 52px; padding: 14px 18px; resize: non
 .dock__icon { position: relative; display: inline-flex; }
 .dock__dot { position: absolute; top: -2px; right: -4px; width: 8px; height: 8px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--accent); }
+
+/* ------------------------------------------- 11.8.0: smooth scrolling on iPhone */
+
+/* The wallpaper is fixed and the page scrolls over it, so every glass card in the page had to blur what's behind
+ * it again on every frame of a scroll: with a screenful of cards an iPhone couldn't keep up, and scrolling stuttered
+ * and showed half-drawn cards. The wallpaper behind is soft and nearly plain, so a card's blur looked like its fill
+ * over the background anyway: cards in the page now paint exactly that, with no live blur. The bars that stay put
+ * over moving content (the dock, the top bar, the menu, sheets, the chat composer) keep the real glass. */
+.shell .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background-image: linear-gradient(var(--glass-fill), var(--glass-fill));
+  background-color: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+.shell .glass--strong { background-image: linear-gradient(var(--glass-fill-strong), var(--glass-fill-strong)); }
+.shell .glass--clear { background-image: linear-gradient(var(--glass-fill-clear), var(--glass-fill-clear)); }
+.shell .glass--tint { background-image: linear-gradient(160deg, color-mix(in srgb, var(--accent) 88%, white 12%), var(--accent-strong)); background-color: transparent; }
+.shell :is(.composer, .ask-about, .inapp, .brief-overlay) .glass,
+.shell .glass:is(.composer, .inapp) {
+  background-color: transparent;
+  background-image: linear-gradient(var(--glass-fill), var(--glass-fill));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+}
+.shell .glass--interactive:hover { background-color: color-mix(in srgb, var(--bg) 55%, var(--accent) 8%); }

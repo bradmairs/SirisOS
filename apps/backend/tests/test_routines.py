@@ -181,6 +181,16 @@ def test_fuel_without_a_key_says_how_to_get_one(world, monkeypatch):
     assert not f["configured"] and "SIRISOS_FAIR_FUEL_KEY" in f["why"]
 
 
+def test_fuel_says_so_when_it_cant_find_prices_on_the_morning(world, monkeypatch):
+    """11.8.0: Fair Fuel down on the morning: the reminder still comes, saying so, instead of nothing."""
+    async def down(fuel_type):
+        raise fuel.FuelError("Fair Fuel can't be reached (ConnectError).")
+
+    monkeypatch.setattr(fuel, "prices", down)
+    msgs = asyncio.run(fuel.push_message(get_hub(), datetime(2026, 12, 2, 5, 35, tzinfo=zone())))
+    assert msgs[0]["title"] == "Fuel on the way: no prices this morning" and "can't be reached" in msgs[0]["body"]
+
+
 def test_station_locations_are_read_wherever_they_are():
     assert fuel.parse_station({"id": 1, "name": "A", "latitude": "-37.1", "longitude": "145.2"})["lat"] == -37.1
     assert fuel.parse_station({"id": 2, "name": "B", "address": {"latitude": -37.2, "longitude": 145.3, "suburb": "Wallan"}})["address"] == "Wallan"

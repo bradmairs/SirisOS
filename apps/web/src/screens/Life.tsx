@@ -7,6 +7,7 @@ import { life, type Bill, type Doc, type FromEmail, type Trip } from "../api/lif
 import { Glass } from "../components/Glass";
 import { categoryOf, LatestThenGrouped } from "../components/Grouped";
 import { ReceiptView } from "./ReceiptView";
+import { SaveButton } from "../components/SaveButton";
 import { RenewalsCard } from "./RenewalsCard";
 
 function day(iso: string) {
@@ -110,6 +111,32 @@ function foundText(r: FromEmail): string {
   ].filter(Boolean).join(" ");
 }
 
+/** The financial year (July to June) that `day` is in, as [start, end]. */
+export function financialYear(day: Date, back = 0): [string, string] {
+  const first = (day.getMonth() >= 6 ? day.getFullYear() : day.getFullYear() - 1) - back;
+  return [`${first}-07-01`, `${first + 1}-06-30`];
+}
+
+/** 11.8.0: receipts as a zip, for tax time or a claim: these ones (a search), or a financial year's. */
+function DownloadReceipts({ q, count }: { q: string; count: number }) {
+  const [range, setRange] = useState<"shown" | "fy" | "lastfy">("shown");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [start, end] = range === "shown" ? ["", ""] : financialYear(new Date(), range === "lastfy" ? 1 : 0);
+  const fy = (back: number) => { const [a, b] = financialYear(new Date(), back); return `${a.slice(0, 4)}–${b.slice(2, 4)}`; };
+  return (
+    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <select className="field" style={{ width: "auto", fontSize: 14, padding: "6px 10px" }} value={range} aria-label="Which receipts to download"
+        onChange={(e) => { setRange(e.target.value as typeof range); setSaved(null); }}>
+        <option value="shown">{q ? `These ${count}` : `All ${count}`}</option>
+        <option value="fy">This financial year ({fy(0)})</option>
+        <option value="lastfy">Last financial year ({fy(1)})</option>
+      </select>
+      <SaveButton label="Download" get={() => life.downloadReceipts({ q: range === "shown" ? q : "", start, end })} done={(name) => setSaved(`Saved ${name}`)} />
+      {saved && <span className="muted" role="status" style={{ fontSize: 13 }}>{saved}: each receipt, named by date and shop, and a list of them (receipts.csv).</span>}
+    </div>
+  );
+}
+
 /** Receipts kept from email (SirisOS 8.1, SirisAI 5.31), each with the email and attachments as they came.
  * Bills and subscriptions looks ahead at what's due; this looks back at what you bought. */
 export function ReceiptsCard() {
@@ -152,6 +179,7 @@ export function ReceiptsCard() {
       {!note && data?.last && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Last check: {foundText(data.last)}</p>}
       {(receipts.length > 0 || q) && <input className="field" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a receipt" aria-label="Find a receipt" />}
       {q && list.data && receipts.length === 0 && <p className="muted" style={{ margin: 0, fontSize: 14 }}>Nothing matches.</p>}
+      {receipts.length > 0 && <DownloadReceipts q={q} count={receipts.length} />}
       {receipts.length > 0 && (
         <LatestThenGrouped items={receipts} label="receipts" latest={q ? Number.MAX_SAFE_INTEGER : 5} newest={(a, b) => b.added_at.localeCompare(a.added_at)}
           category={(d) => categoryOf(d.title, d.sender)} render={(d) => (

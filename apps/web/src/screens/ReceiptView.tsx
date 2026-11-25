@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { life, type Doc } from "../api/life";
+import { SaveButton } from "../components/SaveButton";
 
 type Loaded = { name: string; url: string; type: string; text?: string };
 
@@ -44,8 +45,8 @@ export function ReceiptView({ id, onRemoved }: { id: number; onRemoved?: () => v
       <p style={{ margin: 0 }}>{doc.summary}</p>
       {!main && (doc.files ?? []).length > 0 && <div className="skeleton" style={{ height: 200 }} aria-busy="true" />}
       {main && <Shown file={main} title={`Receipt: ${doc.title}`} />}
-      {main && !isEmail(main.name) && (
-        <a className="button button--small" style={{ alignSelf: "flex-start" }} href={main.url} target="_blank" rel="noreferrer" download={main.name}>Open {main.name}</a>
+      {((doc.files ?? []).length > 0 || doc.text) && (
+        <span style={{ alignSelf: "flex-start" }}><SaveButton label="Download" get={() => life.downloadReceipt(id)} /></span>
       )}
       {others.length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>

@@ -522,6 +522,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/life/documents` |  |
 | `DELETE /api/v1/life/documents/{doc_id}` |  |
 | `GET /api/v1/life/documents/{doc_id}` |  |
+| `GET /api/v1/life/documents/{doc_id}/download` | 11.8.0: one receipt to save, named by date and who it's from (an email as a page that can't run anything). |
 | `GET /api/v1/life/documents/{doc_id}/files/{name}` | A kept receipt's original (SirisAI 5.31). It came from an email, so the browser is told nothing in it may run. |
 | `GET /api/v1/life/email` |  |
 | `GET /api/v1/life/news` |  |
@@ -530,6 +531,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `DELETE /api/v1/life/people/{person_id}` |  |
 | `PUT /api/v1/life/people/{person_id}` |  |
 | `GET /api/v1/life/people/{person_id}/gifts` |  |
+| `GET /api/v1/life/receipts/download` | 11.8.0: receipts as a zip (a search, a date range or chosen ids), each file named by date and who it's from, with receipts.csv listing them. |
 | `GET /api/v1/life/reliability` |  |
 | `GET /api/v1/life/speed` |  |
 | `GET /api/v1/life/things` |  |

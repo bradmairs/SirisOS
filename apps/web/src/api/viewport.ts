@@ -17,9 +17,20 @@ function typing(): boolean {
   return !!document.activeElement?.matches?.(FIELDS);
 }
 
+// 11.8.0: a nudge while a finger's on the screen or the page is still moving (a flick's glide, the bounce at the top)
+// stopped the scroll dead and threw the page back to where it was a moment before: the "shutter" when scrolling a
+// workout. So it waits until the page has been still for a while.
+let touching = false;
+let movedAt = 0;
+const STILL_MS = 600;
+
+function still(): boolean {
+  return !touching && Date.now() - movedAt > STILL_MS;
+}
+
 /** A real (one-pixel) scroll and back, so iOS re-lays-out fixed elements. */
 export function settle(): void {
-  if (typing()) return;
+  if (typing() || !still()) return;
   const x = window.scrollX, y = window.scrollY;
   window.scrollTo(x, y > 0 ? y - 1 : y + 1);
   window.scrollTo(x, y);
@@ -32,7 +43,7 @@ export function installViewportFix(): () => void {
   installed = true;
   const timers: number[] = [];
   const soon = () => {
-    for (const ms of [60, 350]) timers.push(window.setTimeout(settle, ms));
+    for (const ms of [60, 350, 900]) timers.push(window.setTimeout(settle, ms));
   };
   const onFocusOut = (e: Event) => {
     if ((e.target as HTMLElement | null)?.matches?.(FIELDS)) soon();
@@ -43,10 +54,18 @@ export function installViewportFix(): () => void {
   const onViewport = () => {
     if (!vv || vv.scale > 1.01) return;  // pinch-zoomed: the visible area moving is you, leave it alone
     // The keyboard went away (the visible area grew back), or the page was left shifted under a closed keyboard.
-    if (vv.height > lastHeight + 80 || (vv.offsetTop > 0 && !typing())) soon();
+    // 11.8.0: not while you're scrolling; the visible area moves then too.
+    if (vv.height > lastHeight + 80 || (vv.offsetTop > 0 && !typing() && still())) soon();
     lastHeight = vv.height;
   };
+  const onTouchStart = () => { touching = true; movedAt = Date.now(); };
+  const onTouchEnd = () => { touching = false; movedAt = Date.now(); };
+  const onScroll = () => { movedAt = Date.now(); };
   document.addEventListener("focusout", onFocusOut);
+  window.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
+  window.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
+  window.addEventListener("touchcancel", onTouchEnd, { passive: true, capture: true });
+  window.addEventListener("scroll", onScroll, { passive: true });
   document.addEventListener("visibilitychange", onVisible);
   window.addEventListener("pageshow", soon);
   window.addEventListener("orientationchange", soon);
@@ -56,6 +75,10 @@ export function installViewportFix(): () => void {
     installed = false;
     timers.forEach((t) => window.clearTimeout(t));
     document.removeEventListener("focusout", onFocusOut);
+    window.removeEventListener("touchstart", onTouchStart, { capture: true });
+    window.removeEventListener("touchend", onTouchEnd, { capture: true });
+    window.removeEventListener("touchcancel", onTouchEnd, { capture: true });
+    window.removeEventListener("scroll", onScroll);
     document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("pageshow", soon);
     window.removeEventListener("orientationchange", soon);
