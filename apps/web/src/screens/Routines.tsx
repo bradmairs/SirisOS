@@ -154,7 +154,9 @@ export function GardenCard() {
 export function FuelCard() {
   const res = useResource<Fuel>("routines:fuel", () => routines.fuel(), { staleMs: 60 * 60_000, persist: true });
   const f = res.data;
-  if (!f || !f.for || !f.configured) return null;
+  // 11.8.0: on the day it's for, it shows even when it can't find a price (no key, Fair Fuel down), saying why, instead
+  // of quietly not being there.
+  if (!f || !f.for) return null;
   return (
     <Glass as="section" className="widget" aria-label="Fuel on the way">
       <header className="widget__head"><FuelIcon aria-hidden="true" /><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`To ${f.settings.destination.name}`}>Fuel on the way</span><SeenMark k={`fuel:${f.for}`} />{SETUP}</header>
@@ -166,7 +168,7 @@ export function FuelCard() {
 function FuelBody({ f }: { f: Fuel }) {
   const options = Array.isArray(f.options) ? f.options : [];
   if (f.error) return <p className="tone-critical" style={{ margin: 0 }}>{f.error}</p>;
-  if (!f.best) return <p className="muted" style={{ margin: 0 }}>No {f.settings.fuel_type} prices in the first {f.settings.first_km} km.</p>;
+  if (!f.best) return <p className="muted" style={{ margin: 0 }}>{f.why || `No ${f.settings.fuel_type} prices in the first ${f.settings.first_km} km.`}</p>;
   return (
     <>
       <p style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{f.best.name} · {f.best.price.toFixed(1)}¢</p>

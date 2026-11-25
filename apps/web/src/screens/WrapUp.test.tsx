@@ -75,3 +75,29 @@ describe("<WrapUpScreen />", () => {
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/snooze"))!.init.body))).toEqual({ until: "tomorrow" });
   });
 });
+
+describe("Wrap Up 11.8.0: today's habits", () => {
+  it("lists today's habits to tick, and says when they're all done", async () => {
+    signIn();
+    let habits = [
+      { id: "h1", name: "Stretch", created: "2026-10-01", streak: 4, best: 9, today: false, rate: 0.8, due_today: true, month: [] },
+      { id: "h2", name: "Read", created: "2026-10-01", streak: 0, best: 3, today: true, rate: 0.5, due_today: true, month: [] },
+      { id: "h3", name: "Long run", created: "2026-10-01", streak: 2, best: 2, today: false, rate: 0.5, due_today: false, month: [] },
+    ];
+    const calls = mockFetch({
+      "/api/v1/mind/habits/h1/check": () => { habits = habits.map((h) => (h.id === "h1" ? { ...h, today: true, streak: 5 } : h)); return jsonResponse({ habits }); },
+      "/api/v1/mind/habits": () => jsonResponse({ habits }),
+      "/api/v1/wrapup": () => jsonResponse(TODAY),
+    });
+    const user = userEvent.setup();
+    wrap();
+    const card = await screen.findByRole("region", { name: "Today's habits" });
+    expect(within(card).getByText("Tick the ones you did today.")).toBeInTheDocument();
+    expect(within(card).getByText("Keep your 4-day streak")).toBeInTheDocument();
+    expect(within(card).queryByText("Long run")).not.toBeInTheDocument();   // not one of today's days
+    await user.click(within(card).getByRole("button", { name: "Stretch: done today" }));
+    expect(await within(card).findByText("All done today.")).toBeInTheDocument();
+    expect(calls.some((c) => c.url === "/api/v1/mind/habits/h1/check")).toBe(true);
+  });
+});
+

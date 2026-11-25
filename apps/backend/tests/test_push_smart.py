@@ -62,6 +62,11 @@ def world(monkeypatch, tmp_path):
         return {"items": [{"id": i} for i in state["inbox"]]}
 
     monkeypatch.setattr(notifier, "collect", collect)
+    # The app's own calls (seen, active) happen at the test's time, not the real clock's: these tests are set on
+    # 24 November 2026 and began failing once that day had passed.
+    from app.push import api as push_api
+
+    monkeypatch.setattr(push_api, "_now", lambda: state["now"])
     from app.attention import service as attention
 
     monkeypatch.setattr(attention, "inbox", inbox)
@@ -111,14 +116,15 @@ def test_held_inbox_items_already_dealt_with_are_dropped(world):
 
 def test_using_the_app_shows_a_banner_instead_of_a_push(world):
     c, state, run = world
+    digest.change(on=False)  # straight away, not the roundup
     r = c.post("/api/v1/push/active", json={"device": "mac-1", "endpoint": MAC, "label": "Mac"}, headers=AUTH).json()
     assert r == {"inapp": []}
-    state["msgs"] = [msg("task:t1", "Call the plumber")]
+    state["msgs"] = [msg("inbox:h1", "Clean the gutters", topic="apps")]
     smart.heartbeat("mac-1", MAC, "Mac", None, NOON)
     assert run() == []
     banners = c.post("/api/v1/push/active", json={"device": "mac-1", "endpoint": MAC}, headers=AUTH).json()["inapp"]
-    assert [b["title"] for b in banners] == ["Call the plumber"]
-    c.post("/api/v1/push/seen", json={"keys": ["task:t1"]}, headers=AUTH)
+    assert [b["title"] for b in banners] == ["Clean the gutters"]
+    c.post("/api/v1/push/seen", json={"keys": ["inbox:h1"]}, headers=AUTH)
     assert c.post("/api/v1/push/active", json={"device": "mac-1"}, headers=AUTH).json()["inapp"] == []
     # Urgent still pushes, to every device.
     state["msgs"] = [msg("inbox:x", "Plex is down", "high", "apps")]
@@ -127,10 +133,14 @@ def test_using_the_app_shows_a_banner_instead_of_a_push(world):
 
 def test_one_device_the_one_used_last(world):
     c, state, run = world
+    digest.change(on=False)  # straight away, not the roundup
     smart.heartbeat("phone-1", PHONE, "iPhone", None, NOON - timedelta(hours=2))
     smart.heartbeat("mac-1", MAC, "Mac", None, NOON - timedelta(hours=1))
-    state["msgs"] = [msg("task:t2", "Timesheet")]
+    state["msgs"] = [msg("inbox:h2", "Service the aircon", topic="apps")]
     assert [d for d, _ in run()] == ["mac"]
+    # 11.8.0: a reminder at a time you chose goes to every device: the phone in your pocket, not just the Mac used last.
+    state["msgs"] = [msg("task:t2", "Timesheet")]
+    assert sorted(d for d, _ in run()) == ["mac", "phone"]
 
 
 def test_asleep_waits_for_the_morning_and_chosen_times_still_come(world):
@@ -206,3 +216,26 @@ def test_a_daily_cap_and_newer_ones_replace_older_ones(world):
     assert [m["title"] for m in digest.load()["held"]] == ["Three"]
     tags = {p["title"]: p["tag"] for _, p in got}
     assert tags == {"One": "kind:weekend", "Two": "kind:netdev", "Four": "task:d"}
+
+
+def test_the_fuel_stop_comes_though_its_card_was_seen_the_evening_before(world):
+    """11.8.0: the fuel card is on Home from 6pm the evening before with the same key as the 5:30am push. Seeing it on
+    Tuesday evening dropped Wednesday's reminder; with SirisOS open on the Mac it became a banner there instead."""
+    c, state, run = world
+    tuesday_evening = NOON.replace(hour=20, minute=10)
+    smart.mark_seen(["fuel:2026-11-25"], tuesday_evening)
+    smart.heartbeat("mac-1", MAC, "Mac", None, NOON - timedelta(minutes=1))
+    wednesday = (NOON + timedelta(days=1)).replace(hour=5, minute=31)
+    smart.heartbeat("mac-1", MAC, "Mac", None, wednesday - timedelta(minutes=2))   # a Mac left on with SirisOS open
+    state["msgs"] = [msg("fuel:2026-11-25", "Fuel on the way: Ampol Kilmore")]
+    got = run(wednesday)
+    assert sorted(d for d, _ in got) == ["mac", "phone"] and titles(got) == ["Fuel on the way: Ampol Kilmore"]
+
+
+def test_a_reminder_seen_just_now_still_isnt_pushed(world):
+    c, state, run = world
+    at = NOON.replace(hour=17, minute=0)
+    smart.mark_seen(["task:t9"], at - timedelta(minutes=20))
+    state["msgs"] = [msg("task:t9", "Call Sam")]
+    assert run(at) == []
+

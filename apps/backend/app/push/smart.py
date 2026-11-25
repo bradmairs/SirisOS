@@ -39,6 +39,10 @@ IGNORED_STREAK = 5
 LATER_HOURS = 18
 # At a time you chose: never held for sleep, meetings or the cap, never moved to the roundup by being ignored.
 EXPLICIT = ("task", "fuel", "nudge", "sirisai-wind-down", "travel", "push-check", "timesheet", "cashflow", "bedroom")
+# 11.8.0: a reminder at a time you chose is only "seen already" if you saw it in the app this close to it. The fuel card
+# is on Home from 6pm the evening before with the same key as the 5:30am push, so seeing it on Tuesday evening dropped
+# Wednesday morning's reminder.
+EXPLICIT_SEEN_HOURS = 2
 HOME_ONLY = ("bins", "garden", "bedroom")
 # One notification per item: these never replace each other on the lock screen.
 PER_ITEM = ("inbox", "task", "renewal", "homejob")
@@ -293,8 +297,20 @@ async def still_true(hub: Any, msgs: list[dict[str, Any]], today: date) -> list[
     return keep
 
 
-def seen_filter(doc: dict[str, Any], msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [m for m in msgs if m["key"] not in doc["seen"]]
+def already_seen(doc: dict[str, Any], key: str, now: datetime | None = None) -> bool:
+    """Seen in the app, so it needn't be pushed. A reminder at a time you chose counts only if seen within the last
+    EXPLICIT_SEEN_HOURS: seeing it the night before isn't seeing the reminder."""
+    at = doc["seen"].get(key)
+    if not at:
+        return False
+    if kind(key).startswith(EXPLICIT):
+        when = _parse(at)
+        return bool(when and when >= _utc(now or datetime.now(timezone.utc)) - timedelta(hours=EXPLICIT_SEEN_HOURS))
+    return True
+
+
+def seen_filter(doc: dict[str, Any], msgs: list[dict[str, Any]], now: datetime | None = None) -> list[dict[str, Any]]:
+    return [m for m in msgs if not already_seen(doc, m["key"], now)]
 
 
 async def route(hub: Any, fresh: list[dict[str, Any]], now: datetime) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
@@ -313,7 +329,7 @@ async def route(hub: Any, fresh: list[dict[str, Any]], now: datetime) -> tuple[l
     ctx = await context(hub, now)
     doc = load()  # context() saved it
     _ignored(doc, now)
-    released = await still_true(hub, seen_filter(doc, _release(doc, now)), now.date())
+    released = await still_true(hub, seen_filter(doc, _release(doc, now), now), now.date())
     candidates = fresh + released
     send, roundup = [], []
     local = now
@@ -325,7 +341,7 @@ async def route(hub: Any, fresh: list[dict[str, Any]], now: datetime) -> tuple[l
         if choice == "off" and not urgent:
             done.append(m["key"]); _log(doc, m["key"], "off", now)
             continue
-        if m["key"] in doc["seen"]:
+        if already_seen(doc, m["key"], now):
             done.append(m["key"]); _log(doc, m["key"], "seen", now)
             continue
         if urgent:
@@ -392,11 +408,14 @@ def deliver_plan(msgs: list[dict[str, Any]], now: datetime) -> tuple[list[dict[s
     active = using_now(doc, now)
     for m in msgs:
         urgent = m.get("urgency") == "high"
-        if m["key"] in doc["seen"]:
+        explicit = kind(m["key"]).startswith(EXPLICIT)
+        if already_seen(doc, m["key"], now):
             continue
-        if active and not urgent:
+        if active and not urgent and not explicit:
             banners.append(m)
             continue
+        if active and explicit:
+            banners.append(m)  # 11.8.0: shown where you are and pushed: the open app may be a screen you've walked away from
         if not urgent and not kind(m["key"]).startswith(EXPLICIT) and not m["key"].startswith("digest:") and doc["today"]["count"] >= doc["cap"]:
             push.append(m | {"hold": True})
             continue
@@ -414,8 +433,9 @@ def deliver_plan(msgs: list[dict[str, Any]], now: datetime) -> tuple[list[dict[s
 
 
 def targets(subs: list[Any], msg: dict[str, Any]) -> list[Any]:
-    """Every device for urgent ones; otherwise the one used most recently (when the app knows it)."""
-    if msg.get("urgency") == "high":
+    """Every device for urgent ones and reminders at a time you chose (11.8.0: the fuel stop went to the computer used
+    last, not the phone in your pocket); otherwise the one used most recently (when the app knows it)."""
+    if msg.get("urgency") == "high" or kind(msg.get("key", "")).startswith(EXPLICIT):
         return subs
     doc = load()
     if not doc["on"]:

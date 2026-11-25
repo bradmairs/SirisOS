@@ -280,7 +280,10 @@ async def push_message(hub: Hub, local_now: datetime) -> list[dict[str, Any]]:
     sug = await suggest(hub)
     best = sug.get("best")
     if not best:
-        return []
+        # 11.8.0: say so, rather than the morning's reminder quietly not coming.
+        why = sug.get("why") or f"No {s['fuel_type']} prices on the way."
+        return [{"key": f"fuel:{local_now.date().isoformat()}", "topic": "brief", "title": "Fuel on the way: no prices this morning",
+                 "body": f"{why} Fill up where you usually do.", "url": "/", "urgency": "normal"}]
     saving = f", {sug['saving_cents']:.1f}¢ under the average on the way" if sug.get("saving_cents") else ""
     return [{"key": f"fuel:{local_now.date().isoformat()}", "topic": "brief", "title": f"Fuel on the way: {best['name']}",
              "body": f"{s['fuel_type']} {best['price']:.1f}¢, {best['km_in']:g} km in{saving}. Yesterday's prices.", "url": "/", "urgency": "normal"}]

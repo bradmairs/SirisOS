@@ -1,4 +1,5 @@
 import { api, json, request } from "./client";
+import { nameFrom } from "./save";
 
 /** Life Admin and reply speed from SirisAI 4.6 (SirisOS 7.3). */
 export interface Due { date: string; what: string; amount: number | null }
@@ -38,6 +39,21 @@ export const life = {
   documents: (q = "") => api<Doc[]>(`${L}/documents?not_kind=receipt${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   receipts: (q = "") => api<Doc[]>(`${L}/documents?kind=receipt&limit=300${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   /** An original: it needs the sign-in, so it comes as a blob rather than through a plain link. */
+  /** 11.8.0: one receipt to save, named by date and who it's from. */
+  downloadReceipt: async (id: number) => {
+    const r = await request(`${L}/documents/${id}/download`);
+    return { blob: await r.blob(), name: nameFrom(r.headers.get("content-disposition"), `receipt-${id}`) };
+  },
+  /** 11.8.0: receipts as a zip with receipts.csv: a search, a date range or chosen ones. */
+  downloadReceipts: async (opts: { q?: string; ids?: number[]; start?: string; end?: string } = {}) => {
+    const p = new URLSearchParams();
+    if (opts.q) p.set("q", opts.q);
+    if (opts.ids?.length) p.set("ids", opts.ids.join(","));
+    if (opts.start) p.set("start", opts.start);
+    if (opts.end) p.set("end", opts.end);
+    const r = await request(`${L}/receipts/download${p.toString() ? `?${p}` : ""}`);
+    return { blob: await r.blob(), name: nameFrom(r.headers.get("content-disposition"), "Receipts.zip"), count: Number(r.headers.get("x-receipts") ?? 0) };
+  },
   documentFile: async (id: number, name: string) => (await request(`${L}/documents/${id}/files/${encodeURIComponent(name)}`)).blob(),
   addDocument: (file: File) => {
     const form = new FormData();

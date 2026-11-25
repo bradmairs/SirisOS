@@ -33,7 +33,6 @@ export function GymWorkoutScreen() {
   const [done, setDone] = useState<Done | null>(null);
   const [menu, setMenu] = useState<number | null>(null);  // the exercise whose ⋯ is open (8.7)
   const [notes, setNotes] = useState<Set<number>>(new Set());  // exercises whose note box is open
-  const [, tick] = useState(0);
   const [listening, setListening] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
   // 11.7: the whole workout as a list, or one exercise at a time (kept on this phone).
@@ -50,7 +49,6 @@ export function GymWorkoutScreen() {
     const planned = plan?.exercises.find((p) => p.exercise === id)?.last ?? [];
     return planned.length ? { sets: planned } : (lastRes.data?.last?.[id] ?? { sets: [] });
   };
-  useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
   useEffect(() => { document.title = "Workout · SirisOS"; }, []);
   // 8.8: the screen stays on while a workout's going (Settings can turn it off). iOS lets it go when the app's hidden,
   // so it's asked for again on coming back.
@@ -106,6 +104,16 @@ export function GymWorkoutScreen() {
   const restAfterRef = useRef<(entries: Session["entries"], ei: number) => number>(() => 0);
   const startRestRef = useRef<(t: number, next: string) => void>(() => {});
   const nextTextRef = useRef<(ei: number, si: number) => string>(() => "");
+  // 11.8.0: the screen no longer redraws every second (only the clock and the rest timer tick), so the end of a rest is
+  // timed, and checked again on coming back to the app.
+  const [restCheck, recheckRest] = useState(0);
+  useEffect(() => {
+    if (!rest) return;
+    const t = window.setTimeout(() => recheckRest((n) => n + 1), Math.max(0, rest.until - Date.now()) + 50);
+    const back = () => { if (document.visibilityState === "visible") recheckRest((n) => n + 1); };
+    document.addEventListener("visibilitychange", back);
+    return () => { window.clearTimeout(t); document.removeEventListener("visibilitychange", back); };
+  }, [rest]);
   useEffect(() => {
     if (rest && Date.now() >= rest.until) {
       // Over while you're looking (8.6): a chime and a banner, as the push isn't shown while the app's open. One that ran
@@ -113,7 +121,7 @@ export function GymWorkoutScreen() {
       setRest(null);
       if (Date.now() - rest.until < 60_000) { setOver(rest.next || "Next set."); if (document.visibilityState === "visible") chime.play(); }
     }
-  });
+  }, [rest, restCheck]);  // eslint-disable-line react-hooks/exhaustive-deps
   if (done) return <Finished done={done} unit={g?.settings.unit ?? "kg"} />;
   if (!s) {
     return (
@@ -212,7 +220,6 @@ export function GymWorkoutScreen() {
     if (view === "focus") setCur(ei + by);   // one at a time, the page follows the exercise
   };
   const unlink = (ei: number) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, group: null } : e)) });
-  const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
   const doneSets = s.entries.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0);
 
   /** Discarding stops the Watch too (7.61): the finish Shortcut runs, told "discarded", then comes back to SirisGym. */
@@ -351,7 +358,7 @@ export function GymWorkoutScreen() {
             return cut > 0 ? <><h1 className="gym-top__title">{s.title.slice(cut + 2)}</h1><span className="muted gym-top__routine">{s.title.slice(0, cut)}</span></>
               : <h1 className="gym-top__title">{s.title}</h1>;
           })()}
-          {s.editing ? <span className="muted">Editing a saved workout · {doneSets} sets</span> : <span className="muted">{Math.floor(elapsed / 3600) ? `${Math.floor(elapsed / 3600)}:` : ""}{String(Math.floor(elapsed / 60) % 60).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")} · {doneSets} sets</span>}
+          {s.editing ? <span className="muted">Editing a saved workout · {doneSets} sets</span> : <span className="muted"><Elapsed since={s.started_at} /> · {doneSets} sets</span>}
         </div>
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="button" aria-label="Log a set by voice" aria-pressed={listening} disabled={listening} onClick={voice}><Mic size={16} aria-hidden="true" />{listening ? " Listening…" : ""}</button>
@@ -393,8 +400,7 @@ export function GymWorkoutScreen() {
       {rest && (
         <div className="gym-rest" role="timer" aria-label="Rest">
           <Timer size={16} aria-hidden="true" />
-          <span className="gym-rest__time">{(() => { const left = Math.max(0, Math.ceil((rest.until - Date.now()) / 1000)); return left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left} s`; })()}</span>
-          <span className="gym-rest__bar"><span style={{ width: `${Math.max(0, (rest.until - Date.now()) / (rest.total * 1000)) * 100}%` }} /></span>
+          <RestLeft rest={rest} />
           <button type="button" className="chip chip--button" onClick={() => { const left = Math.ceil((rest.until - Date.now()) / 1000) + 15; setRest({ ...rest, until: rest.until + 15_000, total: rest.total + 15 }); gym.rest(left, rest.next).catch(() => {}); }}>+15</button>
           <button type="button" className="chip chip--button" onClick={stopRest}>Skip</button>
         </div>
@@ -411,6 +417,27 @@ export function GymWorkoutScreen() {
           }} />
       )}
       {openEx && <ExerciseSheet id={openEx} unit={unit} onClose={() => setOpenEx(null)} />}
+    </>
+  );
+}
+
+/** The workout's clock (11.8.0): only this ticks each second, not the whole screen. */
+function Elapsed({ since }: { since: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000));
+  return <>{Math.floor(elapsed / 3600) ? `${Math.floor(elapsed / 3600)}:` : ""}{String(Math.floor(elapsed / 60) % 60).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}</>;
+}
+
+/** The rest timer's time left and bar (11.8.0: they tick on their own). */
+function RestLeft({ rest }: { rest: Rest }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
+  const left = Math.max(0, Math.ceil((rest.until - Date.now()) / 1000));
+  return (
+    <>
+      <span className="gym-rest__time">{left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left} s`}</span>
+      <span className="gym-rest__bar"><span style={{ width: `${Math.max(0, (rest.until - Date.now()) / (rest.total * 1000)) * 100}%` }} /></span>
     </>
   );
 }

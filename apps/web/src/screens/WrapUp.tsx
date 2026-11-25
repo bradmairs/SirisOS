@@ -6,6 +6,7 @@ import { useResource } from "../api/resource";
 import { tasks } from "../api/tasks";
 import { wrapup, type WrapMeeting, type WrapUpOverview } from "../api/wrapup";
 import { Glass } from "../components/Glass";
+import { HabitsHomeWidget } from "./HabitsWidget";
 import { TaskRow } from "./Tasks";
 
 const clock = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "");
@@ -150,6 +151,8 @@ export function WrapUpScreen() {
                 </>
               )}
             </Glass>
+
+            <HabitsHomeWidget wrapup />
 
             {data.health && (
               <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Your body today">

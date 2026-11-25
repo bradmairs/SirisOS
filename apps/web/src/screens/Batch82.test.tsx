@@ -64,7 +64,7 @@ describe("A receipt shows the receipt itself (8.2)", () => {
     });
     render(<ReceiptView id={9} />);
     expect(await screen.findByTitle("Receipt: Bunnings")).toHaveAttribute("src", "blob:x");
-    expect(screen.getByRole("link", { name: "Open INV.pdf" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument();   // 11.8.0: saved by date and shop
     expect(screen.getByText("The email it came with")).toBeInTheDocument();
     expect(screen.getByTitle("Email: Bunnings")).toHaveAttribute("sandbox", "");
   });

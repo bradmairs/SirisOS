@@ -5,6 +5,8 @@ answering. The data is SirisAI's (4.6); these pass it through.
     GET    /api/v1/life/documents             ?q=
     POST   /api/v1/life/documents             a PDF, photo or text file of a letter or bill
     GET    /api/v1/life/documents/{id}
+    GET    /api/v1/life/documents/{id}/download   one receipt to save (11.8.0)
+    GET    /api/v1/life/receipts/download         ?q=&ids=&start=&end=: receipts as a zip with receipts.csv (11.8.0)
     DELETE /api/v1/life/documents/{id}
     GET    /api/v1/life/bills                 ?all=
     POST   /api/v1/life/bills/scan
@@ -51,6 +53,44 @@ async def _call(hub: Hub, method: str, path: str, timeout: float = 30.0, **kwarg
 async def documents(q: str = Query("", max_length=200), kind: str = Query("", max_length=20), not_kind: str = Query("", max_length=20),
                     limit: int = Query(30, ge=1, le=300), hub: Hub = Depends(get_hub)) -> Any:
     return await _call(hub, "GET", "/siris/documents", params={"q": q, **({"kind": kind} if kind else {}), **({"not_kind": not_kind} if not_kind else {}), **({"limit": limit} if limit != 30 else {})})
+
+
+@router.get("/receipts/download")
+async def download_receipts(q: str = Query("", max_length=200), ids: str = Query("", max_length=4000), start: str = Query("", max_length=10),
+                            end: str = Query("", max_length=10), hub: Hub = Depends(get_hub)) -> Response:
+    """11.8.0: receipts as a zip (a search, a date range or chosen ids), each file named by date and who it's from, with
+    receipts.csv listing them."""
+    from app.life import receipts
+
+    found = await _call(hub, "GET", "/siris/documents", params={"q": q, "kind": "receipt", "limit": receipts.MAX_RECEIPTS}) or []
+    wanted = {int(x) for x in ids.split(",") if x.strip().isdigit()}
+    docs = [d for d in found if isinstance(d, dict) and d.get("id") is not None
+            and (not wanted or int(d["id"]) in wanted)
+            and (not start or str(d.get("added_at") or "")[:10] >= start) and (not end or str(d.get("added_at") or "")[:10] <= end)]
+    if not docs:
+        raise HTTPException(status_code=404, detail="No receipts to download.")
+    data, count = await receipts.zip_of(hub, docs)
+    label = receipts.safe_name(f"Receipts{' - ' + q if q else ''}", 60)
+    return Response(content=data, media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename=\"{label}.zip\"; filename*=UTF-8''{quote(label)}.zip", "X-Receipts": str(count)})
+
+
+@router.get("/documents/{doc_id}/download")
+async def download_receipt(doc_id: int = Path(ge=1), hub: Hub = Depends(get_hub)) -> Response:
+    """11.8.0: one receipt to save, named by date and who it's from (an email as a page that can't run anything)."""
+    from app.life import receipts
+
+    doc = await _call(hub, "GET", f"/siris/documents/{doc_id}")
+    item = await receipts.content(hub, doc or {})
+    if not item:
+        raise HTTPException(status_code=404, detail="This receipt has no file to save.")
+    name, data = item
+    kind = "text/html" if name.endswith(".html") else "text/plain" if name.endswith(".txt") else "application/pdf" if name.endswith(".pdf") \
+        else f"image/{name.rsplit('.', 1)[1]}" if name.rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "heic") else "application/octet-stream"
+    ascii_name = name.encode("ascii", "ignore").decode().replace('"', "") or "receipt"
+    return Response(content=data, media_type=kind, headers={
+        "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}", "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:"})
 
 
 @router.get("/documents/{doc_id}/files/{name}")
