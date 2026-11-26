@@ -481,6 +481,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/home/usage` |  |
 | `POST /api/v1/home/usage` |  |
 | `PUT /api/v1/home/usage` |  |
+| `PUT /api/v1/home/usage/menu` | 11.11: the sections the side menu leaves out (Home can't be). |
 
 ### `/api/v1/homelab`
 
@@ -831,6 +832,12 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | Route | What it does |
 | --- | --- |
 | `GET /api/v1/trends` |  |
+
+### `/api/v1/updates`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/updates` | The running version against main's on GitHub, and the last update's log. |
 
 ### `/api/v1/watch`
 

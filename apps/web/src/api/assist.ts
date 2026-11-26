@@ -14,11 +14,14 @@ export const plan = { today: () => api<DayPlan>("/api/v1/plan/today") };
 
 export interface Usage { on: boolean; phases: Record<string, Record<string, { score: number; tucked: boolean; seen_days: number; taps: number }>>;
   /** 11.10: sections you usually open at each part of the day, and days each section was opened in four weeks. */
-  usually?: Record<string, { path: string; days: number }[]>; sections?: Record<string, number> }
+  usually?: Record<string, { path: string; days: number }[]>; sections?: Record<string, number>;
+  /** 11.11: when the visit counts began, and the sections the side menu leaves out. */
+  counting_since?: string | null; menu_hidden?: string[] }
 export const usage = {
   get: () => api<Usage>("/api/v1/home/usage"),
   send: (events: { phase: string; widget: string; kind: "seen" | "tap" | "visit"; interactive?: boolean }[]) => api<{ ok: boolean }>("/api/v1/home/usage", json({ events })),
   setOn: (on: boolean) => api<Usage>("/api/v1/home/usage", { method: "PUT", body: JSON.stringify({ on }) }),
+  setMenuHidden: (hidden: string[]) => api<Usage>("/api/v1/home/usage/menu", { method: "PUT", body: JSON.stringify({ hidden }) }),
 };
 
 export interface Pattern { id: string; text: string; try: string | null; strength: number; worse: boolean; days: number }

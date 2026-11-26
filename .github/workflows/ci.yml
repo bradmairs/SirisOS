@@ -10,6 +10,30 @@ permissions:
   contents: read
 
 jobs:
+  # 11.11: two sessions both shipped 11.9.0. A pull request's version has to be newer than main's when it's checked;
+  # scripts/bump-version.sh rebase renumbers it onto the next one.
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Newer than main
+        run: |
+          mine="$(tr -d '[:space:]' < VERSION)"
+          main="$(git show "origin/${{ github.base_ref }}:VERSION" | tr -d '[:space:]')"
+          newer="$(python3 -c "import sys; p=lambda v: tuple(int(x) for x in v.split('.')); print(p(sys.argv[1]) > p(sys.argv[2]))" "$mine" "$main")"
+          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- VERSION; then
+            echo "No version change: fine for a change that isn't released on its own."; exit 0
+          fi
+          if [ "$newer" != "True" ]; then
+            echo "::error::This branch is $mine but main is already $main. Run scripts/bump-version.sh rebase, then push."
+            exit 1
+          fi
+          [ -f "docs/releases/$mine.md" ] || { echo "::error::docs/releases/$mine.md is missing"; exit 1; }
+          echo "$mine is newer than main's $main."
+
   backend:
     runs-on: ubuntu-latest
     env:

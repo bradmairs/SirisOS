@@ -15,7 +15,7 @@ export interface SectionGroup { heading: string | null; sections: Section[] }
 
 export const SECTIONS: SectionGroup[] = [
   { heading: null, sections: [
-    { id: "home", label: "Home", Icon: House, tabs: [{ to: "/", label: "Home", end: true }] },
+    { id: "home", label: "Home", Icon: House, tabs: [{ to: "/", label: "Home", end: true }, { to: "/sections", label: "Sections you use" }] },
   ] },
   { heading: "Daily", sections: [
     { id: "tasks", label: "Tasks", Icon: ListTodo, tabs: [{ to: "/tasks", label: "Tasks" }, { to: "/projects", label: "Projects" }] },

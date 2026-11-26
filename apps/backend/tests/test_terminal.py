@@ -318,7 +318,7 @@ def test_shortcuts_run_behind_a_fresh_code(client, clock, monkeypatch):
     monkeypatch.setenv("SIRISOS_TERMINAL_HOSTS", f"home=brad@127.0.0.1:{shell.port}")
     try:
         listed = client.get("/api/v1/terminal/commands", headers=_auth()).json()
-        assert [c["name"] for c in listed["commands"]] == ["What's running", "Disk space", "Memory and load"] and listed["seconds"] == 60
+        assert [c["name"] for c in listed["commands"]] == ["What's running", "Disk space", "Memory and load", "Update SirisOS"] and listed["seconds"] == 60
         made = client.post("/api/v1/terminal/commands", headers=_auth(), json={"name": "Restart SirisAI", "command": "cd ~/sirisai && docker compose restart"}).json()
         assert made["builtin"] is False and made["host"] is None
         assert client.post("/api/v1/terminal/commands", headers=_auth(), json={"name": "x", "command": "y", "host": "nas"}).status_code == 404

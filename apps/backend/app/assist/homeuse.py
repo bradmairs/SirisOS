@@ -40,6 +40,7 @@ def load() -> dict[str, Any]:
     doc.setdefault("on", True)
     doc.setdefault("phases", {})
     doc.setdefault("visits", {})
+    doc.setdefault("menu_hidden", [])  # 11.11: sections taken out of the side menu (Sections you use)
     return doc
 
 
@@ -99,8 +100,18 @@ def learned(today: date) -> dict[str, Any]:
             usually[phase] = [{"path": p, "days": n} for p, n in picks]
         for p, days in places.items():
             days_used.setdefault(p, set()).update(d for d in days if d >= cutoff)
+    first = min((d for places in doc["visits"].values() for days in places.values() for d in days), default=None)
     return {"on": doc["on"], "phases": out, "usually": usually if doc["on"] else {},
-            "sections": {p: len(d) for p, d in sorted(days_used.items())}}
+            "sections": {p: len(d) for p, d in sorted(days_used.items())}, "counting_since": first,
+            "menu_hidden": list(doc.get("menu_hidden") or [])}
+
+
+def set_menu_hidden(ids: list[str]) -> list[str]:
+    """11.11: which sections the side menu leaves out. They're still in search and their addresses still work."""
+    doc = load()
+    doc["menu_hidden"] = sorted({str(i)[:40] for i in ids if str(i).strip() and str(i) != "home"})[:40]
+    json_store.write(_path(), doc)
+    return doc["menu_hidden"]
 
 
 def set_on(on: bool) -> None:

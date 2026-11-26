@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { UpdateCard } from "./UpdateCard";
 import { ServerCard } from "./ServerCard";
 import { Activity, HardDrive, RefreshCw } from "lucide-react";
 import { useResource } from "../api/resource";
@@ -50,6 +51,7 @@ export function StatusScreen() {
         <AccessCheckCard />
         <UpkeepCard />
         <WatchedCard />
+        <UpdateCard />
         <ServerCard />
         <BackupsCard />
         <SpeedCard />

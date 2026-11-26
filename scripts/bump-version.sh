@@ -3,6 +3,7 @@
 #   scripts/bump-version.sh fix       # a fix or minor change          11.2.1 -> 11.2.2
 #   scripts/bump-version.sh feature   # a new feature or bigger upgrade  11.2.1 -> 11.3.0
 #   scripts/bump-version.sh section   # a significant new section (like Health or SirisGym)  11.2.1 -> 12.0.0
+#   scripts/bump-version.sh rebase    # main moved on: renumber this branch onto the next version after main's
 # (patch, minor and major still work, as fix, feature and section.) Each part counts on its own and never rolls over
 # into the next, so a whole-number change always means a new section.
 # Writes VERSION, the API's and the web app's version, the README's version line, and starts
@@ -11,6 +12,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 kind="${1:-}"
+# 11.11: main moved on while this branch waited: renumber onto the next version after main's (CI's version check)
+if [ "$kind" = "rebase" ]; then
+  git fetch -q origin main
+  exec python3 scripts/rebase_version.py origin/main
+fi
 current="$(tr -d '[:space:]' < VERSION)"
 next="$(python3 - "$current" "$kind" <<'PY'
 import sys
