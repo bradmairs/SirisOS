@@ -12,7 +12,10 @@ export interface GoodSessions {
 }
 export interface SetLog { reps?: number | null; weight?: number | null; seconds?: number | null; km?: number | null; done: boolean; type: "normal" | "warmup" | "drop" | "failure" | "amrap" | "restpause"; rpe?: number | null;
   /** When it was ticked done (6.96), to line it up with the Watch's heart rate. */
-  at?: string | null }
+  at?: string | null;
+  /** 11.9: last session's numbers (or the suggestion), shown faintly in the empty boxes; a tick without typing uses them.
+   * Only on the phone while the workout's on: never saved. */
+  hint?: { weight?: number | null; reps?: number | null } | null }
 export interface EffortExercise { exercise: string; sets: number; avg_hr: number | null; peak_hr: number | null; peak_share: number | null; effort: number | null; rpe: number | null; recovery_bpm: number | null; e1rm: number | null }
 export interface Effort {
   linked: boolean; why?: string; text?: string; advice?: string[]; watch?: { name: string; start: string; end: string }; max_hr?: number; resolution_s?: number;
@@ -293,6 +296,8 @@ export function plates(target: number, bar: number, available: number[]): { perS
   return { perSide, left: Math.round(rest * 200) / 100 };
 }
 
+const RETURN_KEY = "sirisos.gym.return";
+
 /** Run an iPhone Shortcut by name, then come back to `back` (6.92). Only on iPhone/iPad; elsewhere nothing happens. */
 export const shortcuts = {
   /** `text` goes to the Shortcut as its input (7.61: "finished" or "discarded"), so one stop Shortcut can tell them apart.
@@ -307,9 +312,32 @@ export const shortcuts = {
   },
   open: (url: string) => { window.location.href = url; },
   standalone: () => window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true,
+  /** 11.9: a link that brings Shortcuts back to the Home Screen app, set on this iPhone (Settings in SirisGym). Apple gives
+   * Home Screen web apps no official link, so it's empty unless you've found one that works on yours: `{url}` is the
+   * page's address and `{path}` its path. Kept on this phone only: it's about this phone's web app. */
+  returnLink(): string {
+    try { return localStorage.getItem(RETURN_KEY) ?? ""; } catch { return ""; }
+  },
+  setReturnLink(link: string) {
+    try { if (link.trim()) localStorage.setItem(RETURN_KEY, link.trim()); else localStorage.removeItem(RETURN_KEY); } catch { /* private mode */ }
+  },
+  back(backPath: string): string | null {
+    const url = `${window.location.origin}${backPath}`;
+    if (!this.standalone()) return url;
+    const link = this.returnLink();
+    return link ? link.replaceAll("{url}", url).replaceAll("{path}", backPath) : null;
+  },
   run(name: string | undefined, backPath: string, text?: string): boolean {
     if (!name?.trim() || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return false;
-    this.open(this.url(name.trim(), this.standalone() ? null : `${window.location.origin}${backPath}`, text));
+    this.open(this.url(name.trim(), this.back(backPath), text));
+    return true;
+  },
+  /** Try the way back without running anything: a Shortcut that doesn't exist fails at once, and Shortcuts follows the
+   * error link straight back. */
+  tryReturn(backPath: string): boolean {
+    const back = this.back(backPath);
+    if (!back) return false;
+    this.open(this.url("SirisOS return test (not a real Shortcut)", back));
     return true;
   },
 };

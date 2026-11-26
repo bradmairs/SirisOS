@@ -33,11 +33,16 @@ export async function startWorkout(navigate: (to: string) => void, routine?: Rou
     s = { ...s, title: p.title, routine_id: routine.id, day: p.day, deload: !!p.deload, entries: p.exercises.map((e) => ({
       exercise: e.exercise,
       group: e.group ?? null,
+      // 11.9: the boxes start empty, with last session's weight and reps (or the suggestion, for a first time) shown
+      // faintly, so the sets still to do stand out and typing doesn't mean deleting what was there first.
       sets: [
-        ...(e.warmups ?? []).map((w) => ({ weight: w.weight, reps: w.reps, done: false, type: "warmup" as const })),
+        ...(e.warmups ?? []).map((w) => ({ weight: null, reps: null, hint: { weight: w.weight, reps: w.reps }, done: false, type: "warmup" as const })),
         ...Array.from({ length: e.sets }, (_, i) => {
-          const weight = e.suggest.per_set?.[i] ?? e.suggest.weight ?? e.last[i]?.weight ?? null;
-          return { weight, reps: startingReps(e, i, weight), done: false, type: "normal" as const };
+          const suggested = e.suggest.per_set?.[i] ?? e.suggest.weight ?? null;
+          const before = e.last[i];
+          const weight = before?.weight ?? suggested ?? e.last.at(-1)?.weight ?? null;
+          const reps = before?.reps ?? startingReps(e, i, weight);
+          return { weight: null, reps: null, hint: { weight, reps }, done: false, type: "normal" as const };
         }),
       ],
     })) };
