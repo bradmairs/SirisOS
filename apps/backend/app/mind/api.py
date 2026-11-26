@@ -8,7 +8,7 @@
     POST   /api/v1/mind/unlock/options; POST /api/v1/mind/unlock   (9.2) Face ID (a passkey) opens the journal and the
                                          private streak for five minutes: X-Mind-Unlock carries the token
     GET    /api/v1/mind/habits; POST /api/v1/mind/habits {name}; POST /api/v1/mind/habits/{id}/check {done, date?};
-    PATCH  /api/v1/mind/habits/{id} {name?, archived?, days?, move?}   (9.2) daily habits with streaks; 11.9: rename,
+    PATCH  /api/v1/mind/habits/{id} {name?, archived?, days?, move?}   (9.2) daily habits with streaks; 11.10: rename,
                                              move up (-1) or down (1), archived false brings one back; GET lists `stopped`
     PUT    /api/v1/mind/clarity/nudge {on}   (9.2)
     GET    /api/v1/mind/clarity          the private streak (unlocked)
@@ -221,9 +221,9 @@ class HabitCheck(BaseModel):
 
 class HabitChange(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
-    archived: bool | None = None  # 11.9: false brings a stopped habit back
+    archived: bool | None = None  # 11.10: false brings a stopped habit back
     days: list[int] | None = Field(default=None, max_length=7)
-    move: int | None = Field(default=None, ge=-1, le=1)  # 11.9: up (-1) or down (1) the list
+    move: int | None = Field(default=None, ge=-1, le=1)  # 11.10: up (-1) or down (1) the list
 
 
 @router.get("/habits")

@@ -29,7 +29,7 @@ from app.tasks import service as tasks
 
 
 def day_hours(weekday: int) -> tuple[str, str] | None:
-    """A day's working hours (11.9): your own for that weekday from Work's settings, or None for a day off. Without
+    """A day's working hours (11.10): your own for that weekday from Work's settings, or None for a day off. Without
     them, Times of day's weekday start and finish, Monday to Friday, as before."""
     own = settings().get("hours_by_day")
     if isinstance(own, list) and len(own) == 7:
@@ -44,7 +44,7 @@ def day_hours(weekday: int) -> tuple[str, str] | None:
 
 
 def hours(at: datetime) -> dict[str, Any]:
-    """The working day: start, finish, whether it's on now, minutes left. 11.9: each day's own hours, or a day off."""
+    """The working day: start, finish, whether it's on now, minutes left. 11.10: each day's own hours, or a day off."""
     today_ = day_hours(at.weekday())
     workday = today_ is not None
     if today_ is None:  # a day off: the next working day's hours, for "starts at"
@@ -154,7 +154,7 @@ def _load() -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
-# 11.9: hours_by_day, None (Times of day, Monday to Friday) or seven entries from Monday, each {start, end} or None (off).
+# 11.10: hours_by_day, None (Times of day, Monday to Friday) or seven entries from Monday, each {start, end} or None (off).
 DEFAULT_SETTINGS: dict[str, Any] = {"focus_min": 25, "break_min": 5, "apps": None, "calculators": True, "career": True, "hours_by_day": None}
 
 

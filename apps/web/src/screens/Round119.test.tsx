@@ -17,7 +17,7 @@ const item = (over: Partial<InboxItem>): InboxItem => ({
 
 afterEach(() => { clearResources(); resetInbox(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-describe("SirisOS 11.9", () => {
+describe("SirisOS 11.10", () => {
   it("folds SirisAI's own upkeep notices into one line on Home, and clears them together", async () => {
     signIn();
     const date = item({ id: "ai:2", source: "upkeep", title: "SirisAI answered a date question wrong" });

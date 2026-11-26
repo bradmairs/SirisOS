@@ -122,7 +122,11 @@ describe("In a workout (7.0)", () => {
       { exercise: "plank", sets: 1, reps: "1", rest_s: 90, name: "Plank", kind: "time", last: [], suggest: { weight: null, reps: 1, why: "" } }] };
     mockFetch({ "/api/v1/gym/plan": () => jsonResponse(p) });
     await startWorkout(() => undefined, { id: "r1" } as never, 0);
-    expect(loadActive()?.entries.map((e) => e.sets[0].reps)).toEqual([5, 9, 6, null]);
+    // 11.9: the numbers are faint hints in empty boxes, last session's where there is one (the squat's 80 x 10, not the
+    // suggested 82.5 at the bottom of the range: that's in the line above the sets).
+    expect(loadActive()?.entries.map((e) => e.sets[0].reps)).toEqual([null, null, null, null]);
+    expect(loadActive()?.entries.map((e) => e.sets[0].hint?.reps ?? null)).toEqual([5, 9, 10, null]);
+    expect(loadActive()?.entries.map((e) => e.sets[0].hint?.weight ?? null)).toEqual([100, 80, 80, null]);
   });
 });
 

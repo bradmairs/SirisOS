@@ -8,7 +8,7 @@ four weeks:
   under "Show everything" for that part of the day. Cards there just to read (the weather) are never tucked;
 - one tap on a tucked card (from Show everything) brings it straight back.
 
-11.9: **where you go.** Each section you open (/gym, /tasks, /brief…) is counted once a day per part of the day. A
+11.10: **where you go.** Each section you open (/gym, /tasks, /brief…) is counted once a day per part of the day. A
 section you've opened on 3 or more days in the last four weeks at this part of the day is offered at the top of Home
 ("Usually now"), most-used first. The counts are also how SirisOS sees which sections go unused. Loading
 placeholders are never counted as cards.
@@ -66,7 +66,7 @@ def record(events: list[dict[str, Any]], today: date) -> None:
         for w in widgets.values():
             w["days"] = {d: c for d, c in w["days"].items() if d >= cutoff}
         for gone in [k for k in widgets if k.startswith("loading-")]:
-            widgets.pop(gone)  # 11.9: placeholders were counted as cards before
+            widgets.pop(gone)  # 11.10: placeholders were counted as cards before
     keep = (today - timedelta(days=VISIT_KEEP_DAYS)).isoformat()
     for places in doc["visits"].values():
         for path in list(places):

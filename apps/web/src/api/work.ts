@@ -35,10 +35,10 @@ export interface Chartership {
 
 export type CpdCategory = "area" | "risk" | "business" | "other";
 
-/** 11.9: a day's working hours, or null for a day off. */
+/** 11.10: a day's working hours, or null for a day off. */
 export type DayHours = { start: string; end: string } | null;
 export interface WorkSettings { focus_min: number; break_min: number; apps: string[] | null; calculators: boolean; career: boolean;
-  /** 11.9: Monday first; null (the whole list) for Times of day, Monday to Friday. */
+  /** 11.10: Monday first; null (the whole list) for Times of day, Monday to Friday. */
   hours_by_day?: DayHours[] | null }
 
 /** 9.8: rough timesheet notes. */

@@ -1,4 +1,4 @@
-"""The Server handbook (11.9): your own commands, beside the built-in ones in the app.
+"""The Server handbook (11.10): your own commands, beside the built-in ones in the app.
 
     GET    /api/v1/handbook              {entries: [{id, cmd, what, section}]}
     POST   /api/v1/handbook              {cmd, what, section?}

@@ -188,7 +188,7 @@ function Ring({ value, size = 132, stroke = 12, label, children, tone = "accent"
 /** 1. The working day as a ring: how far through 8:00 to 4:30 it is, home time, and what's done. */
 function DayCard({ w, onChange }: { w: WorkDay; onChange: () => void }) {
   const [now, setNow] = useState(() => new Date());
-  const [editing, setEditing] = useState(false);  // 11.9: each day's hours
+  const [editing, setEditing] = useState(false);  // 11.10: each day's hours
   useEffect(() => { const t = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(t); }, []);
   const f = dayFraction(w.hours.start, w.hours.end, now);
   const left = Math.max(0, Math.round((1 - f) * ((+w.hours.end.slice(0, 2) * 60 + +w.hours.end.slice(3)) - (+w.hours.start.slice(0, 2) * 60 + +w.hours.start.slice(3)))));
@@ -216,7 +216,7 @@ function DayCard({ w, onChange }: { w: WorkDay; onChange: () => void }) {
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-/** Each day's working hours (11.9): the ring, home time and the countdown follow them; a day that's off says so. */
+/** Each day's working hours (11.10): the ring, home time and the countdown follow them; a day that's off says so. */
 function HoursEditor({ w, onClose, onSaved }: { w: WorkDay; onClose: () => void; onSaved: () => void }) {
   const own = w.settings?.hours_by_day;
   const [days, setDays] = useState<DayHours[]>(() => own && own.length === 7 ? own

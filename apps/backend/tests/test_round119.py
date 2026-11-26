@@ -1,4 +1,4 @@
-"""11.9: edit habits, each day's working hours, the Server handbook, and Home learning where you go."""
+"""11.10: edit habits, each day's working hours, the Server handbook, and Home learning where you go."""
 
 from __future__ import annotations
 

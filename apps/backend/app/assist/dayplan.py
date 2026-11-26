@@ -165,7 +165,7 @@ async def today(hub: Hub, now: datetime) -> dict[str, Any]:
     t = sch.weekend if day.weekday() >= 5 else sch.weekday
     from app.work import service as work_service
 
-    own = work_service.day_hours(day.weekday())  # 11.9: each day's own working hours, or none on a day off
+    own = work_service.day_hours(day.weekday())  # 11.10: each day's own working hours, or none on a day off
     work = (_m(own[0]), _m(own[1])) if own else None
     end = _m(t.winddown)
     from app.assist import goals_steer

@@ -204,7 +204,7 @@ def test_too_many_at_once_are_refused(keyed, monkeypatch):
 
 
 def test_the_copy_is_never_the_backup_folder_and_only_clears_its_own_nightlies(dirs, monkeypatch):
-    """11.9: on the server, the backups were already on the NAS, and the copy pointed at the same folder."""
+    """11.10: on the server, the backups were already on the NAS, and the copy pointed at the same folder."""
     data, out, nas = dirs
     monkeypatch.setenv("SIRISOS_BACKUP_COPY_DIR", str(out))
     made = backup.create("manual")

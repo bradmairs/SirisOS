@@ -52,7 +52,7 @@ class DayHours(BaseModel):
 
 
 class WorkSettings(BaseModel):
-    # 11.9: Monday first; None for a day off. Leave the whole list out (or null) for Times of day, Monday to Friday.
+    # 11.10: Monday first; None for a day off. Leave the whole list out (or null) for Times of day, Monday to Friday.
     hours_by_day: list[DayHours | None] | None = Field(default=None, min_length=7, max_length=7)
     focus_min: int | None = Field(default=None, ge=5, le=180)
     break_min: int | None = Field(default=None, ge=1, le=60)

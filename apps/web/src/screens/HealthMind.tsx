@@ -484,7 +484,7 @@ export function HabitsView() {
   const [name, setName] = useState("");
   const [newDays, setNewDays] = useState<number[]>([]);
   const [daysOf, setDaysOf] = useState<string | null>(null);  // the habit whose days are being changed
-  const [editing, setEditing] = useState<{ id: string; name: string; days: number[] } | null>(null);  // 11.9
+  const [editing, setEditing] = useState<{ id: string; name: string; days: number[] } | null>(null);  // 11.10
   const [showStopped, setShowStopped] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const habits = res.data?.habits ?? [];

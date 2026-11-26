@@ -94,7 +94,7 @@ export function SectionTabs() {
  * used to keep the last screen's scroll, so Health could open part-way down with its title and tabs out of sight.
  * Back and forward keep where you were; a link to a spot on a page (#id) goes there; tabs within a screen
  * (?view=) don't jump. */
-/** 11.9: which sections you open, for Home's "Usually now" and for seeing what goes unused. Each tab counts once a day
+/** 11.10: which sections you open, for Home's "Usually now" and for seeing what goes unused. Each tab counts once a day
  * per part of the day (the server works out which part); not while getting ready for offline. */
 export function VisitTracker() {
   const { pathname } = useLocation();

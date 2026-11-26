@@ -1,4 +1,4 @@
-"""The Server handbook (11.9): commands worth keeping. The built-in ones are in the web app (they hold nothing
+"""The Server handbook (11.10): commands worth keeping. The built-in ones are in the web app (they hold nothing
 private); yours, which may name your own hosts and paths, are kept here in handbook.json, not in the repo."""
 
 from __future__ import annotations

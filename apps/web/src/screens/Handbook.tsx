@@ -6,7 +6,7 @@ import { HANDBOOK, type Command } from "../data/handbook";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
-/** The Server handbook (11.9): Linux, Docker and server commands worth keeping, to search and copy, and your own. */
+/** The Server handbook (11.10): Linux, Docker and server commands worth keeping, to search and copy, and your own. */
 export function HandbookScreen() {
   const res = useResource<{ entries: HandbookEntry[] }>("handbook", () => handbook.list(), { staleMs: 60_000, persist: true });
   const [q, setQ] = useState("");

@@ -264,13 +264,13 @@ export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; on
   );
 }
 
-/** SirisAI checking itself (11.9): its self-test and after-update notices. They're worth a look but rarely need you
+/** SirisAI checking itself (11.10): its self-test and after-update notices. They're worth a look but rarely need you
  * this minute, and on Home three of them pushed everything else out of "Needs you". An urgent one is never folded. */
 export function isUpkeep(item: InboxItem): boolean {
   return item.severity !== "urgent" && item.origin === "sirisai" && /^(upkeep|self.?test|release.?check)$/i.test(item.source || "");
 }
 
-/** Home's "Needs you" section: the top few items, linking to the full inbox. 11.9: SirisAI's own upkeep notices are
+/** Home's "Needs you" section: the top few items, linking to the full inbox. 11.10: SirisAI's own upkeep notices are
  * one line at the end, opened with a tap, with "Got it" for all of them. */
 export function InboxPanel({ limit = 4 }: { limit?: number }) {
   const { items: all, counts, act, loaded } = useInbox();

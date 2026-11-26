@@ -192,7 +192,7 @@ function useHomeUsage(phase: string) {
       try { done = JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { /* none */ }
       document.querySelectorAll<HTMLElement>("[data-home-widget]").forEach((el) => {
         const id = el.getAttribute("data-home-widget")!;
-        if (id.startsWith("loading-")) return;  // 11.9: a placeholder isn't a card
+        if (id.startsWith("loading-")) return;  // 11.10: a placeholder isn't a card
         const drew = Array.from(el.children).some((c) => (c as HTMLElement).getBoundingClientRect?.().height > 0 || c.childElementCount > 0);
         if (!drew || done.includes(id)) return;
         done.push(id);
@@ -206,7 +206,7 @@ function useHomeUsage(phase: string) {
   }, [phase]);
 }
 
-/** 11.9: where you usually go at this part of the day (opened on 3 or more days in four weeks), one tap away. */
+/** 11.10: where you usually go at this part of the day (opened on 3 or more days in four weeks), one tap away. */
 function UsuallyNow({ places }: { places: { path: string; days: number }[] }) {
   const shown = places.map((p) => ({ ...p, hit: sectionFor(p.path) })).filter((p) => p.hit);
   if (!shown.length) return null;
@@ -243,7 +243,7 @@ export function Home() {
   const ctxRes = useResource<HomeContext>("home:context", () => homeContext(), { refreshMs: 5 * 60_000, persist: true });
   const ctx = ctxRes.data ?? null;
   const navigate = useNavigate();
-  // 11.9: back in the app after a while, the part of the day may have moved on: ask at once, not at the next 5 minutes.
+  // 11.10: back in the app after a while, the part of the day may have moved on: ask at once, not at the next 5 minutes.
   useEffect(() => {
     const back = () => { if (document.visibilityState === "visible") void ctxRes.reload?.(true).catch(() => undefined); };
     document.addEventListener("visibilitychange", back);

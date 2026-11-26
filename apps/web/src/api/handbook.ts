@@ -1,6 +1,6 @@
 import { api, json } from "./client";
 
-/** One of your own handbook commands (11.9), kept on the server. */
+/** One of your own handbook commands (11.10), kept on the server. */
 export interface HandbookEntry { id: string; cmd: string; what: string; section: string }
 
 const H = "/api/v1/handbook";

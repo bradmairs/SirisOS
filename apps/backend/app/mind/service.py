@@ -427,7 +427,7 @@ def mark_habit(habit_id: str, done: bool, day: str | None = None) -> list[dict[s
 
 def change_habit(habit_id: str, name: str | None = None, archived: bool | None = None,
                  days: list[int] | None = None, move: int | None = None) -> list[dict[str, Any]] | None:
-    """Rename, change the days, stop or (11.9) bring back a stopped one, and move it up or down the list."""
+    """Rename, change the days, stop or (11.10) bring back a stopped one, and move it up or down the list."""
     doc = load()
     h = _habit(doc, habit_id) if archived is not False else next((x for x in doc["habits"] if x["id"] == habit_id), None)
     if h is None:
@@ -452,7 +452,7 @@ def change_habit(habit_id: str, name: str | None = None, archived: bool | None =
 
 
 def stopped_habits() -> list[dict[str, Any]]:
-    """The habits you stopped tracking (11.9), newest last, to bring one back with its history."""
+    """The habits you stopped tracking (11.10), newest last, to bring one back with its history."""
     return [{"id": h["id"], "name": h["name"], "days_done": len(h.get("done", []))} for h in load()["habits"] if h.get("archived")]
 
 

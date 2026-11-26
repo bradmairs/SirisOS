@@ -33,6 +33,7 @@ export function GymWorkoutScreen() {
   const [done, setDone] = useState<Done | null>(null);
   const [menu, setMenu] = useState<number | null>(null);  // the exercise whose ⋯ is open (8.7)
   const [notes, setNotes] = useState<Set<number>>(new Set());  // exercises whose note box is open
+  const [removing, setRemoving] = useState<number | null>(null);  // 11.9: the exercise whose sets show a remove button
   const [listening, setListening] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
   // 11.7: the whole workout as a list, or one exercise at a time (kept on this phone).
@@ -158,7 +159,7 @@ export function GymWorkoutScreen() {
     for (let i = ei; i < s.entries.length; i++) {
       const sets = s.entries[i].sets;
       const j = sets.findIndex((x, k) => !x.done && (i > ei || k > si));
-      if (j >= 0) { const x = sets[j]; return `${byId.get(s.entries[i].exercise)?.name ?? s.entries[i].exercise}, set ${j + 1}${x.weight ? `: ${x.weight} kg` : ""}`; }
+      if (j >= 0) { const x = sets[j]; const w = x.weight ?? x.hint?.weight; return `${byId.get(s.entries[i].exercise)?.name ?? s.entries[i].exercise}, set ${j + 1}${w ? `: ${w} kg` : ""}`; }
     }
     return "That was the last set: finish when you're ready.";
   };
@@ -243,7 +244,7 @@ export function GymWorkoutScreen() {
   async function finish() {
     if (!s) return;
     const { editing, ...rest } = s;
-    const final: Session = { ...rest, ended_at: editing ? (s.ended_at ?? new Date().toISOString()) : new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length) };
+    const final: Session = { ...rest, ended_at: editing ? (s.ended_at ?? new Date().toISOString()) : new Date().toISOString(), entries: s.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done).map(({ hint: _hint, ...x }) => x) })).filter((e) => e.sets.length) };
     if (!final.entries.length) { setInfo("Tick at least one set first, or discard it."); return; }
     const undone = s.entries.reduce((n, e) => n + e.sets.filter((x) => !x.done).length, 0);
     if (undone && !window.confirm(`${undone} set${undone === 1 ? " isn't" : "s aren't"} ticked, and won't be saved. Finish anyway?`)) return;
@@ -294,6 +295,14 @@ export function GymWorkoutScreen() {
             {ei < s.entries.length - 1 && !(entry.group && entry.group === s.entries[ei + 1].group) && (
               <button type="button" className="chip chip--button" onClick={() => { link(ei); setMenu(null); }}><Link2 size={12} aria-hidden="true" /> Superset with the next</button>
             )}
+            <button type="button" className="chip chip--button" aria-pressed={removing === ei}
+              onClick={() => { setRemoving(removing === ei ? null : ei); setMenu(null); }}><Trash2 size={12} aria-hidden="true" /> Remove sets</button>
+            {entry.sets.some((x) => x.type === "warmup" && !x.done) && (
+              <button type="button" className="chip chip--button" onClick={() => {
+                setMenu(null);
+                update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((x) => x.type !== "warmup" || x.done) } : e)) });
+              }}><X size={12} aria-hidden="true" /> Remove warm-ups</button>
+            )}
             <button type="button" className="chip chip--button" onClick={() => setNotes((n) => new Set(n).add(ei))}><StickyNote size={12} aria-hidden="true" /> Note</button>
             {(() => {
               // Filmed during the set it's for: the next one to tick (or the last, once they're all done).
@@ -322,7 +331,13 @@ export function GymWorkoutScreen() {
         {p?.suggest.last_note && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last time's note: {p.suggest.last_note}</p>}
         {p?.niggle && <p className="tone-warning" style={{ margin: 0, fontSize: 12 }}>{p.niggle.why}{p.niggle.from ? ` (instead of ${byId.get(p.niggle.from)?.name ?? p.niggle.from})` : ""}</p>}
         {p?.rest_learned && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Rest {p.rest_learned.seconds} s, not {p.rest_learned.planned}: {p.rest_learned.why}</p>}
-        <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here}
+        {removing === ei && (
+          <div className="row gym-removing" role="status">
+            <span className="muted" style={{ fontSize: 13 }}>Tap a set's bin to remove it.</span>
+            <button type="button" className="chip chip--button" onClick={() => setRemoving(null)}><Check size={12} aria-hidden="true" /> Done</button>
+          </div>
+        )}
+        <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here} removing={removing === ei}
           guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null} bodyweight={s.bodyweight ?? g?.settings.bodyweight_kg ?? null}
           onChange={(si, patch, opts) => {
             const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
@@ -337,7 +352,12 @@ export function GymWorkoutScreen() {
           }}
           onRemove={(si) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) })} />
         <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }}
-          onClick={() => { const prev = entry.sets.at(-1); update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets, { weight: prev?.weight ?? null, reps: null, done: false, type: "normal" }] } : e)) }); }}>
+          onClick={() => {
+            // 11.9: a new set shows the last one's numbers faintly, like the rest.
+            const prev = entry.sets.at(-1);
+            const hint = { weight: prev?.weight ?? prev?.hint?.weight ?? null, reps: prev?.reps ?? prev?.hint?.reps ?? null };
+            update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets, { weight: null, reps: null, hint, done: false, type: "normal" }] } : e)) });
+          }}>
           <Plus size={12} aria-hidden="true" /> Set
         </button>
         {(entry.note || notes.has(ei)) && (
@@ -563,9 +583,9 @@ function LastTime({ last, kind }: { last: { date?: string; sets: SetLog[] }; kin
   );
 }
 
-function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onChange, onRemove }: {
+function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onChange, onRemove, removing = false }: {
   ex?: Exercise; sets: SetLog[]; last: SetLog[]; unit: string; settings?: { bar: number; plates: number[] };
-  guard?: number | null; best?: number | null; bodyweight?: number | null;
+  guard?: number | null; best?: number | null; bodyweight?: number | null; removing?: boolean;
   onChange: (i: number, patch: Partial<SetLog>, opts?: { carry?: boolean; from?: number | null }) => void; onRemove: (i: number) => void;
 }) {
   const kind = ex?.kind ?? "weight";
@@ -581,8 +601,11 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
     const x = sets[i];
     const fill: Partial<SetLog> = { done: !x.done, at: !x.done ? new Date().toISOString() : null };
     const above = sets.slice(0, i).reverse().find((y) => y.type === x.type && y.weight != null);
-    if (!x.done && x.weight == null && (above?.weight ?? prev?.weight)) fill.weight = above?.weight ?? prev!.weight;
-    if (!x.done && x.reps == null && prev?.reps) fill.reps = prev.reps;
+    // 11.9: an empty box takes the faint number it showed (last session's), then the set above's, then last time's.
+    const weight = x.hint?.weight ?? above?.weight ?? prev?.weight;
+    if (!x.done && x.weight == null && weight != null) fill.weight = weight;
+    const reps = x.hint?.reps ?? prev?.reps;
+    if (!x.done && x.reps == null && reps) fill.reps = reps;
     const w = fill.weight ?? x.weight;
     if (!x.done && x.type !== "warmup" && w && guard && guard >= 10 && w > guard * 1.5
       && !window.confirm(`${w} ${unit}? That's well over your heaviest lately (${guard} ${unit}). Tick it anyway?`)) return;
@@ -603,8 +626,9 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
         const est = setE1rm(ex, x.weight, x.reps, bodyweight);
         // Under the set: plates, against last time, a new best (8.7).
         const bits: string[] = [];
-        if (barbell && x.weight && settings && x.weight > settings.bar) {
-          const p = plates(x.weight, settings.bar, settings.plates);
+        const load = x.weight ?? x.hint?.weight ?? null;  // the plates for the faint number too, before it's typed or ticked
+        if (barbell && load && settings && load > settings.bar) {
+          const p = plates(load, settings.bar, settings.plates);
           if (p.perSide.length) bits.push(`${p.perSide.join(" + ")} a side${p.left ? ` (${p.left} short)` : ""}`);
         }
         if (prev && x.type !== "warmup") {
@@ -630,11 +654,12 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
               <span className="muted gym-sets__prev">{prev ? (prev.weight ? `${prev.weight}×${prev.reps ?? "–"}` : prev.seconds ? `${prev.seconds}s` : `${prev.reps ?? "–"}`) : "–"}</span>
               {kind === "weight" || kind === "bodyweight" ? (
                 <>
-                  <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} weight`} value={x.weight} placeholder={prev?.weight ? String(prev.weight) : kind === "bodyweight" ? "0" : ""}
-                    onFocus={() => { typing.current = { i, from: x.weight ?? null }; }}
+                  <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} weight`} value={x.weight} placeholder={x.hint?.weight != null ? String(x.hint.weight) : prev?.weight ? String(prev.weight) : kind === "bodyweight" ? "0" : ""}
+                    onFocus={(e) => { typing.current = { i, from: x.weight ?? null }; e.currentTarget.select(); }}
                     onValue={(v) => onChange(i, { weight: v }, { carry: false })}
                     onBlur={() => { const tp = typing.current; typing.current = null; if (tp && tp.i === i && (x.weight ?? null) !== tp.from) onChange(i, { weight: x.weight ?? null }, { carry: true, from: tp.from }); }} />
-                  <input className="field gym-sets__in" inputMode="numeric" aria-label={`Set ${label} reps`} value={x.reps ?? ""} placeholder={prev?.reps ? String(prev.reps) : ""}
+                  <input className="field gym-sets__in" inputMode="numeric" aria-label={`Set ${label} reps`} value={x.reps ?? ""} placeholder={x.hint?.reps != null ? String(x.hint.reps) : prev?.reps ? String(prev.reps) : ""}
+                    onFocus={(e) => e.currentTarget.select()}
                     onChange={(e) => onChange(i, { reps: e.target.value === "" ? null : Number(e.target.value) })} />
                 </>
               ) : kind === "time" ? (
@@ -645,8 +670,13 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
                   <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} km`} value={x.km} onValue={(v) => onChange(i, { km: v })} />
                 </>
               )}
-              <button type="button" className={`gym-sets__done ${x.done ? "gym-sets__done--on" : ""}`} aria-pressed={x.done} aria-label={`Set ${label} done`}
-                onClick={() => tick(i, prev)}><Check size={16} aria-hidden="true" /></button>
+              {removing ? (
+                <button type="button" className="gym-sets__done gym-sets__remove" aria-label={`Remove set ${label}`}
+                  onClick={() => { if (!x.done || window.confirm(`Set ${label} is ticked. Remove it?`)) onRemove(i); }}><Trash2 size={15} aria-hidden="true" /></button>
+              ) : (
+                <button type="button" className={`gym-sets__done ${x.done ? "gym-sets__done--on" : ""}`} aria-pressed={x.done} aria-label={`Set ${label} done`}
+                  onClick={() => tick(i, prev)}><Check size={16} aria-hidden="true" /></button>
+              )}
             </div>
             {(bits.length > 0 || record || (x.done && x.type !== "warmup") || swiped === i) && (
               <div className="gym-sets__sub">

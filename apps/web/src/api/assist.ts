@@ -13,7 +13,7 @@ export interface DayPlan { date: string; readiness: number | null; until: string
 export const plan = { today: () => api<DayPlan>("/api/v1/plan/today") };
 
 export interface Usage { on: boolean; phases: Record<string, Record<string, { score: number; tucked: boolean; seen_days: number; taps: number }>>;
-  /** 11.9: sections you usually open at each part of the day, and days each section was opened in four weeks. */
+  /** 11.10: sections you usually open at each part of the day, and days each section was opened in four weeks. */
   usually?: Record<string, { path: string; days: number }[]>; sections?: Record<string, number> }
 export const usage = {
   get: () => api<Usage>("/api/v1/home/usage"),

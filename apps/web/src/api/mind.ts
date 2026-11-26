@@ -14,7 +14,7 @@ export interface Mind {
   /** 9.2: a passkey is set up, so the journal and Clarity open with Face ID. */
   locking: boolean;
 }
-/** 11.9: a habit you stopped tracking, to bring back with its history. */
+/** 11.10: a habit you stopped tracking, to bring back with its history. */
 export interface StoppedHabit { id: string; name: string; days_done: number }
 export interface Habit { id: string; name: string; created: string; streak: number; best: number; today: boolean; rate: number;
   /** 9.8: the weekdays it's for (0 = Monday; empty, every day), whether today is one, and those days in words. */

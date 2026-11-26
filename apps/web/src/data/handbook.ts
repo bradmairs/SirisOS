@@ -1,4 +1,4 @@
-/** The Server handbook's built-in commands (11.9). Nothing private: your own hosts and paths go in "Mine",
+/** The Server handbook's built-in commands (11.10). Nothing private: your own hosts and paths go in "Mine",
  * kept on the server. `danger` marks one that deletes, stops or restarts something. Words in <angle brackets> are
  * yours to fill in. */
 export interface Command { cmd: string; what: string; danger?: boolean }

@@ -62,7 +62,7 @@ def backup_dir() -> Path:
 
 
 def copy_dir() -> Path | None:
-    """Where the off-server copy goes (8.9), or None. 11.9: never the backup folder itself (it once was, on Brad's
+    """Where the off-server copy goes (8.9), or None. 11.10: never the backup folder itself (it once was, on Brad's
     server, where SIRISOS_BACKUP_PATH already pointed at the NAS): a copy onto itself is no copy, and its clean-up
     counted the real backups and removed the oldest nightly."""
     raw = os.getenv("SIRISOS_BACKUP_COPY_DIR", "").strip()
@@ -244,7 +244,7 @@ def copy_out(name: str) -> dict[str, Any] | None:
         temp = folder / f".{name}.tmp"
         shutil.copyfile(path_of(name), temp)
         temp.replace(folder / name)
-        # Only its own nightly copies are ever cleared (11.9).
+        # Only its own nightly copies are ever cleared (11.10).
         kept = sorted((p for p in folder.iterdir() if p.is_file() and (m := NAME.match(p.name)) and m.group(2) == "nightly"),
                       key=lambda p: p.name, reverse=True)
         for old in kept[COPIES:]:
