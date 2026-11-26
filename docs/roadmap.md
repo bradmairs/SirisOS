@@ -240,6 +240,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.6.1: Is this right? asks about five notes a week, picked on Sunday, and is gone once they're done
 11.7.0: SirisGym one exercise at a time: a toggle, a full-page card per exercise with a strip, Previous / Next and swipes, and it moves on by itself
 11.8.0: smoother scrolling (no live blur on cards in the page, no nudge mid-scroll, only the workout clock ticks), the fuel reminder comes, habits in Wrap Up, download receipts (one, or a zip with receipts.csv)
+11.9.0: SirisGym faint numbers from last session, removing sets and warm-ups, a return link from Shortcuts, and effort against each lift's own heart-rate range (SirisAI 4.28)
 
 ## Terminal (ADR 113)
 

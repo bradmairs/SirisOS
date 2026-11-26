@@ -236,7 +236,7 @@ try {
       // 11.7: the workout one exercise at a time.
       if (location.hash === "#one") localStorage.setItem("sirisos.gym.view", "focus"); else localStorage.removeItem("sirisos.gym.view");
       localStorage.setItem("sirisos.gym.active", JSON.stringify({ id: "w1", title: "Push, pull, legs: Push", started_at: new Date(Date.now() - 1500000).toISOString(), entries: [
-        { exercise: "bench-press", group: "A", note: "Elbows in", sets: [{ weight: 20, reps: 10, done: true, type: "warmup" }, { weight: 82.5, reps: 8, done: true, type: "normal", rpe: 8 }, { weight: 82.5, reps: null, done: false, type: "normal" }] },
+        { exercise: "bench-press", group: "A", note: "Elbows in", sets: [{ weight: 20, reps: 10, done: true, type: "warmup" }, { weight: 82.5, reps: 8, done: true, type: "normal", rpe: 8 }, { weight: 82.5, reps: null, done: false, type: "normal" }, { weight: null, reps: null, hint: { weight: 82.5, reps: 7 }, done: false, type: "normal" }] },
         { exercise: "plank", group: "A", sets: [{ seconds: 60, done: false, type: "normal" }] }] }));
     });
     await ctx.route("**/api/**", (route) => {

@@ -56,7 +56,7 @@ describe("SirisGym 6.7", () => {
     const s = JSON.parse(window.localStorage.getItem("sirisos.gym.active")!);
     expect(s.gym).toBe("work");
     expect(s.entries[0].group).toBe("A");
-    expect(s.entries[0].sets.map((x: { type: string; weight: number }) => `${x.type}:${x.weight}`)).toEqual(["warmup:15", "warmup:30", "normal:72.5", "normal:85"]);
+    expect(s.entries[0].sets.map((x: { type: string; hint?: { weight: number } }) => `${x.type}:${x.hint?.weight}`)).toEqual(["warmup:15", "warmup:30", "normal:72.5", "normal:85"]);
   });
 
   it("rests after the superset's last exercise, and records effort and a note", async () => {

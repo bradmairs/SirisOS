@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Mic, Dumbbell, Plus, Settings2, Trash2 } from "lucide-react";
-import { gym, newId, type Gym, type GymProfile, type GymSettings } from "../api/gym";
+import { gym, newId, shortcuts, type Gym, type GymProfile, type GymSettings } from "../api/gym";
 import { Glass } from "../components/Glass";
 import { BackupsCard } from "./GymCards";
 
@@ -28,7 +28,8 @@ export function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) 
         {!!s.shortcut_start?.trim() && !s.shortcut_finish?.trim() && (
           <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 12 }}>With a start Shortcut but no finish one, the Watch workout keeps running after you finish or discard here. Name a Shortcut that ends it.</p>
         )}
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and calories are recorded and matched to the session. The finish one gets "finished" or "discarded" as its input, and should end the Watch workout. It runs on iPhone. In Safari it comes straight back; from the Home Screen app, tap ◀ SirisOS at the top left (a link back would open Safari instead, without your workout).</p>
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Make the Shortcut in the Shortcuts app with this exact name, e.g. one that starts a Traditional Strength Training workout on your Watch, so heart rate and calories are recorded and matched to the session. The finish one gets "finished" or "discarded" as its input, and should end the Watch workout. It runs on iPhone. In Safari it comes straight back; from the Home Screen app, see below.</p>
+        <ReturnLink />
         <label className="gym-setting">…and for each rest, given its seconds (e.g. to start a Clock timer, which shows on the lock screen and Dynamic Island)
           <input className="field" placeholder="e.g. SirisGym Rest (empty: none)" value={s.shortcut_rest ?? ""} onChange={(e) => setS({ ...s, shortcut_rest: e.target.value })} /></label>
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>A web app can't put up a Live Activity itself; only iPhone apps can. A Clock timer can: make a Shortcut that takes the input as seconds and runs Start Timer. Each rest then opens Shortcuts for a moment; from the Home Screen app, tap ◀ SirisOS at the top left to come back.</p>
@@ -134,3 +135,28 @@ export function TidyCard({ onChange }: { onChange: () => void }) {
     </Glass>
   );
 }
+
+/** 11.9: coming back from the Watch Shortcut to the Home Screen app, set on this iPhone. */
+function ReturnLink() {
+  const [link, setLink] = useState(() => shortcuts.returnLink());
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <section className="stack" style={{ gap: 6 }} aria-label="Coming back from Shortcuts">
+      <label className="gym-setting">Come back to the Home Screen app with (this iPhone only)
+        <input className="field" placeholder="A link that opens SirisOS's web app, with {url} for the page" value={link}
+          onChange={(e) => { setLink(e.target.value); shortcuts.setReturnLink(e.target.value); setNote(null); }} /></label>
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+        Apple doesn't give Home Screen web apps a link back, so by default the Shortcut leaves you in Shortcuts (tap ◀ SirisOS at the top left).
+        Two ways round it: end your start Shortcut with <b>Open App</b> and choose SirisOS, if your iPhone lists it there; or, if you know a link
+        that opens SirisOS's web app on your iPhone, put it here and tap Try it. Try it runs nothing: Shortcuts comes straight back by it, and you'll
+        see whether you land back here or in Safari.
+      </p>
+      <span className="row" style={{ gap: 8 }}>
+        <button type="button" className="button button--small" disabled={!link.trim()}
+          onClick={() => { if (!shortcuts.tryReturn("/gym?view=settings")) setNote("Open SirisOS from its Home Screen icon to try it there."); }}>Try it</button>
+        {note && <span className="muted" style={{ fontSize: 12 }}>{note}</span>}
+      </span>
+    </section>
+  );
+}
+

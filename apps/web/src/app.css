@@ -1489,3 +1489,9 @@ section:has(> .widget-grid:empty) { display: none; }
 .gym-focus__navbtn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 52px; min-width: 0; font-weight: 600; }
 .gym-focus__navtext { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 960px) { .gym-focus__hero .gym-image { height: 300px; } }
+
+/* 11.9: SirisGym's faint numbers: last session's weight and reps in the empty boxes, so the sets still to do stand out. */
+.gym-sets__in::placeholder { color: var(--ink-3); opacity: 0.45; font-weight: 400; }
+.gym-sets__row--done .gym-sets__in { font-weight: 600; }
+.gym-sets__remove { color: var(--critical, #f87171); border-color: color-mix(in srgb, var(--critical, #f87171) 45%, transparent); }
+.gym-removing { gap: 8px; align-items: center; justify-content: space-between; }
