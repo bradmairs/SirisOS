@@ -1,4 +1,6 @@
 import { Fragment, useEffect } from "react";
+import { useResource } from "../api/resource";
+import { usage as homeUsage, type Usage } from "../api/assist";
 import { SECTIONS, sectionFor, sectionHref } from "./Sections";
 import { AskAbout } from "./AskAbout";
 import { Link, NavLink, useLocation } from "react-router-dom";
@@ -64,6 +66,9 @@ export function Sidebar({
   onCapture?: () => void;
 }) {
   const location = useLocation();
+  // 11.11: sections taken out of the menu on Sections you use (still in search; the one you're in still shows)
+  const menu = useResource<Usage>("home:usage", () => homeUsage.get(), { staleMs: 30 * 60_000, persist: true });
+  const hiddenIds = new Set(menu.data?.menu_hidden ?? []);
   useEffect(() => {
     onClose();
   }, [location.pathname, onClose]);
@@ -108,7 +113,8 @@ export function Sidebar({
         <AskAbout variant="sidebar" />
 
         <nav className="sidebar__nav" aria-label="Screens">
-          {SECTIONS.map((g) => (
+          {SECTIONS.map((g) => ({ ...g, sections: g.sections.filter((sec) => !hiddenIds.has(sec.id) || current?.section.id === sec.id) }))
+            .filter((g) => g.sections.length > 0).map((g) => (
             <Fragment key={g.heading ?? "top"}>
               {g.heading && <p className="sidebar__group">{g.heading}</p>}
               {g.sections.map((sec) => (

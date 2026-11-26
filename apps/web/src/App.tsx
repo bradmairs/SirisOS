@@ -62,6 +62,7 @@ const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.Projec
 const HouseScreen = lazy(() => loadHouse().then((m) => ({ default: m.HouseScreen })));
 const HomeLabScreen = lazy(() => import("./screens/HomeLab").then((m) => ({ default: m.HomeLabScreen })));
 const HandbookScreen = lazy(() => import("./screens/Handbook").then((m) => ({ default: m.HandbookScreen })));
+const SectionsUseScreen = lazy(() => import("./screens/SectionsUse").then((m) => ({ default: m.SectionsUseScreen })));
 const TrainingScreen = lazy(() => loadTraining().then((m) => ({ default: m.TrainingScreen })));
 const GymScreen = lazy(() => loadGym().then((m) => ({ default: m.GymScreen })));
 const WorkScreen = lazy(() => loadWork().then((m) => ({ default: m.WorkScreen })));
@@ -220,6 +221,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/status" element={<StatusScreen />} />
           <Route path="/homelab" element={<HomeLabScreen />} />
           <Route path="/handbook" element={<HandbookScreen />} />
+          <Route path="/sections" element={<SectionsUseScreen />} />
           <Route path="/security" element={<SecurityScreen />} />
           <Route path="/terminal" element={<TerminalScreen />} />
           <Route path="/tasks" element={<TasksScreen />} />

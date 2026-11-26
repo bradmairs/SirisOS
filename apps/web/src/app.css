@@ -1514,3 +1514,9 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .usually-now { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 2px 0; }
 .usually-now__label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-right: 2px; }
 .usually-now__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+/* 11.11: Sections you use, and the update log */
+.sections-use { align-items: center; }
+.sections-use--hidden .item__title { opacity: 0.6; }
+.sections-use__bar { display: block; height: 4px; margin-top: 4px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 18%, transparent); overflow: hidden; }
+.sections-use__bar > span { display: block; height: 100%; background: var(--accent); }
+.update-log { margin: 6px 0 0; padding: 8px; border-radius: 8px; background: color-mix(in srgb, var(--ink-3) 14%, transparent); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }

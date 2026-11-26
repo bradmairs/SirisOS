@@ -38,7 +38,11 @@ def saved() -> list[dict[str, Any]]:
 
 
 def all_commands() -> list[dict[str, Any]]:
-    return BUILT_IN + saved()
+    from app.updates import service as updates
+
+    # 11.11: Update SirisOS, from the Status page's Update now (it needs the same fresh code as any shortcut)
+    update = {"id": updates.COMMAND_ID, "name": "Update SirisOS", "command": updates.update_command(), "host": None, "builtin": True}
+    return [*BUILT_IN, update] + saved()
 
 
 def find(command_id: str) -> dict[str, Any] | None:

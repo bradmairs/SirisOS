@@ -15,7 +15,7 @@ export const SCREENS = [
   "/", "/brief", "/inbox", "/tasks", "/projects", "/gym", "/gym?view=routines", "/gym?view=history", "/gym?view=progress",
   "/wrapup", "/review", "/year", "/health", "/health?view=sleep", "/health?view=mind", "/health?view=habits", "/fitness",
   "/budget", "/week", "/meals", "/house", "/life", "/travel", "/things", "/work", "/engineering", "/career", "/brain",
-  "/links", "/status", "/homelab", "/handbook", "/assistant",
+  "/links", "/status", "/homelab", "/handbook", "/sections", "/assistant",
 ];
 const READY_KEY = "sirisos.offline.ready";
 const WAIT_MS = 2600;

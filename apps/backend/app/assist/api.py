@@ -6,6 +6,7 @@
     GET  /api/v1/home/usage        what Home has learned about the cards you use, by part of the day
     POST /api/v1/home/usage        {events: [{phase, widget, kind: seen|tap|visit, interactive?}]}  (11.10: visit, a section opened)
     PUT  /api/v1/home/usage        {on}: learn from what I use, or not
+    PUT  /api/v1/home/usage/menu   {hidden: [section ids]}: sections the side menu leaves out (11.11)
     GET  /api/v1/patterns          patterns across sections (?fresh=1 to work them out again now)
     GET  /api/v1/goals/steer       each yearly goal's pace, projected finish and, if it's behind, a step this week
     GET  /api/v1/away              after 20 hours away, what changed and what's waiting ({away: false} otherwise)
@@ -95,6 +96,17 @@ def post_usage(body: UsageIn) -> dict[str, Any]:
     phase = context.phase(now)  # 11.10: a visit's part of the day is the server's, from Times of day
     homeuse.record([{**e.model_dump(), **({"phase": phase} if e.kind == "visit" else {})} for e in body.events], now.date())
     return {"ok": True}
+
+
+class MenuIn(BaseModel):
+    hidden: list[str] = Field(default_factory=list, max_length=40)
+
+
+@router.put("/home/usage/menu")
+def put_menu(body: MenuIn) -> dict[str, Any]:
+    """11.11: the sections the side menu leaves out (Home can't be)."""
+    homeuse.set_menu_hidden(body.hidden)
+    return homeuse.learned(_now().date())
 
 
 @router.put("/home/usage")
