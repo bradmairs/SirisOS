@@ -426,9 +426,10 @@ def mark_habit(habit_id: str, done: bool, day: str | None = None) -> list[dict[s
 
 
 def change_habit(habit_id: str, name: str | None = None, archived: bool | None = None,
-                 days: list[int] | None = None) -> list[dict[str, Any]] | None:
+                 days: list[int] | None = None, move: int | None = None) -> list[dict[str, Any]] | None:
+    """Rename, change the days, stop or (11.10) bring back a stopped one, and move it up or down the list."""
     doc = load()
-    h = _habit(doc, habit_id)
+    h = _habit(doc, habit_id) if archived is not False else next((x for x in doc["habits"] if x["id"] == habit_id), None)
     if h is None:
         return None
     if name:
@@ -437,8 +438,22 @@ def change_habit(habit_id: str, name: str | None = None, archived: bool | None =
         h["days"] = _clean_days(days)
     if archived:
         h["archived"] = True
+    elif archived is False:
+        h.pop("archived", None)
+    if move:
+        live = [x for x in doc["habits"] if not x.get("archived")]
+        i = live.index(h)
+        j = i + (1 if move > 0 else -1)
+        if 0 <= j < len(live):
+            a, b = doc["habits"].index(live[i]), doc["habits"].index(live[j])
+            doc["habits"][a], doc["habits"][b] = doc["habits"][b], doc["habits"][a]
     save(doc)
     return habits()
+
+
+def stopped_habits() -> list[dict[str, Any]]:
+    """The habits you stopped tracking (11.10), newest last, to bring one back with its history."""
+    return [{"id": h["id"], "name": h["name"], "days_done": len(h.get("done", []))} for h in load()["habits"] if h.get("archived")]
 
 
 def week(days: list[dict[str, Any]], monday: date, today_: date) -> dict[str, Any] | None:

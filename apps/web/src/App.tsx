@@ -1,5 +1,5 @@
 import { syncPush } from "./api/push";
-import { ScrollToTop, SectionTabs } from "./components/Sections";
+import { ScrollToTop, VisitTracker, SectionTabs } from "./components/Sections";
 import { inPrepFrame } from "./api/prepare";
 import { SyncBar } from "./components/SyncBar";
 import { AppPresence } from "./components/Smart";
@@ -61,6 +61,7 @@ const ProjectsScreen = lazy(() => loadProjects().then((m) => ({ default: m.Proje
 const ProjectScreen = lazy(() => loadProjects().then((m) => ({ default: m.ProjectScreen })));
 const HouseScreen = lazy(() => loadHouse().then((m) => ({ default: m.HouseScreen })));
 const HomeLabScreen = lazy(() => import("./screens/HomeLab").then((m) => ({ default: m.HomeLabScreen })));
+const HandbookScreen = lazy(() => import("./screens/Handbook").then((m) => ({ default: m.HandbookScreen })));
 const TrainingScreen = lazy(() => loadTraining().then((m) => ({ default: m.TrainingScreen })));
 const GymScreen = lazy(() => loadGym().then((m) => ({ default: m.GymScreen })));
 const WorkScreen = lazy(() => loadWork().then((m) => ({ default: m.WorkScreen })));
@@ -204,6 +205,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
         <AppPresence />
         <SyncBar />
         <ScrollToTop />
+        <VisitTracker />
         <SectionTabs />
         <Suspense fallback={<ScreenFallback />}>
         <Routes>
@@ -217,6 +219,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/inbox" element={<InboxScreen />} />
           <Route path="/status" element={<StatusScreen />} />
           <Route path="/homelab" element={<HomeLabScreen />} />
+          <Route path="/handbook" element={<HandbookScreen />} />
           <Route path="/security" element={<SecurityScreen />} />
           <Route path="/terminal" element={<TerminalScreen />} />
           <Route path="/tasks" element={<TasksScreen />} />

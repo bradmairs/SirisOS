@@ -264,21 +264,51 @@ export function InboxRow({ item, onAct, focused = false }: { item: InboxItem; on
   );
 }
 
-/** Home's "Needs you" section: the top few items, linking to the full inbox. */
+/** SirisAI checking itself (11.10): its self-test and after-update notices. They're worth a look but rarely need you
+ * this minute, and on Home three of them pushed everything else out of "Needs you". An urgent one is never folded. */
+export function isUpkeep(item: InboxItem): boolean {
+  return item.severity !== "urgent" && item.origin === "sirisai" && /^(upkeep|self.?test|release.?check)$/i.test(item.source || "");
+}
+
+/** Home's "Needs you" section: the top few items, linking to the full inbox. 11.10: SirisAI's own upkeep notices are
+ * one line at the end, opened with a tap, with "Got it" for all of them. */
 export function InboxPanel({ limit = 4 }: { limit?: number }) {
-  const { items, counts, act, loaded } = useInbox();
-  if (!loaded || items.length === 0) return null;
+  const { items: all, counts, act, loaded } = useInbox();
+  const [openUpkeep, setOpenUpkeep] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  if (!loaded || all.length === 0) return null;
+  const upkeep = all.filter(isUpkeep);
+  const items = all.filter((i) => !isUpkeep(i));
+  const gotAll = async () => {
+    setClearing(true);
+    try {
+      for (const item of upkeep) {
+        const ok = item.actions.find((a) => /^(acknowledge|dismiss|got.?it)$/i.test(a.id) || /got it/i.test(a.label));
+        if (ok) await act(item, ok.id);
+      }
+    } finally { setClearing(false); }
+  };
   return (
     <Glass as="section" className="inbox-panel" aria-label="Needs you">
       <header className="widget__head">
         <InboxIcon aria-hidden="true" />
         <span>Needs you</span>
         {counts.urgent > 0 && <span className="badge badge--urgent">{counts.urgent} urgent</span>}
-        {items.length > limit && <Link to="/inbox" className="widget__more">All {items.length}</Link>}
+        {all.length > limit && <Link to="/inbox" className="widget__more">All {all.length}</Link>}
       </header>
       <ul className="inbox-list">
         {items.slice(0, limit).map((item) => <InboxRow key={item.id} item={item} onAct={act} />)}
       </ul>
+      {upkeep.length > 0 && (
+        <div className="inbox-upkeep">
+          <button type="button" className="inbox-upkeep__head" aria-expanded={openUpkeep} onClick={() => setOpenUpkeep(!openUpkeep)}>
+            <span>SirisAI upkeep: {upkeep.length} thing{upkeep.length === 1 ? "" : "s"} it noticed about itself</span>
+            <span className="muted">{openUpkeep ? "Hide" : "Show"}</span>
+          </button>
+          {openUpkeep && <ul className="inbox-list">{upkeep.map((item) => <InboxRow key={item.id} item={item} onAct={act} />)}</ul>}
+          <button type="button" className="chip chip--button" disabled={clearing} onClick={gotAll}>{clearing ? "Clearing…" : "Got it, all of them"}</button>
+        </div>
+      )}
     </Glass>
   );
 }

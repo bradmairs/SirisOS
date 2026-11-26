@@ -19,7 +19,7 @@ from typing import Any
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.auth import require_user
 from app.hub.service import Hub, get_hub
@@ -40,7 +40,20 @@ class Focus(BaseModel):
     code: str | None = Field(default=None, max_length=40)
 
 
+class DayHours(BaseModel):
+    start: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
+    @model_validator(mode="after")
+    def _order(self) -> "DayHours":
+        if self.end <= self.start:
+            raise ValueError("A day's finish has to be after its start.")
+        return self
+
+
 class WorkSettings(BaseModel):
+    # 11.10: Monday first; None for a day off. Leave the whole list out (or null) for Times of day, Monday to Friday.
+    hours_by_day: list[DayHours | None] | None = Field(default=None, min_length=7, max_length=7)
     focus_min: int | None = Field(default=None, ge=5, le=180)
     break_min: int | None = Field(default=None, ge=1, le=60)
     apps: list[str] | None = Field(default=None, max_length=24)
@@ -51,7 +64,7 @@ class WorkSettings(BaseModel):
 @router.put("/settings")
 def put_settings(body: WorkSettings) -> dict[str, Any]:
     changes = body.model_dump(exclude_unset=True)
-    return service.save_settings({k: v for k, v in changes.items() if v is not None or k == "apps"})
+    return service.save_settings({k: v for k, v in changes.items() if v is not None or k in ("apps", "hours_by_day")})
 
 
 @router.post("/focus")

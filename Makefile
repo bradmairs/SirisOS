@@ -1,12 +1,13 @@
 SHELL := /bin/bash
 PORT := $(or $(shell grep -E '^SIRISOS_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2),8094)
 
-.PHONY: help up dev dev-web backend stop restart logs status hub-check verify reset-password terminal-reset-2fa terminal-forget-host terminal-key clean rebuild-app
+.PHONY: help up update dev dev-web backend stop restart logs status hub-check verify reset-password terminal-reset-2fa terminal-forget-host terminal-key clean rebuild-app
 
 help:
 	@echo "SirisOS commands"
 	@echo ""
 	@echo "  make up          Build and start the complete SirisOS stack"
+	@echo "  make update      Get the newest version from main, then rebuild and start it"
 	@echo "  make dev         Start backend and the Vite hot-reload web server"
 	@echo "  make dev-web     Alias for make dev"
 	@echo "  make backend     Start backend services only for local development"
@@ -39,6 +40,12 @@ dev-web:
 
 backend:
 	@bash scripts/backend-up.sh
+
+# 11.10: every release's notes said "make update", which didn't exist until now.
+update:
+	@git pull --ff-only
+	@$(MAKE) --no-print-directory up
+	@echo "Updated to $$(cat VERSION). Open SirisOS once so the new version loads."
 
 rebuild-app:
 	@docker compose build --no-cache sirisos

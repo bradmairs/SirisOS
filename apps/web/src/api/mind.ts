@@ -14,6 +14,8 @@ export interface Mind {
   /** 9.2: a passkey is set up, so the journal and Clarity open with Face ID. */
   locking: boolean;
 }
+/** 11.10: a habit you stopped tracking, to bring back with its history. */
+export interface StoppedHabit { id: string; name: string; days_done: number }
 export interface Habit { id: string; name: string; created: string; streak: number; best: number; today: boolean; rate: number;
   /** 9.8: the weekdays it's for (0 = Monday; empty, every day), whether today is one, and those days in words. */
   days?: number[]; due_today?: boolean; when?: string;
@@ -86,11 +88,11 @@ export const mind = {
     changed();
   },
   journalList: () => locked<{ journal: JournalEntry[] }>(`${M}/journal`),
-  habits: () => api<{ habits: Habit[] }>(`${M}/habits`),
+  habits: () => api<{ habits: Habit[]; stopped?: StoppedHabit[] }>(`${M}/habits`),
   addHabit: (name: string, days: number[] = []) => api<{ habits: Habit[] }>(`${M}/habits`, json({ name, days })),
   markHabit: (id: string, done: boolean, date?: string) => api<{ habits: Habit[] }>(`${M}/habits/${encodeURIComponent(id)}/check`, json({ done, date: date ?? null })),
-  changeHabit: (id: string, change: { name?: string; archived?: boolean; days?: number[] }) =>
-    api<{ habits: Habit[] }>(`${M}/habits/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(change) }),
+  changeHabit: (id: string, change: { name?: string; archived?: boolean; days?: number[]; move?: -1 | 1 }) =>
+    api<{ habits: Habit[]; stopped?: StoppedHabit[] }>(`${M}/habits/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(change) }),
   nudge: (on: boolean) => locked<Clarity>(`${M}/clarity/nudge`, { method: "PUT", body: JSON.stringify({ on }) }),
   get: () => api<Mind>(M),
   journal: (kind: JournalEntry["kind"], text: string, extra: Record<string, string> = {}) => api<JournalEntry>(`${M}/journal`, json({ kind, text, extra })),

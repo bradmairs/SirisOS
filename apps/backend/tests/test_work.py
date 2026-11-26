@@ -137,7 +137,7 @@ def test_settings_change_the_focus_times_and_pick_the_apps(monkeypatch, tmp_path
     monkeypatch.setattr(links, "load", lambda: doc)
     assert service.settings()["focus_min"] == 25 and [a["id"] for a in service.apps()] == ["a"]  # automatic: work-sounding names
     service.save_settings({"focus_min": 50, "break_min": 10, "apps": ["b", "a", "gone"], "career": False})
-    assert service.settings() == {"focus_min": 50, "break_min": 10, "apps": ["b", "a", "gone"], "calculators": True, "career": False}
+    assert service.settings() == {"focus_min": 50, "break_min": 10, "apps": ["b", "a", "gone"], "calculators": True, "career": False, "hours_by_day": None}
     assert [a["id"] for a in service.apps()] == ["b", "a"], "your order; a link that's gone is skipped"
     service.save_settings({"apps": None})
     assert [a["id"] for a in service.apps()] == ["a"]

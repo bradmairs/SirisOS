@@ -45,6 +45,7 @@ from app.standby.api import router as standby_router
 from app.gym.api import router as gym_router, voice_router as gym_voice_router
 from app.machine.api import router as machine_router
 from app.share.api import router as share_router
+from app.handbook.api import router as handbook_router
 from app.work.api import router as work_router
 from app.homelab.api import router as homelab_router
 from app.mind.api import router as mind_router
@@ -96,6 +97,7 @@ for router in (
     gym_voice_router,
     machine_router,
     share_router,
+    handbook_router,
     work_router,
     homelab_router,
     mind_router,

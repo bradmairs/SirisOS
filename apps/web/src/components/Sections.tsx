@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useLocation, useNavigationType } from "react-router-dom";
+import { usage as homeUsage } from "../api/assist";
+import { inPrepFrame } from "../api/prepare";
 import {
   Brain, BriefcaseBusiness, Dumbbell, HeartPulse, House, HousePlug, LayoutGrid, ListTodo, MoonStar, Server, Sparkles, Wallet, FileText,
 } from "lucide-react";
@@ -37,7 +39,7 @@ export const SECTIONS: SectionGroup[] = [
     { id: "links", label: "Links", Icon: LayoutGrid, tabs: [{ to: "/links", label: "Links" }] },
   ] },
   { heading: "Server", sections: [
-    { id: "server", label: "Server", Icon: Server, tabs: [{ to: "/status", label: "Status" }, { to: "/homelab", label: "Home Lab" }, { to: "/terminal", label: "Terminal" }, { to: "/security", label: "Security" }] },
+    { id: "server", label: "Server", Icon: Server, tabs: [{ to: "/status", label: "Status" }, { to: "/homelab", label: "Home Lab" }, { to: "/terminal", label: "Terminal" }, { to: "/handbook", label: "Handbook" }, { to: "/security", label: "Security" }] },
   ] },
 ];
 
@@ -92,6 +94,21 @@ export function SectionTabs() {
  * used to keep the last screen's scroll, so Health could open part-way down with its title and tabs out of sight.
  * Back and forward keep where you were; a link to a spot on a page (#id) goes there; tabs within a screen
  * (?view=) don't jump. */
+/** 11.10: which sections you open, for Home's "Usually now" and for seeing what goes unused. Each tab counts once a day
+ * per part of the day (the server works out which part); not while getting ready for offline. */
+export function VisitTracker() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const hit = sectionFor(pathname);
+    if (!hit || hit.tab.to === "/" || inPrepFrame()) return;
+    const hour = new Date().getHours();
+    const key = `sirisos.visit.${new Date().toLocaleDateString("en-CA")}.${Math.floor(hour / 3)}.${hit.tab.to}`;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch { /* still send */ }
+    homeUsage.send([{ phase: "", widget: hit.tab.to, kind: "visit" }]).catch(() => undefined);
+  }, [pathname]);
+  return null;
+}
+
 export function ScrollToTop() {
   const { pathname, hash } = useLocation();
   const type = useNavigationType();

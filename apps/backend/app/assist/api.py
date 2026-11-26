@@ -4,7 +4,7 @@
     POST /api/v1/capture/undo      {undo}: take back what route did
     GET  /api/v1/plan/today        today's tasks fitted into the calendar's free time
     GET  /api/v1/home/usage        what Home has learned about the cards you use, by part of the day
-    POST /api/v1/home/usage        {events: [{phase, widget, kind: seen|tap, interactive?}]}
+    POST /api/v1/home/usage        {events: [{phase, widget, kind: seen|tap|visit, interactive?}]}  (11.10: visit, a section opened)
     PUT  /api/v1/home/usage        {on}: learn from what I use, or not
     GET  /api/v1/patterns          patterns across sections (?fresh=1 to work them out again now)
     GET  /api/v1/goals/steer       each yearly goal's pace, projected finish and, if it's behind, a step this week
@@ -51,7 +51,7 @@ class UndoIn(BaseModel):
 class UsageEvent(BaseModel):
     phase: str = Field(max_length=20)
     widget: str = Field(min_length=1, max_length=80)
-    kind: Literal["seen", "tap"]
+    kind: Literal["seen", "tap", "visit"]  # 11.10: visit, a section opened (widget is its path)
     interactive: bool = False
 
 
@@ -89,7 +89,11 @@ def get_usage() -> dict[str, Any]:
 
 @router.post("/home/usage")
 def post_usage(body: UsageIn) -> dict[str, Any]:
-    homeuse.record([e.model_dump() for e in body.events], _now().date())
+    from app.home import context
+
+    now = _now()
+    phase = context.phase(now)  # 11.10: a visit's part of the day is the server's, from Times of day
+    homeuse.record([{**e.model_dump(), **({"phase": phase} if e.kind == "visit" else {})} for e in body.events], now.date())
     return {"ok": True}
 
 
