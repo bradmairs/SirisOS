@@ -440,6 +440,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `POST /api/v1/gym-voice/log` |  |
 
+### `/api/v1/handbook`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/handbook` | Your own handbook commands. |
+| `POST /api/v1/handbook` | Add a command of your own to the handbook. |
+| `DELETE /api/v1/handbook/{entry_id}` | Take one of your commands out of the handbook. |
+| `PATCH /api/v1/handbook/{entry_id}` | Change one of your handbook commands. |
+
 ### `/api/v1/health`
 
 | Route | What it does |

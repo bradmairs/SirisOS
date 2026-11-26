@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { SeenMark, today as seenToday } from "../components/Smart";
 import { usePageContext } from "../api/pageContext";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Award, BriefcaseBusiness, Settings2, X, GraduationCap, Sunset, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer } from "lucide-react";
+import { ArrowDown, ArrowUp, Award, BriefcaseBusiness, Settings2, X, GraduationCap, Sunset, Calculator, Check, Clock, ExternalLink, ListTodo, NotebookPen, Pause, Play, RotateCcw, Search, Timer, Pencil } from "lucide-react";
 import { brain } from "../api/hub";
 import { links, type LinkStatus } from "../api/links";
 import { useResource } from "../api/resource";
 import { tasks, type TaskItem } from "../api/tasks";
 import type { BrainHit } from "../api/types";
-import { dayFraction, span, work, type TimesheetWeek, type Chartership, type CpdCategory, type WorkDay, type WorkSettings } from "../api/work";
+import { dayFraction, span, work, type TimesheetWeek, type Chartership, type CpdCategory, type WorkDay, type WorkSettings, type DayHours } from "../api/work";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 
@@ -68,7 +68,7 @@ export function WorkScreen() {
       {w && (
         <div className="work-grid">
           {showWrap && <WrapUpCard w={w} onSaved={reload} />}
-          <DayCard w={w} />
+          <DayCard w={w} onChange={reload} />
           <FocusCard settings={w.settings} onLogged={reload} />
           <WorkTasksCard w={w} onChange={reload} />
           <TimesheetCard />
@@ -186,8 +186,9 @@ function Ring({ value, size = 132, stroke = 12, label, children, tone = "accent"
 }
 
 /** 1. The working day as a ring: how far through 8:00 to 4:30 it is, home time, and what's done. */
-function DayCard({ w }: { w: WorkDay }) {
+function DayCard({ w, onChange }: { w: WorkDay; onChange: () => void }) {
   const [now, setNow] = useState(() => new Date());
+  const [editing, setEditing] = useState(false);  // 11.9: each day's hours
   useEffect(() => { const t = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(t); }, []);
   const f = dayFraction(w.hours.start, w.hours.end, now);
   const left = Math.max(0, Math.round((1 - f) * ((+w.hours.end.slice(0, 2) * 60 + +w.hours.end.slice(3)) - (+w.hours.start.slice(0, 2) * 60 + +w.hours.start.slice(3)))));
@@ -200,14 +201,60 @@ function DayCard({ w }: { w: WorkDay }) {
           : <><strong className="work-ring__big">{w.hours.workday ? "Done" : "Off"}</strong><span className="muted">{w.hours.workday ? "for today" : "not a work day"}</span></>}
       </Ring>
       <div className="work-day__side">
-        <p className="work-day__hours"><Clock size={14} aria-hidden="true" /> {clock(w.hours.start)} to {clock(w.hours.end)}</p>
+        <p className="work-day__hours"><Clock size={14} aria-hidden="true" /> {clock(w.hours.start)} to {clock(w.hours.end)}
+          <button type="button" className="icon-link" style={{ marginLeft: 6 }} aria-label="Edit working hours" aria-expanded={editing} onClick={() => setEditing(!editing)}><Pencil size={12} aria-hidden="true" /></button></p>
         <div className="work-stats">
           <div><span className="work-stats__n">{wk?.done_today ?? 0}</span><span className="work-stats__l">done today</span></div>
           <div><span className="work-stats__n">{short(wk?.focus_today ?? 0)}</span><span className="work-stats__l">focused</span></div>
           <div><span className="work-stats__n">{(w.tasks.counts.today ?? 0) + (w.tasks.counts.overdue ?? 0)}</span><span className="work-stats__l">still due</span></div>
         </div>
       </div>
+      {editing && <HoursEditor w={w} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChange(); }} />}
     </Glass>
+  );
+}
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Each day's working hours (11.9): the ring, home time and the countdown follow them; a day that's off says so. */
+function HoursEditor({ w, onClose, onSaved }: { w: WorkDay; onClose: () => void; onSaved: () => void }) {
+  const own = w.settings?.hours_by_day;
+  const [days, setDays] = useState<DayHours[]>(() => own && own.length === 7 ? own
+    : WEEKDAYS.map((_, i) => (i < 5 ? { start: w.hours.start, end: w.hours.end } : null)));
+  const [msg, setMsg] = useState<string | null>(null);
+  const set = (i: number, d: DayHours) => setDays(days.map((x, j) => (j === i ? d : x)));
+  const bad = days.some((d) => d && d.end <= d.start);
+  const save = async (value: DayHours[] | null) => {
+    setMsg(null);
+    try { await work.settings({ hours_by_day: value }); onSaved(); } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't save them."); }
+  };
+  return (
+    <div className="work-hours" role="group" aria-label="Working hours by day">
+      {WEEKDAYS.map((name, i) => {
+        const d = days[i];
+        return (
+          <div key={name} className="work-hours__row">
+            <label className="row work-hours__day" style={{ gap: 6 }}>
+              <input type="checkbox" checked={!!d} aria-label={`Work on ${name}`} onChange={(e) => set(i, e.target.checked ? (days.find(Boolean) ?? { start: "09:00", end: "17:00" }) : null)} />
+              {name.slice(0, 3)}</label>
+            {d ? (
+              <>
+                <input className="field" type="time" aria-label={`${name} start`} value={d.start} onChange={(e) => set(i, { ...d, start: e.target.value })} />
+                <span className="muted">to</span>
+                <input className="field" type="time" aria-label={`${name} finish`} value={d.end} onChange={(e) => set(i, { ...d, end: e.target.value })} />
+              </>
+            ) : <span className="muted" style={{ gridColumn: "2 / 5" }}>Off</span>}
+          </div>
+        );
+      })}
+      {bad && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>A day's finish has to be after its start.</p>}
+      {msg && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="button button--primary button--small" disabled={bad} onClick={() => save(days)}>Save hours</button>
+        <button type="button" className="button button--small" onClick={onClose}>Cancel</button>
+        {own && <button type="button" className="chip chip--button" onClick={() => save(null)}>Use Times of day instead</button>}
+      </div>
+    </div>
   );
 }
 

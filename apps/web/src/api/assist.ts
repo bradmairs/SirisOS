@@ -12,10 +12,12 @@ export interface PlanBlock { start: string; end: string; minutes: number; kind: 
 export interface DayPlan { date: string; readiness: number | null; until: string; blocks: PlanBlock[]; left: { id: string; title: string; why: string }[]; free_minutes: number; tasks: number; events: { start: string; end: string }[] }
 export const plan = { today: () => api<DayPlan>("/api/v1/plan/today") };
 
-export interface Usage { on: boolean; phases: Record<string, Record<string, { score: number; tucked: boolean; seen_days: number; taps: number }>> }
+export interface Usage { on: boolean; phases: Record<string, Record<string, { score: number; tucked: boolean; seen_days: number; taps: number }>>;
+  /** 11.9: sections you usually open at each part of the day, and days each section was opened in four weeks. */
+  usually?: Record<string, { path: string; days: number }[]>; sections?: Record<string, number> }
 export const usage = {
   get: () => api<Usage>("/api/v1/home/usage"),
-  send: (events: { phase: string; widget: string; kind: "seen" | "tap"; interactive?: boolean }[]) => api<{ ok: boolean }>("/api/v1/home/usage", json({ events })),
+  send: (events: { phase: string; widget: string; kind: "seen" | "tap" | "visit"; interactive?: boolean }[]) => api<{ ok: boolean }>("/api/v1/home/usage", json({ events })),
   setOn: (on: boolean) => api<Usage>("/api/v1/home/usage", { method: "PUT", body: JSON.stringify({ on }) }),
 };
 

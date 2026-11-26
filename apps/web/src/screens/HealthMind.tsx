@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { BookHeart, Brain, Check, ChevronDown, Repeat, Flower2, LifeBuoy, Lightbulb, Lock, Shield, Smile, Trash2, Wind } from "lucide-react";
-import { lockNow, mind, useUnlocked, type Clarity, type Habit, type JournalEntry, type Mind, type MindDay } from "../api/mind";
+import { ArrowDown, ArrowUp, BookHeart, Brain, Check, ChevronDown, Flower2, LifeBuoy, Lightbulb, Lock, Pencil, Repeat, Shield, Smile, Trash2, Wind } from "lucide-react";
+import { lockNow, mind, useUnlocked, type Clarity, type Habit, type StoppedHabit, type JournalEntry, type Mind, type MindDay } from "../api/mind";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
 
@@ -480,15 +480,18 @@ export function DayPicker({ days, onChange, label }: { days: number[]; onChange:
 }
 
 export function HabitsView() {
-  const res = useResource<{ habits: Habit[] }>("mind:habits", () => mind.habits(), { staleMs: 30_000, persist: true });
+  const res = useResource<{ habits: Habit[]; stopped?: StoppedHabit[] }>("mind:habits", () => mind.habits(), { staleMs: 30_000, persist: true });
   const [name, setName] = useState("");
   const [newDays, setNewDays] = useState<number[]>([]);
   const [daysOf, setDaysOf] = useState<string | null>(null);  // the habit whose days are being changed
+  const [editing, setEditing] = useState<{ id: string; name: string; days: number[] } | null>(null);  // 11.9
+  const [showStopped, setShowStopped] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const habits = res.data?.habits ?? [];
-  const run = async (fn: () => Promise<{ habits: Habit[] }>) => {
+  const stopped = res.data?.stopped ?? [];
+  const run = async (fn: () => Promise<{ habits: Habit[]; stopped?: StoppedHabit[] }>) => {
     setMsg(null);
-    try { res.mutate?.(await fn()); } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't save that."); }
+    try { const next = await fn(); res.mutate?.({ stopped, ...next }); } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't save that."); }
   };
   return (
     <>
@@ -502,7 +505,20 @@ export function HabitsView() {
               <button type="button" className={`gym-sets__done ${h.today ? "gym-sets__done--on" : ""}`} aria-pressed={h.today} aria-label={`${h.name}: done today`}
                 onClick={() => run(() => mind.markHabit(h.id, !h.today))}><Check size={16} aria-hidden="true" /></button>
               <span className="item__text">
-                <span className="item__title">{h.name}</span>
+                {editing?.id === h.id ? (
+                  <form className="stack habit-edit" style={{ gap: 6 }} aria-label={`Edit ${h.name}`}
+                    onSubmit={(e) => { e.preventDefault(); const n = editing.name.trim(); if (n) void run(() => mind.changeHabit(h.id, { name: n, days: editing.days })).then(() => setEditing(null)); }}>
+                    <input className="field" aria-label="Habit name" value={editing.name} maxLength={60} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                    <DayPicker label={`Days for ${h.name}`} days={editing.days} onChange={(days) => setEditing({ ...editing, days })} />
+                    <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                      <button type="submit" className="button button--primary button--small" disabled={!editing.name.trim()}>Save</button>
+                      <button type="button" className="button button--small" onClick={() => setEditing(null)}>Cancel</button>
+                      <button type="button" className="chip chip--button" aria-label={`Move ${h.name} up`} disabled={habits[0]?.id === h.id} onClick={() => run(() => mind.changeHabit(h.id, { move: -1 }))}><ArrowUp size={12} aria-hidden="true" /> Up</button>
+                      <button type="button" className="chip chip--button" aria-label={`Move ${h.name} down`} disabled={habits.at(-1)?.id === h.id} onClick={() => run(() => mind.changeHabit(h.id, { move: 1 }))}><ArrowDown size={12} aria-hidden="true" /> Down</button>
+                      <button type="button" className="chip chip--button tone-critical" onClick={() => { if (window.confirm(`Stop tracking ${h.name}? Its history is kept, and you can bring it back.`)) void run(() => mind.changeHabit(h.id, { archived: true })).then(() => setEditing(null)); }}>Stop tracking</button>
+                    </span>
+                  </form>
+                ) : <span className="item__title">{h.name}</span>}
                 <span className="item__subtitle" style={{ whiteSpace: "normal" }}>
                   <button type="button" className="habit-when" aria-expanded={daysOf === h.id} onClick={() => setDaysOf(daysOf === h.id ? null : h.id)}>{h.when ?? "Every day"}</button>
                   {" · "}{h.streak ? `${h.streak}-day streak` : "No streak yet"} · best {h.best} · {h.rate}% in 30 days</span>
@@ -516,8 +532,10 @@ export function HabitsView() {
                   ))}
                 </span>
               </span>
-              <button type="button" className="icon-link" aria-label={`Stop tracking ${h.name}`}
-                onClick={() => { if (window.confirm(`Stop tracking ${h.name}? Its history is kept.`)) run(() => mind.changeHabit(h.id, { archived: true })); }}><Trash2 size={14} aria-hidden="true" /></button>
+              {editing?.id !== h.id && (
+                <button type="button" className="icon-link" aria-label={`Edit ${h.name}`}
+                  onClick={() => { setDaysOf(null); setEditing({ id: h.id, name: h.name, days: h.days ?? [] }); }}><Pencil size={14} aria-hidden="true" /></button>
+              )}
             </li>
           ))}
         </ul>
@@ -533,6 +551,22 @@ export function HabitsView() {
             </span>
           )}
         </form>
+        {stopped.length > 0 && (
+          <>
+            <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} aria-expanded={showStopped} onClick={() => setShowStopped(!showStopped)}>
+              Stopped habits ({stopped.length})</button>
+            {showStopped && (
+              <ul className="items" aria-label="Stopped habits">
+                {stopped.map((s) => (
+                  <li key={s.id} className="item">
+                    <span className="item__text"><span className="item__title">{s.name}</span><span className="item__subtitle">{s.days_done} day{s.days_done === 1 ? "" : "s"} done</span></span>
+                    <button type="button" className="chip chip--button" onClick={() => run(() => mind.changeHabit(s.id, { archived: false }))}>Bring back</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
         {msg && <p className="tone-warning" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
       </Glass>
     </>

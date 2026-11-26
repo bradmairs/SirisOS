@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type FormEvent, type ReactNode } from "react";
+import { sectionFor } from "../components/Sections";
 import { WidgetBoundary } from "../components/WidgetBoundary";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, Clock3, CloudSun, Cpu, House, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Sunrise, WifiOff } from "lucide-react";
@@ -191,6 +192,7 @@ function useHomeUsage(phase: string) {
       try { done = JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { /* none */ }
       document.querySelectorAll<HTMLElement>("[data-home-widget]").forEach((el) => {
         const id = el.getAttribute("data-home-widget")!;
+        if (id.startsWith("loading-")) return;  // 11.9: a placeholder isn't a card
         const drew = Array.from(el.children).some((c) => (c as HTMLElement).getBoundingClientRect?.().height > 0 || c.childElementCount > 0);
         if (!drew || done.includes(id)) return;
         done.push(id);
@@ -202,6 +204,25 @@ function useHomeUsage(phase: string) {
     const timer = window.setInterval(flush, 15_000);
     return () => { document.removeEventListener("click", onClick, true); window.clearTimeout(seen); window.clearInterval(timer); flush(); };
   }, [phase]);
+}
+
+/** 11.9: where you usually go at this part of the day (opened on 3 or more days in four weeks), one tap away. */
+function UsuallyNow({ places }: { places: { path: string; days: number }[] }) {
+  const shown = places.map((p) => ({ ...p, hit: sectionFor(p.path) })).filter((p) => p.hit);
+  if (!shown.length) return null;
+  return (
+    <nav className="usually-now" aria-label="Usually now">
+      <span className="usually-now__label">Usually now</span>
+      {shown.map(({ path, days, hit }) => {
+        const Icon = hit!.section.Icon;
+        return (
+          <Link key={path} to={path} className="chip chip--button usually-now__chip" title={`Opened at this time on ${days} days lately`}>
+            <Icon size={14} aria-hidden="true" /> {hit!.section.tabs.length === 1 ? hit!.section.label : hit!.tab.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 }
 
 export function Home() {
@@ -222,6 +243,12 @@ export function Home() {
   const ctxRes = useResource<HomeContext>("home:context", () => homeContext(), { refreshMs: 5 * 60_000, persist: true });
   const ctx = ctxRes.data ?? null;
   const navigate = useNavigate();
+  // 11.9: back in the app after a while, the part of the day may have moved on: ask at once, not at the next 5 minutes.
+  useEffect(() => {
+    const back = () => { if (document.visibilityState === "visible") void ctxRes.reload?.(true).catch(() => undefined); };
+    document.addEventListener("visibilitychange", back);
+    return () => document.removeEventListener("visibilitychange", back);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   const now = new Date();
 
   const widgets = useMemo(() => (apps ?? []).filter((a) => a.widget && (isWidget(a.widget) || a.status.state !== "unconfigured")), [apps]);
@@ -363,6 +390,7 @@ export function Home() {
         <p className="guest-banner" role="status">Guest mode is on: your calendar, email, health and notes are hidden.</p>
       )}
       {!hideMine && <AwayCard />}
+      {adapt && !hideMine && <UsuallyNow places={usageRes.data?.usually?.[phase] ?? []} />}
       <InboxPanel />
 
       {(!online || stale) && apps && <OfflineNote online={online} />}

@@ -28,18 +28,33 @@ from app.siris_projects import service as projects
 from app.tasks import service as tasks
 
 
-def hours(at: datetime) -> dict[str, Any]:
-    """The working day from Times of day: start, finish, whether it's on now, minutes left."""
+def day_hours(weekday: int) -> tuple[str, str] | None:
+    """A day's working hours (11.9): your own for that weekday from Work's settings, or None for a day off. Without
+    them, Times of day's weekday start and finish, Monday to Friday, as before."""
+    own = settings().get("hours_by_day")
+    if isinstance(own, list) and len(own) == 7:
+        d = own[weekday]
+        return (d["start"], d["end"]) if isinstance(d, dict) and d.get("start") and d.get("end") else None
+    if weekday >= 5:
+        return None
     from app.home import schedule
 
-    plan = schedule.load()
-    t = plan.weekday
-    start, end = t.day, t.evening
+    t = schedule.load().weekday
+    return t.day, t.evening
+
+
+def hours(at: datetime) -> dict[str, Any]:
+    """The working day: start, finish, whether it's on now, minutes left. 11.9: each day's own hours, or a day off."""
+    today_ = day_hours(at.weekday())
+    workday = today_ is not None
+    if today_ is None:  # a day off: the next working day's hours, for "starts at"
+        today_ = next((h for i in range(1, 8) if (h := day_hours((at.weekday() + i) % 7))), ("09:00", "17:00"))
+    start, end = today_
     now = at.hour * 60 + at.minute
     s = int(start[:2]) * 60 + int(start[3:])
     e = int(end[:2]) * 60 + int(end[3:])
-    on = at.weekday() < 5 and s <= now < e
-    return {"start": start, "end": end, "on": on, "workday": at.weekday() < 5,
+    on = workday and s <= now < e
+    return {"start": start, "end": end, "on": on, "workday": workday,
             "minutes_left": e - now if on else None, "minutes_in": now - s if on else None}
 
 
@@ -139,7 +154,8 @@ def _load() -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
-DEFAULT_SETTINGS: dict[str, Any] = {"focus_min": 25, "break_min": 5, "apps": None, "calculators": True, "career": True}
+# 11.9: hours_by_day, None (Times of day, Monday to Friday) or seven entries from Monday, each {start, end} or None (off).
+DEFAULT_SETTINGS: dict[str, Any] = {"focus_min": 25, "break_min": 5, "apps": None, "calculators": True, "career": True, "hours_by_day": None}
 
 
 def settings() -> dict[str, Any]:
