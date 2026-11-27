@@ -94,3 +94,51 @@ def test_saving_the_budget_keeps_the_split(client, tmp_path):
 def test_owners_come_from_the_income_names():
     assert split.owner({"name": "Sam's Pay"}) == "sam" and split.owner({"name": "Alex’s pay"}) == "alex"
     assert split.owner({"name": "Car Allowance"}) == "" and split.owner({"name": "Sam pay"}) == "sam"
+
+
+# -- 11.13: blocks ---------------------------------------------------------------------------------------------------
+
+def _budget_with_relocation(client):
+    b = {**BUDGET, "sections": {**BUDGET["sections"], "savings": [*BUDGET["sections"]["savings"],
+                                                                 {"id": "reloc", "name": "Relocation", "amount": 500, "every": "monthly"},
+                                                                 {"id": "travel", "name": "Travel", "amount": 300, "every": "monthly"}]}}
+    client.put("/api/v1/budget", json=b)
+
+
+def test_blocks_are_whole_expenses_whole_spending_and_each_savings_type_with_relocation_shared(client):
+    _budget_with_relocation(client)
+    r = client.post("/api/v1/budget/split/preview", json={"sources": ["sam", "alex"]}).json()  # blocks is the default
+    assert r["method"] == "blocks"
+    blocks = {b["name"]: b for b in r["blocks"]}
+    assert list(blocks) == ["Expenses", "Spending", "House", "Relocation", "Travel"]
+    assert blocks["Expenses"]["monthly"] == 3300 and blocks["Spending"]["monthly"] == 2700
+    assert blocks["Relocation"]["rule"] == "shared" and [p["share"] for p in blocks["Relocation"]["paid_by"]] == [60.0, 40.0]
+    for name in ("Expenses", "Spending", "House", "Travel"):
+        assert len(blocks[name]["paid_by"]) == 1  # whole, to one income
+    sam, alex = by(r, "sam"), by(r, "alex")
+    assert sam["total"] + alex["total"] == pytest.approx(8800, abs=1)
+    # the closest whole-block assignment to 60/40 of 8800 (5280 / 3520)
+    assert abs(sam["total"] - 5280) <= 300 and abs(alex["total"] - 3520) <= 300
+    assert {b["name"] for b in sam["blocks"]} | {b["name"] for b in alex["blocks"]} >= {"Expenses", "Spending", "House", "Travel", "Relocation"}
+    assert next(b for b in sam["blocks"] if b["name"] == "Relocation")["shared"]
+
+
+def test_a_block_can_be_given_to_an_income_or_shared(client):
+    _budget_with_relocation(client)
+    r = client.post("/api/v1/budget/split/preview", json={"sources": ["sam", "alex"], "blocks": {"expenses": "alex", "reloc": "auto", "house": "shared"}}).json()
+    blocks = {b["name"]: b for b in r["blocks"]}
+    assert blocks["Expenses"]["paid_by"] == [{"id": "alex", "name": "Alex's Pay", "monthly": 3300.0, "share": 100.0}]
+    assert len(blocks["House"]["paid_by"]) == 2 and len(blocks["Relocation"]["paid_by"]) == 1
+    kept = client.put("/api/v1/budget/split", json={"sources": ["sam", "alex"], "method": "blocks", "blocks": {"expenses": "alex"}}).json()
+    assert kept["settings"]["blocks"] == {"expenses": "alex"} and kept["now"]["rules"]["expenses"] == "alex"
+
+
+def test_the_assignment_is_the_closest_one_not_just_biggest_first():
+    from app.budget import split
+
+    # targets 50 / 50; biggest-first gives 6+2 against 5+... ; the best is {6, 4} / {5, 3+2}
+    got = split._assign([6, 5, 4, 3, 2], {"a": 10, "b": 10})
+    load = {"a": 0, "b": 0}
+    for size, who in zip([6, 5, 4, 3, 2], got):
+        load[who] += size
+    assert sorted(load.values()) == [10, 10]

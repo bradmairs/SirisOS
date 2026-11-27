@@ -45,8 +45,9 @@ def get_budget() -> dict[str, Any]:
 
 class SplitIn(BaseModel):
     sources: list[str] = Field(default_factory=list, max_length=30)  # empty: every income source
-    method: str = Field(default="income", pattern="^(income|equal|lines)$")
+    method: str = Field(default="blocks", pattern="^(blocks|income|equal|lines)$")
     personal: dict[str, str] = Field(default_factory=dict)  # line id -> source id, or "shared"
+    blocks: dict[str, str] = Field(default_factory=dict)  # 11.13: block key -> "auto", "shared" or an income id
 
 
 @router.get("/split")
@@ -63,7 +64,7 @@ def preview_split(body: SplitIn) -> dict[str, Any]:
     from app.budget import split
 
     try:
-        return split.compute(service.get(), body.sources, body.method, body.personal)
+        return split.compute(service.get(), body.sources, body.method, body.personal, body.blocks)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -74,7 +75,7 @@ def put_split(body: SplitIn) -> dict[str, Any]:
     from app.budget import split
 
     try:
-        return split.save(body.sources, body.method, body.personal)
+        return split.save(body.sources, body.method, body.personal, body.blocks)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
