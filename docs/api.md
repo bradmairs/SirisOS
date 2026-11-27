@@ -226,6 +226,9 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/budget/pay-days` |  |
 | `GET /api/v1/budget/recurring` |  |
 | `PUT /api/v1/budget/recurring/{rec_id}` |  |
+| `GET /api/v1/budget/split` | The saved split between incomes, checked against today's budget (11.12). |
+| `PUT /api/v1/budget/split` | Keep a split: worked out now, and checked against the budget from then on (11.12). |
+| `POST /api/v1/budget/split/preview` | What a split would be, without keeping it (11.12). |
 | `GET /api/v1/budget/suggestions` |  |
 
 ### `/api/v1/calendar`

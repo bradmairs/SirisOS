@@ -134,10 +134,28 @@ export const EMPTY: Budget = {
 const B = "/api/v1/budget";
 const DRAFT = "sirisos.budget.draft";
 
+/** 11.12: the budget split between income sources. */
+export type SplitMethod = "income" | "equal" | "lines";
+export interface SplitSource {
+  id: string; name: string; every: Every; income: number; total: number; per_pay: number; left: number;
+  percent_of_income: number | null; share_of_budget: number; share_of_income: number;
+  sections: Record<"expenses" | "savings" | "spending", number>;
+  lines: { id: string; name: string; section: string; monthly: number; whole: boolean; personal: boolean }[];
+}
+export interface Split {
+  method: SplitMethod; sources: SplitSource[]; left_out: { id: string; name: string; income: number }[]; total: number; income: number; short: number;
+  personal: Record<string, string>; suggested: Record<string, string>; lines: { id: string; name: string; section: string; monthly: number }[];
+}
+export interface SplitChoices { sources: string[]; method: SplitMethod; personal: Record<string, string> }
+export interface SplitState { saved: { made_at: string; result: Split } | null; now: Split | null; stale: boolean; changes: string[]; settings: SplitChoices; error?: string | null }
+
 export const budget = {
   get: () => api<Budget>(B),
   save: (b: Pick<Budget, "currency" | "income" | "sections">) =>
     api<Budget>(B, { method: "PUT", body: JSON.stringify({ currency: b.currency, income: b.income, sections: b.sections }) }),
+  split: () => api<SplitState>(`${B}/split`),
+  previewSplit: (c: SplitChoices) => api<Split>(`${B}/split/preview`, { method: "POST", body: JSON.stringify(c) }),
+  keepSplit: (c: SplitChoices) => api<SplitState>(`${B}/split`, { method: "PUT", body: JSON.stringify(c) }),
   fromBills: () => api<Pick<Line, "name" | "amount" | "every" | "note">[]>(`${B}/from-bills`),
   /** 9.5: each income line's next pay day; `today` is what's paid today, for Home. */
   payDays: () => api<{ currency: string; pay_days: PayDay[]; today: PayDay[] }>(`${B}/pay-days`),

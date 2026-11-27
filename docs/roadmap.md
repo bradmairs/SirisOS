@@ -243,6 +243,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.9.0: SirisGym faint numbers from last session, removing sets and warm-ups, a return link from Shortcuts, and effort against each lift's own heart-rate range (SirisAI 4.28)
 11.10.0: edit habits (rename, days, move, stop and bring back), working hours for each day, a Server handbook with your own commands, Home's Usually now and SirisAI upkeep folded in Needs you, the backup copy guarded
 11.11.0: Update now on Status (make update through the Terminal, detached), Sections you use with hide from the menu, CI's version check, bump-version.sh rebase, a loud release clash
+11.12.0: the budget split between incomes (all or some; by income, equally or whole lines; personal lines; kept, and redone when the budget changes)
 
 ## Terminal (ADR 113)
 
