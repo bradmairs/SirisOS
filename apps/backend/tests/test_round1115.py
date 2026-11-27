@@ -22,7 +22,7 @@ spec.loader.exec_module(privacy)  # type: ignore[union-attr]
 
 def test_lan_addresses_and_real_emails_are_caught_examples_are_not(monkeypatch):
     monkeypatch.delenv("PRIVACY_TERMS", raising=False)
-    lines = [("a.py", 1, 'URL = "http://10.1.2.3:8000"'), ("b.md", 2, "write to someone@gmail.com"),
+    lines = [("a.py", 1, 'URL = "http://10.1.2.3:8000"'), ("b.md", 2, "write to someone@gmail.com"),  # privacy: ok (made-up examples for the check itself)
              ("c.py", 3, "e.g. http://172.20.0.5 privacy: ok"), ("d.py", 4, "x = 'me@example.com', 'bot@users.noreply.github.com'"),
              ("e.py", 5, "version 11.15.0 and 1.2.3.4")]
     found = privacy.check(lines, privacy.terms())
