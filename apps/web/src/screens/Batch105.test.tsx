@@ -55,8 +55,8 @@ describe("SirisOS 10.5", () => {
   });
 
   it("leaves single screens without tabs", () => {
-    shell("/budget");
-    expect(screen.queryByRole("navigation", { name: "Budget" })).not.toBeInTheDocument();
+    shell("/gym");
+    expect(screen.queryByRole("navigation", { name: "SirisGym" })).not.toBeInTheDocument();
   });
 });
 

@@ -352,19 +352,10 @@ export const shortcuts = {
   },
 };
 
-/** A set changed (7.8): a new weight carries down to the sets after it that aren't ticked yet and were empty or
- * following it (same weight as it had), as in Strong or JEFIT, so typing 60 on set 1 fills sets 2 and 3. Warm-ups don't carry.
- * While you're typing, pass `carry: false` and carry once you've finished (8.6), with `from` the weight it had before you
- * started: carried on every key, deleting "100" took the sets below down to 10, then 1, then they stopped following. */
-export function changeSet(sets: SetLog[], si: number, patch: Partial<SetLog>, opts: { carry?: boolean; from?: number | null } = {}): SetLog[] {
-  const old = sets[si];
-  const from = opts.from !== undefined ? opts.from : old.weight;
-  const carry = (opts.carry ?? true) && "weight" in patch && patch.weight != null && old.type !== "warmup";
-  return sets.map((x, j) => {
-    if (j === si) return { ...x, ...patch };
-    if (carry && j > si && !x.done && x.type === old.type && (x.weight == null || x.weight === from)) return { ...x, weight: patch.weight };
-    return x;
-  });
+/** A set changed: only that set (11.18; 7.8 to 11.17 carried a new weight down to the unticked sets below). */
+export function changeSet(sets: SetLog[], si: number, patch: Partial<SetLog>): SetLog[] {
+  // The sets below keep last session's numbers faintly, to choose from, rather than taking this one's.
+  return sets.map((x, j) => (j === si ? { ...x, ...patch } : x));
 }
 
 /** The workout in progress lives on this phone until it's finished (gyms are often out of signal). */

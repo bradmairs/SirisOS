@@ -37,7 +37,7 @@ describe("SirisGym 11.9: last session's numbers, faintly", () => {
     await user.click(within(curl).getByRole("button", { name: "Set 1 done" }));
     expect(loadActive()!.entries[0].sets[0]).toMatchObject({ weight: 14, reps: 10, done: true });   // reps from the faint 10
     await user.click(within(curl).getByRole("button", { name: "Set 2 done" }));
-    expect(loadActive()!.entries[0].sets[1]).toMatchObject({ weight: 14, reps: 9, done: true });    // the 14 carried down
+    expect(loadActive()!.entries[0].sets[1]).toMatchObject({ weight: 12, reps: 9, done: true });    // 11.18: its own faint 12, not set 1's 14
   });
 
   it("never saves the hints", async () => {

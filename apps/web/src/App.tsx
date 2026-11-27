@@ -72,6 +72,7 @@ const GymWorkoutScreen = lazy(() => loadGymWorkout().then((m) => ({ default: m.G
 const HealthScreen = lazy(() => loadHealth().then((m) => ({ default: m.HealthScreen })));
 const LifeScreen = lazy(() => loadLife().then((m) => ({ default: m.LifeScreen })));
 const BudgetScreen = lazy(() => loadBudget().then((m) => ({ default: m.BudgetScreen })));
+const TaxScreen = lazy(() => import("./screens/Tax").then((m) => ({ default: m.TaxScreen })));
 const WeekScreen = lazy(() => import("./screens/Routines").then((m) => ({ default: m.WeekScreen })));
 const MealsScreen = lazy(() => import("./screens/Meals").then((m) => ({ default: m.MealsScreen })));
 const TravelScreen = lazy(() => import("./screens/Travel").then((m) => ({ default: m.TravelScreen })));
@@ -241,6 +242,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
           <Route path="/health" element={<HealthScreen />} />
           <Route path="/life" element={<LifeScreen />} />
           <Route path="/budget" element={<BudgetScreen />} />
+          <Route path="/tax" element={<TaxScreen />} />
           <Route path="/meals" element={<MealsScreen />} />
           <Route path="/week" element={<WeekScreen />} />
           <Route path="/travel" element={<TravelScreen />} />

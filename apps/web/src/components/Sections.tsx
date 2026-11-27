@@ -24,7 +24,7 @@ export const SECTIONS: SectionGroup[] = [
   ] },
   { heading: "You", sections: [
     { id: "health", label: "Health", Icon: HeartPulse, tabs: [{ to: "/health", label: "Health" }, { to: "/fitness", label: "Fitness" }] },
-    { id: "budget", label: "Budget", Icon: Wallet, tabs: [{ to: "/budget", label: "Budget" }] },
+    { id: "budget", label: "Budget", Icon: Wallet, tabs: [{ to: "/budget", label: "Budget" }, { to: "/tax", label: "Tax" }] },
   ] },
   { heading: "Home & life", sections: [
     { id: "household", label: "Household", Icon: HousePlug, tabs: [{ to: "/week", label: "Around the week" }, { to: "/meals", label: "Meals" }, { to: "/house", label: "Smart Home" }] },

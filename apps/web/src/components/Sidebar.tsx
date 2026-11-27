@@ -4,7 +4,7 @@ import { usage as homeUsage, type Usage } from "../api/assist";
 import { SECTIONS, sectionFor, sectionHref } from "./Sections";
 import { AskAbout } from "./AskAbout";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed, CalendarHeart, CloudOff } from "lucide-react";
+import { Activity, ArrowUpRight, Award, Brain, CalendarRange, ChartColumn, Dumbbell, FileText, FolderKanban, Package, Wallet, Footprints, HeartPulse, House, HousePlug, PenLine, Inbox, LayoutGrid, ListTodo, LogOut, MoonStar, Ruler, Search, ShieldCheck, Sparkles, SquareTerminal, Sunrise, X, BriefcaseBusiness, Network, Plane, UtensilsCrossed, CalendarHeart, CloudOff, ReceiptText } from "lucide-react";
 import { openOffline } from "./SyncBar";
 import { InboxBadge } from "./Inbox";
 import type { HubApp } from "../api/types";
@@ -26,6 +26,7 @@ export const NAV: { to: string; label: string; Icon: typeof House; end: boolean;
   { to: "/health", label: "Health", Icon: HeartPulse, end: false, dock: false },
   { to: "/life", label: "Life Admin", Icon: FileText, end: false, dock: false },
   { to: "/budget", label: "Budget", Icon: Wallet, end: false, dock: false },
+  { to: "/tax", label: "Tax Claims", Icon: ReceiptText, end: false, dock: false },
   { to: "/meals", label: "Meals", Icon: UtensilsCrossed, end: false, dock: false },
   { to: "/week", label: "Around the Week", Icon: CalendarHeart, end: false, dock: false },
   { to: "/travel", label: "Trips", Icon: Plane, end: false, dock: false },
