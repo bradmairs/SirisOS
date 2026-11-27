@@ -82,6 +82,10 @@ class FakeApps:
                 return httpx.Response(200, json={"output_roots": [{"name": "NAS", "path": "/nas/exports", "available": True}]})
             if path == "/api/media":
                 return httpx.Response(200, json=[{"id": "a", "kind": "photo"}, {"id": "b", "kind": "photo"}, {"id": "c", "kind": "video"}])
+            if path == "/api/flights/summary":
+                return httpx.Response(200, json={"version": "1.77", "flights": 12, "hours": 3.4, "km": 41.2, "highest_m": 118.0,
+                                                 "last": {"id": "20261121-151204", "start": "2026-11-21T15:12:04", "minutes": 18.5, "place": "Cowes, Australia",
+                                                          "max_alt_m": 96.4, "furthest_m": 1240, "clips": 4, "photos": 9, "note": ""}})
             if path == "/api/jobs":
                 return httpx.Response(200, json=[
                     {"id": "j1", "name": "DJI_0435.MP4", "status": "running", "progress": 0.42},
@@ -307,6 +311,9 @@ def test_widgets_are_normalised(client, apps):
     assert drone["Exporting"] == {"label": "Exporting", "value": "1", "tone": "warning"}
     assert drone["NAS"]["tone"] == "good"
     assert widgets["sirisdrone"]["items"][0] == {"title": "Exporting DJI_0435.MP4", "subtitle": "running · 42%", "url": None, "tone": "neutral"}
+    assert (drone["Flights"]["value"], drone["Hours flown"]["value"]) == ("12", "3.4")   # 11.19: the flight log
+    last = widgets["sirisdrone"]["items"][-1]
+    assert last["title"] == "Last flight: Cowes, Australia" and last["subtitle"] == "2026-11-21 · 18.5 min · highest 96.4 m · furthest 1,240 m"
 
 
 def test_sirislearn_widget(client, apps):

@@ -307,6 +307,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/engineering/calculations` |  |
 | `DELETE /api/v1/engineering/calculations/{calculation_id}` |  |
 | `GET /api/v1/engineering/calculations/{calculation_id}` |  |
+| `POST /api/v1/engineering/calculations/{calculation_id}/check` | 11.19: mark a calculation as checked (by whom, today), or clear it with an empty name. |
 | `GET /api/v1/engineering/calculations/{calculation_id}/pdf` |  |
 | `GET /api/v1/engineering/calculators` |  |
 | `POST /api/v1/engineering/calculators/{calculator_id}/run` |  |
@@ -540,7 +541,9 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/lab/containers` |  |
 | `POST /api/v1/lab/containers/check` |  |
+| `GET /api/v1/lab/containers/history` | 11.19 (SirisAI 4.32): every update, roll-back and failure, with what each was on before, and the ones held back. |
 | `POST /api/v1/lab/containers/update` |  |
+| `POST /api/v1/lab/containers/{name}/{action}` | `roll-back`: back to the version before its last update, held there; `update`: update it now (and release it). |
 | `GET /api/v1/lab/internet` |  |
 | `PUT /api/v1/lab/internet/plan` |  |
 

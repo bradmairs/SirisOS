@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Callable
+from typing import Any, Callable
 
 G = 9.80665
 
@@ -137,6 +137,34 @@ def pump_power(q: float, h: float, efficiency_percent: float, density: float = 1
         raise InputError("efficiencyPercent must be > 0 and <= 100")
     hydraulic = density * G * q * h / 1000
     return {"hydraulic_kw": hydraulic, "input_kw": hydraulic / (efficiency_percent / 100)}
+
+
+def water_hammer(dv: float, a: float, length: float, tc: float, density: float = 1000) -> dict[str, Any]:
+    """11.19: Joukowsky, or Michaud's for a closure slower than 2L/a (same as the TypeScript)."""
+    _positive(dv, "velocityChange"); _positive(a, "waveSpeed"); _positive(length, "pipeLength"); _positive(tc, "closureTime")  # noqa: E702
+    joukowsky = a * dv / G
+    round_trip = 2 * length / a
+    rapid = tc <= round_trip
+    head = joukowsky if rapid else 2 * length * dv / (G * tc)
+    return {"joukowsky": joukowsky, "round_trip": round_trip, "rapid": rapid, "head": head, "kpa": density * G * head / 1000}
+
+
+def valve_kv(q: float, dp_kpa: float, sg: float = 1.0) -> dict[str, float]:
+    _positive(q, "flow"); _positive(dp_kpa, "pressureDrop"); _positive(sg, "specificGravity")  # noqa: E702
+    kv = q * 3600 / math.sqrt(dp_kpa / 100 / sg)
+    return {"kv": kv, "cv": kv * 1.156}
+
+
+def pump_duty_point(hs: float, qd: float, hf: float, h0: float, qr: float, hr: float) -> dict[str, float]:
+    _non_negative(hs, "staticHead"); _positive(qd, "designFlow"); _positive(hf, "frictionHead")  # noqa: E702
+    _positive(h0, "shutoffHead"); _positive(qr, "ratedFlow"); _positive(hr, "ratedHead")  # noqa: E702
+    if hr >= h0:
+        raise InputError("ratedHead must be less than shutoffHead")
+    if h0 <= hs:
+        raise InputError("shutoffHead must be more than staticHead: the pump can't lift it")
+    k, c = hf / (qd * qd), (h0 - hr) / (qr * qr)
+    q = math.sqrt((h0 - hs) / (k + c))
+    return {"flow": q, "head": hs + k * q * q}
 
 
 def pipe_buoyancy(od: float, inner: float, length: float, pipe_density: float, cover: float, soil_unit_weight: float, water_density: float = 1000) -> dict[str, float]:
@@ -262,6 +290,23 @@ CALCULATORS: list[Calculator] = [
     Calculator("buoyancy", "Buried pipe buoyancy", "Pipe design checks", "Screening check for full submergence. Excludes side shear, anchors, slabs and project-specific load factors.",
                (_f("od", "Outside diameter", "m", "0.55"), _f("id", "Inside diameter", "m", "0.45"), _f("l", "Pipe length checked", "m", "1.0"),
                 _f("pd", "Pipe material density", "kg/m³", "2400"), _f("c", "Soil cover above crown", "m", "0.75"), _f("g", "Submerged soil unit weight", "kN/m³", "10")), _buoyancy),
+    Calculator("waterHammer", "Water hammer (surge)", "Pressure pipes",
+               "Pressure rise from stopping a flow: Joukowsky (a·Δv/g) when the valve closes within the wave's round trip 2L/a, else Michaud's 2LΔv/(g·tc). Take the wave speed for the pipe material and class from the manufacturer; a screening check, not a transient analysis.",
+               (_f("dv", "Change in velocity", "m/s", "1.5"), _f("a", "Wave speed", "m/s", "1000"), _f("l", "Pipe length", "m", "500"), _f("tc", "Valve closure time", "s", "5")),
+               lambda v: (lambda r: [_r("Wave round trip (2L/a)", f"{fixed(r['round_trip'], 2)} s"),
+                                     _r("Closure", "Rapid: the full Joukowsky rise" if r["rapid"] else "Slow: reduced rise"),
+                                     _r("Joukowsky head rise", f"{fixed(r['joukowsky'], 1)} m"), _r("Expected head rise", f"{fixed(r['head'], 1)} m"),
+                                     _r("Expected pressure rise", f"{fixed(r['kpa'], 0)} kPa")])(water_hammer(v["dv"], v["a"], v["l"], v["tc"]))),
+    Calculator("valveKv", "Valve flow coefficient (Kv)", "Pressure pipes",
+               "The Kv (m³/h at 1 bar) a control valve needs to pass a flow at an allowable pressure drop, and its Cv. Choose a valve whose Kv at the intended opening is at or above this.",
+               (_f("q", "Flow", "m³/s", "0.05"), _f("dp", "Allowable pressure drop", "kPa", "50"), _f("sg", "Specific gravity", "", "1.0")),
+               lambda v: (lambda r: [_r("Required Kv", f"{fixed(r['kv'], 1)} m³/h"), _r("Equivalent Cv", f"{fixed(r['cv'], 1)} US gpm")])(valve_kv(v["q"], v["dp"], v["sg"]))),
+    Calculator("pumpDutyPoint", "Pump duty point", "Pressure pipes",
+               "Where the pump curve (fitted through its shut-off head and one rated point) meets the system curve (static head plus friction rising with flow squared). Check the result against the manufacturer's actual curve.",
+               (_f("hs", "Static head", "m", "15"), _f("qd", "Design flow", "m³/s", "0.05"), _f("hf", "Friction head at design flow", "m", "8"),
+                _f("h0", "Pump shut-off head", "m", "35"), _f("qr", "Pump rated flow", "m³/s", "0.05"), _f("hr", "Pump rated head", "m", "25")),
+               lambda v: (lambda r: [_r("Duty flow", f"{fixed(r['flow'], 4)} m³/s"), _r("Duty flow", f"{fixed(r['flow'] * 1000, 1)} L/s"),
+                                     _r("Duty head", f"{fixed(r['head'], 2)} m")])(pump_duty_point(v["hs"], v["qd"], v["hf"], v["h0"], v["qr"], v["hr"]))),
 ]
 
 BY_ID: dict[str, Calculator] = {c.id: c for c in CALCULATORS}

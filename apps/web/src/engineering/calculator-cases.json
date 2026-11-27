@@ -978,6 +978,228 @@
     ]
   },
   {
+    "calculator": "waterHammer",
+    "inputs": {
+      "dv": 1.5,
+      "a": 1000,
+      "l": 500,
+      "tc": 5
+    },
+    "results": [
+      {
+        "label": "Wave round trip (2L/a)",
+        "value": "1.00 s"
+      },
+      {
+        "label": "Closure",
+        "value": "Slow: reduced rise"
+      },
+      {
+        "label": "Joukowsky head rise",
+        "value": "153.0 m"
+      },
+      {
+        "label": "Expected head rise",
+        "value": "30.6 m"
+      },
+      {
+        "label": "Expected pressure rise",
+        "value": "300 kPa"
+      }
+    ]
+  },
+  {
+    "calculator": "waterHammer",
+    "inputs": {
+      "dv": 2.055,
+      "a": 1370,
+      "l": 685,
+      "tc": 6.85
+    },
+    "results": [
+      {
+        "label": "Wave round trip (2L/a)",
+        "value": "1.00 s"
+      },
+      {
+        "label": "Closure",
+        "value": "Slow: reduced rise"
+      },
+      {
+        "label": "Joukowsky head rise",
+        "value": "287.1 m"
+      },
+      {
+        "label": "Expected head rise",
+        "value": "41.9 m"
+      },
+      {
+        "label": "Expected pressure rise",
+        "value": "411 kPa"
+      }
+    ]
+  },
+  {
+    "calculator": "waterHammer",
+    "inputs": {
+      "dv": 0.915,
+      "a": 610,
+      "l": 305,
+      "tc": 3.05
+    },
+    "results": [
+      {
+        "label": "Wave round trip (2L/a)",
+        "value": "1.00 s"
+      },
+      {
+        "label": "Closure",
+        "value": "Slow: reduced rise"
+      },
+      {
+        "label": "Joukowsky head rise",
+        "value": "56.9 m"
+      },
+      {
+        "label": "Expected head rise",
+        "value": "18.7 m"
+      },
+      {
+        "label": "Expected pressure rise",
+        "value": "183 kPa"
+      }
+    ]
+  },
+  {
+    "calculator": "valveKv",
+    "inputs": {
+      "q": 0.05,
+      "dp": 50,
+      "sg": 1
+    },
+    "results": [
+      {
+        "label": "Required Kv",
+        "value": "254.6 m³/h"
+      },
+      {
+        "label": "Equivalent Cv",
+        "value": "294.3 US gpm"
+      }
+    ]
+  },
+  {
+    "calculator": "valveKv",
+    "inputs": {
+      "q": 0.0685,
+      "dp": 68.5,
+      "sg": 1.37
+    },
+    "results": [
+      {
+        "label": "Required Kv",
+        "value": "348.7 m³/h"
+      },
+      {
+        "label": "Equivalent Cv",
+        "value": "403.1 US gpm"
+      }
+    ]
+  },
+  {
+    "calculator": "valveKv",
+    "inputs": {
+      "q": 0.0305,
+      "dp": 30.5,
+      "sg": 0.61
+    },
+    "results": [
+      {
+        "label": "Required Kv",
+        "value": "155.3 m³/h"
+      },
+      {
+        "label": "Equivalent Cv",
+        "value": "179.5 US gpm"
+      }
+    ]
+  },
+  {
+    "calculator": "pumpDutyPoint",
+    "inputs": {
+      "hs": 15,
+      "qd": 0.05,
+      "hf": 8,
+      "h0": 35,
+      "qr": 0.05,
+      "hr": 25
+    },
+    "results": [
+      {
+        "label": "Duty flow",
+        "value": "0.0527 m³/s"
+      },
+      {
+        "label": "Duty flow",
+        "value": "52.7 L/s"
+      },
+      {
+        "label": "Duty head",
+        "value": "23.89 m"
+      }
+    ]
+  },
+  {
+    "calculator": "pumpDutyPoint",
+    "inputs": {
+      "hs": 20.55,
+      "qd": 0.0685,
+      "hf": 10.96,
+      "h0": 47.95,
+      "qr": 0.0685,
+      "hr": 34.25
+    },
+    "results": [
+      {
+        "label": "Duty flow",
+        "value": "0.0722 m³/s"
+      },
+      {
+        "label": "Duty flow",
+        "value": "72.2 L/s"
+      },
+      {
+        "label": "Duty head",
+        "value": "32.73 m"
+      }
+    ]
+  },
+  {
+    "calculator": "pumpDutyPoint",
+    "inputs": {
+      "hs": 9.15,
+      "qd": 0.0305,
+      "hf": 4.88,
+      "h0": 21.35,
+      "qr": 0.0305,
+      "hr": 15.25
+    },
+    "results": [
+      {
+        "label": "Duty flow",
+        "value": "0.0321 m³/s"
+      },
+      {
+        "label": "Duty flow",
+        "value": "32.1 L/s"
+      },
+      {
+        "label": "Duty head",
+        "value": "14.57 m"
+      }
+    ]
+  },
+  {
     "calculator": "partFullPipe",
     "inputs": {
       "d": 0.3,
@@ -1025,5 +1247,27 @@
       "e": 120
     },
     "error": "efficiencyPercent must be > 0 and <= 100"
+  },
+  {
+    "calculator": "pumpDutyPoint",
+    "inputs": {
+      "hs": 40,
+      "qd": 0.05,
+      "hf": 8,
+      "h0": 35,
+      "qr": 0.05,
+      "hr": 25
+    },
+    "error": "shutoffHead must be more than staticHead: the pump can't lift it"
+  },
+  {
+    "calculator": "waterHammer",
+    "inputs": {
+      "dv": 0,
+      "a": 1000,
+      "l": 500,
+      "tc": 5
+    },
+    "error": "velocityChange must be greater than zero"
   }
 ]

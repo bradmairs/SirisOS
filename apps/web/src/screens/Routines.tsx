@@ -8,8 +8,7 @@ import { useResource } from "../api/resource";
 import { assistant } from "../api/hub";
 import {
   routines, type Bin, type BinKind, type Bins, type Bedroom, type Catchups, type Containers, type Fuel, type Garden, type Internet,
-  type RouteKind, type Tonight, type Weekend, type WeekendRoute, type WeekendWindow,
-} from "../api/routines";
+  type RouteKind, type Tonight, type Weekend, type WeekendRoute, type WeekendWindow, type ContainerEvent, type ContainerHistory } from "../api/routines";
 
 /** 10.4: cards for the week's routines on Home, two for Home Lab, and the "Around the week" screen that sets them up. */
 
@@ -248,7 +247,64 @@ export function ContainerUpdatesCard() {
       )}
       {d.running && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Updating now: SirisAI tells you when it's done.</p>}
       {msg && <p style={{ margin: 0, fontSize: 12 }}>{msg}</p>}
+      <ContainerHistoryList busy={busy !== null || d.running} />
     </Glass>
+  );
+}
+
+const WHAT: Record<string, string> = { updated: "Updated", "put back": "Put back", "rolled back": "Rolled back", failed: "Failed", "up to date": "Already current" };
+
+/** 11.19: what's happened lately, with a roll-back for each container's last update, and the ones held back. */
+function ContainerHistoryList({ busy }: { busy: boolean }) {
+  const res = useResource<ContainerHistory>("routines:containers:history", () => routines.containerHistory(), { staleMs: 60_000 });
+  const [msg, setMsg] = useState<string | null>(null);
+  const d = res.data;
+  if (!d) return null;
+  const history = Array.isArray(d.history) ? d.history : [];
+  const latest = new Map<string, ContainerEvent>();
+  for (const e of history) if (!latest.has(e.container)) latest.set(e.container, e);
+  const act = async (name: string, action: "roll-back" | "update") => {
+    setMsg(null);
+    try {
+      const r = await routines.containerAction(name, action);
+      setMsg(r.started ? (action === "roll-back" ? `Putting ${name} back: SirisAI tells you when it's done.` : `Updating ${name}: SirisAI tells you when it's done.`) : r.why ?? "It didn't start.");
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't start it."); }
+  };
+  return (
+    <>
+      {Array.isArray(d.held) && d.held.length > 0 && (
+        <>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>Held on an earlier version (left out of updates until you update it):</p>
+          <ul className="items">
+            {d.held.map((n) => (
+              <li key={n} className="item"><span className="item__text"><span className="item__title">{n}</span></span>
+                <button type="button" className="button button--small" disabled={busy} onClick={() => void act(n, "update")}>Update now</button></li>
+            ))}
+          </ul>
+        </>
+      )}
+      {history.length > 0 && (
+        <details>
+          <summary className="muted" style={{ fontSize: 13, cursor: "pointer" }}>Recent changes ({history.length})</summary>
+          <ul className="items" aria-label="Recent container changes">
+            {history.slice(0, 15).map((e, i) => (
+              <li key={`${e.at}-${e.container}-${i}`} className="item">
+                <span className="item__text">
+                  <span className="item__title">{e.container} · {WHAT[e.status] ?? e.status}</span>
+                  <span className="item__subtitle">{new Date(e.at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    {e.trigger !== "update" ? ` · ${e.trigger}` : ""}{e.also.length ? ` · with ${e.also.join(", ")}` : ""}{e.why ? ` · ${e.why}` : ""}</span>
+                </span>
+                {e.status === "updated" && e.before && latest.get(e.container) === e && (
+                  <button type="button" className="button button--small" disabled={busy} aria-label={`Roll back ${e.container}`}
+                    onClick={() => { if (window.confirm(`Put ${e.container} back on the version it had before this update? It stays there until you update it.`)) void act(e.container, "roll-back"); }}>Roll back</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {msg && <p style={{ margin: 0, fontSize: 12 }} role="status">{msg}</p>}
+    </>
   );
 }
 

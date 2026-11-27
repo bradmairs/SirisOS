@@ -59,7 +59,9 @@ def change(item_id: str, **fields: Any) -> list[dict[str, Any]] | None:
     if found is None:
         return None
     for k, v in fields.items():
-        if v is not None:
+        if k == "doc_id" and v == 0:
+            found.pop("doc_id", None)  # 11.19: unlinked
+        elif v is not None:
             found[k] = v.strip() if isinstance(v, str) else v
     _save(items)
     return listing()

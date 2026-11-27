@@ -75,7 +75,7 @@ describe("calculators", () => {
 describe("catalogue", () => {
   it("keeps the calculator ids saved calculations already use", () => {
     expect(CALCULATORS.map((c) => c.id).sort()).toEqual(
-      ["buoyancy", "criticalDepth", "darcyWeisbach", "detention", "fullPipe", "hazenWilliams", "minimumGrade", "minorLoss", "orifice", "partFullPipe", "pumpPower", "rationalMethod", "rectangularChannel", "trapezoidalChannel", "weir"],
+      ["buoyancy", "criticalDepth", "darcyWeisbach", "detention", "fullPipe", "hazenWilliams", "minimumGrade", "minorLoss", "orifice", "partFullPipe", "pumpDutyPoint", "pumpPower", "rationalMethod", "rectangularChannel", "trapezoidalChannel", "valveKv", "waterHammer", "weir"],
     );
   });
   it("every calculator runs on its defaults", () => {
@@ -94,5 +94,23 @@ describe("catalogue", () => {
     expect(fieldLabel(fp.fields[0])).toBe("Internal diameter (m)");
     expect(fieldLabel(fp.fields[1])).toBe("Manning n");
     expect(() => run(fp, { d: "abc", n: "0.013", s: "0.005" })).toThrow("Internal diameter must be a number");
+  });
+});
+
+describe("11.19: surge, valves and the duty point", () => {
+  it("water hammer: Joukowsky for a fast closure, Michaud for a slow one", () => {
+    const fast = calc.waterHammer(1.5, 1000, 500, 0.5);
+    expect(fast.rapid).toBe(true);
+    expect(fast.headRiseM).toBeCloseTo((1000 * 1.5) / 9.80665, 6);
+    const slow = calc.waterHammer(1.5, 1000, 500, 10);
+    expect(slow.rapid).toBe(false);
+    expect(slow.headRiseM).toBeCloseTo((2 * 500 * 1.5) / (9.80665 * 10), 6);
+  });
+  it("Kv passes the flow at the drop, and the duty point sits on both curves", () => {
+    const { kv } = calc.valveKv(0.05, 100);   // 180 m³/h at 1 bar
+    expect(kv).toBeCloseTo(180, 6);
+    const d = calc.pumpDutyPoint(15, 0.05, 8, 35, 0.05, 25);
+    expect(d.headM).toBeCloseTo(35 - ((35 - 25) / 0.0025) * d.flowM3s ** 2, 6);
+    expect(d.headM).toBeCloseTo(15 + (8 / 0.0025) * d.flowM3s ** 2, 6);
   });
 });

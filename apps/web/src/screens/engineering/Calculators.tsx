@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BookMarked, ChevronRight, FileDown, Save, Trash2, X } from "lucide-react";
+import { BadgeCheck, BookMarked, ChevronRight, FileDown, Save, Trash2, X } from "lucide-react";
 import { calculations, type Calculation, type StandardDocument } from "../../api/engineering";
 import { CALCULATORS, CALCULATOR_BY_ID, fieldLabel, run, type Calculator } from "../../engineering/calculators";
 import { Glass } from "../../components/Glass";
@@ -92,7 +92,15 @@ function PdfButton({ calculation }: { calculation: Calculation }) {
   );
 }
 
-export function SavedCalculation({ calculation: c, onDelete }: { calculation: Calculation; onDelete?: () => void }) {
+export function SavedCalculation({ calculation: initial, onDelete }: { calculation: Calculation; onDelete?: () => void }) {
+  const [c, setC] = useState(initial);
+  useEffect(() => setC(initial), [initial]);
+  const [checking, setChecking] = useState(false);
+  const [checker, setChecker] = useState("");
+  async function check(name: string) {
+    setC(await calculations.check(c.id, name));
+    setChecking(false);
+  }
   return (
     <Glass className="widget" style={{ minHeight: 0 }} aria-label={c.title}>
       <div className="widget__head">
@@ -122,6 +130,21 @@ export function SavedCalculation({ calculation: c, onDelete }: { calculation: Ca
         </span>
       )}
       {c.notes && <p style={{ margin: 0, fontSize: 14 }}>{c.notes}</p>}
+      {/* 11.19: the check, named on the PDF's sign-off */}
+      {c.checked_by ? (
+        <div className="row" style={{ gap: 8, alignItems: "center", fontSize: 13 }}>
+          <span className="chip"><BadgeCheck size={12} aria-hidden="true" /> Checked by {c.checked_by}{c.checked_at ? `, ${new Date(`${c.checked_at}T00:00:00`).toLocaleDateString()}` : ""}</span>
+          <button type="button" className="button button--small" onClick={() => void check("")}>Clear</button>
+        </div>
+      ) : checking ? (
+        <div className="row" style={{ gap: 8 }}>
+          <input className="field" style={{ flex: 1 }} aria-label="Checked by" placeholder="Checker's name" value={checker} onChange={(e) => setChecker(e.target.value)} />
+          <button type="button" className="button button--small button--primary" disabled={!checker.trim()} onClick={() => void check(checker.trim())}>Mark checked</button>
+          <button type="button" className="button button--small" onClick={() => setChecking(false)}>Cancel</button>
+        </div>
+      ) : (
+        <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }} onClick={() => setChecking(true)}><BadgeCheck size={14} aria-hidden="true" /> Mark as checked</button>
+      )}
     </Glass>
   );
 }

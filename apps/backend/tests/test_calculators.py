@@ -79,3 +79,18 @@ def test_service_key_opens_only_read_and_compute_routes(client, monkeypatch, tmp
 def test_a_short_service_key_is_ignored(client, monkeypatch) -> None:
     monkeypatch.setenv("SIRISOS_SERVICE_KEY", "short")
     assert client.get("/api/v1/engineering/calculators", headers={"Authorization": "Bearer short"}).status_code == 401
+
+
+def test_a_saved_calculation_can_be_marked_checked_and_the_sheet_names_the_checker(tmp_path, monkeypatch) -> None:
+    from app.api import engineering_calculations as ec
+    monkeypatch.setattr(ec, "CALCULATIONS_PATH", tmp_path / "calcs.json")
+    client = TestClient(app, headers=AUTH)
+    made = client.post("/api/v1/engineering/calculations", json={"calculator_id": "waterHammer", "title": "Rising main surge",
+                                                                 "inputs": {"dv": 1.5, "a": 1000, "l": 500, "tc": 5}, "results": []}).json()
+    checked = client.post(f"/api/v1/engineering/calculations/{made['id']}/check", json={"checked_by": "A. Checker"}).json()
+    assert checked["checked_by"] == "A. Checker" and checked["checked_at"]
+    pdf = client.get(f"/api/v1/engineering/calculations/{made['id']}/pdf")
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    assert ec.calculation_pdf(ec.CalculationRecord(**checked)) != ec.calculation_pdf(ec.CalculationRecord(**{**checked, "checked_by": None}))
+    cleared = client.post(f"/api/v1/engineering/calculations/{made['id']}/check", json={"checked_by": ""}).json()
+    assert cleared["checked_by"] is None and cleared["checked_at"] is None

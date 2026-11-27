@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { undoable } from "../components/Undo";
-import { IdCard, Trash2 } from "lucide-react";
+import { IdCard, Paperclip, Trash2 } from "lucide-react";
+import { life } from "../api/life";
+import { SaveButton } from "../components/SaveButton";
 import { renewals, type Renewal, type RenewalKind } from "../api/renewals";
 import { useResource } from "../api/resource";
 import { Glass } from "../components/Glass";
@@ -20,6 +22,17 @@ export function RenewalsCard() {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", kind: "passport" as RenewalKind, expires: "" });
   const [msg, setMsg] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const [attachTo, setAttachTo] = useState<Renewal | null>(null);
+  /** 11.19: keep the document itself with it (filed in Life Admin's documents). */
+  async function attach(file: File) {
+    const r = attachTo;
+    setAttachTo(null);
+    if (!r) return;
+    setMsg(`Filing ${file.name}…`);
+    try { const doc = await life.addDocument(file); await run(() => renewals.change(r.id, { doc_id: doc.id }), `${r.name}: document kept with it.`); }
+    catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't file it."); }
+  }
   const run = async (fn: () => Promise<{ renewals: Renewal[] }>, done?: string) => {
     setMsg(null);
     try { res.mutate?.(await fn()); if (done) setMsg(done); } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't save that."); }
@@ -37,6 +50,9 @@ export function RenewalsCard() {
                 <span style={{ whiteSpace: "normal" }} className={`item__subtitle ${r.state === "expired" ? "tone-critical" : r.state === "soon" ? "tone-warning" : ""}`}>
                   {KINDS.find(([k]) => k === r.kind)?.[1]} · {when(r)}{r.note ? ` · ${r.note}` : ""}</span>
               </span>
+              {r.doc_id ? <SaveButton label="Open" get={() => life.downloadReceipt(r.doc_id!)} />
+                : <button type="button" className="icon-link" aria-label={`Attach ${r.name}'s document`} title="Keep the document with it (a policy schedule, a scan)"
+                    onClick={() => { setAttachTo(r); picker.current?.click(); }}><Paperclip size={14} aria-hidden="true" /></button>}
               <input className="field renewal-date" type="date" aria-label={`${r.name} expires`} value={r.expires}
                 onChange={(e) => { if (e.target.value) run(() => renewals.change(r.id, { expires: e.target.value }), `${r.name}: now ${day(e.target.value)}.`); }} />
               <button type="button" className="icon-link" aria-label={`Remove ${r.name}`} onClick={() => undoable({ text: `Removed ${r.name}`, run: () => run(() => renewals.remove(r.id)),
@@ -66,6 +82,8 @@ export function RenewalsCard() {
           </div>
         </form>
       ) : <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }} onClick={() => { setAdding(true); setForm({ name: "Passport", kind: "passport", expires: "" }); }}>Add one</button>}
+      <input ref={picker} type="file" accept="image/*,application/pdf" hidden aria-label="Document to keep"
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void attach(f); }} />
       {msg && <p className="muted" role="status" style={{ margin: 0, fontSize: 13 }}>{msg}</p>}
     </Glass>
   );
