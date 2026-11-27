@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ApplePayCard } from "./ApplePayCard";
 import { SplitCard } from "./BudgetSplit";
 import { ChevronDown, ChevronUp, Mail, PiggyBank, Plus, Table2, Trash2, Wallet } from "lucide-react";
 import {
@@ -208,6 +209,7 @@ export function BudgetScreen() {
       <div className="budget-charts">
         <CashFlowCard />
         <SpendingCard plan={plan} />
+        <ApplePayCard />
         <SuggestionsCard plan={plan} onApply={(id, amount) => change({ ...plan, sections: Object.fromEntries(SECTIONS.map((s) => [s, plan.sections[s].map((l) => (l.id === id ? { ...l, amount } : l))])) as Plan["sections"] })} />
         <RecurringCard />
         <BalancesCard plan={plan} />

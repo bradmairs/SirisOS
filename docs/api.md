@@ -230,6 +230,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `PUT /api/v1/budget/split` | Keep a split: worked out now, and checked against the budget from then on (11.12). |
 | `POST /api/v1/budget/split/preview` | What a split would be, without keeping it (11.12). |
 | `GET /api/v1/budget/suggestions` |  |
+| `DELETE /api/v1/budget/tap-key` |  |
+| `GET /api/v1/budget/tap-key` | Whether the Apple Pay Shortcut has a key, and how it's going this month. |
+| `POST /api/v1/budget/tap-key` | A new key for the Apple Pay Shortcut, shown once (the old one stops). |
+
+### `/api/v1/budget-tap`
+
+| Route | What it does |
+| --- | --- |
+| `POST /api/v1/budget-tap` | From the Apple Pay Shortcut (11.16): no sign-in, its own key, and it can only add a spend. |
 
 ### `/api/v1/calendar`
 

@@ -2,6 +2,8 @@
 
     GET  /api/v1/budget              income, the three sections, monthly totals and history
     PUT  /api/v1/budget              the whole budget (income and sections), saved as one
+    GET/POST/DELETE /api/v1/budget/tap-key   (11.16) the Apple Pay Shortcut's key, shown once; POST /api/v1/budget-tap
+                                     {merchant, amount, card} with X-SirisOS-Key adds a spend (no sign-in)
     GET  /api/v1/budget/split        (11.12) the saved split between incomes, checked against today's budget
     POST /api/v1/budget/split/preview  {sources, method, personal}: what a split would be
     PUT  /api/v1/budget/split        {sources, method, personal}: keep it
@@ -27,7 +29,7 @@ import datetime as dt
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
@@ -41,6 +43,54 @@ router = APIRouter(prefix="/api/v1/budget", tags=["budget"], dependencies=[Depen
 @router.get("")
 def get_budget() -> dict[str, Any]:
     return service.get()
+
+
+# -- 11.16: Apple Pay taps (app/budget/taps.py) -------------------------------------------------------------------
+
+@router.get("/tap-key")
+def tap_key() -> dict[str, Any]:
+    """Whether the Apple Pay Shortcut has a key, and how it's going this month."""
+    from app.budget import taps
+
+    return {**taps.state(), **taps.this_month()}
+
+
+@router.post("/tap-key")
+def make_tap_key() -> dict[str, Any]:
+    """A new key for the Apple Pay Shortcut, shown once (the old one stops)."""
+    from app.budget import taps
+
+    return {"key": taps.new_key(), "url": "/api/v1/budget-tap"}
+
+
+@router.delete("/tap-key")
+def drop_tap_key() -> dict[str, Any]:
+    from app.budget import taps
+
+    taps.drop_key()
+    return taps.state()
+
+
+class TapIn(BaseModel):
+    merchant: str = Field(default="", max_length=200)
+    amount: str | float = Field(default="")
+    card: str = Field(default="", max_length=80)
+
+
+tap_router = APIRouter(prefix="/api/v1/budget-tap", tags=["budget"])
+
+
+@tap_router.post("")
+def tap(body: TapIn, x_sirisos_key: str | None = Header(default=None)) -> dict[str, Any]:
+    """From the Apple Pay Shortcut (11.16): no sign-in, its own key, and it can only add a spend."""
+    from app.budget import taps
+
+    if not taps.matches(x_sirisos_key):
+        raise HTTPException(status_code=401, detail="That key isn't right: make a new one on Budget → Apple Pay to the budget.")
+    try:
+        return taps.add(body.merchant, body.amount, body.card)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 class SplitIn(BaseModel):
