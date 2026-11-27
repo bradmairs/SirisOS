@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.brief.service import zone
 from app.entrypoint import app
 from tests.test_hub import AUTH
 
@@ -51,7 +52,7 @@ def test_the_wall_opens_with_its_own_key_and_reads_only_its_feed(client, monkeyp
     from app.home import context
 
     async def current(hub, now=None):
-        return {"phase": "night", "events": [{"title": "Dentist", "start": f"{date.today()}T15:00:00", "end": None, "all_day": False},
+        return {"phase": "night", "events": [{"title": "Dentist", "start": f"{datetime.now(zone()).date()}T15:00:00", "end": None, "all_day": False},
                                              {"title": "Flight", "start": "2099-01-01T09:00:00", "all_day": False}],
                 "weather_today": {"summary": "Sunny", "max_c": 24, "min_c": 12}}
     monkeypatch.setattr(context, "current", current)
