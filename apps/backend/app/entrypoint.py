@@ -59,7 +59,7 @@ from app.training.api import router as training_router
 from app.setup.api import router as setup_router
 from app.health.api import router as health_router
 from app.life.api import router as life_router
-from app.budget.api import router as budget_router
+from app.budget.api import router as budget_router, tap_router as budget_tap_router
 from app.meals.api import router as meals_router
 from app.travel.api import router as travel_router
 from app.recap.api import router as recap_router
@@ -115,6 +115,7 @@ for router in (
     health_router,
     life_router,
     budget_router,
+    budget_tap_router,
     meals_router,
     travel_router,
     recap_router,
