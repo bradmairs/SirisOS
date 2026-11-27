@@ -247,6 +247,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.13.0: the budget split by blocks (Expenses, Spending, each savings type; each to one income, the closest to fair; Relocation shared by income)
 11.14.0: SirisGym notes that do something (sore, gear taken, felt easy, too heavy: approve each), a note on the Done screen, RPE / set types / how it felt behind More
 11.15.0: a wall display with its own key, Undo instead of Are you sure, the recap with the gym, goals, sections and renewals, a privacy check in CI
+11.16.0: Ask Siris from anywhere: the Action Button or "Hey Siri, Ask Siris" runs a Shortcut that asks SirisAI and speaks the answer, with its own key (never approves anything)
 
 ## Terminal (ADR 113)
 
