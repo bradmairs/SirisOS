@@ -35,6 +35,7 @@ export function SettingsView({ g, onChange }: { g: Gym; onChange: () => void }) 
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>A web app can't put up a Live Activity itself; only iPhone apps can. A Clock timer can: make a Shortcut that takes the input as seconds and runs Start Timer. Each rest then opens Shortcuts for a moment; from the Home Screen app, tap ◀ SirisOS at the top left to come back.</p>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.learn_rest ?? true} onChange={(e) => setS({ ...s, learn_rest: e.target.checked })} /> Set the rest timer from how long my heart rate takes to settle (needs the Watch)</label>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.keep_awake ?? true} onChange={(e) => setS({ ...s, keep_awake: e.target.checked })} /> Keep the screen on during a workout</label>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!s.show_extras} onChange={(e) => setS({ ...s, show_extras: e.target.checked })} /> Always show RPE, set types and "how it felt" (otherwise they're behind More; effort comes from the Watch)</label>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={s.warmups} onChange={(e) => setS({ ...s, warmups: e.target.checked })} /> Add warm-up sets before the first lift for each muscle</label>
         {s.warmups && (
           <label className="gym-setting">Warm-ups (% of the working weight × reps)

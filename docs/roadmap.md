@@ -245,6 +245,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.11.0: Update now on Status (make update through the Terminal, detached), Sections you use with hide from the menu, CI's version check, bump-version.sh rebase, a loud release clash
 11.12.0: the budget split between incomes (all or some; by income, equally or whole lines; personal lines; kept, and redone when the budget changes)
 11.13.0: the budget split by blocks (Expenses, Spending, each savings type; each to one income, the closest to fair; Relocation shared by income)
+11.14.0: SirisGym notes that do something (sore, gear taken, felt easy, too heavy: approve each), a note on the Done screen, RPE / set types / how it felt behind More
 
 ## Terminal (ADR 113)
 

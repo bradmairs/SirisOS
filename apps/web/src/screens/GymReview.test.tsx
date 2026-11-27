@@ -11,7 +11,7 @@ import { ExerciseFixesCard, LinkHistoryCard, RecoveryCard } from "./GymReview";
 
 const EX = (id: string, name: string, equipment = "barbell") => ({ id, name, primary: "quads", secondary: [], equipment, kind: "weight" as const, custom: false });
 const GYM = {
-  settings: { unit: "kg", bar: 20, plates: [20, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90, rest_between_s: 120, current_gym: "home", warmups: false, warmup_steps: [],
+  settings: { show_extras: true, unit: "kg", bar: 20, plates: [20, 10, 5, 2.5, 1.25], increment: 2.5, rest_s: 90, rest_between_s: 120, current_gym: "home", warmups: false, warmup_steps: [],
     gyms: [{ id: "home", name: "Home", bar: 20, plates: [20, 10, 5, 2.5, 1.25], dumbbells: [], stack_step: null }] },
   exercises: [EX("back-squat", "Back Squat"), EX("leg-press", "Leg Press", "machine")],
   routines: [], active: null, recent: [{ id: "old1", title: "Legs", date: "2026-11-09", started_at: "2026-11-09T07:00:00", minutes: 40, sets: 6, exercises: 2, volume: 5000, names: [] }],

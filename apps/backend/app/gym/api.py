@@ -74,13 +74,14 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from app.auth import require_user
-from app.gym import builder, coach, good, images, importer, service, store, templates, tidy, watch
+from app.gym import builder, coach, good, images, importer, notes, service, store, templates, tidy, watch
 from app.hub import sirisai_api
 from app.hub.service import Hub, get_hub
 from app.tasks import service as tasks
 
 log = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/gym", tags=["gym"], dependencies=[Depends(require_user)])
 
 
@@ -182,6 +183,7 @@ async def overview(hub: Hub = Depends(get_hub)) -> dict[str, Any]:
         "muscles": coach.muscles(doc, today),
         "deload": coach.deload(doc, today, _low(h)),
         "niggles": [n.model_dump() for n in coach.active_niggles(doc)],
+        "note_actions": notes.open_actions(doc),  # 11.14: what session notes asked for
         "readiness": {k: (h.get("readiness") or {}).get(k) for k in ("score", "band")} if h.get("readiness") else None,
         "recent_max": service.recent_max(doc, today),  # 8.7: the typo check while logging
         "recovery": coach.recovery(doc, datetime.now(timezone.utc)),
@@ -689,6 +691,11 @@ async def plan(routine: str, day: int | None = Query(default=None, ge=0, le=13),
             gym_swap = {"from": p.exercise, "gym": here.name}
             p = p.model_copy(update={"exercise": here.swaps[p.exercise]})
         sets, sug = coach.adjust(p, service.suggest(doc, p, gym), doc, h.get("readiness"), deloading, mode)
+        nudge = doc.nudges.get(p.exercise)  # 11.14: a step up or down a session note asked for, used once
+        if nudge and sug.get("weight"):
+            fit = lambda w, x=p.exercise: service.loadable(doc, x, w)  # noqa: E731
+            sug = {**sug, "weight": fit(max(0.0, sug["weight"] + nudge)), "per_set": [fit(max(0.0, w + nudge)) for w in sug.get("per_set") or []] or None,
+                   "why": f"Your note said it felt {'easy' if nudge > 0 else 'too heavy'}: {'+' if nudge > 0 else '−'}{abs(nudge):g} {doc.settings.unit}. {sug['why']}"}
         ex = names.get(p.exercise, {})
         learned = watch.rest(doc, p.exercise, p.rest_s)  # the rest your heart rate needs (7.1)
         extra: dict[str, Any] = {}
@@ -803,7 +810,15 @@ async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict
         body.ended_at = store.now()
     body.gym = body.gym or doc.settings.current_gym
     doc.sessions.append(body)
+    if was is None:  # 11.14: a new workout uses up the step its exercises were waiting for
+        for e in body.entries:
+            doc.nudges.pop(e.exercise, None)
+    found: list[dict[str, Any]] = []
+    if body.note and body.note.strip() and (was is None or (was.note or "") != body.note):
+        found = notes.add(doc, body, notes.rules(body.note, notes.entries_of(doc, body)))
     store.save(doc)
+    if body.note and body.note.strip() and (was is None or (was.note or "") != body.note):
+        asyncio.create_task(_read_note_with_model(body.id))
     sent = await _send_day(hub, doc, service.day_of(body.started_at)) and await _send_session(hub, doc, body)
     if not sent:  # saved here; SirisAI gets it, and analyses it, when it's back (8.6)
         body.ai_pending = True
@@ -812,7 +827,63 @@ async def save_session(body: store.Session, hub: Hub = Depends(get_hub)) -> dict
         body.ai_pending = False
         store.save(doc)
     return {"summary": service.summary(doc, body), "records": service.new_records(doc, body), "ai_pending": body.ai_pending,
-            "compare": service.compare(doc, body)}
+            "compare": service.compare(doc, body),
+            "note_actions": [{**a, "text": notes.text_of(a, doc.settings.unit, doc.settings.increment)} for a in found]}
+
+
+async def _read_note_with_model(session_id: str) -> None:
+    """11.14: the local model reads the note too, after the workout's saved, for what the rules missed."""
+    try:
+        doc = store.load()
+        s = next((x for x in doc.sessions if x.id == session_id), None)
+        if s is None or not s.note:
+            return
+        extra = await notes.model(s.note, notes.entries_of(doc, s))
+        if extra:
+            doc = store.load()  # it may have changed while the model read
+            s = next((x for x in doc.sessions if x.id == session_id), None)
+            if s is not None and notes.add(doc, s, extra):
+                store.save(doc)
+    except Exception:  # noqa: BLE001 - never more than a missed suggestion
+        logger.info("Reading a session note with the model failed", exc_info=True)
+
+
+class NoteIn(BaseModel):
+    note: str = Field(default="", max_length=2000)
+
+
+@router.put("/sessions/{session_id}/note")
+async def set_note(session_id: str, body: NoteIn) -> dict[str, Any]:
+    """A note on a finished workout (11.14), read at once for what it asks; the local model reads it too, after."""
+    doc = store.load()
+    s = next((x for x in doc.sessions if x.id == session_id), None)
+    if s is None:
+        raise HTTPException(status_code=404, detail="No such workout.")
+    changed = (s.note or "").strip() != body.note.strip()
+    s.note = body.note.strip()
+    found = notes.add(doc, s, notes.rules(s.note, notes.entries_of(doc, s))) if changed and s.note else []
+    store.save(doc)
+    if changed and s.note:
+        asyncio.create_task(_read_note_with_model(session_id))
+    return {"note": s.note, "note_actions": [{**a, "text": notes.text_of(a, doc.settings.unit, doc.settings.increment)} for a in found]}
+
+
+class NoteAct(BaseModel):
+    act: Literal["apply", "dismiss"]
+
+
+@router.post("/note-actions/{action_id}")
+def note_action(action_id: str, body: NoteAct) -> dict[str, Any]:
+    """Do what a session note suggested, or leave it (11.14)."""
+    doc = store.load()
+    try:
+        out = notes.apply(doc, action_id, tasks.today().isoformat()) if body.act == "apply" else {"done": "", "actions": notes.dismiss(doc, action_id)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="That suggestion has been answered already.") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    store.save(doc)
+    return out
 
 
 class Feel(BaseModel):

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NoteActionsCard } from "./GymNotes";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, BatteryLow, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, Pencil, Play, Repeat, Sparkles, Trash2, Trophy } from "lucide-react";
 import { useResource } from "../api/resource";
@@ -141,6 +142,7 @@ export function TodayView({ g, onChange }: { g: Gym; onChange: () => void }) {
       )}
       {g.deload && (g.deload.active || g.deload.suggest) && <DeloadCard d={g.deload} onChange={onChange} />}
       {g.block?.due && <NextBlockCard g={g} onChange={onChange} />}
+      {(g.note_actions ?? []).length > 0 && <NoteActionsCard actions={g.note_actions!} onChange={onChange} />}
       {(g.niggles ?? []).length > 0 && <NigglesCard niggles={g.niggles!} onChange={onChange} />}
       {(g.links ?? 0) > 0 && <LinkHistoryCard onChange={onChange} />}
       <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Today's workout">

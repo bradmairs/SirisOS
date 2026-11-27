@@ -402,6 +402,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/gym/niggles` |  |
 | `POST /api/v1/gym/niggles` |  |
 | `POST /api/v1/gym/niggles/{niggle_id}/healed` |  |
+| `POST /api/v1/gym/note-actions/{action_id}` | Do what a session note suggested, or leave it (11.14). |
 | `POST /api/v1/gym/photos` |  |
 | `DELETE /api/v1/gym/photos/{photo_id}` |  |
 | `GET /api/v1/gym/photos/{photo_id}` |  |
@@ -420,6 +421,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/gym/sessions/{session_id}` | One workout in full. `watch=false` skips finding its Watch workout (SirisAI asks that way: it has the heart rate itself, and the lookup would call back into it). |
 | `GET /api/v1/gym/sessions/{session_id}/effort` | The Watch's heart rate lined up with each set, and the effort per exercise, from SirisAI (6.96, SirisAI 4.28). |
 | `POST /api/v1/gym/sessions/{session_id}/feel` |  |
+| `PUT /api/v1/gym/sessions/{session_id}/note` | A note on a finished workout (11.14), read at once for what it asks; the local model reads it too, after. |
 | `POST /api/v1/gym/sessions/{session_id}/review` | Your call on an imported day too big to be one workout. It's never deleted: "real" counts it, "wrong" keeps it out. |
 | `PUT /api/v1/gym/sessions/{session_id}/sets` | Correct one exercise's working sets in a saved workout (8.7), in order, e.g. a 210 kg squat that was 21 or 70. Warm-ups and the rest of the workout stay as they were. |
 | `PUT /api/v1/gym/settings` |  |

@@ -193,6 +193,8 @@ class Settings(BaseModel):
     learn_rest: bool = True  # rest timer set from how long your heart rate takes to settle (7.1)
     deload_snoozed_until: str | None = Field(default=None, max_length=10)  # "Not now" on the deload card (8.7)
     keep_awake: bool = True  # 8.8: keep the phone's screen on while a workout is open
+    # 11.14: RPE, set types and "how it felt" on the workout screen; off, they're behind More (effort comes from the Watch)
+    show_extras: bool = False
     bodyweight_kg: float | None = Field(default=None, gt=0, le=400)  # 8.8: the latest from Apple Health, for bodyweight volume
     voice_key_hash: str = Field(default="", max_length=64)  # 8.8: Siri's key for logging sets (sha256; the key itself is shown once)
     links_kept: list[str] = Field(default_factory=list, max_length=200)  # routine exercises you said aren't the same as an old one (8.7)
@@ -295,6 +297,9 @@ class GymDoc(BaseModel):
     # 9.7: each exercise's picture when you've chosen one: a library id, "none", or "photo:<file>" (app/gym/images.py).
     images: dict[str, str] = Field(default_factory=dict)
     cues: dict[str, str] = Field(default_factory=dict)  # 8.8: your form cues per exercise (built-ins have defaults)
+    # 11.14: what session notes asked for (app/gym/notes.py), and a step up or down an exercise takes once, next time.
+    note_actions: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+    nudges: dict[str, float] = Field(default_factory=dict)
     # Sessions whose start wasn't a time (8.7), kept as they were rather than breaking every page or being deleted.
     quarantined: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
 

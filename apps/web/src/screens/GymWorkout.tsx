@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeftRight, ArrowUp, BellRing, Check, ChevronLeft, ChevronRight, GalleryHorizontal, Link2, List, Mic, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from "lucide-react";
-import { type Compare, changeSet, chime, gym, loadActive, loadPlan, loadRest, moveEntry, parseSpoken, plates, saveActive, setE1rm, savePlan, saveRest, shortcuts, type Exercise, type GymRecord, type Plan, type Rest, type Session, type SetLog, type Summary } from "../api/gym";
+import { type Compare, type NoteAction, changeSet, chime, gym, loadActive, loadPlan, loadRest, moveEntry, parseSpoken, plates, saveActive, setE1rm, savePlan, saveRest, shortcuts, type Exercise, type GymRecord, type Plan, type Rest, type Session, type SetLog, type Summary } from "../api/gym";
 import { keep, unreachable } from "../api/outbox";
 import { brain } from "../api/hub";
 import { micUnavailableReason, startRecording } from "../api/voice";
@@ -11,8 +11,9 @@ import { ExerciseImage } from "../components/ExerciseImage";
 import { Glass } from "../components/Glass";
 import { ExercisePicker, ExerciseSheet, fmtDay, kg, useGym } from "./Gym";
 import { FeelPicker } from "./GymReview";
+import { DoneNote } from "./GymNotes";
 
-type Done = { summary?: Summary; records?: GymRecord[]; offline?: boolean; ai_pending?: boolean; compare?: Compare | null };
+type Done = { summary?: Summary; records?: GymRecord[]; offline?: boolean; ai_pending?: boolean; compare?: Compare | null; note_actions?: NoteAction[] };
 import { Sheet } from "../components/Sheet";
 import { useResource } from "../api/resource";
 import { FilmButton } from "./GymCards";
@@ -35,6 +36,7 @@ export function GymWorkoutScreen() {
   const [notes, setNotes] = useState<Set<number>>(new Set());  // exercises whose note box is open
   const [removing, setRemoving] = useState<number | null>(null);  // 11.9: the exercise whose sets show a remove button
   const [listening, setListening] = useState(false);
+  const [more, setMore] = useState(false);  // 11.14: RPE and set types for this workout, when Settings keeps them tucked away
   const [swapping, setSwapping] = useState<number | null>(null);
   // 11.7: the whole workout as a list, or one exercise at a time (kept on this phone).
   const [view, setViewState] = useState<View>(() => readView());
@@ -123,7 +125,8 @@ export function GymWorkoutScreen() {
       if (Date.now() - rest.until < 60_000) { setOver(rest.next || "Next set."); if (document.visibilityState === "visible") chime.play(); }
     }
   }, [rest, restCheck]);  // eslint-disable-line react-hooks/exhaustive-deps
-  if (done) return <Finished done={done} unit={g?.settings.unit ?? "kg"} />;
+  if (done) return <Finished done={done} unit={g?.settings.unit ?? "kg"} extras={!!g?.settings.show_extras} />;
+  const extras = !!g?.settings.show_extras || more;
   if (!s) {
     return (
       <Glass className="widget" style={{ marginTop: 16, minHeight: 0 }}>
@@ -337,7 +340,7 @@ export function GymWorkoutScreen() {
             <button type="button" className="chip chip--button" onClick={() => setRemoving(null)}><Check size={12} aria-hidden="true" /> Done</button>
           </div>
         )}
-        <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here} removing={removing === ei}
+        <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here} removing={removing === ei} extras={extras}
           guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null} bodyweight={s.bodyweight ?? g?.settings.bodyweight_kg ?? null}
           onChange={(si, patch, opts) => {
             const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
@@ -391,6 +394,10 @@ export function GymWorkoutScreen() {
         <button type="button" className={`gym-view__btn${view === "focus" ? " gym-view__btn--on" : ""}`} aria-pressed={view === "focus"}
           onClick={() => { setView("focus"); goTo(firstUndone(s.entries)); }}>
           <GalleryHorizontal size={14} aria-hidden="true" /> One at a time</button>
+        {!g?.settings.show_extras && (
+          <button type="button" className={`gym-view__btn${more ? " gym-view__btn--on" : ""}`} aria-pressed={more} onClick={() => setMore(!more)}
+            title="RPE and set types (warm-up, drop, AMRAP, rest-pause)">More</button>
+        )}
       </div>
       {info && <p className="tone-warning" role="status">{info}</p>}
       {plan?.mode_note && <p className="muted" role="status" style={{ margin: "4px 0 0", fontSize: 13 }}>{plan.mode_note}</p>}
@@ -583,9 +590,9 @@ function LastTime({ last, kind }: { last: { date?: string; sets: SetLog[] }; kin
   );
 }
 
-function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onChange, onRemove, removing = false }: {
+function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onChange, onRemove, removing = false, extras = true }: {
   ex?: Exercise; sets: SetLog[]; last: SetLog[]; unit: string; settings?: { bar: number; plates: number[] };
-  guard?: number | null; best?: number | null; bodyweight?: number | null; removing?: boolean;
+  guard?: number | null; best?: number | null; bodyweight?: number | null; removing?: boolean; extras?: boolean;
   onChange: (i: number, patch: Partial<SetLog>, opts?: { carry?: boolean; from?: number | null }) => void; onRemove: (i: number) => void;
 }) {
   const kind = ex?.kind ?? "weight";
@@ -649,8 +656,10 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
               else { setSwiped(null); if (!x.done) tick(i, prev); }
             }}>
             <div className={`gym-sets__row ${x.done ? "gym-sets__row--done" : ""}`} role="row">
-              <button type="button" className="gym-sets__type" title={`${TYPE_NAME[x.type] ?? "Normal"}: tap for warm-up, drop, as many reps as possible (A) or rest-pause (R)`} aria-label={`Set ${label}, ${TYPE_NAME[x.type] ?? "normal"}: change type`}
-                onClick={() => onChange(i, { type: NEXT_TYPE[x.type] ?? "normal" })}>{label}</button>
+              {extras ? (
+                <button type="button" className="gym-sets__type" title={`${TYPE_NAME[x.type] ?? "Normal"}: tap for warm-up, drop, as many reps as possible (A) or rest-pause (R)`} aria-label={`Set ${label}, ${TYPE_NAME[x.type] ?? "normal"}: change type`}
+                  onClick={() => onChange(i, { type: NEXT_TYPE[x.type] ?? "normal" })}>{label}</button>
+              ) : <span className="gym-sets__type gym-sets__type--plain" aria-label={`Set ${label}`}>{label}</span>}
               <span className="muted gym-sets__prev">{prev ? (prev.weight ? `${prev.weight}×${prev.reps ?? "–"}` : prev.seconds ? `${prev.seconds}s` : `${prev.reps ?? "–"}`) : "–"}</span>
               {kind === "weight" || kind === "bodyweight" ? (
                 <>
@@ -678,11 +687,11 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
                   onClick={() => tick(i, prev)}><Check size={16} aria-hidden="true" /></button>
               )}
             </div>
-            {(bits.length > 0 || record || (x.done && x.type !== "warmup") || swiped === i) && (
+            {(bits.length > 0 || record || (extras && x.done && x.type !== "warmup") || swiped === i) && (
               <div className="gym-sets__sub">
                 {record && <span className="gym-sets__record"><Trophy size={11} aria-hidden="true" /> New best: est. 1RM {kg(est, unit)}</span>}
                 {bits.length > 0 && <span className="muted">{bits.join(" · ")}</span>}
-                {x.done && x.type !== "warmup" && (
+                {extras && x.done && x.type !== "warmup" && (
                   <button type="button" className="chip chip--button gym-rpe" aria-label={`Set ${label} effort (RPE)`} title="How hard: RPE 6 (easy) to 10 (nothing left)"
                     onClick={() => onChange(i, { rpe: x.rpe == null ? 7 : x.rpe >= 10 ? null : x.rpe + 1 })}>{x.rpe != null ? `RPE ${x.rpe}` : "RPE"}</button>
                 )}
@@ -701,7 +710,7 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
   );
 }
 
-function Finished({ done, unit }: { done: Done; unit: string }) {
+function Finished({ done, unit, extras = false }: { done: Done; unit: string; extras?: boolean }) {
   const s = done.summary;
   const c = done.compare;
   return (
@@ -723,7 +732,8 @@ function Finished({ done, unit }: { done: Done; unit: string }) {
               Against {fmtDay(c.date)}: {c.sets === 0 ? "the same sets" : `${c.sets > 0 ? "+" : "−"}${Math.abs(c.sets)} set${Math.abs(c.sets) === 1 ? "" : "s"}`}, {c.volume === 0 ? "the same volume" : `${c.volume > 0 ? "+" : "−"}${Math.abs(Math.round(c.volume)).toLocaleString()} ${unit} volume`}{c.minutes != null && c.minutes !== 0 ? `, ${Math.abs(c.minutes)} min ${c.minutes > 0 ? "longer" : "quicker"}` : ""}.
             </p>
           )}
-          <FeelPicker session={s.id} />
+          <DoneNote session={s.id} initial={done.note_actions ?? []} />
+          {extras && <FeelPicker session={s.id} />}
           <ShareWorkout id={s.id} unit={unit} />
           {(done.records ?? []).length > 0 && (
             <ul className="items" aria-label="Records">

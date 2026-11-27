@@ -47,6 +47,8 @@ export interface GymSettings {
   rest_between_s?: number; shortcut_rest?: string;
   /** 8.8: keep the screen on in a workout; whether Siri has a key for logging sets (the key itself is never sent back). */
   keep_awake?: boolean; voice_key?: boolean; bodyweight_kg?: number | null;
+  /** 11.14: RPE, set types and "how it felt" on the workout screen; off, they're behind More. */
+  show_extras?: boolean;
 }
 export interface Suggest { weight: number | null; reps: number; why: string; seconds?: number; push?: boolean; per_set?: number[]; training_max?: number; last_note?: string | null; watch_effort?: number }
 export type Area = "shoulder" | "elbow" | "wrist" | "lower back" | "knee";
@@ -60,10 +62,15 @@ export interface HeatDay { date: string; volume: number; sets: number; muscles: 
 export interface Summary { id: string; title: string; date: string; started_at: string; minutes: number | null; sets: number; exercises: number; volume: number; names: string[];
   /** Imported, and too big to be one workout (7.0): left out of records and stats until you say it's real. */
   held?: boolean; feel?: number | null }
+/** 11.14: something a session note asked for: spare a sore area, swap at this gym, or a step up or down next time. */
+export interface NoteAction { id: string; session: string; date: string; kind: "spare" | "swap" | "up" | "down"; area?: string; exercise?: string;
+  name?: string; quote: string; text: string; status: string }
 export interface Gym {
   settings: GymSettings; exercises: Exercise[]; routines: Routine[]; active: { routine: string; next_day: number; schedule?: WeekSchedule | null } | null;
   recent: Summary[]; week: { week_of: string; sessions: number; sets_by_muscle: Record<string, number>; volume: number; cardio_min?: number; cardio_km?: number; cardio_sessions?: number };
   streak_weeks: number; total_sessions: number; niggles?: Niggle[];
+  /** 11.14: what session notes asked for, to approve. */
+  note_actions?: NoteAction[];
   held?: Summary[]; muscles?: MuscleWeek[]; deload?: Deload; readiness?: { score: number | null; band: string | null } | null;
   /** 8.7: each exercise's heaviest working set in the last year (the typo check), how recovered each muscle is,
    * how many routine exercises could link to your history, and sessions set aside with a start that wasn't a time. */
@@ -175,7 +182,10 @@ export const gym = {
   warmups: (exercise: string, weight: number, gymId?: string) =>
     api<{ warmups: { weight: number; reps: number }[] }>(`${G}/warmups?exercise=${encodeURIComponent(exercise)}&weight=${weight}${gymId ? `&gym=${encodeURIComponent(gymId)}` : ""}`),
   heatmap: (days = 371) => api<{ days: HeatDay[] }>(`${G}/heatmap?days=${days}`),
-  finish: (s: Session) => api<{ summary: Summary; records: GymRecord[]; ai_pending?: boolean; compare?: Compare | null }>(`${G}/sessions`, json(s)),
+  finish: (s: Session) => api<{ summary: Summary; records: GymRecord[]; ai_pending?: boolean; compare?: Compare | null; note_actions?: NoteAction[] }>(`${G}/sessions`, json(s)),
+  /** 11.14: a note on a finished workout, read for what it asks; and answering what a note asked. */
+  setNote: (id: string, note: string) => api<{ note: string; note_actions: NoteAction[] }>(`${G}/sessions/${encodeURIComponent(id)}/note`, { method: "PUT", body: JSON.stringify({ note }) }),
+  noteAction: (id: string, act: "apply" | "dismiss") => api<{ done: string; actions: NoteAction[] }>(`${G}/note-actions/${encodeURIComponent(id)}`, json({ act })),
   feel: (id: string, feel: number) => api<{ id: string; feel: number }>(`${G}/sessions/${encodeURIComponent(id)}/feel`, json({ feel })),
   fixSets: (id: string, exercise: string, sets: { weight: number | null; reps: number | null; seconds?: number | null; km?: number | null }[]) =>
     api<{ summary: Summary; records: GymRecord[] }>(`${G}/sessions/${encodeURIComponent(id)}/sets`, { method: "PUT", body: JSON.stringify({ exercise, sets }) }),
