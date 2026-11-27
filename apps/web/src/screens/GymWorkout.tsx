@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { undoable } from "../components/Undo";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeftRight, ArrowUp, BellRing, Check, ChevronLeft, ChevronRight, GalleryHorizontal, Link2, List, Mic, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from "lucide-react";
 import { type Compare, type NoteAction, changeSet, chime, gym, loadActive, loadPlan, loadRest, moveEntry, parseSpoken, plates, saveActive, setE1rm, savePlan, saveRest, shortcuts, type Exercise, type GymRecord, type Plan, type Rest, type Session, type SetLog, type Summary } from "../api/gym";
@@ -316,7 +317,13 @@ export function GymWorkoutScreen() {
                 reps={at?.reps ?? null} name={ex?.name ?? entry.exercise} />;
             })()}
             <button type="button" className="chip chip--button tone-critical" aria-label={`Remove ${ex?.name ?? entry.exercise}`}
-              onClick={() => { if (!entry.sets.some((x) => x.done) || window.confirm(`Remove ${ex?.name ?? entry.exercise} and its ticked sets?`)) { setMenu(null); update({ ...s, entries: s.entries.filter((_, i) => i !== ei) }); } }}>
+              onClick={() => {
+                setMenu(null);
+                const removed = entry;
+                undoable({ text: `Removed ${ex?.name ?? entry.exercise}`, run: () => undefined,
+                  hide: () => update({ ...s, entries: s.entries.filter((_, i) => i !== ei) }),
+                  restore: () => { const now = sRef.current; if (now) update({ ...now, entries: [...now.entries.slice(0, ei), removed, ...now.entries.slice(ei)] }); } });
+              }}>
               <X size={12} aria-hidden="true" /> Remove</button>
           </div>
         )}
@@ -353,7 +360,12 @@ export function GymWorkoutScreen() {
               if (view === "focus") { const n = nextUp(entries, ei); if (n !== ei) window.setTimeout(() => goTo(n), 600); }
             }
           }}
-          onRemove={(si) => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) })} />
+          onRemove={(si) => {
+            const gone = entry.sets[si];
+            undoable({ text: `Removed set ${si + 1} of ${ex?.name ?? entry.exercise}`, run: () => undefined,
+              hide: () => update({ ...s, entries: s.entries.map((e, i) => (i === ei ? { ...e, sets: e.sets.filter((_, j) => j !== si) } : e)) }),
+              restore: () => { const now = sRef.current; if (now) update({ ...now, entries: now.entries.map((e, i) => (i === ei ? { ...e, sets: [...e.sets.slice(0, si), gone, ...e.sets.slice(si)] } : e)) }); } });
+          }} />
         <button type="button" className="chip chip--button" style={{ alignSelf: "flex-start" }}
           onClick={() => {
             // 11.9: a new set shows the last one's numbers faintly, like the rest.
@@ -681,7 +693,7 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
               )}
               {removing ? (
                 <button type="button" className="gym-sets__done gym-sets__remove" aria-label={`Remove set ${label}`}
-                  onClick={() => { if (!x.done || window.confirm(`Set ${label} is ticked. Remove it?`)) onRemove(i); }}><Trash2 size={15} aria-hidden="true" /></button>
+                  onClick={() => onRemove(i)}><Trash2 size={15} aria-hidden="true" /></button>
               ) : (
                 <button type="button" className={`gym-sets__done ${x.done ? "gym-sets__done--on" : ""}`} aria-pressed={x.done} aria-label={`Set ${label} done`}
                   onClick={() => tick(i, prev)}><Check size={16} aria-hidden="true" /></button>

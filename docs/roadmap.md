@@ -246,6 +246,7 @@ roadmap, Sprints 0.4 to 1.0, is archived in
 11.12.0: the budget split between incomes (all or some; by income, equally or whole lines; personal lines; kept, and redone when the budget changes)
 11.13.0: the budget split by blocks (Expenses, Spending, each savings type; each to one income, the closest to fair; Relocation shared by income)
 11.14.0: SirisGym notes that do something (sore, gear taken, felt easy, too heavy: approve each), a note on the Done screen, RPE / set types / how it felt behind More
+11.15.0: a wall display with its own key, Undo instead of Are you sure, the recap with the gym, goals, sections and renewals, a privacy check in CI
 
 ## Terminal (ADR 113)
 

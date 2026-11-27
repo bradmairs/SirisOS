@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { undoable } from "../components/Undo";
 import { Link, useNavigate } from "react-router-dom";
 import { Archive, Bandage, Compass, Download, Dumbbell, HeartPulse, Trash2, Video as VideoIcon } from "lucide-react";
 import { AREAS, gym, loadActive, type Area, type Backup, type Fitness, type Niggle, type Routine, type Video } from "../api/gym";
@@ -159,7 +160,7 @@ export function VideosCard({ videos, onChange }: { videos: Video[]; onChange: ()
             <label className="row" style={{ gap: 8, flex: 1 }}><input type="checkbox" checked={pair.includes(v.id)} onChange={() => pick(v.id)} aria-label={`Compare ${label(v)}`} />
               <span className="item__text"><span className="item__title">{label(v)}</span>{v.note && <span className="item__subtitle">{v.note}</span>}</span></label>
             <button type="button" className="icon-link" aria-label={`Delete the video from ${v.date}`}
-              onClick={async () => { if (window.confirm("Delete this video?")) { await gym.deleteVideo(v.id); setPair((p) => p.filter((x) => x !== v.id)); onChange(); } }}><Trash2 size={14} aria-hidden="true" /></button>
+              onClick={() => undoable({ text: "Deleted the video", run: async () => { await gym.deleteVideo(v.id); setPair((p) => p.filter((x) => x !== v.id)); onChange(); } })}><Trash2 size={14} aria-hidden="true" /></button>
           </li>
         ))}
       </ul>

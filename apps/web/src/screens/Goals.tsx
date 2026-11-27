@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { undoable } from "../components/Undo";
 import { Check, ChevronLeft, ChevronRight, Minus, Plus, Sparkles, Target, Trash2 } from "lucide-react";
 import { refreshResource, useResource } from "../api/resource";
 import { gym } from "../api/gym";
@@ -114,8 +115,10 @@ function GoalsReview({ year, items, busy, onDone }: { year: number; items: YearG
 function GoalRow({ goal: g, busy, through, onChange, onRemove }: {
   goal: YearGoal; busy: boolean; through: number; onChange: (c: Partial<YearGoal>) => void; onRemove: () => void;
 }) {
+  const [gone, setGone] = useState(false);  // 11.15: removed, waiting on Undo
   const state = STATE[g.state];
   const amount = g.kind === "done" ? null : `${g.value == null ? "–" : num(g.value)} of ${num(g.target ?? 0)}${g.unit ? ` ${g.unit}` : ""}`;
+  if (gone) return null;
   return (
     <li className="item goal">
       {g.kind === "done" ? (
@@ -143,7 +146,7 @@ function GoalRow({ goal: g, busy, through, onChange, onRemove }: {
           <button type="button" className="icon-link" disabled={busy} aria-label={`One more for "${g.title}"`} onClick={() => onChange({ progress: g.progress + 1 })}><Plus size={15} aria-hidden="true" /></button>
         </span>
       )}
-      <button type="button" className="icon-link" disabled={busy} aria-label={`Remove "${g.title}"`} onClick={() => window.confirm(`Remove "${g.title}"?`) && onRemove()}>
+      <button type="button" className="icon-link" disabled={busy} aria-label={`Remove "${g.title}"`} onClick={() => undoable({ text: `Removed "${g.title}"`, run: onRemove, hide: () => setGone(true), restore: () => setGone(false) })}>
         <Trash2 size={14} aria-hidden="true" />
       </button>
     </li>

@@ -19,6 +19,8 @@ import { Sidebar } from "./components/Sidebar";
 import { Wallpaper } from "./components/Wallpaper";
 import { Home, useApps } from "./screens/Home";
 import { Login } from "./screens/Login";
+import { UndoBanner } from "./components/Undo";
+import { WallScreen } from "./screens/Wall";
 import { ActScreen } from "./screens/Act";
 
 // Home ships in the main bundle; every other screen is its own chunk,
@@ -133,6 +135,8 @@ export function App() {
       <Wallpaper />
       <Routes>
         <Route path="/act" element={<ActScreen signedIn={user !== null} />} />
+        {/* 11.15: the kitchen tablet: no sign-in, its own read-only key */}
+        <Route path="/wall" element={<WallScreen />} />
         <Route path="*" element={user === null ? <Login onLogin={setUser} /> : <Shell user={user} onSignOut={() => { session.clear(); setUser(null); }} />} />
       </Routes>
     </BrowserRouter>
@@ -206,6 +210,7 @@ function Shell({ user, onSignOut }: { user: string; onSignOut: () => void }) {
         <AppPresence />
         <SyncBar />
         <ScrollToTop />
+        <UndoBanner />
         <VisitTracker />
         <SectionTabs />
         <Suspense fallback={<ScreenFallback />}>

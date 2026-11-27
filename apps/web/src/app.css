@@ -1540,3 +1540,29 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 /* 11.14: a set's number when set types are tucked away, and what a note asked for */
 .gym-sets__type--plain { display: inline-flex; align-items: center; justify-content: center; border-color: transparent; }
 .gym-note-action { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+/* 11.15: the wall display */
+.wall { min-height: 100vh; padding: clamp(16px, 3vw, 40px); display: grid; align-content: start; gap: 24px; transition: filter 1.2s ease, opacity 1.2s ease; }
+.wall--dim { filter: brightness(0.35); }
+.wall--empty { place-content: center; text-align: center; color: var(--ink-2); }
+.wall__clock { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+.wall__time { font-size: clamp(64px, 12vw, 150px); font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.wall__date { font-size: clamp(20px, 3vw, 34px); color: var(--ink-2); }
+.wall__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.wall__card { min-height: 0; font-size: clamp(16px, 1.8vw, 22px); }
+.wall__card--wide { grid-column: span 2; }
+@media (max-width: 640px) { .wall__card--wide { grid-column: auto; } }
+.wall__big { margin: 0; font-size: clamp(40px, 6vw, 72px); font-weight: 300; display: grid; }
+.wall__mid { margin: 0; font-size: clamp(22px, 3vw, 34px); display: grid; gap: 4px; }
+.wall__sub { font-size: clamp(14px, 1.6vw, 20px); color: var(--ink-2); font-weight: 400; }
+.wall__events { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wall__events li { display: grid; grid-template-columns: 6.5em 1fr; gap: 12px; }
+.wall__events li span { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.wall__error { margin: 0; color: var(--warning, #f5a524); font-size: 18px; }
+/* 11.15: Undo instead of "Are you sure?" */
+.undo-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); z-index: 60;
+  display: flex; align-items: center; gap: 14px; max-width: min(92vw, 520px); padding: 10px 12px 10px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-2, #111) 92%, transparent); color: var(--ink-1, #fff); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); font-size: 14px; }
+.undo-banner__btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px;
+  background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
+@media (min-width: 960px) { .undo-banner { bottom: 24px; } }

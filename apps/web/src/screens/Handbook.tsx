@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { undoable } from "../components/Undo";
 import { BookOpen, Check, Copy, Pencil, Plus, Search, Trash2, TriangleAlert } from "lucide-react";
 import { useResource } from "../api/resource";
 import { handbook, type HandbookEntry } from "../api/handbook";
@@ -64,9 +65,11 @@ export function HandbookScreen() {
 function CommandRow({ c, mine, onChanged }: { c: Command & Partial<HandbookEntry>; mine: boolean; onChanged: (e: HandbookEntry[]) => void }) {
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [gone, setGone] = useState(false);  // 11.15: deleted, waiting on Undo
   const copy = async () => {
     try { await navigator.clipboard.writeText(c.cmd); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard: long-press the text */ }
   };
+  if (gone) return null;
   if (editing && c.id) return <li className="item"><EntryForm entry={c as HandbookEntry} onDone={(next) => { if (next) onChanged(next); setEditing(false); }} /></li>;
   return (
     <li className="item handbook-row">
@@ -81,7 +84,8 @@ function CommandRow({ c, mine, onChanged }: { c: Command & Partial<HandbookEntry
           <>
             <button type="button" className="icon-link" aria-label={`Edit ${c.cmd}`} onClick={() => setEditing(true)}><Pencil size={14} aria-hidden="true" /></button>
             <button type="button" className="icon-link" aria-label={`Delete ${c.cmd}`}
-              onClick={async () => { if (window.confirm(`Take "${c.cmd}" out of the handbook?`)) onChanged((await handbook.remove(c.id!)).entries); }}><Trash2 size={14} aria-hidden="true" /></button>
+              onClick={() => undoable({ text: "Took the command out of the handbook", run: async () => onChanged((await handbook.remove(c.id!)).entries),
+                hide: () => setGone(true), restore: () => setGone(false) })}><Trash2 size={14} aria-hidden="true" /></button>
           </>
         )}
       </span>

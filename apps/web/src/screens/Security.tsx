@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WallKeyCard } from "./Wall";
 import { AlertTriangle, Fingerprint, Info, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { passkeyProblem, passkeys, type PasskeyInfo, type SecurityCheck } from "../api/passkeys";
 import { deviceLabel } from "../api/push";
@@ -101,6 +102,7 @@ export function SecurityScreen() {
 
         <ShareCard />
         <PhoneWidgetCard />
+        <WallKeyCard />
         <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Settings check">
           <header className="widget__head"><ShieldCheck aria-hidden="true" /><span>Settings check</span></header>
           {checks?.length === 0 && <p className="tone-good" style={{ margin: 0 }}>Nothing to fix.</p>}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { undoable } from "../components/Undo";
 import { IdCard, Trash2 } from "lucide-react";
 import { renewals, type Renewal, type RenewalKind } from "../api/renewals";
 import { useResource } from "../api/resource";
@@ -14,7 +15,8 @@ const when = (r: Renewal) => (r.days_left < 0 ? `expired ${-r.days_left} day${r.
  * and 7 days before and on the day; renewed, so tap the date and set the new one. */
 export function RenewalsCard() {
   const res = useResource<{ renewals: Renewal[] }>("renewals", () => renewals.list(), { staleMs: 60_000, persist: true });
-  const items = res.data?.renewals ?? [];
+  const [gone, setGone] = useState<Set<string>>(new Set());  // 11.15: removed, waiting on Undo
+  const items = (res.data?.renewals ?? []).filter((r) => !gone.has(r.id));
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", kind: "passport" as RenewalKind, expires: "" });
   const [msg, setMsg] = useState<string | null>(null);
@@ -37,7 +39,8 @@ export function RenewalsCard() {
               </span>
               <input className="field renewal-date" type="date" aria-label={`${r.name} expires`} value={r.expires}
                 onChange={(e) => { if (e.target.value) run(() => renewals.change(r.id, { expires: e.target.value }), `${r.name}: now ${day(e.target.value)}.`); }} />
-              <button type="button" className="icon-link" aria-label={`Remove ${r.name}`} onClick={() => { if (window.confirm(`Remove ${r.name}?`)) run(() => renewals.remove(r.id)); }}><Trash2 size={14} aria-hidden="true" /></button>
+              <button type="button" className="icon-link" aria-label={`Remove ${r.name}`} onClick={() => undoable({ text: `Removed ${r.name}`, run: () => run(() => renewals.remove(r.id)),
+                hide: () => setGone((g) => new Set(g).add(r.id)), restore: () => setGone((g) => { const n = new Set(g); n.delete(r.id); return n; }) })}><Trash2 size={14} aria-hidden="true" /></button>
             </li>
           ))}
         </ul>
