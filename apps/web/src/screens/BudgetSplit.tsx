@@ -4,6 +4,7 @@ import { budget, type Split, type SplitChoices, type SplitMethod, type SplitStat
 import { Glass } from "../components/Glass";
 
 const METHODS: { id: SplitMethod; label: string; about: string }[] = [
+  { id: "blocks", label: "Blocks", about: "Expenses as one, Spending as one, and each savings type on its own: each goes to one income, as close to everyone paying the same share of their income as whole blocks allow. Any block can be shared by income instead." },
   { id: "income", label: "By income", about: "Everyone puts in the same share of what they earn." },
   { id: "equal", label: "Equally", about: "Everyone puts in the same amount." },
   { id: "lines", label: "Whole lines", about: "Each line goes to one source, as close to by-income as whole lines allow: fewer transfers." },
@@ -14,7 +15,8 @@ const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
 /** How the expenses, savings and spending are best split between the incomes (11.12): all of them or some, by income,
- * equally or by whole lines, with personal lines kept to their owner. A kept split is checked against the budget, and
+ * equally or by whole lines, with personal lines kept to their owner. 11.13: by blocks (Expenses, Spending, each
+ * savings type), each block to one income or shared by income. A kept split is checked against the budget, and
  * when the budget changes it says what changed, with Redo. `savedAt` changes when the budget is saved. */
 export function SplitCard({ savedAt }: { savedAt: number }) {
   const [state, setState] = useState<SplitState | null>(null);
@@ -124,7 +126,14 @@ export function SplitCard({ savedAt }: { savedAt: number }) {
                 </p>
                 <p style={{ margin: 0, fontSize: 13 }}>{(Object.keys(SECTION) as (keyof typeof SECTION)[]).filter((k) => s.sections[k] > 0)
                   .map((k) => `${SECTION[k]} ${money(s.sections[k])}`).join(" · ")}</p>
-                {open === s.id && (
+                {shown.method === "blocks" && s.blocks && (
+                  <ul className="budget-split__lines" aria-label={`${s.name}: the blocks`}>
+                    {s.blocks.map((b) => (
+                      <li key={b.key}><span>{b.name}{b.shared ? <span className="muted"> · {b.share}% share</span> : null}</span><span>{money(b.monthly)}</span></li>
+                    ))}
+                  </ul>
+                )}
+                {open === s.id && shown.method !== "blocks" && (
                   <ul className="budget-split__lines" aria-label={`${s.name}: the lines`}>
                     {s.lines.map((l) => (
                       <li key={l.id}><span>{l.name}{l.personal ? <span className="muted"> · personal</span> : !l.whole ? <span className="muted"> · share</span> : null}</span><span>{money(l.monthly)}</span></li>
@@ -135,7 +144,27 @@ export function SplitCard({ savedAt }: { savedAt: number }) {
             ))}
           </ul>
 
-          <details className="budget-split__personal">
+          {shown.method === "blocks" && (
+            <details className="budget-split__personal" open>
+              <summary style={{ fontSize: 14 }}>Who pays each block</summary>
+              <ul className="items">
+                {shown.blocks.map((b) => (
+                  <li key={b.key} className="item budget-split__pick">
+                    <span className="item__text"><span className="item__title">{b.name}</span>
+                      <span className="item__subtitle" style={{ whiteSpace: "normal" }}>{money(b.monthly)} a month · {b.paid_by.length > 1 ? "shared by income" : `${b.paid_by[0]?.name ?? ""}${b.rule === "auto" ? " (worked out)" : ""}`}</span></span>
+                    <select className="field" aria-label={`Who pays ${b.name}`} value={b.rule}
+                      onChange={(e) => setChoices({ ...choices, blocks: { ...(choices.blocks ?? {}), [b.key]: e.target.value } })}>
+                      <option value="auto">Worked out</option>
+                      <option value="shared">Shared by income</option>
+                      {shown.sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {shown.method !== "blocks" && <details className="budget-split__personal">
             <summary style={{ fontSize: 14 }}>Personal lines ({personalNames})</summary>
             <p className="muted" style={{ margin: "4px 0", fontSize: 12 }}>A personal line is paid by its owner's income, whatever the method; the rest is shared. Lines naming someone are suggested.</p>
             <ul className="items">
@@ -153,7 +182,7 @@ export function SplitCard({ savedAt }: { savedAt: number }) {
                 );
               })}
             </ul>
-          </details>
+          </details>}
 
           <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <button type="button" className="button button--primary" disabled={busy || (same && !!state.saved && !state.stale)} onClick={keep}>

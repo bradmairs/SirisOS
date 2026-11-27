@@ -53,4 +53,30 @@ describe("<SplitCard />", () => {
     await waitFor(() => expect(calls.some((c) => c.init.method === "PUT")).toBe(true));
     expect(await screen.findByText(/Kept/)).toBeInTheDocument();
   });
+
+  it("splits by blocks, and a block can be shared or given to someone", async () => {
+    signIn();
+    const blockSplit = {
+      ...split("blocks"),
+      sources: [{ ...src("sam", "Sam's Pay", "monthly", 5300, 6000), blocks: [{ key: "expenses", name: "Expenses", monthly: 3300, shared: false, share: 100 },
+        { key: "reloc", name: "Relocation", monthly: 300, shared: true, share: 60 }] },
+      { ...src("alex", "Alex's Pay", "fortnightly", 3500, 4000), blocks: [{ key: "reloc", name: "Relocation", monthly: 200, shared: true, share: 40 }] }],
+      blocks: [{ key: "expenses", name: "Expenses", monthly: 3300, rule: "auto", paid_by: [{ id: "sam", name: "Sam's Pay", monthly: 3300, share: 100 }] },
+        { key: "reloc", name: "Relocation", monthly: 500, rule: "shared", paid_by: [{ id: "sam", name: "Sam's Pay", monthly: 300, share: 60 }, { id: "alex", name: "Alex's Pay", monthly: 200, share: 40 }] }],
+    };
+    const calls = mockFetch({
+      "/api/v1/budget/split/preview": () => jsonResponse(blockSplit),
+      "/api/v1/budget/split": () => jsonResponse({ saved: null, now: blockSplit, stale: false, changes: [], settings: { sources: [], method: "blocks", personal: {}, blocks: {} } }),
+    });
+    const user = userEvent.setup();
+    render(<SplitCard savedAt={0} />);
+    const card = await screen.findByRole("region", { name: "Split between incomes" });
+    expect(await within(card).findByRole("list", { name: "Sam's Pay: the blocks" })).toHaveTextContent("Relocation · 60% share$300");
+    expect(within(card).queryByText(/Personal lines/)).toBeNull();
+    await user.selectOptions(within(card).getByRole("combobox", { name: "Who pays Expenses" }), "alex");
+    await waitFor(() => {
+      const last = calls.filter((c) => c.url.endsWith("/split/preview")).at(-1);
+      expect(JSON.parse(String(last?.init.body)).blocks).toEqual({ expenses: "alex" });
+    });
+  });
 });

@@ -135,18 +135,23 @@ const B = "/api/v1/budget";
 const DRAFT = "sirisos.budget.draft";
 
 /** 11.12: the budget split between income sources. */
-export type SplitMethod = "income" | "equal" | "lines";
+export type SplitMethod = "blocks" | "income" | "equal" | "lines";
 export interface SplitSource {
   id: string; name: string; every: Every; income: number; total: number; per_pay: number; left: number;
   percent_of_income: number | null; share_of_budget: number; share_of_income: number;
   sections: Record<"expenses" | "savings" | "spending", number>;
   lines: { id: string; name: string; section: string; monthly: number; whole: boolean; personal: boolean }[];
+  /** 11.13, blocks only: the blocks this income pays, whole or its share. */
+  blocks?: { key: string; name: string; monthly: number; shared: boolean; share: number }[];
 }
+/** 11.13: Expenses, Spending, or one savings type, and who pays it. `rule`: "auto", "shared" or an income id. */
+export interface SplitBlock { key: string; name: string; monthly: number; rule: string; paid_by: { id: string; name: string; monthly: number; share: number }[] }
 export interface Split {
   method: SplitMethod; sources: SplitSource[]; left_out: { id: string; name: string; income: number }[]; total: number; income: number; short: number;
   personal: Record<string, string>; suggested: Record<string, string>; lines: { id: string; name: string; section: string; monthly: number }[];
+  blocks: SplitBlock[];
 }
-export interface SplitChoices { sources: string[]; method: SplitMethod; personal: Record<string, string> }
+export interface SplitChoices { sources: string[]; method: SplitMethod; personal: Record<string, string>; blocks?: Record<string, string> }
 export interface SplitState { saved: { made_at: string; result: Split } | null; now: Split | null; stale: boolean; changes: string[]; settings: SplitChoices; error?: string | null }
 
 export const budget = {

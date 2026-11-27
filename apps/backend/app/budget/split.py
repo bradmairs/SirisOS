@@ -2,6 +2,9 @@
 
 Choose the income sources to share it (all of them, or some: say both pays but not the car allowance) and how:
 
+- **blocks** (11.13, the default): Expenses as one block, Spending as one block, and each savings type on its own.
+  Each block goes whole to one income, the assignment closest to everyone paying the same share of their income;
+  a block can instead be shared, weighted by income (Relocation is, unless changed), or given to one income;
 - **income** (the default): everyone puts in the same share of what they earn, so a bigger income pays more;
 - **equal**: everyone puts in the same amount;
 - **lines**: each line goes whole to one source (fewer transfers: "Sam pays the rent, Alex pays the power"),
@@ -29,7 +32,10 @@ from typing import Any
 from app.budget import service
 from app.services import json_store
 
-METHODS = ("income", "equal", "lines")
+METHODS = ("blocks", "income", "equal", "lines")
+RULES = ("auto", "shared")  # a block's rule: one of these, or an income's id
+SHARED_BY_DEFAULT = re.compile(r"relocat", re.I)  # 11.13: Relocation is shared between the incomes by default
+SEARCH_LIMIT = 200_000  # assignments tried in full before falling back to biggest-first
 SECTION_LABEL = {"expenses": "Expenses", "savings": "Savings", "spending": "Spending"}
 
 
@@ -92,10 +98,55 @@ def changes(before: dict[str, Any], doc: dict[str, Any]) -> list[str]:
     return out[:12]
 
 
-def compute(doc: dict[str, Any], sources: list[str] | None = None, method: str = "income",
-            personal: dict[str, str] | None = None) -> dict[str, Any]:
+def blocks_of(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    """Expenses as one block, Spending as one, and each savings line on its own (11.13)."""
+    lines = _lines(doc)
+    out = []
+    for section in ("expenses", "spending"):
+        mine = [line for line in lines if line["section"] == section]
+        if mine:
+            out.append({"key": section, "name": SECTION_LABEL[section], "monthly": round(sum(x["monthly"] for x in mine), 2),
+                        "lines": [x["id"] for x in mine]})
+    out += [{"key": x["id"], "name": x["name"], "monthly": x["monthly"], "lines": [x["id"]]} for x in lines if x["section"] == "savings"]
+    return out
+
+
+def default_rules(doc: dict[str, Any]) -> dict[str, str]:
+    return {b["key"]: "shared" for b in blocks_of(doc) if SHARED_BY_DEFAULT.search(b["name"]) and b["key"] not in ("expenses", "spending")}
+
+
+def _assign(sizes: list[float], room: dict[str, float]) -> list[str]:
+    """Each block to one income, so that what each pays is as close as can be to its target (`room`: target less
+    what it already pays). Every assignment is tried when there are few enough; otherwise biggest block first."""
+    ids = list(room)
+    if not sizes:
+        return []
+    if len(ids) ** len(sizes) <= SEARCH_LIMIT:
+        from itertools import product
+
+        best, best_cost = None, float("inf")
+        for combo in product(range(len(ids)), repeat=len(sizes)):
+            load = dict.fromkeys(ids, 0.0)
+            for size, who in zip(sizes, combo):
+                load[ids[who]] += size
+            cost = sum((room[i] - load[i]) ** 2 for i in ids)
+            if cost < best_cost - 1e-6:
+                best, best_cost = combo, cost
+        return [ids[w] for w in best]  # type: ignore[union-attr]
+    left = dict(room)
+    out: list[str] = [""] * len(sizes)
+    for n in sorted(range(len(sizes)), key=lambda k: -sizes[k]):
+        who = max(ids, key=lambda i: (left[i], -ids.index(i)))
+        out[n] = who
+        left[who] -= sizes[n]
+    return out
+
+
+def compute(doc: dict[str, Any], sources: list[str] | None = None, method: str = "blocks",
+            personal: dict[str, str] | None = None, blocks: dict[str, str] | None = None) -> dict[str, Any]:
     """The split. `sources`: income ids (None or empty: all). `personal`: {line id: source id, or "shared"} on top of
-    the suggestions."""
+    the suggestions (not for blocks). `blocks`: {block key: "auto", "shared" or an income id} on top of the
+    defaults (blocks only)."""
     if method not in METHODS:
         raise ValueError(f"How to split is one of {', '.join(METHODS)}.")
     every = {i["id"]: i for i in doc.get("income") or []}
@@ -105,10 +156,13 @@ def compute(doc: dict[str, Any], sources: list[str] | None = None, method: str =
     ids = [s["id"] for s in chosen]
     income = {s["id"]: service.monthly(s) for s in chosen}
     lines = _lines(doc)
+    by_income = {i: income[i] / sum(income.values()) for i in ids}
+    if method == "blocks":
+        return _blocks(doc, every, ids, income, lines, by_income, blocks)
     pins = {**suggested_personal(doc, chosen), **(personal or {})}
     pins = {k: v for k, v in pins.items() if v in ids}  # "shared", or a source not in the split: shared
     total = sum(line["monthly"] for line in lines)
-    weight = {i: (income[i] / sum(income.values())) if method != "equal" else 1 / len(ids) for i in ids}
+    weight = dict(by_income) if method != "equal" else {i: 1 / len(ids) for i in ids}
     target = {i: weight[i] * total for i in ids}
     alloc: dict[str, dict[str, float]] = {i: {} for i in ids}  # source -> line id -> monthly
     for line in lines:
@@ -131,6 +185,53 @@ def compute(doc: dict[str, Any], sources: list[str] | None = None, method: str =
         for line in shared:
             for i in ids:
                 alloc[i][line["id"]] = round(line["monthly"] * share[i], 2)
+    return _result(method, every, ids, income, lines, alloc, set(pins), {
+        "personal": {k: v for k, v in pins.items()}, "suggested": suggested_personal(doc, chosen)})
+
+
+def _blocks(doc: dict[str, Any], every: dict[str, Any], ids: list[str], income: dict[str, float], lines: list[dict[str, Any]],
+            weight: dict[str, float], blocks: dict[str, str] | None) -> dict[str, Any]:
+    """Blocks (11.13): each block whole to one income, closest to everyone paying the same share of their income; a
+    shared block split by income; a block given to an income stays with it."""
+    all_blocks = blocks_of(doc)
+    rules = {**default_rules(doc), **{k: v for k, v in (blocks or {}).items() if v in RULES or v in every}}
+    rule = {b["key"]: (rules.get(b["key"], "auto") if rules.get(b["key"], "auto") in RULES or rules.get(b["key"]) in ids else "auto")
+            for b in all_blocks}
+    total = sum(b["monthly"] for b in all_blocks)
+    target = {i: weight[i] * total for i in ids}
+    load = dict.fromkeys(ids, 0.0)
+    payer: dict[str, dict[str, float]] = {}  # block key -> income -> share (0-1)
+    for b in all_blocks:
+        if rule[b["key"]] == "shared":
+            payer[b["key"]] = dict(weight)
+        elif rule[b["key"]] in ids:
+            payer[b["key"]] = {rule[b["key"]]: 1.0}
+        else:
+            continue
+        for i, part in payer[b["key"]].items():
+            load[i] += b["monthly"] * part
+    auto = [b for b in all_blocks if b["key"] not in payer]
+    for b, who in zip(auto, _assign([b["monthly"] for b in auto], {i: target[i] - load[i] for i in ids})):
+        payer[b["key"]] = {who: 1.0}
+    by_id = {line["id"]: line for line in lines}
+    alloc: dict[str, dict[str, float]] = {i: {} for i in ids}
+    for b in all_blocks:
+        for i, part in payer[b["key"]].items():
+            for lid in b["lines"]:
+                alloc[i][lid] = round(by_id[lid]["monthly"] * part, 2)
+    block_out = [{"key": b["key"], "name": b["name"], "monthly": b["monthly"], "rule": rule[b["key"]],
+                  "paid_by": [{"id": i, "name": every[i]["name"], "monthly": round(b["monthly"] * part, 2), "share": round(part * 100, 1)}
+                              for i, part in payer[b["key"]].items()]} for b in all_blocks]
+    out = _result("blocks", every, ids, income, lines, alloc, set(), {"personal": {}, "suggested": {}, "blocks": block_out, "rules": rule})
+    for s in out["sources"]:  # what each income pays, block by block
+        s["blocks"] = [{"key": b["key"], "name": b["name"], "monthly": p["monthly"], "shared": len(b["paid_by"]) > 1, "share": p["share"]}
+                       for b in block_out for p in b["paid_by"] if p["id"] == s["id"] and p["monthly"] > 0]
+    return out
+
+
+def _result(method: str, every: dict[str, Any], ids: list[str], income: dict[str, float], lines: list[dict[str, Any]],
+            alloc: dict[str, dict[str, float]], pins: set[str], extra: dict[str, Any]) -> dict[str, Any]:
+    total = sum(line["monthly"] for line in lines)
     by_id = {line["id"]: line for line in lines}
     out_sources = []
     for i in ids:
@@ -154,15 +255,15 @@ def compute(doc: dict[str, Any], sources: list[str] | None = None, method: str =
     return {
         "method": method, "sources": out_sources, "left_out": left_out, "total": round(total, 2),
         "income": round(in_split, 2), "short": round(max(0.0, total - in_split), 2),
-        "personal": {k: v for k, v in pins.items()}, "suggested": suggested_personal(doc, chosen),
         "lines": [{"id": line["id"], "name": line["name"], "section": line["section"], "monthly": line["monthly"]} for line in lines],
+        "blocks": [], **extra,
     }
 
 
 def _settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     raw = raw or {}
-    return {"sources": list(raw.get("sources") or []), "method": raw.get("method") if raw.get("method") in METHODS else "income",
-            "personal": dict(raw.get("personal") or {})}
+    return {"sources": list(raw.get("sources") or []), "method": raw.get("method") if raw.get("method") in METHODS else "blocks",
+            "personal": dict(raw.get("personal") or {}), "blocks": dict(raw.get("blocks") or {})}
 
 
 def get() -> dict[str, Any]:
@@ -187,10 +288,10 @@ def get() -> dict[str, Any]:
             "changes": changes(saved.get("snapshot") or {}, doc) if stale else [], "settings": settings, "error": error}
 
 
-def save(sources: list[str] | None, method: str, personal: dict[str, str] | None) -> dict[str, Any]:
+def save(sources: list[str] | None, method: str, personal: dict[str, str] | None, blocks: dict[str, str] | None = None) -> dict[str, Any]:
     doc = service.get()
-    result = compute(doc, sources, method, personal)
-    settings = {"sources": list(sources or []), "method": method, "personal": dict(personal or {})}
+    result = compute(doc, sources, method, personal, blocks)
+    settings = {"sources": list(sources or []), "method": method, "personal": dict(personal or {}), "blocks": dict(blocks or {})}
     json_store.write(_path(), {"settings": settings, "made_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                "fingerprint": fingerprint(doc), "snapshot": _snapshot(doc), "result": result})
     return get()
