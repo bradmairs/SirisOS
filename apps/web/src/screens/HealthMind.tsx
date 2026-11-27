@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { undoable } from "../components/Undo";
 import { ArrowDown, ArrowUp, BookHeart, Brain, Check, ChevronDown, Flower2, LifeBuoy, Lightbulb, Lock, Pencil, Repeat, Shield, Smile, Trash2, Wind } from "lucide-react";
 import { lockNow, mind, useUnlocked, type Clarity, type Habit, type StoppedHabit, type JournalEntry, type Mind, type MindDay } from "../api/mind";
 import { useResource } from "../api/resource";
@@ -515,7 +516,7 @@ export function HabitsView() {
                       <button type="button" className="button button--small" onClick={() => setEditing(null)}>Cancel</button>
                       <button type="button" className="chip chip--button" aria-label={`Move ${h.name} up`} disabled={habits[0]?.id === h.id} onClick={() => run(() => mind.changeHabit(h.id, { move: -1 }))}><ArrowUp size={12} aria-hidden="true" /> Up</button>
                       <button type="button" className="chip chip--button" aria-label={`Move ${h.name} down`} disabled={habits.at(-1)?.id === h.id} onClick={() => run(() => mind.changeHabit(h.id, { move: 1 }))}><ArrowDown size={12} aria-hidden="true" /> Down</button>
-                      <button type="button" className="chip chip--button tone-critical" onClick={() => { if (window.confirm(`Stop tracking ${h.name}? Its history is kept, and you can bring it back.`)) void run(() => mind.changeHabit(h.id, { archived: true })).then(() => setEditing(null)); }}>Stop tracking</button>
+                      <button type="button" className="chip chip--button tone-critical" onClick={() => { setEditing(null); undoable({ text: `Stopped tracking ${h.name}`, run: () => run(() => mind.changeHabit(h.id, { archived: true })) }); }}>Stop tracking</button>
                     </span>
                   </form>
                 ) : <span className="item__title">{h.name}</span>}

@@ -6,10 +6,14 @@
   month before, and mood (Apple Health through SirisAI).
 - **Work**: hours on the timesheet and CPD hours.
 - **Habits**: how often each was kept on its days.
+- **The gym** (11.15): workouts, volume and new records, against the month before.
+- **Goals** (11.15): the year's goals behind the pace.
+- **Where you went** (11.15): the sections opened most, and ones not opened at all (from 11.10's visit counts).
+- **Coming up** (11.15): renewals due in the next 30 days.
 
 From the 1st (after 8am) it shows on Home until you've seen it, a notification
 says it's ready, and it's filed in Siris as "<Month> recap" (tagged
-monthly-recap). SirisGym's sessions aren't in it.
+monthly-recap).
 
 Kept in recap.json (SIRISOS_RECAP_PATH): which months were filed and seen.
 """
@@ -126,8 +130,61 @@ def habits(ym: str, today: date) -> list[dict[str, Any]]:
     return out
 
 
+def gym(ym: str) -> dict[str, Any] | None:
+    """11.15: the month's workouts, volume and new records, and last month's count to compare."""
+    from app.gym import service as gs, store as gym_store
+
+    try:
+        doc = gym_store.load()
+    except Exception:  # noqa: BLE001
+        return None
+    month = [s for s in gym_store.counted(doc) if gs.day_of(s.started_at).startswith(ym)]
+    before = sum(1 for s in gym_store.counted(doc) if gs.day_of(s.started_at).startswith(_prev(ym)))
+    if not month and not before:
+        return None
+    records = [r["text"] for s in month for r in gs.new_records(doc, s)]
+    return {"workouts": len(month), "before": before, "volume": round(sum(gs.summary(doc, s)["volume"] for s in month)),
+            "records": len(records), "top_records": records[:3]}
+
+
+async def goals(hub: Hub, today: date) -> list[dict[str, Any]] | None:
+    """11.15: this year's goals behind the pace for the time of year."""
+    try:
+        from app.goals import service as gl
+
+        g = await gl.overview(hub, today.year, today)
+    except Exception:  # noqa: BLE001
+        return None
+    return [{"title": x["title"], "percent": x["percent"], "through": g["through_year"]} for x in g["goals"] if x["state"] == "behind"][:4] or None
+
+
+def places(ym: str) -> dict[str, Any] | None:
+    """11.15: the sections opened most last month, and ones never opened (when the counting covers the month)."""
+    from app.assist import homeuse
+
+    visits = homeuse.load().get("visits") or {}
+    days: dict[str, set[str]] = {}
+    for by_path in visits.values():
+        for path, when in by_path.items():
+            days.setdefault(path, set()).update(d for d in when if d.startswith(ym))
+    opened = {p: len(d) for p, d in days.items() if d}
+    if not opened:
+        return None
+    first = min(d for by_path in visits.values() for when in by_path.values() for d in when)
+    top = sorted(opened.items(), key=lambda kv: -kv[1])[:3]
+    return {"top": [{"path": p, "days": n} for p, n in top], "counting_since": first}
+
+
+def ahead(today: date) -> list[dict[str, Any]]:
+    """11.15: renewals due in the 30 days from `today` (the recap comes at the start of a month)."""
+    from app.renewals import service as renewals
+
+    return [{"name": r["name"], "expires": r["expires"]} for r in renewals.listing(today) if 0 <= r["days_left"] <= 30][:5]
+
+
 async def build(hub: Hub, ym: str, today: date) -> dict[str, Any]:
-    return {"month": ym, "money": money(ym), "health": await health(hub, ym, today), "work": work(ym), "habits": habits(ym, today)}
+    return {"month": ym, "money": money(ym), "health": await health(hub, ym, today), "work": work(ym), "habits": habits(ym, today),
+            "gym": gym(ym), "goals": await goals(hub, today), "places": places(ym), "ahead": ahead(today)}
 
 
 def _money_str(v: float, cur: str) -> str:
@@ -165,6 +222,17 @@ def as_text(r: dict[str, Any]) -> str:
         lines.append(f"{w['cpd_hours']:g} h of CPD.")
     for hb in r.get("habits") or []:
         lines.append(f"{hb['name']}: {hb['kept']} of {hb['of']} days.")
+    g = r.get("gym")
+    if g:
+        lines.append(f"{g['workouts']} workout{'' if g['workouts'] == 1 else 's'}" + (f" (from {g['before']})" if g["before"] != g["workouts"] else "")
+                     + f", {g['volume']:,} kg lifted" + (f", {g['records']} new best{'' if g['records'] == 1 else 's'}: {'; '.join(g['top_records'])}" if g["records"] else "") + ".")
+    for goal in r.get("goals") or []:
+        lines.append(f"Behind on {goal['title']}: {goal['percent'] or 0}% there, {goal['through']}% through the year.")
+    p = r.get("places")
+    if p:
+        lines.append("Opened most: " + ", ".join(f"{x['path'].strip('/').title() or 'Home'} ({x['days']} days)" for x in p["top"]) + ".")
+    for a in r.get("ahead") or []:
+        lines.append(f"Renewing soon: {a['name']} ({date.fromisoformat(a['expires'][:10]):%-d %b}).")
     return "\n".join(f"- {line}" for line in lines) or "- A quiet month: nothing recorded."
 
 

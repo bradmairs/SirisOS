@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { undoable } from "../components/Undo";
 import { Trash2 } from "lucide-react";
 import { life, type Doc } from "../api/life";
 import { SaveButton } from "../components/SaveButton";
@@ -62,7 +63,7 @@ export function ReceiptView({ id, onRemoved }: { id: number; onRemoved?: () => v
       {!(doc.files ?? []).length && doc.text && <pre className="receipt-text">{doc.text}</pre>}
       {onRemoved && (
         <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }}
-          onClick={async () => { if (window.confirm("Remove this receipt? It stays in your email, but won't be kept here again.")) { await life.deleteDocument(id); onRemoved(); } }}>
+          onClick={() => undoable({ text: "Removed the receipt (it stays in your email)", run: async () => { await life.deleteDocument(id); onRemoved(); } })}>
           <Trash2 size={14} aria-hidden="true" /> Remove
         </button>
       )}

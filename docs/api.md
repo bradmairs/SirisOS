@@ -844,6 +844,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/updates` | The running version against main's on GitHub, and the last update's log. |
 
+### `/api/v1/wall`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/wall` |  |
+| `DELETE /api/v1/wall/key` |  |
+| `GET /api/v1/wall/key` |  |
+| `POST /api/v1/wall/key` |  |
+
 ### `/api/v1/watch`
 
 | Route | What it does |

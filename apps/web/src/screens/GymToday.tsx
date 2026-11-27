@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { undoable } from "../components/Undo";
 import { NoteActionsCard } from "./GymNotes";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, BatteryLow, CalendarDays, ChevronRight, Dumbbell, Flame, HeartPulse, Pencil, Play, Repeat, Sparkles, Trash2, Trophy } from "lucide-react";
@@ -352,7 +353,7 @@ export function SessionSheet({ id, unit, onClose }: { id: string; unit: string; 
           <div className="row" style={{ gap: 12 }}>
             <button type="button" className="chip chip--button" onClick={again}><Repeat size={13} aria-hidden="true" /> Do this again</button>
             <button type="button" className="chip chip--button" onClick={edit}><Pencil size={13} aria-hidden="true" /> Edit</button>
-            <button type="button" className="icon-link" onClick={async () => { if (window.confirm("Delete this workout?")) { await gym.deleteSession(id); onClose(); window.location.reload(); } }}>
+            <button type="button" className="icon-link" onClick={() => { onClose(); undoable({ text: "Deleted the workout", run: async () => { await gym.deleteSession(id); window.location.reload(); } }); }}>
               <Trash2 size={14} aria-hidden="true" /> Delete
             </button>
           </div>

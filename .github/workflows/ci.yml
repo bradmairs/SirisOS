@@ -34,6 +34,21 @@ jobs:
           [ -f "docs/releases/$mine.md" ] || { echo "::error::docs/releases/$mine.md is missing"; exit 1; }
           echo "$mine is newer than main's $main."
 
+  # 11.15: the repo is public: nothing private in the lines a change adds (scripts/privacy_check.py). PRIVACY_TERMS is
+  # a secret: your own list of names and real figures, never in the repo.
+  privacy:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Nothing private added
+        env:
+          PRIVACY_TERMS: ${{ secrets.PRIVACY_TERMS }}
+          PRIVACY_BASE: origin/${{ github.base_ref }}
+        run: python3 scripts/privacy_check.py
+
   backend:
     runs-on: ubuntu-latest
     env:

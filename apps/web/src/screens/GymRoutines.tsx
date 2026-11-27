@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { undoable } from "../components/Undo";
 import { ArrowDown, ArrowUp, ListPlus, Medal, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useResource } from "../api/resource";
 import { gym, moveEntry, type BuildEquipment, type BuildGoal, type Built, type Gym, type Progression, type Routine } from "../api/gym";
@@ -174,7 +175,7 @@ export function RoutineEditor({ g, start, onClose, onSaved }: { g: Gym; start: R
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="button button--primary" disabled={!r.name.trim() || !r.days.some((d) => d.exercises.length)} onClick={save}>Save</button>
           <button type="button" className="button" onClick={onClose}>Cancel</button>
-          {r.id && <button type="button" className="icon-link" style={{ marginLeft: "auto" }} onClick={async () => { if (window.confirm(`Delete ${r.name}?`)) { await gym.deleteRoutine(r.id); onSaved(); } }}><Trash2 size={14} aria-hidden="true" /> Delete</button>}
+          {r.id && <button type="button" className="icon-link" style={{ marginLeft: "auto" }} onClick={() => { const id = r.id!; onClose(); undoable({ text: `Deleted ${r.name}`, run: async () => { await gym.deleteRoutine(id); onSaved(); } }); }}><Trash2 size={14} aria-hidden="true" /> Delete</button>}
         </div>
       </div>
       {picking != null && (
