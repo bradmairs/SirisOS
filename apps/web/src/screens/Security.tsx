@@ -5,6 +5,7 @@ import { passkeyProblem, passkeys, type PasskeyInfo, type SecurityCheck } from "
 import { deviceLabel } from "../api/push";
 import { Glass } from "../components/Glass";
 import { ShareCard } from "./ShareCard";
+import { AskCard } from "./AskCard";
 import { PhoneWidgetCard } from "./PhoneWidgetCard";
 
 const ICON = { critical: AlertTriangle, warning: AlertTriangle, info: Info } as const;
@@ -101,6 +102,7 @@ export function SecurityScreen() {
         </Glass>
 
         <ShareCard />
+        <AskCard />
         <PhoneWidgetCard />
         <WallKeyCard />
         <Glass as="section" className="widget" style={{ minHeight: 0 }} aria-label="Settings check">

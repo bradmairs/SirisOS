@@ -1,4 +1,4 @@
-"""Apple Pay taps into the budget (11.16).
+"""Apple Pay taps into the budget (11.17).
 
 CommBank has no API for personal customers, so the budget's actual spending came only from a NetBank CSV import.
 Now an iPhone Shortcuts automation ("When I tap any of my cards", iOS 17+) sends each Apple Pay purchase's shop,
@@ -66,7 +66,7 @@ def matches(key: str | None) -> bool:
 
 def amount_of(value: Any) -> float | None:
     """"$12.50", "12.50", "A$12.50", "12,50", 12.5: the amount spent, as a positive number."""
-    # 11.16: cut short before parsing (an amount is never long; CodeQL flagged a regex run on a long one), and no
+    # 11.17: cut short before parsing (an amount is never long; CodeQL flagged a regex run on a long one), and no
     # patterns with anything to backtrack over.
     text = str(value or "").replace("\u00a0", " ").strip()[:24]
     text = text.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").lstrip("$").strip()

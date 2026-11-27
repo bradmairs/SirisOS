@@ -74,6 +74,15 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/access` |  |
 | `GET /api/v1/access/stream` |  |
 
+### `/api/v1/ask`
+
+| Route | What it does |
+| --- | --- |
+| `POST /api/v1/ask` | Ask Siris from a Shortcut (11.16), with the Ask key in X-SirisOS-Key. Never approves anything. |
+| `DELETE /api/v1/ask/key` |  |
+| `GET /api/v1/ask/key` |  |
+| `POST /api/v1/ask/key` | A new Ask key (11.16), shown once; the old one stops working. |
+
 ### `/api/v1/assistant`
 
 | Route | What it does |
@@ -238,7 +247,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 
 | Route | What it does |
 | --- | --- |
-| `POST /api/v1/budget-tap` | From the Apple Pay Shortcut (11.16): no sign-in, its own key, and it can only add a spend. |
+| `POST /api/v1/budget-tap` | From the Apple Pay Shortcut (11.17): no sign-in, its own key, and it can only add a spend. |
 
 ### `/api/v1/calendar`
 

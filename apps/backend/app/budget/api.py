@@ -2,7 +2,7 @@
 
     GET  /api/v1/budget              income, the three sections, monthly totals and history
     PUT  /api/v1/budget              the whole budget (income and sections), saved as one
-    GET/POST/DELETE /api/v1/budget/tap-key   (11.16) the Apple Pay Shortcut's key, shown once; POST /api/v1/budget-tap
+    GET/POST/DELETE /api/v1/budget/tap-key   (11.17) the Apple Pay Shortcut's key, shown once; POST /api/v1/budget-tap
                                      {merchant, amount, card} with X-SirisOS-Key adds a spend (no sign-in)
     GET  /api/v1/budget/split        (11.12) the saved split between incomes, checked against today's budget
     POST /api/v1/budget/split/preview  {sources, method, personal}: what a split would be
@@ -45,7 +45,7 @@ def get_budget() -> dict[str, Any]:
     return service.get()
 
 
-# -- 11.16: Apple Pay taps (app/budget/taps.py) -------------------------------------------------------------------
+# -- 11.17: Apple Pay taps (app/budget/taps.py) -------------------------------------------------------------------
 
 @router.get("/tap-key")
 def tap_key() -> dict[str, Any]:
@@ -82,7 +82,7 @@ tap_router = APIRouter(prefix="/api/v1/budget-tap", tags=["budget"])
 
 @tap_router.post("")
 def tap(body: TapIn, x_sirisos_key: str | None = Header(default=None)) -> dict[str, Any]:
-    """From the Apple Pay Shortcut (11.16): no sign-in, its own key, and it can only add a spend."""
+    """From the Apple Pay Shortcut (11.17): no sign-in, its own key, and it can only add a spend."""
     from app.budget import taps
 
     if not taps.matches(x_sirisos_key):

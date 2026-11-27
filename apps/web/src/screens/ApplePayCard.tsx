@@ -6,7 +6,7 @@ import { Glass } from "../components/Glass";
 
 interface TapState { on: boolean; made: string | null; last: string | null; count: number; taps: number; unsorted: number; spent: number }
 
-/** Budget → Apple Pay to the budget (11.16): each Apple Pay purchase sent by an iPhone Shortcuts automation, the moment
+/** Budget → Apple Pay to the budget (11.17): each Apple Pay purchase sent by an iPhone Shortcuts automation, the moment
  * it's made, into the month's spending. A key for the Shortcut, shown once, that can only add a spend. */
 export function ApplePayCard() {
   const res = useResource<TapState>("budget:tap-key", () => api("/api/v1/budget/tap-key"), { staleMs: 60_000 });
