@@ -442,14 +442,10 @@ describe("<GymWorkoutScreen />", () => {
 });
 
 describe("SirisGym 7.8: first-use fixes", () => {
-  it("carries a typed weight down to the sets that follow it", async () => {
+  it("changes only the set you typed in (11.18: the sets below keep last time's numbers to choose from)", async () => {
     const { changeSet } = await import("../api/gym");
-    const sets = [{ weight: null, reps: 6, done: false, type: "warmup" as const }, { weight: null, reps: 6, done: false, type: "normal" as const },
-      { weight: null, reps: 6, done: false, type: "normal" as const }, { weight: 70, reps: 6, done: true, type: "normal" as const }];
-    const next = changeSet(sets, 1, { weight: 60 });
-    expect(next.map((x) => x.weight)).toEqual([null, 60, 60, 70]);  // not the warm-up before, not a ticked set
-    expect(changeSet(next, 1, { weight: 62.5 }).map((x) => x.weight)).toEqual([null, 62.5, 62.5, 70]);  // follows a change too
-    expect(changeSet([{ ...sets[1], weight: 60 }, { ...sets[2], weight: 55 }], 0, { weight: 65 })[1].weight).toBe(55);  // set on purpose: kept
+    const sets = [{ weight: null, reps: 6, done: false, type: "normal" as const }, { weight: null, reps: 6, done: false, type: "normal" as const }];
+    expect(changeSet(sets, 0, { weight: 60 }).map((x) => x.weight)).toEqual([60, null]);
   });
 
   it("edits a saved workout in place", async () => {

@@ -815,6 +815,18 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/tasks/{task_id}/done` |  |
 | `POST /api/v1/tasks/{task_id}/snooze` |  |
 
+### `/api/v1/tax`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/tax` |  |
+| `POST /api/v1/tax/claims` |  |
+| `DELETE /api/v1/tax/claims/{claim_id}` |  |
+| `PUT /api/v1/tax/claims/{claim_id}` |  |
+| `GET /api/v1/tax/export` |  |
+| `POST /api/v1/tax/not-tax/{doc_id}` |  |
+| `PUT /api/v1/tax/years/{fy}` |  |
+
 ### `/api/v1/terminal`
 
 | Route | What it does |

@@ -24,26 +24,23 @@ const workout = (entries: Session["entries"]): Session => ({ id: "w86", title: "
 afterEach(() => { saveActive(null); saveRest(null); clearResources(); window.localStorage.removeItem("sirisos.outbox"); vi.restoreAllMocks(); });
 
 describe("SirisGym 8.6: weights", () => {
-  it("doesn't take the sets below down a digit at a time while you retype a weight", async () => {
+  it("leaves the sets below alone when you change a weight (11.18), so last time's numbers still show", async () => {
     signIn();
-    saveActive(workout([{ exercise: "bench-press", sets: [set(100), set(100), set(100)] }]));
+    saveActive(workout([{ exercise: "bench-press", sets: [set(100), set(null), set(null)] }]));
     mockFetch({ "/api/v1/gym": () => jsonResponse(GYM) });
     const user = userEvent.setup();
     render(<MemoryRouter><GymWorkoutScreen /></MemoryRouter>);
     const bench = await screen.findByRole("region", { name: "Bench Press" });
-    const box = within(bench).getByRole("textbox", { name: "Set 1 weight" });
-    await user.click(box);
+    await user.click(within(bench).getByRole("textbox", { name: "Set 1 weight" }));
     await user.keyboard("{Backspace}{Backspace}{Backspace}105");
-    expect(within(bench).getByRole("textbox", { name: "Set 2 weight" })).toHaveValue("100");  // not yet: you're still typing
     await user.tab();
-    expect(within(bench).getByRole("textbox", { name: "Set 2 weight" })).toHaveValue("105");
-    expect(within(bench).getByRole("textbox", { name: "Set 3 weight" })).toHaveValue("105");
+    expect(within(bench).getByRole("textbox", { name: "Set 1 weight" })).toHaveValue("105");
+    expect(within(bench).getByRole("textbox", { name: "Set 2 weight" })).toHaveValue("");
+    expect(within(bench).getByRole("textbox", { name: "Set 3 weight" })).toHaveValue("");
   });
 
-  it("carries from the weight before you started, and leaves one set on purpose alone", () => {
-    const sets = [set(100), set(100), set(90)];
-    expect(changeSet(sets, 0, { weight: 1 }, { carry: false }).map((x) => x.weight)).toEqual([1, 100, 90]);
-    expect(changeSet([set(1), set(100), set(90)], 0, { weight: 105 }, { from: 100 }).map((x) => x.weight)).toEqual([105, 105, 90]);
+  it("changes only the set you changed", () => {
+    expect(changeSet([set(100), set(100), set(null)], 0, { weight: 105 }).map((x) => x.weight)).toEqual([105, 100, null]);
   });
 });
 

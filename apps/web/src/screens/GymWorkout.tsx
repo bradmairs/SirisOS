@@ -349,8 +349,8 @@ export function GymWorkoutScreen() {
         )}
         <SetTable ex={ex} sets={entry.sets} last={lastFor(entry.exercise).sets} unit={unit} settings={here} removing={removing === ei} extras={extras}
           guard={p?.recent_max ?? g?.recent_max?.[entry.exercise] ?? null} best={p?.best_e1rm ?? null} bodyweight={s.bodyweight ?? g?.settings.bodyweight_kg ?? null}
-          onChange={(si, patch, opts) => {
-            const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch, opts) } : e));
+          onChange={(si, patch) => {
+            const entries = s.entries.map((e, i) => (i === ei ? { ...e, sets: changeSet(e.sets, si, patch) } : e));
             update({ ...s, entries });
             if (patch.done) {
               chime.prime();  // a tap, so the end of the rest can make a sound
@@ -605,23 +605,21 @@ function LastTime({ last, kind }: { last: { date?: string; sets: SetLog[] }; kin
 function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onChange, onRemove, removing = false, extras = true }: {
   ex?: Exercise; sets: SetLog[]; last: SetLog[]; unit: string; settings?: { bar: number; plates: number[] };
   guard?: number | null; best?: number | null; bodyweight?: number | null; removing?: boolean; extras?: boolean;
-  onChange: (i: number, patch: Partial<SetLog>, opts?: { carry?: boolean; from?: number | null }) => void; onRemove: (i: number) => void;
+  onChange: (i: number, patch: Partial<SetLog>) => void; onRemove: (i: number) => void;
 }) {
   const kind = ex?.kind ?? "weight";
   const barbell = kind === "weight" && ["barbell", "smith", "ez bar", "trap bar"].includes(ex?.equipment ?? "");
   const [swiped, setSwiped] = useState<number | null>(null);  // a set swiped left: Delete shows
   const touch = useRef<{ i: number; x: number; y: number } | null>(null);
-  // The weight a box had when you started typing in it (8.6): the sets below follow once you've finished, from that.
-  const typing = useRef<{ i: number; from: number | null } | null>(null);
 
-  /** Tick (or untick) a set: an empty weight takes the set above's (7.8) or last time's; a weight far above your
+  /** Tick (or untick) a set: an empty box takes the faint number it shows (last time's), then the set above's; a weight far above your
    * heaviest lately asks first (8.7: a 210 kg squat that was 21 went into the records). */
   function tick(i: number, prev: SetLog | undefined) {
     const x = sets[i];
     const fill: Partial<SetLog> = { done: !x.done, at: !x.done ? new Date().toISOString() : null };
     const above = sets.slice(0, i).reverse().find((y) => y.type === x.type && y.weight != null);
-    // 11.9: an empty box takes the faint number it showed (last session's), then the set above's, then last time's.
-    const weight = x.hint?.weight ?? above?.weight ?? prev?.weight;
+    // 11.18: an empty box takes the faint number it shows (the suggestion, else last session's), then the set above's.
+    const weight = x.hint?.weight ?? prev?.weight ?? above?.weight;
     if (!x.done && x.weight == null && weight != null) fill.weight = weight;
     const reps = x.hint?.reps ?? prev?.reps;
     if (!x.done && x.reps == null && reps) fill.reps = reps;
@@ -676,9 +674,8 @@ function SetTable({ ex, sets, last, unit, settings, guard, best, bodyweight, onC
               {kind === "weight" || kind === "bodyweight" ? (
                 <>
                   <DecimalInput className="field gym-sets__in" aria-label={`Set ${label} weight`} value={x.weight} placeholder={x.hint?.weight != null ? String(x.hint.weight) : prev?.weight ? String(prev.weight) : kind === "bodyweight" ? "0" : ""}
-                    onFocus={(e) => { typing.current = { i, from: x.weight ?? null }; e.currentTarget.select(); }}
-                    onValue={(v) => onChange(i, { weight: v }, { carry: false })}
-                    onBlur={() => { const tp = typing.current; typing.current = null; if (tp && tp.i === i && (x.weight ?? null) !== tp.from) onChange(i, { weight: x.weight ?? null }, { carry: true, from: tp.from }); }} />
+                    onFocus={(e) => e.currentTarget.select()}
+                    onValue={(v) => onChange(i, { weight: v })} />
                   <input className="field gym-sets__in" inputMode="numeric" aria-label={`Set ${label} reps`} value={x.reps ?? ""} placeholder={x.hint?.reps != null ? String(x.hint.reps) : prev?.reps ? String(prev.reps) : ""}
                     onFocus={(e) => e.currentTarget.select()}
                     onChange={(e) => onChange(i, { reps: e.target.value === "" ? null : Number(e.target.value) })} />

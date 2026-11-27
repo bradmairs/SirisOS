@@ -15,7 +15,7 @@ from app.auth import JWT_ALGORITHM, CurrentUser
 from app.service_key import ServiceKeyMiddleware
 from app.secrets_config import jwt_secret
 
-API_VERSION = "11.17.0"
+API_VERSION = "11.18.0"
 AUTH_USERNAME = os.getenv("SIRISOS_ADMIN_USERNAME", "brad")
 
 JWT_EXPIRY_HOURS = int(os.getenv("SIRISOS_JWT_EXPIRY_HOURS", "24"))
