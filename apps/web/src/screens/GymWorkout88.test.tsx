@@ -10,7 +10,7 @@ import { GymScreen } from "./Gym";
 
 const EX = (id: string, name: string) => ({ id, name, primary: "chest", secondary: [], equipment: "barbell", kind: "weight" as const, custom: false });
 const GYM = {
-  settings: { unit: "kg", bar: 20, plates: [20, 10, 5, 2.5], increment: 2.5, rest_s: 90, rest_between_s: 120, current_gym: "home", warmups: false, warmup_steps: [],
+  settings: { show_extras: true, unit: "kg", bar: 20, plates: [20, 10, 5, 2.5], increment: 2.5, rest_s: 90, rest_between_s: 120, current_gym: "home", warmups: false, warmup_steps: [],
     gyms: [{ id: "home", name: "Home", bar: 20, plates: [20, 10, 5, 2.5], dumbbells: [], stack_step: null }], keep_awake: true, voice_key: false },
   exercises: [EX("bench-press", "Bench Press"), EX("barbell-row", "Barbell Row")],
   routines: [{ id: "r1", name: "PPL", days: [{ name: "Push", exercises: [{ exercise: "bench-press", sets: 3, reps: "5-8", rest_s: 90 }] }], active: true }],

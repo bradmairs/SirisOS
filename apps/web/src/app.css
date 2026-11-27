@@ -1537,3 +1537,6 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .budget-split__lines li { display: flex; justify-content: space-between; gap: 8px; }
 .budget-split__lines li span:last-child { font-variant-numeric: tabular-nums; }
 .budget-split__pick select { max-width: 46%; }
+/* 11.14: a set's number when set types are tucked away, and what a note asked for */
+.gym-sets__type--plain { display: inline-flex; align-items: center; justify-content: center; border-color: transparent; }
+.gym-note-action { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
