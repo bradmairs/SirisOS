@@ -13,7 +13,7 @@ class SirisDroneConnector(Connector):
     name = "SirisDrone"
     category = "life"
     icon = "drone"
-    description = "Crop, grade and stamp drone shots, then export to the NAS."
+    description = "Crop, grade and stamp drone shots, keep a flight log, and export to the NAS."
     env_prefix = "SIRISDRONE"
 
     def auth(self) -> httpx.BasicAuth | None:
@@ -24,6 +24,14 @@ class SirisDroneConnector(Connector):
         if (auth := self.auth()) is not None:
             kwargs.setdefault("auth", auth)
         return await super().get_json(client, path, **kwargs)
+
+    async def _flights(self, client: httpx.AsyncClient) -> dict | None:
+        """SirisDrone 1.77's flight log totals and last flight; None from an older SirisDrone."""
+        try:
+            data = await self.get_json(client, "/api/flights/summary")
+        except Exception:  # noqa: BLE001 - before 1.77, or it's busy: the rest of the widget still shows
+            return None
+        return data if isinstance(data, dict) else None
 
     async def check(self, client: httpx.AsyncClient) -> str | None:
         await self.get_json(client, "/api/config")
@@ -48,9 +56,22 @@ class SirisDroneConnector(Connector):
         items += [WidgetItem(title=f"Export failed: {j.get('name')}", subtitle=str(j.get("error") or ""), tone="critical") for j in failed[:2]]
         if not nas_ok:
             items.insert(0, WidgetItem(title="NAS export folder unavailable", tone="critical"))
+        flights = await self._flights(client)
+        flight_metrics = []
+        if flights and flights.get("flights"):
+            flight_metrics = [Metric("Flights", str(flights["flights"])), Metric("Hours flown", f"{float(flights.get('hours') or 0):g}")]
+            last = flights.get("last") or {}
+            if last.get("start"):
+                when = str(last["start"])[:10]
+                bits = [when, f"{last.get('minutes')} min" if last.get("minutes") is not None else "",
+                        f"highest {last['max_alt_m']:g} m" if last.get("max_alt_m") is not None else "",
+                        f"furthest {last['furthest_m']:,} m" if last.get("furthest_m") is not None else ""]
+                items.append(WidgetItem(title=f"Last flight: {last.get('place') or 'unknown place'}", subtitle=" · ".join(b for b in bits if b),
+                                        url=f"{self.launch_url}/?view=flights" if self.launch_url else None))
         return Widget(
             title="SirisDrone",
             metrics=[
+                *flight_metrics,
                 Metric("Photos", str(photos)),
                 Metric("Videos", str(videos)),
                 Metric("Exporting", str(len(active)), tone="warning" if active else "neutral"),

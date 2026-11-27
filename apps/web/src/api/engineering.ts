@@ -77,6 +77,9 @@ export interface Calculation {
   cited_standard_id: string | null;
   cited_standard_label: string | null;
   created_at: string;
+  /** 11.19: who checked it, and when (on the sheet's sign-off). */
+  checked_by?: string | null;
+  checked_at?: string | null;
 }
 
 export type ProjectKind = "engineering" | "homelab" | "travel" | "fitness" | "personal" | "other";
@@ -143,6 +146,7 @@ export const calculations = {
   save: (body: { calculator_id: string; title: string; inputs: Record<string, number>; results: Result[]; notes?: string; cited_standard_id?: string | null }) =>
     api<Calculation>(`${E}/calculations`, json(body)),
   remove: (id: string) => api<void>(`${E}/calculations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  check: (id: string, checkedBy: string) => api<Calculation>(`${E}/calculations/${encodeURIComponent(id)}/check`, json({ checked_by: checkedBy })),
   /** The one-page calculation sheet as a PDF file. */
   pdf: async (c: { id: string; title: string }) => {
     const r = await request(`${E}/calculations/${encodeURIComponent(c.id)}/pdf`);

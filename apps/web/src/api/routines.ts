@@ -38,6 +38,10 @@ export interface Tonight {
 export interface ContainerUpdate { container: string; image?: string | null; current?: string | null; available?: string | null; notes?: string | null }
 export interface Containers { available: boolean; checked_at?: string | null; updates: ContainerUpdate[]; up_to_date: string[]; skipped: Record<string, string>; running: boolean; message?: string }
 
+/** 11.19 (SirisAI 4.32): what happened to each container, and the ones held on an earlier version. */
+export interface ContainerEvent { at: string; container: string; status: string; trigger: string; before: string | null; after: string | null; why: string | null; also: string[] }
+export interface ContainerHistory { held: string[]; running: boolean; history: ContainerEvent[] }
+
 export interface Internet {
   available: boolean; speeds: { at: string; down: number; up: number }[]; outages: { start: string; end: string; seconds: number }[];
   daily: { date: string; down: number; up: number; tests: number }[]; plan: { down: number | null; up: number | null }; slow: string[]; share_of_plan: number | null;
@@ -61,6 +65,8 @@ export const routines = {
   tonight: () => api<Tonight>("/api/v1/watch/tonight"),
   containers: () => api<Containers>("/api/v1/lab/containers"),
   checkContainers: () => api<Containers>("/api/v1/lab/containers/check", { method: "POST" }),
+  containerHistory: () => api<ContainerHistory>("/api/v1/lab/containers/history"),
+  containerAction: (name: string, action: "roll-back" | "update") => api<{ started: boolean; why?: string }>(`/api/v1/lab/containers/${encodeURIComponent(name)}/${action}`, { method: "POST" }),
   updateContainers: (containers: string[]) => api<{ started: number; order: string[]; message: string }>("/api/v1/lab/containers/update", json({ containers })),
   internet: () => api<Internet>("/api/v1/lab/internet"),
   setPlan: (down: number | null, up: number | null) => api<Internet>("/api/v1/lab/internet/plan", put({ down, up })),

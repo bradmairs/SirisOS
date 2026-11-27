@@ -28,6 +28,8 @@ const BAD: Case[] = [
   { calculator: "fullPipe", inputs: { d: 0, n: 0.013, s: 0.005 } },
   { calculator: "buoyancy", inputs: { od: 0.45, id: 0.55, l: 1, pd: 2400, c: 0.75, g: 10 } },
   { calculator: "pumpPower", inputs: { q: 0.05, h: 20, e: 120 } },
+  { calculator: "pumpDutyPoint", inputs: { hs: 40, qd: 0.05, hf: 8, h0: 35, qr: 0.05, hr: 25 } },
+  { calculator: "waterHammer", inputs: { dv: 0, a: 1000, l: 500, tc: 5 } },
 ];
 
 function compute(c: Case): Case {

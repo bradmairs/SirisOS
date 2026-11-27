@@ -9,6 +9,7 @@ what to watch tonight (and new episodes), container updates, internet speed, and
     GET  /api/v1/bedroom                 the bedroom now, against your range, and which temperatures go with good sleep; PUT settings
     GET  /api/v1/watch/tonight           picks for tonight, Plex on deck and new, episodes and films coming this week
     GET  /api/v1/lab/containers          container updates (SirisAI 7.3); POST /lab/containers/check; POST /lab/containers/update {containers?}
+    GET  /api/v1/lab/containers/history  (11.19) updates, roll-backs and failures; POST /lab/containers/{name}/roll-back|update
     GET  /api/v1/lab/internet            speed tests and drops, by day, against your plan; PUT /lab/internet/plan {down, up}
     GET  /api/v1/catchups                who's overdue for a catch-up, and the weekend's free parts; POST /catchups/{id}/done; PUT /catchups/{id} {days}
 """
@@ -19,7 +20,7 @@ import re
 from datetime import date, datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
@@ -211,6 +212,25 @@ class UpdateIn(BaseModel):
 async def update_containers(body: UpdateIn, hub: Hub = Depends(get_hub)) -> Any:
     try:
         return await sirisai_api.post(hub, "/siris/hub/v1/containers/update", json=body.model_dump(), timeout=30.0)
+    except sirisai_api.SirisAIError as exc:
+        raise _fail(exc) from None
+
+
+@router.get("/lab/containers/history")
+async def container_history(hub: Hub = Depends(get_hub)) -> Any:
+    """11.19 (SirisAI 4.32): every update, roll-back and failure, with what each was on before, and the ones held back."""
+    try:
+        return await sirisai_api.get(hub, "/siris/upkeep/containers", timeout=15.0)
+    except sirisai_api.SirisAIError as exc:
+        raise _fail(exc) from None
+
+
+@router.post("/lab/containers/{name}/{action}")
+async def container_action(name: str = Path(max_length=100, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$"),
+                           action: str = Path(pattern=r"^(roll-back|update)$"), hub: Hub = Depends(get_hub)) -> Any:
+    """`roll-back`: back to the version before its last update, held there; `update`: update it now (and release it)."""
+    try:
+        return await sirisai_api.post(hub, f"/siris/upkeep/containers/{name}/{action}", json={}, timeout=30.0)
     except sirisai_api.SirisAIError as exc:
         raise _fail(exc) from None
 

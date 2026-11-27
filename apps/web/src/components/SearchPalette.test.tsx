@@ -78,14 +78,15 @@ describe("<SearchPalette />", () => {
     expect(calls.map((c) => c.url)).toEqual(["/api/v1/search?q=pump"]); // debounced: one request
     expect(within(screen.getByRole("region", { name: "Project Management" })).getByText(/station upgrade/)).toBeInTheDocument();
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    // The instant "Pump power" calculator ties with the server's best and stays first; "Ask SirisAI" is always last.
+    // The instant calculators ("Pump power", "Pump duty point") tie with the server's best and stay first; "Ask SirisAI" is always last.
     expect(options[0]).toMatch(/^Pump power/);
-    expect(options[1]).toMatch(/^Pump curves/);
+    expect(options[1]).toMatch(/^Pump duty point/);
+    expect(options[2]).toMatch(/^Pump curves/);
     expect(options.at(-1)).toMatch(/^Ask SirisAI “pump”/);
 
-    // Down once to the brain note; Enter goes there inside SirisOS.
+    // Down twice to the brain note; Enter goes there inside SirisOS.
     expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
-    await user.keyboard("{ArrowDown}{Enter}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
     expect(screen.getByRole("status", { name: "location" })).toHaveTextContent("/brain?q=Pump%20curves");
     expect(onClose).toHaveBeenCalled();
     expect(JSON.parse(localStorage.getItem("sirisos.search.recent")!)).toEqual(["pump"]);
@@ -112,7 +113,7 @@ describe("<SearchPalette />", () => {
     const { onClose } = renderPalette();
     await user.type(screen.getByRole("combobox"), "pump");
     await screen.findByRole("option", { name: /Pump curves/ });
-    await user.keyboard("{ArrowDown}{ArrowDown}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}");
     expect(screen.getByRole("option", { name: /Pump station upgrade/ })).toHaveAttribute("aria-selected", "true");
     await user.keyboard("{ArrowUp}");
     expect(screen.getByRole("option", { name: /Pump curves/ })).toHaveAttribute("aria-selected", "true");

@@ -97,6 +97,32 @@ export const calc = {
     const hydraulicKw = (density * G * q * h) / 1000;
     return { hydraulicPowerKw: hydraulicKw, inputPowerKw: hydraulicKw / (efficiencyPercent / 100) };
   },
+  /** 11.19: Joukowsky rise for a sudden change in velocity; for a closure slower than the wave's round trip (2L/a),
+   * Michaud's 2LΔv/(g·tc). */
+  waterHammer(dv: number, a: number, l: number, tc: number, density = 1000) {
+    positive(dv, "velocityChange"); positive(a, "waveSpeed"); positive(l, "pipeLength"); positive(tc, "closureTime");
+    const joukowsky = (a * dv) / G;
+    const roundTrip = (2 * l) / a;
+    const rapid = tc <= roundTrip;
+    const head = rapid ? joukowsky : (2 * l * dv) / (G * tc);
+    return { joukowskyHeadM: joukowsky, roundTripS: roundTrip, rapid, headRiseM: head, pressureRiseKpa: (density * G * head) / 1000 };
+  },
+  /** 11.19: the flow coefficient a valve needs: Kv in m³/h at 1 bar drop, Q = Kv·√(ΔP/SG); Cv = 1.156·Kv. */
+  valveKv(q: number, dpKpa: number, sg = 1) {
+    positive(q, "flow"); positive(dpKpa, "pressureDrop"); positive(sg, "specificGravity");
+    const kv = (q * 3600) / Math.sqrt(dpKpa / 100 / sg);
+    return { kv, cv: kv * 1.156 };
+  },
+  /** 11.19: where a pump curve H = H0 − c·Q² (through shut-off and one rated point) meets a system curve H = Hs + k·Q²
+   * (static head, and the friction head at a design flow). */
+  pumpDutyPoint(hs: number, qd: number, hf: number, h0: number, qr: number, hr: number) {
+    nonNegative(hs, "staticHead"); positive(qd, "designFlow"); positive(hf, "frictionHead"); positive(h0, "shutoffHead"); positive(qr, "ratedFlow"); positive(hr, "ratedHead");
+    if (hr >= h0) throw new InputError("ratedHead must be less than shutoffHead");
+    if (h0 <= hs) throw new InputError("shutoffHead must be more than staticHead: the pump can't lift it");
+    const k = hf / (qd * qd), c = (h0 - hr) / (qr * qr);
+    const q = Math.sqrt((h0 - hs) / (k + c));
+    return { flowM3s: q, headM: hs + k * q * q };
+  },
   pipeBuoyancy(od: number, id: number, l: number, pipeDensity: number, cover: number, soilUnitWeight: number, waterDensity = 1000) {
     positive(od, "outsideDiameter"); positive(id, "insideDiameter"); positive(l, "length"); positive(pipeDensity, "pipeDensity");
     if (id >= od) throw new InputError("insideDiameter must be less than outsideDiameter");
@@ -268,6 +294,36 @@ export const CALCULATORS: Calculator[] = [
         { label: "Screening result", value: r.factorOfSafety >= 1 ? "Resisting > uplift" : "Uplift exceeds resistance" },
       ];
     },
+  },
+  {
+    id: "waterHammer", title: "Water hammer (surge)", category: "Pressure pipes",
+    note: "Pressure rise from stopping a flow: Joukowsky (a·Δv/g) when the valve closes within the wave's round trip 2L/a, else Michaud's 2LΔv/(g·tc). Take the wave speed for the pipe material and class from the manufacturer; a screening check, not a transient analysis.",
+    fields: [f("dv", "Change in velocity", "m/s", "1.5"), f("a", "Wave speed", "m/s", "1000"), f("l", "Pipe length", "m", "500"), f("tc", "Valve closure time", "s", "5")],
+    compute: (v) => {
+      const r = calc.waterHammer(v.dv, v.a, v.l, v.tc);
+      return [
+        { label: "Wave round trip (2L/a)", value: `${fixed(r.roundTripS, 2)} s` },
+        { label: "Closure", value: r.rapid ? "Rapid: the full Joukowsky rise" : "Slow: reduced rise" },
+        { label: "Joukowsky head rise", value: `${fixed(r.joukowskyHeadM, 1)} m` },
+        { label: "Expected head rise", value: `${fixed(r.headRiseM, 1)} m` },
+        { label: "Expected pressure rise", value: `${fixed(r.pressureRiseKpa, 0)} kPa` },
+      ];
+    },
+  },
+  {
+    id: "valveKv", title: "Valve flow coefficient (Kv)", category: "Pressure pipes",
+    note: "The Kv (m³/h at 1 bar) a control valve needs to pass a flow at an allowable pressure drop, and its Cv. Choose a valve whose Kv at the intended opening is at or above this.",
+    fields: [f("q", "Flow", "m³/s", "0.05"), f("dp", "Allowable pressure drop", "kPa", "50"), f("sg", "Specific gravity", "", "1.0")],
+    compute: (v) => { const r = calc.valveKv(v.q, v.dp, v.sg); return [{ label: "Required Kv", value: `${fixed(r.kv, 1)} m³/h` }, { label: "Equivalent Cv", value: `${fixed(r.cv, 1)} US gpm` }]; },
+  },
+  {
+    id: "pumpDutyPoint", title: "Pump duty point", category: "Pressure pipes",
+    note: "Where the pump curve (fitted through its shut-off head and one rated point) meets the system curve (static head plus friction rising with flow squared). Check the result against the manufacturer's actual curve.",
+    fields: [
+      f("hs", "Static head", "m", "15"), f("qd", "Design flow", "m³/s", "0.05"), f("hf", "Friction head at design flow", "m", "8"),
+      f("h0", "Pump shut-off head", "m", "35"), f("qr", "Pump rated flow", "m³/s", "0.05"), f("hr", "Pump rated head", "m", "25"),
+    ],
+    compute: (v) => { const r = calc.pumpDutyPoint(v.hs, v.qd, v.hf, v.h0, v.qr, v.hr); return [{ label: "Duty flow", value: `${fixed(r.flowM3s, 4)} m³/s` }, { label: "Duty flow", value: `${fixed(r.flowM3s * 1000, 1)} L/s` }, { label: "Duty head", value: `${fixed(r.headM, 2)} m` }]; },
   },
 ];
 

@@ -33,6 +33,8 @@ class RenewalChange(BaseModel):
     kind: Kind | None = None
     expires: str | None = Field(default=None, pattern=DAY)
     note: str | None = Field(default=None, max_length=300)
+    # 11.19: the document itself (a policy schedule, a scan of the licence), kept in Life Admin; 0 unlinks it
+    doc_id: int | None = Field(default=None, ge=0)
 
 
 @router.get("")
