@@ -66,12 +66,15 @@ def matches(key: str | None) -> bool:
 
 def amount_of(value: Any) -> float | None:
     """"$12.50", "12.50", "A$12.50", "12,50", 12.5: the amount spent, as a positive number."""
-    text = str(value or "").strip()
-    text = re.sub(r"^[A-Z]{0,3}\$?", "", text.replace(" ", " "), flags=re.I).strip()
-    if re.fullmatch(r"\d+,\d{2}", text):  # a decimal comma
-        text = text.replace(",", ".")
+    # 11.16: cut short before parsing (an amount is never long; CodeQL flagged a regex run on a long one), and no
+    # patterns with anything to backtrack over.
+    text = str(value or "").replace("\u00a0", " ").strip()[:24]
+    text = text.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").lstrip("$").strip()
+    head, comma, tail = text.rpartition(",")
+    if comma and head.isdigit() and len(tail) == 2 and tail.isdigit():  # a decimal comma: "12,50"
+        text = f"{head}.{tail}"
     v = actuals._amount(text)  # noqa: SLF001 - the CSV import's parser
-    return abs(v) if v else None
+    return abs(v) if v and v == v and abs(v) < 1_000_000 else None
 
 
 def add(merchant: str, amount: Any, card: str = "", now: datetime | None = None) -> dict[str, Any]:

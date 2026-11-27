@@ -73,7 +73,7 @@ def drop_tap_key() -> dict[str, Any]:
 
 class TapIn(BaseModel):
     merchant: str = Field(default="", max_length=200)
-    amount: str | float = Field(default="")
+    amount: str | float = Field(default="", max_length=24)
     card: str = Field(default="", max_length=80)
 
 
