@@ -2,6 +2,9 @@
 
     GET  /api/v1/budget              income, the three sections, monthly totals and history
     PUT  /api/v1/budget              the whole budget (income and sections), saved as one
+    GET  /api/v1/budget/split        (11.12) the saved split between incomes, checked against today's budget
+    POST /api/v1/budget/split/preview  {sources, method, personal}: what a split would be
+    PUT  /api/v1/budget/split        {sources, method, personal}: keep it
     GET  /api/v1/budget/from-bills   SirisAI's renewals and bills found in email, as expense lines to add
     POST /api/v1/budget/actuals/import      (9.9) a bank's CSV export (multipart `file`, `account`)
     GET  /api/v1/budget/actuals?month=      the month's spending against the plan, line by line, and what's to sort
@@ -38,6 +41,42 @@ router = APIRouter(prefix="/api/v1/budget", tags=["budget"], dependencies=[Depen
 @router.get("")
 def get_budget() -> dict[str, Any]:
     return service.get()
+
+
+class SplitIn(BaseModel):
+    sources: list[str] = Field(default_factory=list, max_length=30)  # empty: every income source
+    method: str = Field(default="income", pattern="^(income|equal|lines)$")
+    personal: dict[str, str] = Field(default_factory=dict)  # line id -> source id, or "shared"
+
+
+@router.get("/split")
+def get_split() -> dict[str, Any]:
+    """The saved split between incomes, checked against today's budget (11.12)."""
+    from app.budget import split
+
+    return split.get()
+
+
+@router.post("/split/preview")
+def preview_split(body: SplitIn) -> dict[str, Any]:
+    """What a split would be, without keeping it (11.12)."""
+    from app.budget import split
+
+    try:
+        return split.compute(service.get(), body.sources, body.method, body.personal)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.put("/split")
+def put_split(body: SplitIn) -> dict[str, Any]:
+    """Keep a split: worked out now, and checked against the budget from then on (11.12)."""
+    from app.budget import split
+
+    try:
+        return split.save(body.sources, body.method, body.personal)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("")

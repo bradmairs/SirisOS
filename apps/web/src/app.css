@@ -1520,3 +1520,20 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .sections-use__bar { display: block; height: 4px; margin-top: 4px; border-radius: 99px; background: color-mix(in srgb, var(--ink-3) 18%, transparent); overflow: hidden; }
 .sections-use__bar > span { display: block; height: 100%; background: var(--accent); }
 .update-log { margin: 6px 0 0; padding: 8px; border-radius: 8px; background: color-mix(in srgb, var(--ink-3) 14%, transparent); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
+/* 11.12: the budget split between incomes */
+.budget-split__stale { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--warning, #f5a524) 14%, transparent); }
+.budget-split__stale .button { justify-self: start; }
+.budget-split__methods { align-self: flex-start; }
+.budget-split__sources { display: grid; gap: 14px; list-style: none; margin: 0; padding: 0; }
+.budget-split__source { display: grid; gap: 4px; }
+.budget-split__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; padding: 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.budget-split__name { font-weight: 600; }
+.budget-split__amount { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.budget-split__bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: color-mix(in srgb, var(--ink-3) 18%, transparent); }
+.budget-split__seg--expenses { background: var(--accent); }
+.budget-split__seg--savings { background: var(--good, #30a46c); }
+.budget-split__seg--spending { background: var(--warning, #f5a524); }
+.budget-split__lines { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-size: 13px; }
+.budget-split__lines li { display: flex; justify-content: space-between; gap: 8px; }
+.budget-split__lines li span:last-child { font-variant-numeric: tabular-nums; }
+.budget-split__pick select { max-width: 46%; }

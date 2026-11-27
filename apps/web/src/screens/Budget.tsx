@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SplitCard } from "./BudgetSplit";
 import { ChevronDown, ChevronUp, Mail, PiggyBank, Plus, Table2, Trash2, Wallet } from "lucide-react";
 import {
   EMPTY, EVERY, PRESETS, SECTIONS, SECTION_HINT, SECTION_LABEL, budget, goals, money, monthly, newLine, nextPay, per, rule503020,
@@ -109,6 +110,7 @@ export function BudgetScreen() {
   const [billNote, setBillNote] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
   const dirty = useRef(false);
+  const [savedAt, setSavedAt] = useState(0);  // 11.12: the split looks again after each save
 
   useEffect(() => {
     document.title = "Budget · SirisOS";
@@ -140,6 +142,7 @@ export function BudgetScreen() {
         budget.draft.clear();
         dirty.current = false;
         setStatus("Saved");
+        setSavedAt(Date.now());
       } catch (e) {
         budget.draft.write(plan);
         setStatus(e instanceof Error && /\b422\b|range|negative|how often/i.test(e.message) ? e.message : "Offline: saved on this device, sent when SirisOS is back");
@@ -328,6 +331,7 @@ export function BudgetScreen() {
             </>}
           </Glass>
         ))}
+        <SplitCard savedAt={savedAt} />
       </div>
     </div>
   );
