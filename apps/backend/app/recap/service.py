@@ -7,6 +7,7 @@
 - **Work**: hours on the timesheet and CPD hours.
 - **Habits**: how often each was kept on its days.
 - **The gym** (11.15): workouts, volume and new records, against the month before.
+- **Walks** (12.6): SirisTrails' walks and hikes, distance and climb, and new places, against the month before.
 - **Goals** (11.15): the year's goals behind the pace.
 - **Where you went** (11.15): the sections opened most, and ones not opened at all (from 11.10's visit counts).
 - **Coming up** (11.15): renewals due in the next 30 days.
@@ -147,6 +148,15 @@ def gym(ym: str) -> dict[str, Any] | None:
             "records": len(records), "top_records": records[:3]}
 
 
+def walks(ym: str) -> dict[str, Any] | None:
+    try:
+        from app.trails import explore
+
+        return explore.month_recap(ym)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def goals(hub: Hub, today: date) -> list[dict[str, Any]] | None:
     """11.15: this year's goals behind the pace for the time of year."""
     try:
@@ -184,7 +194,7 @@ def ahead(today: date) -> list[dict[str, Any]]:
 
 async def build(hub: Hub, ym: str, today: date) -> dict[str, Any]:
     return {"month": ym, "money": money(ym), "health": await health(hub, ym, today), "work": work(ym), "habits": habits(ym, today),
-            "gym": gym(ym), "goals": await goals(hub, today), "places": places(ym), "ahead": ahead(today)}
+            "gym": gym(ym), "walks": walks(ym), "goals": await goals(hub, today), "places": places(ym), "ahead": ahead(today)}
 
 
 def _money_str(v: float, cur: str) -> str:
@@ -226,6 +236,13 @@ def as_text(r: dict[str, Any]) -> str:
     if g:
         lines.append(f"{g['workouts']} workout{'' if g['workouts'] == 1 else 's'}" + (f" (from {g['before']})" if g["before"] != g["workouts"] else "")
                      + f", {g['volume']:,} kg lifted" + (f", {g['records']} new best{'' if g['records'] == 1 else 's'}: {'; '.join(g['top_records'])}" if g["records"] else "") + ".")
+    wk = r.get("walks")
+    if wk and wk["walks"]:
+        lines.append(f"{wk['walks']} walk{'' if wk['walks'] == 1 else 's'}" + (f" and hike{'' if wk['hikes'] == 1 else 's'}" if wk["hikes"] else "")
+                     + (f" (from {wk['before']})" if wk["before"] != wk["walks"] else "") + f", {wk['km']:g} km"
+                     + (f" and {wk['ascent_m']:,} m climbed" if wk["ascent_m"] else "")
+                     + (f"; longest {wk['longest']['name']} ({wk['longest']['km']:g} km)" if wk.get("longest") and wk["walks"] > 1 else "")
+                     + (f"; new: {', '.join(wk['new_places'])}" if wk["new_places"] else "") + ".")
     for goal in r.get("goals") or []:
         lines.append(f"Behind on {goal['title']}: {goal['percent'] or 0}% there, {goal['through']}% through the year.")
     p = r.get("places")

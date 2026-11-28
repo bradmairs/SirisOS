@@ -242,14 +242,17 @@ def kick() -> None:
 
 
 def _both() -> None:
-    """Names, then (12.4) the weather."""
+    """Names, then the weather (12.4), the wishlist and streets explored (12.6)."""
     from app.trails import weather
 
+    from app.trails import explore
+
     name_pending()
-    try:
-        weather.fill_pending()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Walk weather failed: %s", exc)
+    for label, job in (("weather", weather.fill_pending), ("wishlist", explore.complete_pending), ("wishlist", explore.tick), ("streets", explore.fetch_pending)):  # 12.4, 12.6
+        try:
+            job()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Walk %s failed: %s", label, exc)
 
 
 def _name_pending(limit: int, overpass_limit: int) -> int:

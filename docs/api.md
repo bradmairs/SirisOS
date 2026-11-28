@@ -853,7 +853,14 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | --- | --- |
 | `GET /api/v1/trails` |  |
 | `POST /api/v1/trails/apple-export` |  |
+| `GET /api/v1/trails/home` |  |
 | `GET /api/v1/trails/import` |  |
+| `GET /api/v1/trails/streets` |  |
+| `GET /api/v1/trails/streets/{slug}` |  |
+| `GET /api/v1/trails/wishlist` |  |
+| `POST /api/v1/trails/wishlist` |  |
+| `GET /api/v1/trails/wishlist/search` |  |
+| `DELETE /api/v1/trails/wishlist/{wish_id}` |  |
 | `DELETE /api/v1/trails/{walk_id}` |  |
 | `GET /api/v1/trails/{walk_id}` |  |
 | `PATCH /api/v1/trails/{walk_id}` |  |

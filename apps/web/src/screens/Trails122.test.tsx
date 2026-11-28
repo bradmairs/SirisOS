@@ -10,12 +10,12 @@ const drawn: { lines: number } = { lines: 0 };
 vi.mock("leaflet", () => {
   const chain = (): Record<string, unknown> => ({ addTo: () => chain(), bindTooltip: () => chain(), on: () => chain(), getBounds: () => ({ isValid: () => true }),
     setLatLng: () => chain(), setStyle: () => chain() });
-  const group = () => ({ addTo: () => group(), clearLayers: vi.fn(), addLayer: vi.fn(), removeLayer: vi.fn() });
+  const group = () => ({ addTo: () => group(), clearLayers: vi.fn(), addLayer: vi.fn(), removeLayer: vi.fn(), hasLayer: () => false });
   const L = {
     map: () => ({ fitBounds: vi.fn(), setView: vi.fn(), invalidateSize: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn(), getZoom: () => 5,
       latLngToLayerPoint: ([lat, lon]: [number, number]) => ({ x: lon * 10, y: lat * 10 }), layerPointToLatLng: () => [0, 0] }),
     tileLayer: () => chain(), control: { layers: () => chain() }, layerGroup: group,
-    polyline: () => { drawn.lines += 1; return chain(); }, circleMarker: () => chain(), marker: () => chain(), divIcon: () => ({}),
+    polyline: () => { drawn.lines += 1; return chain(); }, polygon: () => chain(), circleMarker: () => chain(), marker: () => chain(), divIcon: () => ({}),
     point: (x: number, y: number) => ({ x, y }), latLngBounds: () => ({ extend: vi.fn(), isValid: () => true }),
   };
   return { default: L, ...L };

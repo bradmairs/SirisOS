@@ -11,7 +11,7 @@
     GET  /api/v1/goals/steer       each yearly goal's pace, projected finish and, if it's behind, a step this week
     GET  /api/v1/away              after 20 hours away, what changed and what's waiting ({away: false} otherwise)
     POST /api/v1/away/done         {keys}: got it (marks them seen)
-    GET  /api/v1/facts?topic=      SirisOS's own data for SirisAI: spending, budget, subscriptions, meals, goals, plan
+    GET  /api/v1/facts?topic=      SirisOS's own data for SirisAI: spending, budget, subscriptions, meals, goals, plan, walks
 
 11.4, working offline:
 

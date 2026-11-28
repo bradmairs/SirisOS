@@ -1649,3 +1649,7 @@ section[aria-label="Map of walks"] { scroll-margin-top: 84px; }  /* below the st
 .trail-trim { display: grid; gap: 10px; margin-top: 10px; }
 .trail-trim label { display: grid; gap: 4px; font-size: 14px; }
 .trail-trim input[type="range"] { width: 100%; }
+/* 12.6: SirisTrails map modes, wishlist */
+.trail-map__modes { display: inline-flex; gap: 6px; }
+.trail-map__modes .chip { font-size: 12px; padding: 2px 8px; display: inline-flex; gap: 4px; align-items: center; }
+.trail-wish-pin span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #a855f7; color: #fff; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.5); }

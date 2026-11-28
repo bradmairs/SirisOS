@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Camera, CloudSun, Download, Footprints, Luggage, MapPin, MapPinned, Merge, Mountain, Pencil, Repeat, Scissors, Share2, Trash2, Trophy, Upload, X } from "lucide-react";
+import { Camera, CloudSun, Download, Flame, Map as MapIcon, Star, Route as RouteIcon, Footprints, Luggage, MapPin, MapPinned, Merge, Mountain, Pencil, Repeat, Scissors, Share2, Trash2, Trophy, Upload, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useResource } from "../api/resource";
-import { trails, type Landmark, type RepeatRoute, type TrailRecord, type TrailPhoto, type TrailWeather, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
+import { trails, type Landmark, type RepeatRoute, type StreetsDetail, type Wish, type WishHit, type TrailRecord, type TrailPhoto, type TrailWeather, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
 import { Glass } from "../components/Glass";
 import { LatestThenGrouped } from "../components/Grouped";
 import { PageHead } from "../components/PageHead";
@@ -15,7 +15,7 @@ import { drawCard, gpxPoints, shareOrSave } from "../lib/shareCard";
 
 /** SirisTrails (11.22): every walk of an hour or more and every hike, from Apple Health, on a map. */
 
-const HIKE = "#f97316", WALK = "#38bdf8";
+const HIKE = "#f97316", WALK = "#38bdf8", WISH = "#a855f7";
 const hm = (min: number | null) => (min == null ? "–" : `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, "0")}m`);
 /** 12.2.3: a walk's date and times where it happened (the offset Apple Health recorded), not in this phone's time zone. */
 const wallClock = (iso: string) => new Date(`${iso.slice(0, 19)}Z`);
@@ -71,6 +71,14 @@ export function TrailsScreen() {
     const map = f ? document.querySelector<HTMLElement>('[aria-label="Map of walks"]') : null;
     if (map && typeof map.scrollIntoView === "function") map.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  const [heat, setHeat] = useState(false);
+  const [streets, setStreets] = useState<StreetsDetail | null>(null);
+  const wishes = useResource("trails:wishlist", () => trails.wishlist(), { staleMs: 5 * 60_000 });
+  const showStreets = (s: StreetsDetail | null) => {  // 12.6: a suburb's streets on the map
+    setStreets(s);
+    const map = s ? document.querySelector<HTMLElement>('[aria-label="Map of walks"]') : null;
+    if (map && typeof map.scrollIntoView === "function") map.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const d = res.data;
   const walks = useMemo(() => (d?.walks ?? []).filter((w) => !gone.has(w.id)), [d, gone]);
   const reload = () => void res.reload(true);
@@ -101,12 +109,15 @@ export function TrailsScreen() {
             <Stat value={String(d.places)} label="towns and suburbs" />
           </section>
         )}
-        <OverviewMap walks={walks} onPick={setOpen} focus={focus} />
+        <OverviewMap walks={walks} onPick={setOpen} focus={focus} heat={heat} onHeat={setHeat} streets={streets} onClearStreets={() => setStreets(null)}
+          wishes={(Array.isArray(wishes.data) ? wishes.data : []).filter((x) => !x.done)} />
         {d && d.where.length > 0 && <WhereCard d={d} walks={walks} onFocus={setFocus} />}
         {d && <RecordsCard d={d} onPick={setOpen} />}
         {d && d.repeats?.length > 0 && <RepeatsCard d={d} walks={walks} onPick={setOpen} onFocus={setFocus} />}
         {d && d.trips?.length > 0 && <TripsCard d={d} walks={walks} onFocus={setFocus} />}
         {d && d.landmarks && <LandmarksCard d={d} walks={walks} onFocus={setFocus} />}
+        {d && walks.length > 0 && <StreetsCard onShow={showStreets} showing={streets?.locality ?? null} />}
+        {d && <WishlistCard wishes={Array.isArray(wishes.data) ? wishes.data : []} onChanged={() => void wishes.reload(true)} onPick={setOpen} />}
         {d && !year && d.by_year.length > 1 && <YearsCard d={d} onPick={setYear} />}
         {d && walks.length === 0 && <GettingStarted />}
         {walks.length > 0 && (
@@ -153,7 +164,8 @@ export function cluster(points: { id: string; x: number; y: number }[], px = 44)
   return out;
 }
 
-function OverviewMap({ walks, onPick, focus }: { walks: Walk[]; onPick: (id: string) => void; focus: { label: string; walks: Walk[] } | null }) {
+function OverviewMap({ walks, onPick, focus, heat, onHeat, streets, onClearStreets, wishes }: { walks: Walk[]; onPick: (id: string) => void;
+  focus: { label: string; walks: Walk[] } | null; heat: boolean; onHeat: (on: boolean) => void; streets: StreetsDetail | null; onClearStreets: () => void; wishes: Wish[] }) {
   const onZoom = useRef<(() => void) | null>(null);
   const el = useMap((map, layer) => {
     if (onZoom.current) map.off("zoomend", onZoom.current);
@@ -204,18 +216,57 @@ function OverviewMap({ walks, onPick, focus }: { walks: Walk[]; onPick: (id: str
       }
       layer.addLayer(markers);
     };
-    onZoom.current = redraw;
-    map.on("zoomend", redraw);
-    setTimeout(redraw, 80);
+    // 12.6: walks you want to do, dashed
+    const wishLayer = L.layerGroup();
+    for (const x of wishes) {
+      const tip = `${x.name} (on your wishlist)${x.km ? ` · ${x.km} km` : ""}`;
+      if (x.lines.length) x.lines.forEach((l) => L.polyline(l.map(fix), { color: WISH, weight: 4, dashArray: "6 8", opacity: 0.95 }).bindTooltip(tip, { sticky: true }).addTo(wishLayer));
+      else if (x.area.length) x.area.forEach((r) => L.polygon(r.map(fix), { color: WISH, weight: 2, dashArray: "6 8", fillOpacity: 0.08 }).bindTooltip(tip, { sticky: true }).addTo(wishLayer));
+      else L.marker(fix(x.center), { icon: L.divIcon({ className: "trail-wish-pin", html: "<span>★</span>", iconSize: [22, 22], iconAnchor: [11, 11] }) }).bindTooltip(tip).addTo(wishLayer);
+    }
+    // 12.6: every route at once, faint, so where you walk most glows
+    const heatLayer = L.layerGroup(), heatDots = L.layerGroup();  // dots that glow where walks gather when zoomed out
+    if (heat) for (const w of shifted) {
+      if (w.line.length < 2) continue;
+      L.polyline(w.line, { color: "#ff5a1f", weight: 5, opacity: 0.16, interactive: false }).addTo(heatLayer);
+      L.circleMarker(w.start_point, { radius: 10, stroke: false, fillColor: "#ff5a1f", fillOpacity: 0.22, interactive: false }).addTo(heatDots);
+    }
+    // 12.6: a suburb's streets, walked or not
+    const streetLayer = L.layerGroup(), streetBounds = L.latLngBounds([]);
+    if (streets) {
+      for (const r of streets.boundary ?? []) L.polyline(r.map(fix), { color: "#94a3b8", weight: 2, dashArray: "2 6", interactive: false }).addTo(streetLayer);
+      for (const l of streets.lines) {
+        const pl = L.polyline(l.line.map(fix), l.walked ? { color: "#22c55e", weight: 5, opacity: 0.95 } : { color: "#dc2626", weight: 3, opacity: 0.8, dashArray: "4 6" })
+          .bindTooltip(`${l.name}${l.walked ? " · walked" : " · not yet"}`, { sticky: true }).addTo(streetLayer);
+        streetBounds.extend(pl.getBounds());
+      }
+    }
+    const baseRedraw = redraw;
+    const redrawAll = () => {
+      if (heat || streets) { layer.removeLayer(markers); layer.removeLayer(routes); }
+      else baseRedraw();
+      for (const g of [heatLayer, streetLayer, wishLayer]) if (!layer.hasLayer(g)) layer.addLayer(g);
+      if (heat && map.getZoom() < ROUTE_ZOOM) { if (!layer.hasLayer(heatDots)) layer.addLayer(heatDots); } else layer.removeLayer(heatDots);
+    };
+    onZoom.current = redrawAll;
+    map.on("zoomend", redrawAll);
+    setTimeout(redrawAll, 90);
+    if (streets && streetBounds.isValid()) return streetBounds;
     return focus && shown.isValid() ? shown : all;
-  }, [walks, focus]);
+  }, [walks, focus, heat, streets, wishes]);
   return (
     <Glass as="section" className="widget" style={{ padding: 0, overflow: "hidden" }} aria-label="Map of walks">
       <div ref={el} className="trail-map" role="application" aria-label="Map" />
       <div className="row muted" style={{ gap: 14, fontSize: 12, padding: "8px 14px", flexWrap: "wrap" }}>
         <span><span className="trail-dot" style={{ background: HIKE }} /> Hikes</span><span><span className="trail-dot" style={{ background: WALK }} /> Walks of an hour or more</span>
-        <span>Zoom in to see each route; tap one for its details.</span>
-        {focus && <span style={{ marginLeft: "auto" }}>Showing {focus.label}</span>}
+        {wishes.length > 0 && <span><span className="trail-dot" style={{ background: WISH }} /> Wishlist</span>}
+        <span>{streets ? "Green: streets you've walked. Red dashes: not yet." : heat ? "Brighter where you walk most." : "Zoom in to see each route; tap one for its details."}</span>
+        <span className="trail-map__modes" style={{ marginLeft: "auto" }}>
+          <button type="button" className={`chip chip--button ${!heat ? "chip--active" : ""}`} aria-pressed={!heat} onClick={() => onHeat(false)}><RouteIcon size={12} aria-hidden="true" /> Routes</button>
+          <button type="button" className={`chip chip--button ${heat ? "chip--active" : ""}`} aria-pressed={heat} onClick={() => onHeat(true)}><Flame size={12} aria-hidden="true" /> Heatmap</button>
+        </span>
+        {streets && <span style={{ whiteSpace: "nowrap" }}>Streets of {streets.locality} · <button type="button" className="icon-link" onClick={onClearStreets}>Hide</button></span>}
+        {focus && !streets && <span>Showing {focus.label}</span>}
       </div>
     </Glass>
   );
@@ -416,6 +467,104 @@ function LandmarksCard({ d, walks, onFocus }: { d: Trails; walks: Walk[]; onFocu
         ))}
       </ul>
       {items.length > 6 && <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }} onClick={() => setAll(!all)}>{all ? "Fewer" : `All ${items.length}`}</button>}
+    </Glass>
+  );
+}
+
+/** 12.6: the suburbs you walk in most, and how many of their streets you've walked. */
+function StreetsCard({ onShow, showing }: { onShow: (s: StreetsDetail | null) => void; showing: string | null }) {
+  const res = useResource("trails:streets", () => trails.streets(), { staleMs: 10 * 60_000 });
+  const [busy, setBusy] = useState<string | null>(null);
+  const list = Array.isArray(res.data) ? res.data : [];
+  if (!list.length) return null;
+  return (
+    <Glass as="section" className="widget" aria-label="Streets explored">
+      <header className="widget__head"><MapIcon aria-hidden="true" /><span>Streets explored</span></header>
+      <ul className="trail-where">
+        {list.map((s) => (
+          <li key={s.slug}>
+            <button type="button" className="trail-where__country" disabled={!s.ready || busy === s.slug} aria-pressed={showing === s.locality}
+              onClick={async () => { if (showing === s.locality) { onShow(null); return; } setBusy(s.slug); try { onShow(await trails.street(s.slug)); } finally { setBusy(null); } }}>
+              <span className="trail-repeat__count" aria-hidden="true">{s.ready ? `${Math.round((s.share ?? 0) * 100)}%` : "…"}</span>
+              <span className="trail-where__name">{s.locality}
+                <span className="muted" style={{ display: "block", fontSize: 12 }}>
+                  {s.ready ? `${s.walked} of ${s.streets} streets · ${s.km_walked} of ${s.km} km` : "Looking up its streets (one suburb every ten minutes)"}</span>
+                {s.ready && <span className="trail-times__bar" style={{ display: "block", marginTop: 4 }} aria-hidden="true"><span className="is-best" style={{ width: `${(s.share ?? 0) * 100}%` }} /></span>}
+              </span>
+              <span className="trail-where__nums">{busy === s.slug ? "…" : showing === s.locality ? "Hide" : s.ready ? "Map" : ""}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Glass>
+  );
+}
+
+const KIND_ICON: Record<WishHit["kind"], string> = { track: "🥾", peak: "⛰️", park: "🌳", place: "📍" };
+
+/** 12.6: walks you want to do: found on OpenStreetMap, ticked off by themselves when you walk them. */
+function WishlistCard({ wishes, onChanged, onPick }: { wishes: Wish[]; onChanged: () => void; onPick: (id: string) => void }) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<WishHit[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function find(e: React.FormEvent) {
+    e.preventDefault();
+    if (q.trim().length < 2) return;
+    setBusy(true); setError(null);
+    try { setHits(await trails.searchWishes(q.trim())); } catch (x) { setError(x instanceof Error ? x.message : "Search failed."); } finally { setBusy(false); }
+  }
+  async function add(h: WishHit) {
+    setBusy(true); setError(null);
+    try { await trails.addWish(h.osm); setHits(null); setQ(""); onChanged(); } catch (x) { setError(x instanceof Error ? x.message : "Couldn't add it."); } finally { setBusy(false); }
+  }
+  const open = wishes.filter((x) => !x.done), done = wishes.filter((x) => x.done);
+  return (
+    <Glass as="section" className="widget" aria-label="Wishlist">
+      <header className="widget__head"><Star aria-hidden="true" /><span>Wishlist</span>{wishes.length > 0 && <span className="widget__source">{done.length} of {wishes.length} done</span>}</header>
+      <form className="row" style={{ gap: 8 }} onSubmit={find}>
+        <input className="field" style={{ flex: 1 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="A track, peak or park" aria-label="Find a walk to add" />
+        <button type="submit" className="button button--small" disabled={busy || q.trim().length < 2}>{busy ? "…" : "Find"}</button>
+      </form>
+      {error && <p role="alert" style={{ margin: 0, fontSize: 13 }}>{error}</p>}
+      {hits && (
+        <ul className="items" aria-label="Search results">
+          {hits.length === 0 && <li className="muted" style={{ fontSize: 13 }}>Nothing by that name on OpenStreetMap.</li>}
+          {hits.map((h) => (
+            <li key={h.osm}>
+              <button type="button" className="item item--button" disabled={busy} onClick={() => void add(h)}>
+                <span aria-hidden="true">{KIND_ICON[h.kind]}</span>
+                <span className="item__text"><span className="item__title">{h.name}</span><span className="item__subtitle">{h.where || h.kind} · add to the wishlist</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open.length > 0 && (
+        <ul className="items">
+          {open.map((x) => (
+            <li key={x.id} className="item">
+              <span aria-hidden="true">{KIND_ICON[x.kind]}</span>
+              <span className="item__text"><span className="item__title">{x.name}</span>
+                <span className="item__subtitle">{[x.where, x.km ? `${x.km} km` : null, x.ascent_m ? `↑${x.ascent_m} m` : null, x.highest_m ? `top ${x.highest_m} m` : null].filter(Boolean).join(" · ")}</span></span>
+              <button type="button" className="icon-link" aria-label={`Remove ${x.name}`} onClick={async () => { await trails.removeWish(x.id); onChanged(); }}><X size={14} aria-hidden="true" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {done.length > 0 && (
+        <ul className="items" aria-label="Done">
+          {done.map((x) => (
+            <li key={x.id}>
+              <button type="button" className="item item--button" onClick={() => onPick(x.done!.walk)}>
+                <span aria-hidden="true">✅</span>
+                <span className="item__text"><span className="item__title">{x.name}</span><span className="item__subtitle">Done on {shortDay(x.done!.start)} · {x.done!.name}</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!wishes.length && !hits && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Add walks you'd like to do. They show dashed on the map, and tick themselves off when you walk them.</p>}
     </Glass>
   );
 }
