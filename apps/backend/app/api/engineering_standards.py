@@ -35,6 +35,8 @@ class StandardDocumentResponse(BaseModel):
     edition: str | None = None
     # 11.20: the topic it's filed under on the Standards screen (Hydrology and flooding, Drinking water, ...)
     category: str | None = None
+    # 11.21: where it downloads from, for the weekly check for new versions (standards_updates.py)
+    source: dict | None = None
     filename: str
     uploaded_at: str
     pages: int
@@ -134,6 +136,7 @@ def _normalise_metadata(metadata: dict) -> dict:
     value.setdefault("superseded_by_id", None)
     value.setdefault("revision", 1)
     value.setdefault("category", None)
+    value.setdefault("source", None)
     return value
 
 
@@ -199,6 +202,7 @@ def _store_document(
     revision: int = 1,
     supersedes_id: str | None = None,
     category: str | None = None,
+    source: dict | None = None,
 ) -> dict:
     document_id = uuid.uuid4().hex
     directory, metadata_path, index_path = _paths(document_id)
@@ -221,6 +225,7 @@ def _store_document(
         "reference": reference.strip() if reference else None,
         "edition": edition.strip() if edition else None,
         "category": category.strip() if category and category.strip() else None,
+        "source": source or None,
         "filename": filename,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "pages": len(extraction.pages),
@@ -317,14 +322,50 @@ class StandardChange(BaseModel):
     reference: str | None = Field(default=None, max_length=120)
     edition: str | None = Field(default=None, max_length=120)
     category: str | None = Field(default=None, max_length=80)
+    # 11.21: where to check for new versions (see standards_updates.py); an empty url stops checking
+    source_url: str | None = Field(default=None, max_length=500, pattern=r"^(https?://\S+)?$")
+    source_page: str | None = Field(default=None, max_length=500, pattern=r"^(https?://\S+)?$")
+    source_pattern: str | None = Field(default=None, max_length=200)
+
+
+@router.get("/updates")
+async def update_status(authorization: Annotated[str | None, Header()] = None) -> dict:
+    """11.21: when the library was last checked for new versions, what changed, and what couldn't be checked."""
+    _authenticate(authorization)
+    from app.engineering import standards_updates
+
+    doc = standards_updates.state()
+    return {"last_run": doc.get("last_run"), "last": doc.get("last"), "events": doc["events"][:30],
+            "running": standards_updates._running.locked(), "weekly_hour": standards_updates.check_hour()}
+
+
+@router.post("/updates/check")
+async def check_updates(authorization: Annotated[str | None, Header()] = None) -> dict:
+    _authenticate(authorization)
+    from app.engineering import standards_updates
+
+    return {"started": standards_updates.start()}
 
 
 @router.patch("/{document_id}", response_model=StandardDocumentResponse)
 async def change_standard(document_id: str, body: StandardChange, authorization: Annotated[str | None, Header()] = None) -> StandardDocumentResponse:
     _authenticate(authorization)
     metadata = _normalise_metadata(_load_metadata(document_id))
-    for key, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    source_changes = {k.removeprefix("source_"): changes.pop(k) for k in list(changes) if k.startswith("source_")}
+    for key, value in changes.items():
         metadata[key] = (value.strip() or None) if isinstance(value, str) else value
+    if source_changes:
+        if "pattern" in source_changes and source_changes["pattern"]:
+            try:
+                re.compile(source_changes["pattern"])
+            except re.error as exc:
+                raise HTTPException(status_code=422, detail=f"That pattern isn't a valid regex: {exc}") from None
+        source = dict(metadata.get("source") or {})
+        if source_changes.get("url") is not None and source_changes["url"] != source.get("url"):
+            source.pop("sha256", None)  # a different file to compare against
+        source.update({k: (v.strip() or None) if isinstance(v, str) else v for k, v in source_changes.items()})
+        metadata["source"] = source if source.get("url") else None
     _write_metadata(metadata)
     return _response(metadata)
 
@@ -341,12 +382,21 @@ async def replace_standard(
     authorization: Annotated[str | None, Header()] = None,
 ) -> StandardDocumentResponse:
     _authenticate(authorization)
+    filename, data = await _read_pdf(file)
+    new = await asyncio.to_thread(replace_document, document_id, filename=filename, data=data, title=title, authority=authority,
+                                  reference=reference, edition=edition, category=category)
+    return _response(new)
+
+
+def replace_document(document_id: str, *, filename: str, data: bytes, title: str | None = None, authority: str | None = None,
+                     reference: str | None = None, edition: str | None = None, category: str | None = None,
+                     source: dict | None = None) -> dict:
+    """A new revision of a standard (an upload, or a new version found by the weekly check, 11.21): the old one is
+    kept, marked superseded, and the new one takes its details unless given others."""
     old = _normalise_metadata(_load_metadata(document_id))
     if not old["active"]:
         raise HTTPException(status_code=409, detail="Only the active revision can be replaced.")
-    filename, data = await _read_pdf(file)
-    new = await asyncio.to_thread(
-        _store_document,
+    new = _store_document(
         filename=filename,
         data=data,
         title=(title or old["title"]),
@@ -354,6 +404,7 @@ async def replace_standard(
         reference=reference if reference is not None else old.get("reference"),
         edition=edition if edition is not None else old.get("edition"),
         category=category if category is not None else old.get("category"),
+        source=source if source is not None else old.get("source"),
         revision=int(old.get("revision") or 1) + 1,
         supersedes_id=document_id,
     )
@@ -361,7 +412,7 @@ async def replace_standard(
     old["archived_at"] = datetime.now(timezone.utc).isoformat()
     old["superseded_by_id"] = new["id"]
     _write_metadata(old)
-    return _response(new)
+    return new
 
 
 @router.delete("/{document_id}", response_model=StandardDocumentResponse)

@@ -101,6 +101,23 @@ describe("engineering", () => {
     await waitFor(() => expect(calls.some((c) => c.init.method === "DELETE" && c.url.endsWith("/standards/s1"))).toBe(true));
   });
 
+  it("says when new versions were last checked, and checks now (11.21)", async () => {
+    signIn();
+    const calls = mockFetch({
+      "/api/v1/engineering/standards/updates/check": () => jsonResponse({ started: true }),
+      "/api/v1/engineering/standards/updates": () => jsonResponse({ last_run: "2026-11-29T04:00:00Z", running: false, weekly_hour: 4,
+        last: { checked: 28, updated: 1, errors: [{ id: "x", title: "MUSIC Guidelines", why: "404" }] },
+        events: [{ at: new Date().toISOString(), id: "s0", new_id: "s1", title: "Infrastructure Design Manual", revision: 2, url: "" }] }),
+      "/api/v1/engineering/standards": () => jsonResponse({ query: "", hits: [{ document: doc, page: null, snippet: null, score: null, citation: null }] }),
+    });
+    const user = userEvent.setup();
+    at("/engineering/standards");
+    expect(await screen.findByText(/1 updated, 1 couldn't be checked/)).toBeInTheDocument();
+    expect(screen.getByText(/New version of Infrastructure Design Manual/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Check now" }));
+    await waitFor(() => expect(calls.some((c) => c.init.method === "POST" && c.url.endsWith("/standards/updates/check"))).toBe(true));
+  });
+
   it("links a saved calculation to a project", async () => {
     signIn();
     const project = { id: "p1", name: "Bendigo PS", description: "", kind: "engineering", status: "active", tags: [], created_at: "", updated_at: "" };

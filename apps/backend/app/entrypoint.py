@@ -167,6 +167,10 @@ async def lifespan(application):
             tasks.append(asyncio.create_task(gym_api.resend_loop(get_hub)))  # workouts SirisAI missed (8.6)
         if selftest.enabled():
             tasks.append(asyncio.create_task(selftest.loop()))
+        if os.getenv("SIRISOS_STANDARDS_UPDATES", "on").lower() not in ("off", "0", "false"):
+            from app.engineering import standards_updates
+
+            tasks.append(asyncio.create_task(standards_updates.loop()))  # 11.21: new versions of standards, weekly
         try:
             yield state
         finally:

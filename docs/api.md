@@ -316,6 +316,8 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `DELETE /api/v1/engineering/sirishydro/history/{record_id}` |  |
 | `GET /api/v1/engineering/standards` |  |
 | `POST /api/v1/engineering/standards` |  |
+| `GET /api/v1/engineering/standards/updates` | 11.21: when the library was last checked for new versions, what changed, and what couldn't be checked. |
+| `POST /api/v1/engineering/standards/updates/check` |  |
 | `DELETE /api/v1/engineering/standards/{document_id}` |  |
 | `PATCH /api/v1/engineering/standards/{document_id}` |  |
 | `GET /api/v1/engineering/standards/{document_id}/file` |  |

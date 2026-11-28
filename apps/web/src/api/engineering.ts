@@ -40,6 +40,8 @@ export interface StandardDocument {
   edition: string | null;
   /** 11.20: the topic it's filed under (Hydrology and flooding, Drinking water, ...). */
   category?: string | null;
+  /** 11.21: where it downloads from, for the weekly check for new versions. */
+  source?: { url?: string; page?: string | null; pattern?: string | null; checked_at?: string } | null;
   filename: string;
   uploaded_at: string;
   pages: number;
@@ -52,6 +54,13 @@ export interface StandardDocument {
   supersedes_id: string | null;
   superseded_by_id: string | null;
   revision: number;
+}
+
+/** 11.21: the weekly check for new versions of the library's standards. */
+export interface StandardUpdates {
+  last_run: string | null; running: boolean; weekly_hour: number;
+  last: { checked: number; updated: number; errors: { id: string; title: string; why: string }[] } | null;
+  events: { at: string; id: string; new_id: string; title: string; revision: number; url: string }[];
 }
 
 export interface StandardHit {
@@ -130,7 +139,9 @@ export const standards = {
     for (const [k, v] of Object.entries(meta)) if (v) form.append(k, v);
     return api<StandardDocument>(replaceId ? `${E}/standards/${encodeURIComponent(replaceId)}/replace` : `${E}/standards`, { method: "POST", body: form });
   },
-  change: (id: string, c: Partial<Pick<StandardDocument, "title" | "authority" | "reference" | "edition" | "category">>) =>
+  updates: () => api<StandardUpdates>(`${E}/standards/updates`),
+  checkUpdates: () => api<{ started: boolean }>(`${E}/standards/updates/check`, { method: "POST" }),
+  change: (id: string, c: Partial<Pick<StandardDocument, "title" | "authority" | "reference" | "edition" | "category">> & { source_url?: string; source_page?: string; source_pattern?: string }) =>
     api<StandardDocument>(`${E}/standards/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(c) }),
   archive: (id: string) => api<StandardDocument>(`${E}/standards/${encodeURIComponent(id)}`, { method: "DELETE" }),
   restore: (id: string) => api<StandardDocument>(`${E}/standards/${encodeURIComponent(id)}/restore`, { method: "POST" }),

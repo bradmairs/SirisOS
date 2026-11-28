@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ExternalLink, FileUp, Pencil, RefreshCcw, Search } from "lucide-react";
-import { standards, type StandardDocument, type StandardHit } from "../../api/engineering";
+import { standards, type StandardDocument, type StandardHit, type StandardUpdates } from "../../api/engineering";
 import { Glass } from "../../components/Glass";
 import { IconButton, PageHead } from "../../components/PageHead";
 import { Sheet } from "../../components/Sheet";
@@ -102,6 +102,7 @@ export function Standards() {
         <Search aria-hidden="true" />
         <input className="ask-bar__input" placeholder="Search titles and page text" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search standards" />
       </Glass>
+      <UpdatesLine onUpdated={load} />
       <label className="row muted" style={{ margin: "12px 6px 0", fontSize: 14, gap: 8 }}>
         <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Include archived and superseded
       </label>
@@ -134,6 +135,40 @@ export function Standards() {
   );
 }
 
+/** 11.21: the weekly check for new versions: when it last ran, what changed, and Check now. */
+function UpdatesLine({ onUpdated }: { onUpdated: () => void }) {
+  const [u, setU] = useState<StandardUpdates | null>(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = useCallback(async () => { try { setU(await standards.updates()); } catch { /* the line just doesn't show */ } }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!u?.running && !busy) return;
+    const t = window.setInterval(async () => {
+      const next = await standards.updates().catch(() => null);
+      if (next) { setU(next); if (!next.running) { setBusy(false); onUpdated(); } }
+    }, 4000);
+    return () => window.clearInterval(t);
+  }, [u?.running, busy, onUpdated]);
+  if (!u || !Array.isArray(u.events)) return null;
+  const errors = Array.isArray(u.last?.errors) ? u.last!.errors : [];
+  const recent = u.events.filter((e) => Date.now() - new Date(e.at).getTime() < 30 * 86400_000);
+  return (
+    <div className="stack" style={{ gap: 4, margin: "10px 6px 0" }} aria-label="New versions">
+      <div className="row muted" style={{ fontSize: 13, gap: 8, flexWrap: "wrap" }}>
+        <span>{u.running || busy ? "Checking for new versions…" : u.last_run
+          ? `Checked for new versions ${new Date(u.last_run).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}: ${u.last?.updated ? `${u.last.updated} updated` : "all current"}${errors.length ? `, ${errors.length} couldn't be checked` : ""}`
+          : "New versions are checked every Sunday morning."}</span>
+        {!(u.running || busy) && <button type="button" className="icon-link" onClick={async () => { setBusy(true); await standards.checkUpdates().catch(() => setBusy(false)); }}>Check now</button>}
+      </div>
+      {recent.map((e) => <span key={e.new_id} style={{ fontSize: 13 }}>New version of {e.title} ({new Date(e.at).toLocaleDateString()}); the old one is kept as superseded.</span>)}
+      {errors.length ? (
+        <details><summary className="muted" style={{ fontSize: 12, cursor: "pointer" }}>Couldn't check</summary>
+          {errors.map((e) => <div key={e.id} className="muted" style={{ fontSize: 12 }}>{e.title}: {e.why}</div>)}</details>
+      ) : null}
+    </div>
+  );
+}
+
 const OTHER = "Other";
 
 /** 11.20: the library by topic, A to Z (Other last), each by title (so ARR's Books 1 to 9 read in order). */
@@ -163,7 +198,8 @@ function TopicField({ value, onChange, topics }: { value: string; onChange: (v: 
 
 /** 11.20: correct a standard's details or move it to another topic, without uploading it again. */
 function DetailsSheet({ doc, topics, onClose, onDone }: { doc: StandardDocument; topics: string[]; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ title: doc.title, authority: doc.authority, reference: doc.reference ?? "", edition: doc.edition ?? "", category: doc.category ?? "" });
+  const [f, setF] = useState({ title: doc.title, authority: doc.authority, reference: doc.reference ?? "", edition: doc.edition ?? "", category: doc.category ?? "",
+    source_url: doc.source?.url ?? "", source_page: doc.source?.page ?? "", source_pattern: doc.source?.pattern ?? "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save() {
@@ -181,6 +217,17 @@ function DetailsSheet({ doc, topics, onClose, onDone }: { doc: StandardDocument;
           <input className="field" placeholder="Edition" value={f.edition} onChange={(e) => setF({ ...f, edition: e.target.value })} aria-label="Edition" />
         </div>
         <TopicField value={f.category} onChange={(category) => setF({ ...f, category })} topics={topics} />
+        {/* 11.21: where it comes from, for the weekly check for new versions */}
+        <input className="field" placeholder="Download address (checked weekly for a new version)" value={f.source_url} onChange={(e) => setF({ ...f, source_url: e.target.value })} aria-label="Download address" />
+        <details>
+          <summary className="muted" style={{ fontSize: 13, cursor: "pointer" }}>When new versions get a new address</summary>
+          <div className="stack" style={{ gap: 8, marginTop: 8 }}>
+            <input className="field" placeholder="Page that links to it" value={f.source_page} onChange={(e) => setF({ ...f, source_page: e.target.value })} aria-label="Source page" />
+            <input className="field" placeholder="Link pattern, e.g. IDM_Version_([\d.]+)" value={f.source_pattern} onChange={(e) => setF({ ...f, source_pattern: e.target.value })} aria-label="Link pattern" />
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>The page's links are matched against the pattern; its first group is the version, and the highest wins.</p>
+          </div>
+        </details>
+        {doc.source?.checked_at && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Last checked {new Date(doc.source.checked_at).toLocaleDateString()}.</p>}
         {error && <div className="error-banner">{error}</div>}
         <Glass as="button" variant="tint" shape="pill" interactive className="button" disabled={busy || !f.title.trim() || !f.authority.trim()} onClick={save}>
           {busy ? "Saving…" : "Save"}
