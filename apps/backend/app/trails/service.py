@@ -243,8 +243,12 @@ def set_place(walk_id: str, info: dict[str, Any]) -> dict[str, Any] | None:
         walk["place"] = info.get("place")
         walk["loop"] = info.get("loop")
         walk["landmarks"] = {k: info.get(k) for k in ("peak", "trail", "park", "locality") if info.get(k)}
+        for k in ("region", "country", "country_code"):  # 12.2: for states per country
+            walk[k] = info.get(k)
+        if info.get("overpass_done"):
+            walk["overpass_done"] = True
         # Overpass couldn't be reached: the place-name fallback stands, and it's looked up again on a later run.
-        walk["names_retry"] = (walk.get("names_retry") or 0) + 1 if info.get("retry") else 0
+        walk["names_retry"] = (walk.get("names_retry") or 0) + 1 if info.get("retry") else walk.get("names_retry") or 0
         if walk.get("name_auto", True) and info.get("name"):
             walk["name"] = info["name"][:120]
         _save(doc)
@@ -315,19 +319,62 @@ def detail(walk_id: str) -> dict[str, Any]:
             "profile": profile, "splits": splits(points), "km_marks": km_marks}
 
 
+def _flag(code: str | None) -> str:
+    return "".join(chr(0x1F1E6 + ord(c) - 65) for c in code.upper()) if code and len(code) == 2 and code.isalpha() else ""
+
+
 def summary(year: int | None = None) -> dict[str, Any]:
-    walks = load()["walks"]
-    if year:
-        walks = [w for w in walks if w["start"][:4] == str(year)]
+    everything = load()["walks"]
+    walks = [w for w in everything if w["start"][:4] == str(year)] if year else everything
 
-    def total(key: str) -> float:
-        return sum(w.get(key) or 0 for w in walks)
+    def total(items: list[dict[str, Any]], key: str) -> float:
+        return sum(w.get(key) or 0 for w in items)
 
+    # 12.2: where: countries, and their states or regions
+    countries: dict[str, dict[str, Any]] = {}
+    for w in walks:
+        if not w.get("country"):
+            continue
+        c = countries.setdefault(w["country"], {"country": w["country"], "code": w.get("country_code"), "flag": _flag(w.get("country_code")),
+                                                "walks": 0, "km": 0.0, "hours": 0.0, "regions": {}})
+        c["walks"] += 1
+        c["km"] += w.get("km") or 0
+        c["hours"] += (w.get("minutes") or 0) / 60
+        r = c["regions"].setdefault(w.get("region") or "Elsewhere", {"region": w.get("region") or "Elsewhere", "walks": 0, "km": 0.0, "places": set()})
+        r["walks"] += 1
+        r["km"] += w.get("km") or 0
+        if (w.get("landmarks") or {}).get("locality"):
+            r["places"].add(w["landmarks"]["locality"])
+    where = []
+    for c in sorted(countries.values(), key=lambda c: -c["km"]):
+        regions = [{"region": r["region"], "walks": r["walks"], "km": round(r["km"], 1), "places": len(r["places"])}
+                   for r in sorted(c["regions"].values(), key=lambda r: -r["km"])]
+        where.append({**c, "km": round(c["km"], 1), "hours": round(c["hours"], 1), "regions": regions})
+
+    def record(key: str) -> dict[str, Any] | None:
+        best = max((w for w in walks if w.get(key)), key=lambda w: w[key], default=None)
+        return {"id": best["id"], "name": best["name"], "value": best[key], "start": best["start"]} if best else None
+
+    by_year: dict[str, dict[str, float]] = {}
+    for w in everything:
+        y = by_year.setdefault(w["start"][:4], {"walks": 0, "km": 0.0, "hours": 0.0})
+        y["walks"] += 1
+        y["km"] += w.get("km") or 0
+        y["hours"] += (w.get("minutes") or 0) / 60
+    timed = [w for w in walks if w.get("minutes") and w.get("km")]
     return {"walks": walks, "count": len(walks), "hikes": sum(w["kind"] == "hike" for w in walks),
-            "km": round(total("km"), 1), "hours": round(total("minutes") / 60, 1), "ascent_m": round(total("ascent_m")),
+            "km": round(total(walks, "km"), 1), "hours": round(total(walks, "minutes") / 60, 1), "ascent_m": round(total(walks, "ascent_m")),
             "highest_m": max((w["highest_m"] for w in walks if w.get("highest_m") is not None), default=None),
             "longest_km": max((w["km"] for w in walks if w.get("km")), default=None),
-            "years": sorted({int(w["start"][:4]) for w in load()["walks"]}, reverse=True)}
+            "avg_km": round(total(walks, "km") / len(walks), 1) if walks else None,
+            "avg_minutes": round(total(walks, "minutes") / len(walks)) if walks else None,
+            "avg_pace": round(sum(w["minutes"] for w in timed) / sum(w["km"] for w in timed), 1) if timed else None,
+            "countries": len(where), "regions": sum(len(c["regions"]) for c in where),
+            "places": len({(w.get("landmarks") or {}).get("locality") for w in walks if (w.get("landmarks") or {}).get("locality")}),
+            "where": where,
+            "records": {"longest": record("km"), "longest_time": record("minutes"), "most_climbing": record("ascent_m"), "highest": record("highest_m")},
+            "by_year": [{"year": int(y), "walks": v["walks"], "km": round(v["km"], 1), "hours": round(v["hours"], 1)} for y, v in sorted(by_year.items())],
+            "years": sorted({int(w["start"][:4]) for w in everything}, reverse=True)}
 
 
 # -- Health Auto Export --------------------------------------------------------------------------------------------

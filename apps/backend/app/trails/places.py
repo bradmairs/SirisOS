@@ -135,7 +135,7 @@ def choose(elements: list[dict[str, Any]], pts: list[tuple[float, float]], highe
 
 def _place_line(addr: dict[str, Any]) -> tuple[str | None, str]:
     local = next((addr.get(k) for k in ("suburb", "village", "town", "hamlet", "city_district", "city", "municipality", "county") if addr.get(k)), None)
-    region = addr.get("state") or addr.get("region")
+    region = addr.get("state") or addr.get("region") or addr.get("state_district")
     parts = [p for p in (local, region, addr.get("country")) if p]
     out: list[str] = []
     for p in parts:
@@ -144,50 +144,99 @@ def _place_line(addr: dict[str, Any]) -> tuple[str | None, str]:
     return local, ", ".join(out)
 
 
-def describe(points: list[list[float]], kind: str) -> dict[str, Any]:
-    """{name, place, peak, trail, park, locality} for a route (network calls; run in a worker)."""
+def where(client: httpx.Client, lat: float, lon: float) -> dict[str, Any]:
+    """12.2: Nominatim's address for a point: locality, state or region, country (one fast request)."""
+    r = _polite(client, "GET", NOMINATIM, params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 14, "addressdetails": 1})
+    addr = (r.json() or {}).get("address") or {}
+    local, place = _place_line(addr)
+    return {"locality": local, "place": place or None, "region": addr.get("state") or addr.get("region") or addr.get("state_district"),
+            "country": addr.get("country"), "country_code": (addr.get("country_code") or "").upper() or None}
+
+
+def peak_at(client: httpx.Client, lat: float, lon: float) -> str | None:
+    """12.2: the named natural feature (peak, hill, rock) at a hike's high point, from Nominatim: fast, unlike Overpass."""
+    r = _polite(client, "GET", NOMINATIM, params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 17, "layer": "natural", "namedetails": 1})
+    got = r.json() or {}
+    if got.get("category") != "natural" or got.get("type") not in ("peak", "hill", "volcano", "rock", "saddle", "cliff", "ridge"):
+        return None
+    try:
+        if _metres((lat, lon), (float(got["lat"]), float(got["lon"]))) > PEAK_M:
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    names = got.get("namedetails") or {}
+    return names.get("name:en") or got.get("name") or None
+
+
+def _name(kind: str, found: dict[str, Any], local: str | None, loop: bool) -> str | None:
+    if kind == "hike":
+        return found.get("peak") or found.get("trail") or found.get("park") or (f"{local} hike" if local else None)
+    return found.get("trail") or found.get("park") or (f"{local} {'loop' if loop else 'walk'}" if local else None)
+
+
+def describe(points: list[list[float]], kind: str, overpass: bool = True) -> dict[str, Any]:
+    """{name, place, locality, region, country, country_code, peak, trail, park, loop}. Nominatim always (fast);
+    Overpass's tracks and parks only when `overpass` (slow, often busy: one try, and a later run tries again)."""
     pts = sample(points)
     lats, lons = [p[0] for p in pts], [p[1] for p in pts]
-    pad = 0.002
     eles = [(p[2], (p[0], p[1])) for p in points if p[2] is not None]
     highest = max(eles)[1] if eles else None
-    query = _query(min(lats) - pad, min(lons) - pad, max(lats) + pad, max(lons) + pad)
-    with httpx.Client(timeout=60, headers={"User-Agent": UA, "Accept-Language": "en"}) as client:
-        found = {"peak": None, "trail": None, "park": None, "retry": True}
-        for attempt, url in enumerate([u for u in OVERPASS for _ in range(2)]):
-            try:
-                r = _polite(client, "POST", url, data={"data": query})
-                found = choose(r.json().get("elements") or [], pts, highest, kind)
-                break
-            except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
-                logger.info("Overpass lookup failed (%s): %s", url, exc)
-                time.sleep(5 * (attempt + 1))
-        mid = pts[len(pts) // 2] if kind != "walk" else (sum(lats) / len(lats), sum(lons) / len(lons))
-        r = _polite(client, "GET", NOMINATIM, params={"lat": mid[0], "lon": mid[1], "format": "jsonv2", "zoom": 14, "addressdetails": 1})
-        local, place = _place_line((r.json() or {}).get("address") or {})
     loop = _metres((points[0][0], points[0][1]), (points[-1][0], points[-1][1])) <= LOOP_M
-    if kind == "hike":
-        name = found["peak"] or found["trail"] or found["park"] or (f"{local} hike" if local else None)
-    else:
-        name = found["trail"] or found["park"] or (f"{local} {'loop' if loop else 'walk'}" if local else None)
-    return {**found, "name": name, "place": place or None, "locality": local, "loop": loop}
+    found: dict[str, Any] = {"peak": None, "trail": None, "park": None}
+    with httpx.Client(timeout=30, headers={"User-Agent": UA, "Accept-Language": "en"}) as client:
+        mid = (sum(lats) / len(lats), sum(lons) / len(lons))
+        info = where(client, *mid)
+        if kind == "hike" and highest:
+            try:
+                found["peak"] = peak_at(client, *highest)
+            except (httpx.HTTPError, ValueError):
+                pass
+        if overpass:
+            pad = 0.002
+            query = _query(min(lats) - pad, min(lons) - pad, max(lats) + pad, max(lons) + pad)
+            try:
+                r = _polite(client, "POST", OVERPASS[0], data={"data": query}, timeout=45)
+                got = choose(r.json().get("elements") or [], pts, highest, kind)
+                found = {**got, "peak": got.get("peak") or found["peak"]}
+                found["overpass_done"] = True
+            except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
+                logger.info("Overpass lookup failed: %s", exc)
+                found["retry"] = True
+    return {**found, **info, "name": _name(kind, found, info["locality"], loop), "loop": loop}
 
 
-def name_pending(limit: int = 40) -> int:
-    """Name the walks that haven't been looked up yet (newest first). Returns how many were done."""
+def _chain(*batches: Any):
+    for batch in batches:
+        yield from batch()
+
+
+def name_pending(limit: int = 200, overpass_limit: int = 6) -> int:
+    """First every walk without a place gets one from Nominatim (fast); then a few at a time get Overpass's tracks and
+    parks (slow). Returns how many were looked up."""
     from app.trails import service
 
     if not enabled():
         return 0
     done = 0
-    todo = [w for w in service.load()["walks"] if "place" not in w or 0 < (w.get("names_retry") or 0) < MAX_TRIES]
-    for walk in todo[:limit]:
+
+    def fast() -> list[tuple[dict[str, Any], bool]]:
+        return [(w, False) for w in service.load()["walks"] if not w.get("country")][:limit]
+
+    def slow() -> list[tuple[dict[str, Any], bool]]:  # chosen after the fast pass, so it sees the walks just placed
+        return [(w, True) for w in service.load()["walks"]
+                if w.get("country") and not w.get("overpass_done") and (w.get("names_retry") or 0) < MAX_TRIES][:overpass_limit]
+
+    for walk, use_overpass in _chain(fast, slow):
         try:
             points = json.loads(service._route_path(walk["id"]).read_text(encoding="utf-8"))["points"]
-            info = describe(points, walk["kind"])
+            info = describe(points, walk["kind"], overpass=use_overpass)
         except Exception as exc:  # noqa: BLE001 - try again next time
             logger.info("Naming walk %s failed: %s", walk["id"], exc)
             continue
+        if not use_overpass:  # keep what Overpass found before, if it had
+            info = {**info, **{k: (walk.get("landmarks") or {}).get(k) or info.get(k) for k in ("trail", "park")}}
+            info["name"] = _name(walk["kind"], info, info.get("locality"), info["loop"])
+            info["overpass_done"] = walk.get("overpass_done")
         service.set_place(walk["id"], info)
         done += 1
     return done

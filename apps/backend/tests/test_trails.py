@@ -147,13 +147,21 @@ def test_names_come_from_the_peak_track_park_or_place(monkeypatch) -> None:
         def __init__(self, data): self.data = data
         def json(self): return self.data
 
-    answers = iter([Fake({"elements": [road, park]}), Fake({"address": {"suburb": "Kaiapoi", "state": "Canterbury", "country": "New Zealand"}})])
+    addr = Fake({"address": {"suburb": "Kaiapoi", "state": "Canterbury", "country": "New Zealand", "country_code": "nz"}})
+    answers = iter([addr, Fake({"elements": [road, park]})])
     monkeypatch.setattr(places, "_polite", lambda *a, **k: next(answers))
     pts = [[p[0], p[1], 10.0, None] for p in route] + [[route[0][0], route[0][1], 10.0, None]]
     info = places.describe(pts, "walk")
     assert info["name"] == "Abel Tasman National Park" and info["place"] == "Kaiapoi, Canterbury, New Zealand" and info["loop"]
-    answers = iter([Fake({"elements": []}), Fake({"address": {"suburb": "Kaiapoi", "state": "Canterbury", "country": "New Zealand"}})])
-    assert places.describe(pts, "walk")["name"] == "Kaiapoi loop"
+    assert (info["region"], info["country"], info["country_code"]) == ("Canterbury", "New Zealand", "NZ") and info["overpass_done"]
+    answers = iter([addr])                                                           # the fast pass: Nominatim only
+    assert places.describe(pts, "walk", overpass=False)["name"] == "Kaiapoi loop"
+    # A hike: Nominatim's natural feature at the high point is the peak, even when Overpass is busy.
+    hike_pts = [[p[0], p[1], 100.0 + i, None] for i, p in enumerate(route)]
+    top = hike_pts[-1]
+    answers = iter([addr, Fake({"category": "natural", "type": "peak", "lat": str(top[0]), "lon": str(top[1]), "name": "Mount Lofty"})])
+    got = places.describe(hike_pts, "hike", overpass=False)
+    assert got["name"] == "Mount Lofty" and got["peak"] == "Mount Lofty"
 
 
 def test_a_place_names_the_walk_unless_youve_renamed_it() -> None:
@@ -177,3 +185,36 @@ def test_splits_and_a_smoothed_profile_with_positions() -> None:
     assert [m[0] for m in d["km_marks"]] == [1, 2, 3] and len(d["profile"][0]) == 4
     noisy = [p[1] for p in d["profile"]]
     assert all(b >= a - 0.01 for a, b in zip(noisy, noisy[1:]))                     # the ±1 m wobble is smoothed out
+
+
+
+def test_where_you_walked_by_country_and_state_with_records() -> None:
+    a, b, c = service.from_auto_export({"data": {"workouts": [hae_workout("Hiking", 200), hae_workout("Outdoor Walk", 80, START + timedelta(days=3)),
+                                                              hae_workout("Outdoor Walk", 90, START + timedelta(days=400))]}})
+    service.set_place(a["id"], {"name": "Mount Lofty", "place": "Wonga Park, Victoria, Australia", "locality": "Wonga Park", "region": "Victoria", "country": "Australia", "country_code": "AU"})
+    service.set_place(b["id"], {"name": "Kaiapoi loop", "place": "Kaiapoi, Canterbury, New Zealand", "locality": "Kaiapoi", "region": "Canterbury", "country": "New Zealand", "country_code": "NZ"})
+    service.set_place(c["id"], {"name": "Ivanhoe walk", "place": "Ivanhoe, Victoria, Australia", "locality": "Ivanhoe", "region": "Victoria", "country": "Australia", "country_code": "AU"})
+    s = service.summary()
+    assert (s["countries"], s["regions"], s["places"]) == (2, 2, 3)
+    au = next(x for x in s["where"] if x["country"] == "Australia")
+    assert au["flag"] == "🇦🇺" and au["walks"] == 2 and au["regions"] == [{"region": "Victoria", "walks": 2, "km": 8.4, "places": 2}]
+    assert s["records"]["longest_time"]["name"] == "Mount Lofty" and [y["year"] for y in s["by_year"]] == [2024, 2025]
+    assert s["avg_km"] == 4.2 and service.summary(2025)["count"] == 1
+
+
+def test_the_fast_pass_names_everything_then_overpass_a_few_at_a_time(monkeypatch) -> None:
+    from app.trails import places
+
+    walks = service.from_auto_export({"data": {"workouts": [hae_workout("Outdoor Walk", 80, START + timedelta(days=i)) for i in range(3)]}})
+    calls = []
+
+    def fake(points, kind, overpass=True):
+        calls.append(overpass)
+        return {"name": "Kaiapoi loop", "place": "Kaiapoi, Canterbury, New Zealand", "locality": "Kaiapoi", "region": "Canterbury",
+                "country": "New Zealand", "country_code": "NZ", "loop": True, **({"trail": "Rangiora Track", "overpass_done": True} if overpass else {})}
+
+    monkeypatch.setattr(places, "describe", fake)
+    assert places.name_pending(overpass_limit=1) == 4                               # three fast, then one slow
+    assert calls == [False, False, False, True]
+    got = {w["id"]: w for w in service.load()["walks"]}
+    assert sum(1 for w in got.values() if w.get("overpass_done")) == 1 and all(w["country"] == "New Zealand" for w in got.values())
