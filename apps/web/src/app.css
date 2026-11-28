@@ -1625,3 +1625,14 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
   border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); color: #0f172a; font-size: 12px; font-weight: 700; cursor: pointer; }
 .trail-pin--hike { background: #f97316; }
 section[aria-label="Map of walks"] { scroll-margin-top: 84px; }  /* below the sticky header when scrolled to */
+/* 12.4: SirisTrails repeats, trips, weather */
+.trail-repeat__count { min-width: 2.4em; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; color: #38bdf8; }
+.trail-times button { display: grid !important; grid-template-columns: 7.5em 1fr auto; gap: 10px; align-items: center; }
+.trail-times button[aria-current="true"] { font-weight: 600; }
+.trail-times__bar { height: 6px; border-radius: 3px; background: color-mix(in srgb, currentColor 10%, transparent); overflow: hidden; }
+.trail-times__bar span { display: block; height: 100%; border-radius: 3px; background: #38bdf8; }
+.trail-times__bar span.is-best { background: #22c55e; }
+.trail-trip__link { display: block; font-size: 12px; padding: 0 4px 8px 44px; color: var(--accent, #38bdf8); text-decoration: none; }
+.trail-weather { flex-basis: 100%; }
+.trail-times button { width: 100%; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 6px 4px; border-radius: 8px; }
+.trail-sheet .trail-times { margin-left: 0; }

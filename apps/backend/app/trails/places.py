@@ -238,7 +238,18 @@ def name_pending(limit: int = 200, overpass_limit: int = 6) -> int:
 def kick() -> None:
     """12.2.1: name new walks now, in the background, instead of at the next 10-minute run."""
     if enabled() and not _naming.locked():
-        threading.Thread(target=name_pending, daemon=True, name="trails-naming").start()
+        threading.Thread(target=_both, daemon=True, name="trails-naming").start()
+
+
+def _both() -> None:
+    """Names, then (12.4) the weather."""
+    from app.trails import weather
+
+    name_pending()
+    try:
+        weather.fill_pending()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Walk weather failed: %s", exc)
 
 
 def _name_pending(limit: int, overpass_limit: int) -> int:
@@ -275,7 +286,7 @@ async def loop(every: float = 600.0) -> None:
     """New walks get their names within ten minutes; the first run names the backlog, 40 at a time."""
     while True:
         try:
-            await asyncio.to_thread(name_pending)
+            await asyncio.to_thread(_both)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

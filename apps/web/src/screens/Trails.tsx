@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Footprints, MapPin, MapPinned, Mountain, Pencil, Trash2, Trophy, Upload } from "lucide-react";
+import { CloudSun, Footprints, Luggage, MapPin, MapPinned, Mountain, Pencil, Repeat, Trash2, Trophy, Upload } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useResource } from "../api/resource";
-import { trails, type TrailRecord, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
+import { trails, type Landmark, type RepeatRoute, type TrailRecord, type TrailWeather, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
 import { Glass } from "../components/Glass";
 import { LatestThenGrouped } from "../components/Grouped";
 import { PageHead } from "../components/PageHead";
@@ -101,6 +102,9 @@ export function TrailsScreen() {
         <OverviewMap walks={walks} onPick={setOpen} focus={focus} />
         {d && d.where.length > 0 && <WhereCard d={d} walks={walks} onFocus={setFocus} />}
         {d && <RecordsCard d={d} onPick={setOpen} />}
+        {d && d.repeats?.length > 0 && <RepeatsCard d={d} walks={walks} onPick={setOpen} onFocus={setFocus} />}
+        {d && d.trips?.length > 0 && <TripsCard d={d} walks={walks} onFocus={setFocus} />}
+        {d && d.landmarks && <LandmarksCard d={d} walks={walks} onFocus={setFocus} />}
         {d && !year && d.by_year.length > 1 && <YearsCard d={d} onPick={setYear} />}
         {d && walks.length === 0 && <GettingStarted />}
         {walks.length > 0 && (
@@ -115,7 +119,7 @@ export function TrailsScreen() {
                     <span className="trail-dot" style={{ background: w.kind === "hike" ? HIKE : WALK }} aria-hidden="true" />
                     <span className="item__text">
                       <span className="item__title">{w.name}</span>
-                      <span className="item__subtitle">{w.place ? `${w.place.split(",")[0]} · ` : ""}{day(w.start, w.tz)} · {n(w.km, "km", 1)} · {hm(w.minutes)}{w.ascent_m ? ` · ↑${w.ascent_m} m` : ""}{w.kind === "hike" ? " · hike" : ""}</span>
+                      <span className="item__subtitle">{w.place ? `${w.place.split(",")[0]} · ` : ""}{day(w.start, w.tz)} · {n(w.km, "km", 1)} · {hm(w.minutes)}{w.ascent_m ? ` · ↑${w.ascent_m} m` : ""}{w.kind === "hike" ? " · hike" : ""}{w.weather ? ` · ${w.weather.icon} ${Math.round(w.weather.temp_c)}°` : ""}{w.repeats ? ` · ↻${w.repeats}` : ""}</span>
                     </span>
                   </button>
                 </li>
@@ -125,7 +129,7 @@ export function TrailsScreen() {
         <ImportCard onDone={reload} />
       </div>
       {open && (
-        <WalkSheet id={open} onClose={() => setOpen(null)} onChanged={reload}
+        <WalkSheet key={open} id={open} onClose={() => setOpen(null)} onChanged={reload} onOpen={setOpen}
           onDelete={(w) => { setOpen(null); undoable({ text: `Deleted ${w.name}`, run: async () => { await trails.remove(w.id); reload(); },
             hide: () => setGone((g) => new Set(g).add(w.id)), restore: () => setGone((g) => { const s = new Set(g); s.delete(w.id); return s; }) }); }} />
       )}
@@ -256,6 +260,11 @@ function RecordsCard({ d, onPick }: { d: Trails; onPick: (id: string) => void })
     ["Longest time", d.records.longest_time, (v) => hm(v)],
     ["Most climbing", d.records.most_climbing, (v) => n(v, "m")],
     ["Highest walk", d.records.highest, (v) => n(v, "m")],
+    // 12.4: the weather you've walked in
+    ["Hottest", d.weather_records?.hottest ?? null, (v) => `${Math.round(v)}°C`],
+    ["Coldest", d.weather_records?.coldest ?? null, (v) => `${Math.round(v)}°C`],
+    ["Wettest", d.weather_records?.wettest ?? null, (v) => n(v, "mm rain", 1)],
+    ["Windiest", d.weather_records?.windiest ?? null, (v) => `gusts of ${Math.round(v)} km/h`],
   ];
   if (!rows.some(([, r]) => r)) return null;
   return (
@@ -292,6 +301,130 @@ function YearsCard({ d, onPick }: { d: Trails; onPick: (y: number) => void }) {
       </ul>
     </Glass>
   );
+}
+
+type Focus = (f: { label: string; walks: Walk[] } | null) => void;
+const pick = (walks: Walk[], ids: string[]) => { const set = new Set(ids); return walks.filter((w) => set.has(w.id)); };
+const shortDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** 12.4: the routes you walk again and again, with your best and latest times. */
+function RepeatsCard({ d, walks, onPick, onFocus }: { d: Trails; walks: Walk[]; onPick: (id: string) => void; onFocus: Focus }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <Glass as="section" className="widget" aria-label="Routes you repeat">
+      <header className="widget__head"><Repeat aria-hidden="true" /><span>Routes you repeat</span></header>
+      <ul className="trail-where">
+        {d.repeats.slice(0, 8).map((g) => {
+          const latest = g.times[g.times.length - 1];
+          const diff = g.fastest && latest.minutes != null ? latest.minutes - g.fastest.minutes : null;
+          return (
+            <li key={g.id}>
+              <button type="button" className="trail-where__country" aria-expanded={open === g.id}
+                onClick={() => { setOpen(open === g.id ? null : g.id); onFocus({ label: g.name, walks: pick(walks, g.times.map((t) => t.id)) }); }}>
+                <span className="trail-repeat__count" aria-hidden="true">{g.count}×</span>
+                <span className="trail-where__name">{g.name}<span className="muted" style={{ display: "block", fontSize: 12 }}>
+                  {n(g.km, "km", 1)}{g.fastest ? ` · best ${hm(g.fastest.minutes)}` : ""}{diff != null && g.fastest?.id !== latest.id ? ` · last ${diff > 0 ? "+" : ""}${Math.round(diff)} min` : g.fastest?.id === latest.id ? " · last was your best" : ""}</span></span>
+                <span className="trail-where__nums">{shortDay(latest.start)}</span>
+              </button>
+              {open === g.id && <RepeatTimes g={g} onPick={onPick} />}
+            </li>
+          );
+        })}
+      </ul>
+    </Glass>
+  );
+}
+
+/** Each time along a route: a bar for how long it took, the fastest marked. */
+function RepeatTimes({ g, onPick, current }: { g: RepeatRoute; onPick: (id: string) => void; current?: string }) {
+  const [all, setAll] = useState(false);
+  const max = Math.max(...g.times.map((t) => t.minutes ?? 0), 1);
+  const newest = [...g.times].reverse();
+  // the latest 8, and the best and this one when they're further back
+  const shown = all ? newest : newest.filter((t, i) => i < 8 || t.id === g.fastest?.id || t.id === current);
+  return (
+    <ul className="trail-where__regions trail-times">
+      {shown.map((t) => (
+        <li key={t.id}>
+          <button type="button" onClick={() => onPick(t.id)} aria-current={t.id === current ? "true" : undefined}>
+            <span>{shortDay(t.start)}{t.id === current ? " · this one" : ""}</span>
+            <span className="trail-times__bar" aria-hidden="true"><span style={{ width: `${((t.minutes ?? 0) / max) * 100}%` }} className={t.id === g.fastest?.id ? "is-best" : undefined} /></span>
+            <span className={t.id === g.fastest?.id ? "trail-splits__best" : "muted"}>{hm(t.minutes)}{t.id === g.fastest?.id ? " · best" : ""}</span>
+          </button>
+        </li>
+      ))}
+      {shown.length < newest.length && <li><button type="button" className="muted" onClick={() => setAll(true)}>All {newest.length} times</button></li>}
+    </ul>
+  );
+}
+
+/** 12.4: walks away from home, grouped into trips. */
+function TripsCard({ d, walks, onFocus }: { d: Trails; walks: Walk[]; onFocus: Focus }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? d.trips : d.trips.slice(0, 5);
+  return (
+    <Glass as="section" className="widget" aria-label="Trips">
+      <header className="widget__head"><Luggage aria-hidden="true" /><span>Trips</span><span className="widget__source">{d.trips.length} away from home</span></header>
+      <ul className="trail-where">
+        {shown.map((t) => (
+          <li key={t.id}>
+            <button type="button" className="trail-where__country" onClick={() => onFocus({ label: t.name, walks: pick(walks, t.walks) })}>
+              <span className="trail-where__flag" aria-hidden="true">{flag(t.country_code) || "🧳"}</span>
+              <span className="trail-where__name">{t.name}<span className="muted" style={{ display: "block", fontSize: 12 }}>
+                {t.from === t.to ? shortDay(t.from) : `${shortDay(t.from)} – ${shortDay(t.to)}`}</span></span>
+              <span className="trail-where__nums">{t.count} · {n(t.km, "km", 1)}{t.ascent_m ? ` · ↑${t.ascent_m} m` : ""}</span>
+            </button>
+            {t.travel && <Link className="trail-trip__link" to="/travel">In Travel: {t.travel.destination || "this trip"} →</Link>}
+          </li>
+        ))}
+      </ul>
+      {d.trips.length > 5 && <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }} onClick={() => setAll(!all)}>{all ? "Fewer" : `All ${d.trips.length} trips`}</button>}
+    </Glass>
+  );
+}
+
+const flag = (code: string | null | undefined) => (code && /^[A-Za-z]{2}$/.test(code) ? String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)) : "");
+
+/** 12.4: the peaks you've stood on, the parks and the tracks you've walked. */
+function LandmarksCard({ d, walks, onFocus }: { d: Trails; walks: Walk[]; onFocus: Focus }) {
+  const tabs = ([["peaks", "Peaks"], ["parks", "Parks"], ["trails", "Tracks"]] as const).filter(([k]) => d.landmarks[k].length);
+  const [tab, setTab] = useState<"peaks" | "parks" | "trails">(tabs[0]?.[0] ?? "peaks");
+  const [all, setAll] = useState(false);
+  if (!tabs.length) return null;
+  const items: Landmark[] = d.landmarks[tab] ?? [];
+  return (
+    <Glass as="section" className="widget" aria-label="Peaks and parks">
+      <header className="widget__head"><Mountain aria-hidden="true" /><span>Peaks and parks</span></header>
+      <div className="trail-years" role="tablist" aria-label="Kind">
+        {tabs.map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`chip chip--button ${tab === k ? "chip--active" : ""}`}
+            onClick={() => { setTab(k); setAll(false); }}>{label} · {d.landmarks[k].length}</button>
+        ))}
+      </div>
+      <ul className="trail-where">
+        {(all ? items : items.slice(0, 6)).map((m) => (
+          <li key={m.name}>
+            <button type="button" className="trail-where__country" onClick={() => onFocus({ label: m.name, walks: pick(walks, m.walks) })}>
+              <span className="trail-where__flag" aria-hidden="true">{tab === "peaks" ? "⛰️" : tab === "parks" ? "🌳" : "🥾"}</span>
+              <span className="trail-where__name">{m.name}<span className="muted" style={{ display: "block", fontSize: 12 }}>
+                {m.place ? m.place.split(",").slice(-2).join(",").trim() : ""}{m.highest_m ? ` · ${m.highest_m} m` : ""}</span></span>
+              <span className="trail-where__nums">{m.count > 1 ? `${m.count}× · ` : ""}{shortDay(m.last)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {items.length > 6 && <button type="button" className="button button--small" style={{ alignSelf: "flex-start" }} onClick={() => setAll(!all)}>{all ? "Fewer" : `All ${items.length}`}</button>}
+    </Glass>
+  );
+}
+
+/** 12.4: the weather on the walk, in a line. */
+export function weatherLine(x: TrailWeather): string {
+  const temp = x.temp_min_c !== x.temp_max_c && Math.round(x.temp_min_c) !== Math.round(x.temp_max_c)
+    ? `${Math.round(x.temp_min_c)}–${Math.round(x.temp_max_c)}°C` : `${Math.round(x.temp_c)}°C`;
+  return [`${x.icon} ${x.sky}`.trim(), temp, x.feels_c != null && Math.abs(x.feels_c - x.temp_c) >= 2 ? `feels ${Math.round(x.feels_c)}°` : null,
+    x.rain_mm ? `${x.rain_mm} mm rain` : null, x.wind_kmh != null ? `wind ${Math.round(x.wind_kmh)} km/h${x.gust_kmh ? `, gusts ${x.gust_kmh}` : ""}` : null,
+    x.humidity != null ? `${x.humidity}% humidity` : null].filter(Boolean).join(" · ");
 }
 
 type Point = [number, number, number, number]; // km, metres, lat, lon
@@ -358,7 +491,7 @@ const pace = (v: number | null) => (v ? `${Math.floor(v)}:${String(Math.round((v
 const time = (iso: string, tz?: string | null) => (tz ? new Date(iso) : wallClock(iso)).toLocaleTimeString(undefined,
   { hour: "numeric", minute: "2-digit", timeZone: tz || "UTC" });
 
-function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: () => void; onChanged: () => void; onDelete: (w: Walk) => void }) {
+function WalkSheet({ id, onClose, onChanged, onDelete, onOpen }: { id: string; onClose: () => void; onChanged: () => void; onDelete: (w: Walk) => void; onOpen: (id: string) => void }) {
   const [w, setW] = useState<WalkDetail | null>(null);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
@@ -412,6 +545,7 @@ function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: 
               <span className="chip" style={{ background: `color-mix(in srgb, ${w.kind === "hike" ? HIKE : WALK} 25%, transparent)` }}>{w.kind === "hike" ? "Hike" : "Walk"}{w.loop ? " · loop" : ""}</span>
               {w.place && <span><MapPin size={13} aria-hidden="true" /> {w.place}</span>}
               <span>{day(w.start, w.tz)}, {time(w.start, w.tz)}{w.end ? `–${time(w.end, w.tz)}` : ""}</span>
+              {w.weather && <span className="trail-weather"><CloudSun size={13} aria-hidden="true" /> {weatherLine(w.weather)}</span>}
             </div>
           )}
         </header>
@@ -428,6 +562,12 @@ function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: 
               {w.kcal ? <Stat value={n(w.kcal, "kcal")} label="Active energy" /> : null}
             </div>
             <Profile profile={w.profile as Point[]} onHover={setHover} />
+            {w.repeat && (
+              <section aria-label="Every time on this route">
+                <div className="trail-section-title">Walked {w.repeat.count} times{w.repeat.fastest?.id === w.id ? " · this was your fastest" : w.repeat.fastest && w.minutes ? ` · ${Math.round(w.minutes - w.repeat.fastest.minutes)} min off your best` : ""}</div>
+                <RepeatTimes g={w.repeat} current={w.id} onPick={(other) => { if (other !== w.id) onOpen(other); }} />
+              </section>
+            )}
             {w.splits?.length > 1 && (
               <section aria-label="Splits">
                 <div className="trail-section-title">Splits</div>
