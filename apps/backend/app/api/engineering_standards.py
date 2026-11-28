@@ -12,7 +12,7 @@ from typing import Annotated
 import jwt
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.engineering_standards_ocr import extract_standard_pages
 from app.services.engineering_standards_search import rank_pages
@@ -32,6 +32,8 @@ class StandardDocumentResponse(BaseModel):
     authority: str
     reference: str | None = None
     edition: str | None = None
+    # 11.20: the topic it's filed under on the Standards screen (Hydrology and flooding, Drinking water, ...)
+    category: str | None = None
     filename: str
     uploaded_at: str
     pages: int
@@ -82,8 +84,18 @@ def _authenticate(authorization: Annotated[str | None, Header()] = None) -> None
         raise HTTPException(status_code=401, detail="Invalid session user.")
 
 
+_DOCUMENT_ID = re.compile(r"[0-9a-f]{32}")
+
+
 def _paths(document_id: str) -> tuple[Path, Path, Path]:
-    directory = LIBRARY_ROOT / document_id
+    # 11.20: an id is the uuid4().hex it was stored under, nothing that could step outside the library.
+    if not _DOCUMENT_ID.fullmatch(document_id or ""):
+        raise HTTPException(status_code=404, detail="Standard document not found.")
+    root = os.path.normpath(str(LIBRARY_ROOT))
+    candidate = os.path.normpath(os.path.join(root, document_id))
+    if not candidate.startswith(root + os.sep):
+        raise HTTPException(status_code=404, detail="Standard document not found.")
+    directory = Path(candidate)
     return directory, directory / "metadata.json", directory / "index.json"
 
 
@@ -120,6 +132,7 @@ def _normalise_metadata(metadata: dict) -> dict:
     value.setdefault("supersedes_id", None)
     value.setdefault("superseded_by_id", None)
     value.setdefault("revision", 1)
+    value.setdefault("category", None)
     return value
 
 
@@ -184,6 +197,7 @@ def _store_document(
     edition: str | None,
     revision: int = 1,
     supersedes_id: str | None = None,
+    category: str | None = None,
 ) -> dict:
     document_id = uuid.uuid4().hex
     directory, metadata_path, index_path = _paths(document_id)
@@ -198,6 +212,7 @@ def _store_document(
         "authority": authority.strip(),
         "reference": reference.strip() if reference else None,
         "edition": edition.strip() if edition else None,
+        "category": category.strip() if category and category.strip() else None,
         "filename": filename,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "pages": len(extraction.pages),
@@ -245,7 +260,7 @@ def _search(query: str, authority: str | None, include_archived: bool, limit: in
         if authority_value and authority_value not in str(metadata.get("authority", "")).lower():
             continue
         document = _response(metadata)
-        searchable_metadata = " ".join(str(metadata.get(key) or "") for key in ("title", "authority", "reference", "edition", "filename"))
+        searchable_metadata = " ".join(str(metadata.get(key) or "") for key in ("title", "authority", "reference", "edition", "category", "filename"))
         if not query_value:
             hits.append(StandardSearchHit(document=document))
         else:
@@ -275,6 +290,7 @@ async def upload_standard(
     authority: Annotated[str, Form(min_length=1, max_length=120)],
     reference: Annotated[str | None, Form(max_length=120)] = None,
     edition: Annotated[str | None, Form(max_length=120)] = None,
+    category: Annotated[str | None, Form(max_length=80)] = None,
     authorization: Annotated[str | None, Header()] = None,
 ) -> StandardDocumentResponse:
     _authenticate(authorization)
@@ -282,9 +298,28 @@ async def upload_standard(
     # Text extraction (and OCR for scanned PDFs, up to minutes) runs in a
     # worker thread so the rest of SirisOS stays responsive meanwhile.
     stored = await asyncio.to_thread(
-        _store_document, filename=filename, data=data, title=title, authority=authority, reference=reference, edition=edition
+        _store_document, filename=filename, data=data, title=title, authority=authority, reference=reference, edition=edition, category=category
     )
     return _response(stored)
+
+
+class StandardChange(BaseModel):
+    """11.20: correct a standard's details or its topic without uploading it again."""
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    authority: str | None = Field(default=None, min_length=1, max_length=120)
+    reference: str | None = Field(default=None, max_length=120)
+    edition: str | None = Field(default=None, max_length=120)
+    category: str | None = Field(default=None, max_length=80)
+
+
+@router.patch("/{document_id}", response_model=StandardDocumentResponse)
+async def change_standard(document_id: str, body: StandardChange, authorization: Annotated[str | None, Header()] = None) -> StandardDocumentResponse:
+    _authenticate(authorization)
+    metadata = _normalise_metadata(_load_metadata(document_id))
+    for key, value in body.model_dump(exclude_unset=True).items():
+        metadata[key] = (value.strip() or None) if isinstance(value, str) else value
+    _write_metadata(metadata)
+    return _response(metadata)
 
 
 @router.post("/{document_id}/replace", response_model=StandardDocumentResponse, status_code=201)
@@ -295,6 +330,7 @@ async def replace_standard(
     authority: Annotated[str | None, Form(max_length=120)] = None,
     reference: Annotated[str | None, Form(max_length=120)] = None,
     edition: Annotated[str | None, Form(max_length=120)] = None,
+    category: Annotated[str | None, Form(max_length=80)] = None,
     authorization: Annotated[str | None, Header()] = None,
 ) -> StandardDocumentResponse:
     _authenticate(authorization)
@@ -310,6 +346,7 @@ async def replace_standard(
         authority=(authority or old["authority"]),
         reference=reference if reference is not None else old.get("reference"),
         edition=edition if edition is not None else old.get("edition"),
+        category=category if category is not None else old.get("category"),
         revision=int(old.get("revision") or 1) + 1,
         supersedes_id=document_id,
     )
