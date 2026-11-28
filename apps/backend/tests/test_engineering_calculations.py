@@ -16,7 +16,7 @@ def _token() -> str:
     )
 
 
-def _create_standard(library_root: Path, document_id: str = "std-1") -> None:
+def _create_standard(library_root: Path, document_id: str = "0000000000000000000000000000a001") -> None:
     directory = library_root / document_id
     directory.mkdir(parents=True)
     (directory / "metadata.json").write_text(
@@ -111,12 +111,12 @@ def test_calculation_can_cite_a_standard(tmp_path: Path, monkeypatch) -> None:
                 title="Rising main headloss",
                 inputs={"flowM3s": 0.05},
                 results=[engineering_calculations.CalculationResultItem(label="Headloss", value="1.12 m")],
-                cited_standard_id="std-1",
+                cited_standard_id="0000000000000000000000000000a001",
             ),
             authorization,
         )
     )
-    assert created.cited_standard_id == "std-1"
+    assert created.cited_standard_id == "0000000000000000000000000000a001"
     assert created.cited_standard_label == "AS 3600 · 2018"
 
     # Citation label is resolved fresh on read, not frozen at creation time.
@@ -167,7 +167,7 @@ def test_calculation_citation_survives_when_standard_later_removed(tmp_path: Pat
                 title="Rising main headloss",
                 inputs={},
                 results=[],
-                cited_standard_id="std-1",
+                cited_standard_id="0000000000000000000000000000a001",
             ),
             authorization,
         )
@@ -176,10 +176,10 @@ def test_calculation_citation_survives_when_standard_later_removed(tmp_path: Pat
     # Simulate the cited standard becoming unreachable (e.g. removed from disk).
     import shutil
 
-    shutil.rmtree(library / "std-1")
+    shutil.rmtree(library / "0000000000000000000000000000a001")
 
     fetched = asyncio.run(engineering_calculations.get_calculation(created.id, authorization))
-    assert fetched.cited_standard_id == "std-1"
+    assert fetched.cited_standard_id == "0000000000000000000000000000a001"
     assert fetched.cited_standard_label == "AS 3600 · 2018"
 
 

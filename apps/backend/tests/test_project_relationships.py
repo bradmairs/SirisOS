@@ -25,7 +25,7 @@ def _create_project(authorization: str) -> projects.ProjectRecord:
     )
 
 
-def _create_standard(library_root: Path, document_id: str = "std-1") -> None:
+def _create_standard(library_root: Path, document_id: str = "0000000000000000000000000000a001") -> None:
     directory = library_root / document_id
     directory.mkdir(parents=True)
     (directory / "metadata.json").write_text(
@@ -165,19 +165,19 @@ def test_project_engineering_standard_relationship_lifecycle(tmp_path: Path, mon
             project.id,
             project_relationships.ProjectRelationshipCreateRequest(
                 target_type="engineering_standard",
-                target_id="std-1",
+                target_id="0000000000000000000000000000a001",
                 kind="references",
             ),
             authorization,
         )
     )
     assert relationship.target_type == "engineering_standard"
-    assert relationship.target_id == "std-1"
+    assert relationship.target_id == "0000000000000000000000000000a001"
     assert relationship.target_label == "AS 3600 · 2018"
 
     graph = asyncio.run(project_relationships.get_project_graph(project.id, authorization))
     assert len(graph.nodes) == 2
-    assert graph.nodes[1].id == "engineering_standard:std-1"
+    assert graph.nodes[1].id == "engineering_standard:0000000000000000000000000000a001"
     assert graph.nodes[1].node_type == "engineering_standard"
     assert graph.edges[0].kind == "references"
 
@@ -196,7 +196,7 @@ def test_engineering_standard_relationship_rejects_contains_kind(tmp_path: Path,
                 project.id,
                 project_relationships.ProjectRelationshipCreateRequest(
                     target_type="engineering_standard",
-                    target_id="std-1",
+                    target_id="0000000000000000000000000000a001",
                     kind="contains",
                 ),
                 authorization,
