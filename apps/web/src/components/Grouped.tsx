@@ -31,8 +31,10 @@ export function categoryOf(...words: (string | null | undefined)[]): string {
 }
 
 /** The latest few (`latest` sorts newest first), with a button to see every item sorted into categories (8.22). */
-export function LatestThenGrouped<T>({ items, latest = 5, label, category, newest, render }: {
+export function LatestThenGrouped<T>({ items, latest = 5, label, category, newest, render, by = "category", groupOrder }: {
   items: readonly T[]; latest?: number; label: string; category: (item: T) => string; newest: (a: T, b: T) => number; render: (item: T) => ReactNode;
+  /** 12.3: what the groups are, for the button ("by year"), and their order (default A to Z, Other last). */
+  by?: string; groupOrder?: (a: string, b: string) => number;
 }) {
   const [open, setOpen] = useState(false);
   const sorted = [...items].sort(newest);
@@ -41,7 +43,7 @@ export function LatestThenGrouped<T>({ items, latest = 5, label, category, newes
     const c = category(item);
     groups.set(c, [...(groups.get(c) ?? []), item]);
   }
-  const names = [...groups.keys()].sort((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b)));
+  const names = [...groups.keys()].sort(groupOrder ?? ((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b))));
   return (
     <>
       {open ? (
@@ -57,7 +59,7 @@ export function LatestThenGrouped<T>({ items, latest = 5, label, category, newes
       {sorted.length > latest && (
         <button type="button" className="show-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
-          {open ? `Just the latest ${latest}` : `Show all ${sorted.length}, by category`}
+          {open ? `Just the latest ${latest}` : `Show all ${sorted.length}, by ${by}`}
         </button>
       )}
     </>

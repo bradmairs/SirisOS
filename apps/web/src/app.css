@@ -1619,3 +1619,9 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .trail-years-chart__bar { height: 10px; border-radius: 99px; background: color-mix(in srgb, currentColor 10%, transparent); overflow: hidden; }
 .trail-years-chart__bar span { display: block; height: 100%; background: #38bdf8; border-radius: 99px; }
 .trail-years-chart__nums { font-size: 13px; opacity: 0.75; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* SirisTrails 12.3: walk markers when zoomed out */
+.trail-pin { box-sizing: border-box; display: flex !important; align-items: center; justify-content: center; border-radius: 50%; background: #38bdf8;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); color: #0f172a; font-size: 12px; font-weight: 700; cursor: pointer; }
+.trail-pin--hike { background: #f97316; }
+section[aria-label="Map of walks"] { scroll-margin-top: 84px; }  /* below the sticky header when scrolled to */
