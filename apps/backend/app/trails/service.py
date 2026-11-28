@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import secrets
 import threading
@@ -64,9 +65,14 @@ def _save(doc: dict[str, Any]) -> None:
 
 
 def _route_path(walk_id: str) -> Path:
+    """A walk's route file: the id is one SirisTrails made, and the path stays inside the routes folder."""
     if not re.fullmatch(r"w_[0-9a-f]{12}", walk_id or ""):
         raise KeyError(walk_id)
-    return root() / "routes" / f"{walk_id}.json"
+    folder = os.path.normpath(str(root() / "routes"))
+    candidate = os.path.normpath(os.path.join(folder, walk_id + ".json"))
+    if not candidate.startswith(folder + os.sep):
+        raise KeyError(walk_id)
+    return Path(candidate)
 
 
 # -- what counts ---------------------------------------------------------------------------------------------------
