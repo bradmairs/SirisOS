@@ -126,6 +126,9 @@ async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, 
             kept = trails.from_auto_export(body)
             if kept:
                 health_import.attempt(200, f"SirisTrails kept {len(kept)} walk{'s' if len(kept) != 1 else ''}", 0)
+                from app.trails import places as trail_places
+
+                trail_places.kick()  # 12.2.1: named now, not at the next 10-minute run
         except Exception:  # noqa: BLE001 - never stops the import
             pass
         trails.strip_routes(body)
