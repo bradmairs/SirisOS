@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -202,10 +203,17 @@ def _store_document(
     document_id = uuid.uuid4().hex
     directory, metadata_path, index_path = _paths(document_id)
     directory.mkdir(parents=True, exist_ok=False)
-    pdf_path = directory / filename
-    pdf_path.write_bytes(data)
-    extraction = extract_standard_pages(pdf_path)
-    index_path.write_text(json.dumps(extraction.pages, ensure_ascii=False), encoding="utf-8")
+    try:
+        pdf_path = directory / filename
+        pdf_path.write_bytes(data)
+        extraction = extract_standard_pages(pdf_path)
+        # 11.20.1: some PDFs (maths in Australian Rainfall and Runoff) give text with broken characters (lone surrogates);
+        # they become "?" rather than failing the upload.
+        text = json.dumps(extraction.pages, ensure_ascii=False).encode("utf-8", "replace").decode("utf-8")
+        index_path.write_text(text, encoding="utf-8")
+    except BaseException:
+        shutil.rmtree(directory, ignore_errors=True)  # never leave a half-stored standard behind
+        raise
     metadata = {
         "id": document_id,
         "title": title.strip(),

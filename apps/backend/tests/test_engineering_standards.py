@@ -104,3 +104,26 @@ def test_an_id_that_isnt_one_of_ours_is_not_found(tmp_path, monkeypatch) -> None
     c = TestClient(app, headers=AUTH)
     for bad in ("..%2F..%2Fetc", "abc", "Z" * 32):
         assert c.patch(f"/api/v1/engineering/standards/{bad}", json={"category": "x"}).status_code == 404
+
+
+def test_broken_characters_in_a_pdfs_text_dont_fail_the_upload(tmp_path, monkeypatch) -> None:
+    """11.20.1: ARR Book 1's maths extracts as lone surrogates, which can't be written as UTF-8."""
+    from types import SimpleNamespace
+
+    from app.api import engineering_standards as es
+
+    monkeypatch.setattr(es, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(es, "extract_standard_pages", lambda path: SimpleNamespace(
+        pages=[{"page": 1, "text": "Q = \ud835 x"}], indexed=True, extraction_method="native", ocr_attempted=False, ocr_error=None))
+    stored = es._store_document(filename="b.pdf", data=b"%PDF", title="T", authority="A", reference=None, edition=None)
+    assert "Q = ? x" in (tmp_path / stored["id"] / "index.json").read_text(encoding="utf-8")
+
+    def boom(path):
+        raise RuntimeError("extraction failed")
+
+    monkeypatch.setattr(es, "extract_standard_pages", boom)
+    try:
+        es._store_document(filename="c.pdf", data=b"%PDF", title="T", authority="A", reference=None, edition=None)
+    except RuntimeError:
+        pass
+    assert [p.name for p in tmp_path.iterdir()] == [stored["id"]]   # the failed one left nothing behind
