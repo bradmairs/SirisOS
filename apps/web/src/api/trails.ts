@@ -6,8 +6,17 @@ export interface Walk {
   minutes: number | null; km: number | null; kcal: number | null; avg_hr: number | null; max_hr: number | null;
   moving_minutes: number | null; ascent_m: number | null; descent_m: number | null; highest_m: number | null; lowest_m: number | null;
   pace_min_per_km: number | null; start_point: [number, number]; line: [number, number][]; source: string;
+  /** 12.1: from OpenStreetMap (places.py); name_auto is false once you've renamed it. */
+  place?: string | null; loop?: boolean; name_auto?: boolean; landmarks?: { peak?: string; trail?: string; park?: string; locality?: string };
 }
-export interface WalkDetail extends Walk { route: [number, number][]; profile: [number, number][] }
+export interface Split { km: number; length_km: number; minutes: number | null; pace_min_per_km: number | null; up_m: number; down_m: number }
+export interface WalkDetail extends Walk {
+  route: [number, number][];
+  /** [km, metres (smoothed), lat, lon] */
+  profile: [number, number, number, number][];
+  splits: Split[];
+  km_marks: [number, number, number][];
+}
 export interface Trails {
   walks: Walk[]; count: number; hikes: number; km: number; hours: number; ascent_m: number;
   highest_m: number | null; longest_km: number | null; years: number[];

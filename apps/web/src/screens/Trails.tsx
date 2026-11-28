@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Footprints, MapPinned, Mountain, Trash2, Upload } from "lucide-react";
+import { Footprints, MapPin, MapPinned, Mountain, Pencil, Trash2, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
 import { trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
 import { Glass } from "../components/Glass";
@@ -93,7 +93,7 @@ export function TrailsScreen() {
                     <span className="trail-dot" style={{ background: w.kind === "hike" ? HIKE : WALK }} aria-hidden="true" />
                     <span className="item__text">
                       <span className="item__title">{w.name}</span>
-                      <span className="item__subtitle">{day(w.start)} · {n(w.km, "km", 1)} · {hm(w.minutes)}{w.ascent_m ? ` · ↑${w.ascent_m} m` : ""}{w.kind === "hike" ? " · hike" : ""}</span>
+                      <span className="item__subtitle">{w.place ? `${w.place.split(",")[0]} · ` : ""}{day(w.start)} · {n(w.km, "km", 1)} · {hm(w.minutes)}{w.ascent_m ? ` · ↑${w.ascent_m} m` : ""}{w.kind === "hike" ? " · hike" : ""}</span>
                     </span>
                   </button>
                 </li>
@@ -135,64 +135,162 @@ function OverviewMap({ walks, onPick }: { walks: Walk[]; onPick: (id: string) =>
   );
 }
 
-function Profile({ profile }: { profile: [number, number][] }) {
+type Point = [number, number, number, number]; // km, metres, lat, lon
+
+/** The elevation profile (12.1): smoothed heights, labelled axes, and a finger or pointer on it shows that spot. */
+function Profile({ profile, onHover }: { profile: Point[]; onHover: (p: Point | null) => void }) {
+  const [at, setAt] = useState<number | null>(null);
   if (profile.length < 2) return null;
-  const W = 600, H = 140, maxX = profile[profile.length - 1][0] || 1;
+  const W = 600, H = 150, L = 44, B = 22, maxX = profile[profile.length - 1][0] || 1;
   const eles = profile.map((p) => p[1]);
-  const lo = Math.min(...eles), hi = Math.max(...eles), span = Math.max(hi - lo, 10);
-  const pts = profile.map(([x, e]) => `${(x / maxX) * W},${H - ((e - lo) / span) * (H - 10) - 5}`).join(" ");
+  const lo = Math.min(...eles), hi = Math.max(...eles);
+  const span = Math.max(hi - lo, 40);                  // a flat walk stays flat on the chart
+  const base = lo - (span - (hi - lo)) / 2;
+  const x = (km: number) => L + (km / maxX) * (W - L);
+  const y = (m: number) => (H - B) - ((m - base) / span) * (H - B - 8);
+  const pts = profile.map((p) => `${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(" ");
+  const pick = (clientX: number, rect: DOMRect) => {
+    const km = ((clientX - rect.left) / rect.width * W - L) / (W - L) * maxX;
+    let best = 0;
+    for (let i = 1; i < profile.length; i++) if (Math.abs(profile[i][0] - km) < Math.abs(profile[best][0] - km)) best = i;
+    setAt(best); onHover(profile[best]);
+  };
+  const p = at != null ? profile[at] : null;
   return (
-    <figure style={{ margin: 0 }} aria-label="Elevation profile">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label={`Elevation from ${Math.round(lo)} m to ${Math.round(hi)} m`}>
-        <polygon points={`0,${H} ${pts} ${W},${H}`} fill="color-mix(in srgb, #f97316 25%, transparent)" />
-        <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    <figure className="trail-profile" style={{ margin: 0 }} aria-label="Elevation profile">
+      <figcaption className="trail-section-title">Elevation</figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Elevation from ${Math.round(lo)} m to ${Math.round(hi)} m over ${maxX.toFixed(1)} km`}
+        onPointerMove={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
+        onPointerDown={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
+        onPointerLeave={() => { setAt(null); onHover(null); }} style={{ touchAction: "pan-y" }}>
+        {[hi, lo].map((m) => (
+          <g key={m}>
+            <line x1={L} x2={W} y1={y(m)} y2={y(m)} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 4" />
+            <text x={L - 6} y={y(m) + 4} textAnchor="end" fontSize="12" fill="currentColor" opacity="0.6">{Math.round(m)} m</text>
+          </g>
+        ))}
+        <polygon points={`${x(0)},${H - B} ${pts} ${x(maxX)},${H - B}`} fill="color-mix(in srgb, #f97316 22%, transparent)" />
+        <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinejoin="round" />
+        {[0, maxX / 2, maxX].map((km, i) => (
+          <text key={i} x={x(km)} y={H - 4} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} fontSize="12" fill="currentColor" opacity="0.6">{km.toFixed(km < 10 ? 1 : 0)} km</text>
+        ))}
+        {p && (
+          <g>
+            <line x1={x(p[0])} x2={x(p[0])} y1={0} y2={H - B} stroke="currentColor" strokeOpacity="0.5" />
+            <circle cx={x(p[0])} cy={y(p[1])} r="5" fill="#f97316" stroke="#fff" strokeWidth="2" />
+          </g>
+        )}
       </svg>
-      <figcaption className="muted row" style={{ fontSize: 12, justifyContent: "space-between" }}><span>{Math.round(lo)} m</span><span>{maxX.toFixed(1)} km</span><span>{Math.round(hi)} m</span></figcaption>
+      <div className="muted trail-profile__readout" aria-live="polite">{p ? `${p[0].toFixed(2)} km · ${Math.round(p[1])} m` : "Touch the chart to see where that is on the map"}</div>
     </figure>
   );
 }
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return <div className="trail-stat"><div className="trail-stat__value">{value}</div><div className="trail-stat__label">{label}</div></div>;
+}
+
+const pace = (v: number | null) => (v ? `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, "0")} /km` : "–");
+const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: () => void; onChanged: () => void; onDelete: (w: Walk) => void }) {
   const [w, setW] = useState<WalkDetail | null>(null);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [hover, setHover] = useState<Point | null>(null);
+  const marker = useRef<L.CircleMarker | null>(null);
   useEffect(() => { void trails.get(id).then((x) => { setW(x); setName(x.name); setNote(x.note); }); }, [id]);
   const el = useMap((_, layer) => {
+    marker.current = null;
     if (!w || w.route.length < 2) return null;
-    const line = L.polyline(w.route, { color: w.kind === "hike" ? HIKE : WALK, weight: 5 }).addTo(layer);
-    L.circleMarker(w.route[0], { radius: 6, color: "#fff", fillColor: "#22c55e", fillOpacity: 1 }).bindTooltip("Start").addTo(layer);
-    L.circleMarker(w.route[w.route.length - 1], { radius: 6, color: "#fff", fillColor: "#ef4444", fillOpacity: 1 }).bindTooltip("Finish").addTo(layer);
+    const colour = w.kind === "hike" ? HIKE : WALK;
+    L.polyline(w.route, { color: "#0f172a", weight: 8, opacity: 0.35 }).addTo(layer);   // a dark edge: readable on satellite
+    const line = L.polyline(w.route, { color: colour, weight: 5 }).addTo(layer);
+    for (const [km, lat, lon] of w.km_marks ?? []) {
+      L.marker([lat, lon], { icon: L.divIcon({ className: "trail-km", html: String(km), iconSize: [20, 20] }), interactive: false }).addTo(layer);
+    }
+    const first = w.route[0], last = w.route[w.route.length - 1];
+    if (w.loop) {
+      L.circleMarker(first, { radius: 8, color: "#fff", weight: 2, fillColor: "#22c55e", fillOpacity: 1 }).bindTooltip("Start and finish").addTo(layer);
+    } else {
+      L.circleMarker(first, { radius: 7, color: "#fff", weight: 2, fillColor: "#22c55e", fillOpacity: 1 }).bindTooltip("Start").addTo(layer);
+      L.circleMarker(last, { radius: 7, color: "#fff", weight: 2, fillColor: "#ef4444", fillOpacity: 1 }).bindTooltip("Finish").addTo(layer);
+    }
+    marker.current = L.circleMarker(first, { radius: 7, color: "#fff", weight: 3, fillColor: "#f97316", fillOpacity: 0, opacity: 0 }).addTo(layer);
     return line.getBounds();
   }, [w]);
+  useEffect(() => {
+    if (!marker.current) return;
+    if (hover) marker.current.setLatLng([hover[2], hover[3]]).setStyle({ opacity: 1, fillOpacity: 1 });
+    else marker.current.setStyle({ opacity: 0, fillOpacity: 0 });
+  }, [hover]);
   async function save() {
     if (!w) return;
-    await trails.change(w.id, { name, note });
-    onChanged();
+    if (name.trim() !== w.name || note !== w.note) { await trails.change(w.id, { name, note }); onChanged(); }
   }
+  const close = () => { void save(); onClose(); };
   return (
-    <Sheet label={w?.name ?? "Walk"} onClose={() => { void save(); onClose(); }}>
-      <div className="stack">
-        <input className="field app-sheet__name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Name" />
-        {w && <p className="muted" style={{ margin: 0 }}>{day(w.start)} · {w.kind === "hike" ? "Hike" : "Walk"} · from {w.source === "apple_health_export" ? "the Apple Health export" : "Health Auto Export"}</p>}
+    <Sheet label={w?.name ?? "Walk"} onClose={close}>
+      <div className="stack trail-sheet">
+        <header className="trail-head">
+          {editing ? (
+            <input className="field" value={name} autoFocus onChange={(e) => setName(e.target.value)} onBlur={() => { setEditing(false); void save(); }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} aria-label="Name" />
+          ) : (
+            <h2 className="trail-head__name">{name || "Walk"}
+              <button type="button" className="icon-link" onClick={() => setEditing(true)} aria-label="Rename"><Pencil size={16} aria-hidden="true" /></button>
+            </h2>
+          )}
+          {w && (
+            <div className="trail-head__meta">
+              <span className="chip" style={{ background: `color-mix(in srgb, ${w.kind === "hike" ? HIKE : WALK} 25%, transparent)` }}>{w.kind === "hike" ? "Hike" : "Walk"}{w.loop ? " · loop" : ""}</span>
+              {w.place && <span><MapPin size={13} aria-hidden="true" /> {w.place}</span>}
+              <span>{day(w.start)}, {time(w.start)}{w.end ? `–${time(w.end)}` : ""}</span>
+            </div>
+          )}
+        </header>
         <div ref={el} className="trail-map trail-map--small" role="application" aria-label="Route" />
         {w && (
           <>
-            <div className="metrics">
-              <div><div className="metric__value">{n(w.km, "km", 2)}</div><div className="metric__label">distance</div></div>
-              <div><div className="metric__value">{hm(w.minutes)}</div><div className="metric__label">time{w.moving_minutes ? ` (${hm(w.moving_minutes)} moving)` : ""}</div></div>
-              <div><div className="metric__value">{w.pace_min_per_km ? `${Math.floor(w.pace_min_per_km)}:${String(Math.round((w.pace_min_per_km % 1) * 60)).padStart(2, "0")}/km` : "–"}</div><div className="metric__label">pace</div></div>
-              <div><div className="metric__value">{n(w.ascent_m, "m")}</div><div className="metric__label">ascent (↓{n(w.descent_m, "m")})</div></div>
-              <div><div className="metric__value">{n(w.highest_m, "m")}</div><div className="metric__label">highest</div></div>
-              <div><div className="metric__value">{w.avg_hr ? `${w.avg_hr} bpm` : "–"}</div><div className="metric__label">heart rate{w.max_hr ? ` (max ${w.max_hr})` : ""}</div></div>
-              <div><div className="metric__value">{n(w.kcal, "kcal")}</div><div className="metric__label">energy</div></div>
+            <div className="trail-stats">
+              <Stat value={n(w.km, "km", 2)} label="Distance" />
+              <Stat value={hm(w.minutes)} label={w.moving_minutes ? `Time · ${hm(w.moving_minutes)} moving` : "Time"} />
+              <Stat value={pace(w.pace_min_per_km)} label="Average pace" />
+              <Stat value={n(w.ascent_m, "m")} label={`Ascent · ${n(w.descent_m, "m")} descent`} />
+              <Stat value={n(w.highest_m, "m")} label={w.lowest_m != null ? `Highest · lowest ${w.lowest_m} m` : "Highest"} />
+              {w.avg_hr ? <Stat value={`${w.avg_hr} bpm`} label={w.max_hr ? `Heart rate · max ${w.max_hr}` : "Heart rate"} /> : null}
+              {w.kcal ? <Stat value={n(w.kcal, "kcal")} label="Active energy" /> : null}
             </div>
-            <Profile profile={w.profile} />
+            <Profile profile={w.profile as Point[]} onHover={setHover} />
+            {w.splits?.length > 1 && (
+              <section aria-label="Splits">
+                <div className="trail-section-title">Splits</div>
+                <table className="trail-splits">
+                  <thead><tr><th>km</th><th>Time</th><th>Pace</th><th>Climb</th></tr></thead>
+                  <tbody>
+                    {w.splits.map((s) => {
+                      const fastest = Math.min(...w.splits.filter((x) => x.pace_min_per_km).map((x) => x.pace_min_per_km!));
+                      return (
+                        <tr key={s.km}>
+                          <td>{s.length_km < 1 ? s.length_km.toFixed(2) : s.km}</td>
+                          <td>{s.minutes != null ? hm(s.minutes).replace(/^0h /, "") : "–"}</td>
+                          <td className={s.pace_min_per_km === fastest ? "trail-splits__best" : undefined}>{pace(s.pace_min_per_km)}</td>
+                          <td>{s.up_m || s.down_m ? `↑${s.up_m} ↓${s.down_m}` : "–"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </section>
+            )}
             <textarea className="field" rows={3} placeholder="Notes: the track, the weather, who came" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Notes" />
             <div className="row">
-              <button type="button" className="button button--small button--primary" onClick={() => { void save(); onClose(); }}>Done</button>
+              <button type="button" className="button button--small button--primary" onClick={close}>Done</button>
               <span className="spacer" />
               <button type="button" className="button button--small" onClick={() => onDelete(w)}><Trash2 size={14} aria-hidden="true" /> Delete</button>
             </div>
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>From {w.source === "apple_health_export" ? "the Apple Health export" : "Health Auto Export"}.{w.name_auto !== false && w.place ? " Named from OpenStreetMap; rename it any time." : ""}</p>
           </>
         )}
       </div>

@@ -8,11 +8,12 @@ import { jsonResponse, mockFetch, signIn } from "../test/helpers";
 // jsdom can't draw a map: Leaflet is replaced by something that records what's drawn.
 const drawn: { lines: number } = { lines: 0 };
 vi.mock("leaflet", () => {
-  const chain = () => ({ addTo: () => chain(), bindTooltip: () => chain(), on: () => chain(), getBounds: () => ({ isValid: () => true }) });
+  const chain = (): Record<string, unknown> => ({ addTo: () => chain(), bindTooltip: () => chain(), on: () => chain(), getBounds: () => ({ isValid: () => true }),
+    setLatLng: () => chain(), setStyle: () => chain() });
   const L = {
     map: () => ({ fitBounds: vi.fn(), setView: vi.fn(), invalidateSize: vi.fn(), remove: vi.fn() }),
     tileLayer: () => chain(), control: { layers: () => chain() }, layerGroup: () => ({ addTo: () => ({ clearLayers: vi.fn() }), clearLayers: vi.fn() }),
-    polyline: () => { drawn.lines += 1; return chain(); }, circleMarker: () => chain(),
+    polyline: () => { drawn.lines += 1; return chain(); }, circleMarker: () => chain(), marker: () => chain(), divIcon: () => ({}),
     latLngBounds: () => ({ extend: vi.fn(), isValid: () => true }),
   };
   return { default: L, ...L };
@@ -35,7 +36,10 @@ describe("SirisTrails 11.22", () => {
     const calls = mockFetch({
       "/api/v1/trails/import": () => jsonResponse({ running: false, at: "2026-11-28T00:00:00Z", added: 2, already_here: 0, no_route: 1 }),
       "/api/v1/trails/w_000000000001": (_u, init) => init.method === "PATCH" ? jsonResponse(walk("w_000000000001", "hike", "Mt Feathertop"))
-        : jsonResponse({ ...walk("w_000000000001", "hike", "Hike, Sat 2 Mar 2024"), route: [[-36.9, 147.2], [-36.8, 147.3]], profile: [[0, 1400], [9.4, 1922]] }),
+        : jsonResponse({ ...walk("w_000000000001", "hike", "Mount Feathertop"), place: "Harrietville, Victoria, Australia", loop: false,
+          route: [[-36.9, 147.2], [-36.8, 147.3]], profile: [[0, 1400, -36.9, 147.2], [4.7, 1700, -36.85, 147.25], [9.4, 1922, -36.8, 147.3]],
+          splits: [{ km: 1, length_km: 1, minutes: 14, pace_min_per_km: 14, up_m: 60, down_m: 0 }, { km: 2, length_km: 0.4, minutes: 7, pace_min_per_km: 17.5, up_m: 20, down_m: 0 }],
+          km_marks: [[1, -36.89, 147.21]] }),
       "/api/v1/trails": () => jsonResponse({ walks: [walk("w_000000000001", "hike", "Hike, Sat 2 Mar 2024"), walk("w_000000000002", "walk", "Walk, Sun 3 Mar 2024")],
         count: 2, hikes: 1, km: 18.8, hours: 4.5, ascent_m: 1080, highest_m: 1922, longest_km: 9.4, years: [2024] }),
     });
@@ -46,11 +50,15 @@ describe("SirisTrails 11.22", () => {
     expect(drawn.lines).toBe(2);
     expect(screen.getByText(/2 added, 0 already here, 1 with no route recorded/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Hike, Sat 2 Mar 2024/ }));
-    expect(await screen.findByRole("img", { name: "Elevation from 1400 m to 1922 m" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Mount Feathertop/ })).toBeInTheDocument();
+    expect(screen.getByText(/Harrietville, Victoria, Australia/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Elevation from 1400 m to 1922 m over 9.4 km" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("14:00 /km");               // the fastest kilometre
+    expect(screen.getByText("0.40")).toBeInTheDocument();                           // the last part-kilometre
+    await user.click(screen.getByRole("button", { name: "Rename" }));
     const name = screen.getByRole("textbox", { name: "Name" });
     await user.clear(name);
-    await user.type(name, "Mt Feathertop");
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    await waitFor(() => expect(calls.some((c) => c.init.method === "PATCH" && String(c.init.body).includes("Mt Feathertop"))).toBe(true));
+    await user.type(name, "Feathertop via the Razorback{Enter}");
+    await waitFor(() => expect(calls.some((c) => c.init.method === "PATCH" && String(c.init.body).includes("Razorback"))).toBe(true));
   });
 });

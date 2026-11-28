@@ -173,6 +173,10 @@ async def lifespan(application):
             from app.engineering import standards_updates
 
             tasks.append(asyncio.create_task(standards_updates.loop()))  # 11.21: new versions of standards, weekly
+        from app.trails import places as trail_places
+
+        if trail_places.enabled():
+            tasks.append(asyncio.create_task(trail_places.loop()))  # 12.1: walks named from where they went
         try:
             yield state
         finally:

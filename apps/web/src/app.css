@@ -1572,3 +1572,21 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .trail-map--small { height: 300px; border-radius: 12px; overflow: hidden; }
 .trail-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex: none; }
 .leaflet-container { font: inherit; }
+
+/* SirisTrails 12.1: the walk screen */
+.trail-head { display: grid; gap: 8px; }
+.trail-head__name { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 24px; line-height: 1.2; }
+.trail-head__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; color: var(--ink-2, inherit); opacity: 0.85; }
+.trail-head__meta span { display: inline-flex; align-items: center; gap: 4px; }
+.trail-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.trail-stat { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, currentColor 6%, transparent); min-width: 0; }
+.trail-stat__value { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trail-stat__label { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+.trail-section-title { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; margin: 4px 0 6px; }
+.trail-profile svg { display: block; overflow: visible; cursor: crosshair; }
+.trail-profile__readout { font-size: 12px; text-align: center; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.trail-splits { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.trail-splits th { text-align: left; font-weight: 500; font-size: 12px; opacity: 0.6; padding: 4px 6px; }
+.trail-splits td { padding: 6px; border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
+.trail-splits__best { color: #22c55e; font-weight: 600; }
+.trail-km { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0f172a; color: #fff; font-size: 11px; font-weight: 600; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }

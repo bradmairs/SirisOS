@@ -202,7 +202,7 @@ def add(*, kind: str, start: datetime, end: datetime | None, points: list[list[f
         dist_km = km if km else m["route_km"]
         walk = {
             "id": walk_id, "kind": kind, "start": start.isoformat(), "end": end.isoformat() if end else None,
-            "name": f"{'Hike' if kind == 'hike' else 'Walk'}, {local.strftime('%a %-d %b %Y')}", "note": "",
+            "name": f"{'Hike' if kind == 'hike' else 'Walk'}, {local.strftime('%a %-d %b %Y')}", "name_auto": True, "note": "",
             "minutes": round(minutes, 1) if minutes else None, "km": round(dist_km, 2) if dist_km else None,
             "kcal": round(kcal) if kcal else None, "avg_hr": round(avg_hr) if avg_hr else None, "max_hr": round(max_hr) if max_hr else None,
             **{k: v for k, v in m.items() if k != "route_km"},
@@ -224,10 +224,29 @@ def change(walk_id: str, name: str | None = None, note: str | None = None) -> di
         walk = next((w for w in doc["walks"] if w["id"] == walk_id), None)
         if walk is None:
             raise KeyError(walk_id)
-        if name is not None and name.strip():
+        if name is not None and name.strip() and name.strip() != walk["name"]:
             walk["name"] = name.strip()[:120]
+            walk["name_auto"] = False  # 12.1: yours now; the place lookup won't change it
         if note is not None:
             walk["note"] = note.strip()[:2000]
+        _save(doc)
+        return walk
+
+
+def set_place(walk_id: str, info: dict[str, Any]) -> dict[str, Any] | None:
+    """12.1: what's around the walk (places.py): its place line, and its name unless you've given it one."""
+    with _lock:
+        doc = load()
+        walk = next((w for w in doc["walks"] if w["id"] == walk_id), None)
+        if walk is None:
+            return None
+        walk["place"] = info.get("place")
+        walk["loop"] = info.get("loop")
+        walk["landmarks"] = {k: info.get(k) for k in ("peak", "trail", "park", "locality") if info.get(k)}
+        # Overpass couldn't be reached: the place-name fallback stands, and it's looked up again on a later run.
+        walk["names_retry"] = (walk.get("names_retry") or 0) + 1 if info.get("retry") else 0
+        if walk.get("name_auto", True) and info.get("name"):
+            walk["name"] = info["name"][:120]
         _save(doc)
         return walk
 
@@ -244,20 +263,56 @@ def delete(walk_id: str) -> None:
         _route_path(walk_id).unlink(missing_ok=True)
 
 
+def _smooth(values: list[float], window: int = 9) -> list[float]:
+    """A centred moving average: GPS height wobbles a few metres point to point."""
+    half, out = window // 2, []
+    for i in range(len(values)):
+        chunk = values[max(0, i - half): i + half + 1]
+        out.append(sum(chunk) / len(chunk))
+    return out
+
+
+def splits(points: list[list[float]]) -> list[dict[str, Any]]:
+    """Each kilometre: time, pace and climb (the last one may be part of a kilometre)."""
+    out: list[dict[str, Any]] = []
+    run, km_start_i, next_km = 0.0, 0, 1000.0
+    for i in range(1, len(points)):
+        run += haversine((points[i - 1][0], points[i - 1][1]), (points[i][0], points[i][1]))
+        last = i == len(points) - 1
+        if run >= next_km or last:
+            a, b = points[km_start_i], points[i]
+            length = (run - (next_km - 1000)) / 1000 if last and run < next_km else 1.0
+            secs = (b[3] - a[3]) if a[3] is not None and b[3] is not None else None
+            eles = [p[2] for p in points[km_start_i: i + 1] if p[2] is not None]
+            up, down = climb(eles)
+            if length >= 0.05:
+                out.append({"km": len(out) + 1, "length_km": round(length, 2), "minutes": round(secs / 60, 1) if secs else None,
+                            "pace_min_per_km": round(secs / 60 / length, 1) if secs and length else None, "up_m": up, "down_m": down})
+            km_start_i, next_km = i, next_km + 1000
+    return out
+
+
 def detail(walk_id: str) -> dict[str, Any]:
     walk = next((w for w in load()["walks"] if w["id"] == walk_id), None)
     if walk is None:
         raise KeyError(walk_id)
     points = json.loads(_route_path(walk_id).read_text(encoding="utf-8"))["points"]
-    profile, run = [], 0.0
-    for i, p in enumerate(points):
-        if i:
-            run += haversine((points[i - 1][0], points[i - 1][1]), (p[0], p[1]))
-        if p[2] is not None:
-            profile.append([round(run / 1000, 3), round(p[2], 1)])
-    step = max(1, len(profile) // 400)
+    run, dists = 0.0, [0.0]
+    for a, b in zip(points, points[1:]):
+        run += haversine((a[0], a[1]), (b[0], b[1]))
+        dists.append(run)
+    with_ele = [(i, p[2]) for i, p in enumerate(points) if p[2] is not None]
+    smooth = _smooth([e for _, e in with_ele])
+    step = max(1, len(with_ele) // 400)
+    profile = [[round(dists[i] / 1000, 3), round(s, 1), round(points[i][0], 6), round(points[i][1], 6)]
+               for (i, _), s in list(zip(with_ele, smooth))[::step]]
+    km_marks, next_km = [], 1000.0
+    for i, d in enumerate(dists):
+        if d >= next_km:
+            km_marks.append([int(next_km // 1000), round(points[i][0], 6), round(points[i][1], 6)])
+            next_km += 1000
     return {**walk, "route": [[round(p[0], 6), round(p[1], 6)] for p in points[:: max(1, len(points) // 2000)]],
-            "profile": profile[::step]}
+            "profile": profile, "splits": splits(points), "km_marks": km_marks}
 
 
 def summary(year: int | None = None) -> dict[str, Any]:
