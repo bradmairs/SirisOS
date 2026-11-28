@@ -288,3 +288,17 @@ def test_each_walk_has_its_own_time_zone(tmp_path, monkeypatch) -> None:
     assert service.tz_for("CN", 22.35, 114.18) == "Asia/Shanghai"                # Hong Kong: Nominatim says China; the same UTC+8
     assert service.tz_for(None, 0, 0) is None
     service._zones.cache_clear(); service.tz_for.cache_clear()
+
+
+
+def test_a_missing_state_is_asked_for_at_state_level(monkeypatch) -> None:
+    from app.trails import places
+
+    class Fake:
+        def __init__(self, data): self.data = data
+        def json(self): return self.data
+
+    answers = iter([Fake({"address": {"city": "Shinjuku", "ISO3166-2-lvl4": "JP-13", "country": "Japan", "country_code": "jp"}}), Fake({"name": "Tokyo"})])
+    monkeypatch.setattr(places, "_polite", lambda *a, **k: next(answers))
+    got = places.where(None, 35.69, 139.70)
+    assert (got["region"], got["place"]) == ("Tokyo", "Shinjuku, Tokyo, Japan")

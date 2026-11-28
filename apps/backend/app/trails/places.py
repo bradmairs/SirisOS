@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # The main public Overpass server, then a mirror: they're often busy, so each is tried with a pause between.
 OVERPASS = [u for u in os.getenv("SIRISOS_TRAILS_OVERPASS", "https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter").split(",") if u]
 MAX_TRIES = 4
-PLACE_VERSION = 2  # 12.2.2: Japan's prefectures (address "province")  # runs that couldn't reach Overpass before a walk is left with its place-name fallback
+PLACE_VERSION = 3  # 12.2.2: Japan's prefectures (address "province"); 12.2.4: regions asked for at state level  # runs that couldn't reach Overpass before a walk is left with its place-name fallback
 NOMINATIM = os.getenv("SIRISOS_TRAILS_NOMINATIM", "https://nominatim.openstreetmap.org/reverse")
 UA = "SirisOS-SirisTrails/12 (self-hosted personal walk log)"
 PEAK_M = 250
@@ -151,6 +151,14 @@ def where(client: httpx.Client, lat: float, lon: float) -> dict[str, Any]:
     """12.2: Nominatim's address for a point: locality, state or region, country (one fast request)."""
     r = _polite(client, "GET", NOMINATIM, params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 14, "addressdetails": 1})
     addr = (r.json() or {}).get("address") or {}
+    if not (addr.get("state") or addr.get("province") or addr.get("region") or addr.get("state_district")) and addr.get("country"):
+        # 12.2.4: Tokyo's address has no state or province (only ISO3166-2 JP-13): ask at state level for its name
+        try:
+            top = _polite(client, "GET", NOMINATIM, params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 5}).json() or {}
+            if top.get("name") and top.get("name") != addr.get("country"):
+                addr = {**addr, "state": top["name"]}
+        except (httpx.HTTPError, ValueError):
+            pass
     local, place = _place_line(addr)
     return {"locality": local, "place": place or None,
             "region": addr.get("state") or addr.get("province") or addr.get("region") or addr.get("state_district"),  # Japan: province
