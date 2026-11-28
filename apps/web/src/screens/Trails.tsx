@@ -64,7 +64,8 @@ export function TrailsScreen() {
   const [focus, setFocusState] = useState<{ label: string; walks: Walk[] } | null>(null);
   const setFocus = (f: { label: string; walks: Walk[] } | null) => {  // 12.2.3: and show the map, which is above the list
     setFocusState(f);
-    if (f) document.querySelector('[aria-label="Map of walks"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const map = f ? document.querySelector<HTMLElement>('[aria-label="Map of walks"]') : null;
+    if (map && typeof map.scrollIntoView === "function") map.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const d = res.data;
   const walks = useMemo(() => (d?.walks ?? []).filter((w) => !gone.has(w.id)), [d, gone]);
