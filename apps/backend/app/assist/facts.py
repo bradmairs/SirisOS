@@ -9,6 +9,8 @@ Read only, and one of the routes SirisAI's service key opens (service_key.py). T
 - **meals**: the dinners planned lately, and when `q` was last on the plan.
 - **goals**: this year's goals, how far along, the pace, and a step for any that's behind.
 - **plan**: today's plan.
+- **walks** (12.6): SirisTrails' walks and hikes in a period (default this year), or every one matching `q` (a name,
+  place, peak, park or track), with distance, time, climb and the weather.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from typing import Any
 
 from app.hub.service import Hub
 
-TOPICS = ("spending", "budget", "subscriptions", "meals", "goals", "plan")
+TOPICS = ("spending", "budget", "subscriptions", "meals", "goals", "plan", "walks")
 
 
 def period(name: str | None, today: date, start: str | None = None, end: str | None = None) -> tuple[date, date, str]:
@@ -105,4 +107,11 @@ async def answer(hub: Hub, topic: str, today: date, now: Any, q: str | None = No
         from app.assist import dayplan
 
         return await dayplan.today(hub, now)
+    if topic == "walks":
+        from datetime import datetime, timezone
+
+        from app.trails import explore
+
+        s, e, label = period(name or ("this-year" if not (start or end) else None), today, start, end)
+        return {**explore.facts(datetime.now(timezone.utc), s.isoformat(), e.isoformat(), q), "period": None if q else label}
     raise ValueError(f"topic must be one of: {', '.join(TOPICS)}")

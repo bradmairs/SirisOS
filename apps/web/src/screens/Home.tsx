@@ -50,6 +50,7 @@ const HomeJobsWidget = lazyCard(() => import("./Maintenance").then((m) => m.Home
 const TodaysRunWidget = lazyCard(() => import("./Training").then((m) => m.TodaysRunWidget));
 const ReadinessWidget = lazyCard(() => import("./Health").then((m) => m.ReadinessWidget));
 const BodyRingsWidget = lazyCard(() => import("./Health").then((m) => m.BodyRingsWidget));
+const TrailsHomeCard = lazyCard(() => import("./TrailsHome").then((m) => m.TrailsHomeCard));
 const InboxPanel = lazyCard(() => import("../components/Inbox").then((m) => m.InboxPanel));
 
 const REFRESH_MS = 60_000;
@@ -293,6 +294,7 @@ export function Home() {
     { id: "readiness", label: "Readiness", node: !hideMine && <ReadinessWidget /> },
     { id: "habits", label: "Habits", node: !hideMine && <HabitsHomeWidget /> },
     { id: "training", label: "Today's run", node: !hideMine && <TodaysRunWidget /> },
+    { id: "trails", label: "Walks", node: !hideMine && <TrailsHomeCard /> },
     ...(appsLoading
       ? [0, 1].map((i) => ({ id: `loading-app-${i}`, label: "Loading apps", node: <LoadingWidget title="Loading apps" delay={60 + i * 50} /> }))
       : widgets.map((app, i) => ({ id: `app:${app.id}`, label: app.name, node: <WidgetCard app={app} delay={i * 50} /> }))),

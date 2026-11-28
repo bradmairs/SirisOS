@@ -48,6 +48,20 @@ export interface Trails {
   repeats: RepeatRoute[]; landmarks: { peaks: Landmark[]; parks: Landmark[]; trails: Landmark[] }; trips: WalkTrip[];
   weather_records: { hottest: TrailRecord | null; coldest: TrailRecord | null; wettest: TrailRecord | null; windiest: TrailRecord | null };
 }
+/** 12.6 */
+export interface StreetsSuburb { locality: string; region: string | null; country: string | null; walks: number; slug: string; ready: boolean;
+  streets?: number; walked?: number; km?: number; km_walked?: number; share?: number; fetched?: string }
+export interface StreetsDetail { locality: string; region: string | null; boundary: [number, number][][]; streets: number; walked: number;
+  km: number; km_walked: number; share: number; lines: { name: string; line: [number, number][]; walked: boolean }[] }
+export interface WishHit { osm: string; name: string; kind: "track" | "peak" | "park" | "place"; where: string; lat: number; lon: number }
+export interface Wish { id: string; osm: string; name: string; kind: WishHit["kind"]; where: string; center: [number, number]; lines: [number, number][][];
+  area: [number, number][][]; km: number | null; ascent_m: number | null; highest_m: number | null; added: string;
+  done: { walk: string; name: string; start: string } | null }
+export interface TrailsHome {
+  latest: Pick<Walk, "id" | "name" | "kind" | "start" | "tz" | "km" | "minutes" | "ascent_m" | "place" | "weather"> & { times: number | null; best: boolean };
+  year: { year: number; walks: number; km: number; hours: number; ascent_m: number }; last_30_days: { walks: number; km: number };
+  wishlist: { open: number; done: number };
+}
 export interface TrailsImport { running?: boolean; error?: string | null; at?: string; workouts?: number; added?: number; already_here?: number; no_route?: number }
 
 const T = "/api/v1/trails";
@@ -74,6 +88,14 @@ export const trails = {
   /** A blob: URL (images need the sign-in header, which an <img> can't send). */
   photoUrl: async (id: string, photo: string, thumb: boolean) => URL.createObjectURL(await (await request(`${T}/${id}/photos/${photo}${thumb ? "?thumb=true" : ""}`)).blob()),
   removePhoto: (id: string, photo: string) => api<{ ok: boolean }>(`${T}/${id}/photos/${photo}`, { method: "DELETE" }),
+  // 12.6
+  home: () => api<TrailsHome | null>(`${T}/home`),
+  streets: () => api<StreetsSuburb[]>(`${T}/streets`),
+  street: (slug: string) => api<StreetsDetail>(`${T}/streets/${slug}`),
+  wishlist: () => api<Wish[]>(`${T}/wishlist`),
+  searchWishes: (q: string) => api<WishHit[]>(`${T}/wishlist/search?q=${encodeURIComponent(q)}`),
+  addWish: (osm: string) => api<Wish>(`${T}/wishlist`, { method: "POST", body: JSON.stringify({ osm }) }),
+  removeWish: (id: string) => api<{ ok: boolean }>(`${T}/wishlist/${id}`, { method: "DELETE" }),
   importStatus: () => api<TrailsImport>(`${T}/import`),
   uploadExport: (file: File) => {
     const form = new FormData();
