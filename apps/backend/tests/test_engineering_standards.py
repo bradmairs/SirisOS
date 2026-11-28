@@ -91,3 +91,16 @@ def test_a_standard_has_a_topic_and_its_details_can_be_corrected(tmp_path, monke
     newer = c.post(f"/api/v1/engineering/standards/{made['id']}/replace", files={"file": pdf}).json()
     assert newer["category"] == "Flooding" and newer["revision"] == 2         # a new revision keeps its topic
     assert c.patch(f"/api/v1/engineering/standards/{made['id']}", json={"title": ""}).status_code == 422
+
+
+def test_an_id_that_isnt_one_of_ours_is_not_found(tmp_path, monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.api import engineering_standards as es
+    from app.entrypoint import app
+    from tests.test_hub import AUTH
+
+    monkeypatch.setattr(es, "LIBRARY_ROOT", tmp_path)
+    c = TestClient(app, headers=AUTH)
+    for bad in ("..%2F..%2Fetc", "abc", "Z" * 32):
+        assert c.patch(f"/api/v1/engineering/standards/{bad}", json={"category": "x"}).status_code == 404
