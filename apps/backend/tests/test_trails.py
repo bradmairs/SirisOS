@@ -94,7 +94,7 @@ def test_the_screen_lists_shows_renames_deletes_and_an_export_uploads(folder) ->
     assert listed["count"] == 1 and listed["hikes"] == 1 and listed["years"] == [2024]
     walk_id = listed["walks"][0]["id"]
     one = c.get(f"/api/v1/trails/{walk_id}").json()
-    assert len(one["route"]) == 40 and one["profile"][0] == [0.0, 99.0] and one["profile"][-1][0] > 4
+    assert len(one["route"]) == 40 and one["profile"][0][0] == 0.0 and one["profile"][-1][0] > 4
     assert c.patch(f"/api/v1/trails/{walk_id}", json={"name": "Mt Feathertop", "note": "Razorback, clear day"}).json()["name"] == "Mt Feathertop"
     assert c.get("/api/v1/trails/../etc").status_code == 404
     assert c.delete(f"/api/v1/trails/{walk_id}").json() == {"ok": True}
@@ -125,3 +125,55 @@ def test_the_health_import_keeps_walks_and_passes_the_rest_on_without_routes(mon
                              content=json.dumps({"data": {"metrics": [], "workouts": [hae_workout("Outdoor Walk", 90)]}}))
     assert r.status_code == 200 and service.load()["walks"][0]["kind"] == "walk"
     assert "route" not in sent["body"]["data"]["workouts"][0]
+
+
+# -- 12.1: names from where the walk went, splits, the smoothed profile ----------------------------------------------
+
+def test_names_come_from_the_peak_track_park_or_place(monkeypatch) -> None:
+    from app.trails import places
+
+    route = [(-41.0 + i * 0.001, 173.0) for i in range(20)]
+    track = {"type": "way", "tags": {"highway": "path", "name": "Falls River Track"},
+             "geometry": [{"lat": p[0], "lon": p[1]} for p in route]}
+    road = {"type": "way", "tags": {"highway": "track", "name": "Calwell Road"}, "geometry": [{"lat": p[0], "lon": p[1]} for p in route]}
+    park = {"type": "relation", "tags": {"boundary": "national_park", "name": "Abel Tasman National Park"},
+            "bounds": {"minlat": -41.1, "maxlat": -40.9, "minlon": 172.9, "maxlon": 173.1}}
+    peak = {"type": "node", "lat": -40.981, "lon": 173.0, "tags": {"natural": "peak", "name": "獅子山 Lion Rock", "name:en": "Lion Rock"}}
+    assert places.choose([track, park], route, None, "hike") == {"peak": None, "trail": "Falls River Track", "park": "Abel Tasman National Park"}
+    assert places.choose([road, park], route, None, "hike")["trail"] is None             # a road isn't a walk's name
+    assert places.choose([peak], route, (-40.981, 173.0), "hike")["peak"] == "Lion Rock"
+
+    class Fake:
+        def __init__(self, data): self.data = data
+        def json(self): return self.data
+
+    answers = iter([Fake({"elements": [road, park]}), Fake({"address": {"suburb": "Kaiapoi", "state": "Canterbury", "country": "New Zealand"}})])
+    monkeypatch.setattr(places, "_polite", lambda *a, **k: next(answers))
+    pts = [[p[0], p[1], 10.0, None] for p in route] + [[route[0][0], route[0][1], 10.0, None]]
+    info = places.describe(pts, "walk")
+    assert info["name"] == "Abel Tasman National Park" and info["place"] == "Kaiapoi, Canterbury, New Zealand" and info["loop"]
+    answers = iter([Fake({"elements": []}), Fake({"address": {"suburb": "Kaiapoi", "state": "Canterbury", "country": "New Zealand"}})])
+    assert places.describe(pts, "walk")["name"] == "Kaiapoi loop"
+
+
+def test_a_place_names_the_walk_unless_youve_renamed_it() -> None:
+    [walk, other] = service.from_auto_export({"data": {"workouts": [hae_workout("Hiking", 120), hae_workout("Hiking", 90, START + timedelta(days=9))]}})
+    service.set_place(walk["id"], {"name": "Mount Lofty", "place": "Wonga Park, Victoria, Australia", "peak": "Mount Lofty", "loop": False})
+    service.change(other["id"], name="With Sam")
+    service.set_place(other["id"], {"name": "Warrandyte State Park", "place": "Warrandyte, Victoria, Australia", "retry": True})
+    got = {w["id"]: w for w in service.load()["walks"]}
+    assert got[walk["id"]]["name"] == "Mount Lofty" and got[walk["id"]]["landmarks"] == {"peak": "Mount Lofty"}
+    assert got[other["id"]]["name"] == "With Sam" and got[other["id"]]["place"] == "Warrandyte, Victoria, Australia"
+    assert got[other["id"]]["names_retry"] == 1                                     # Overpass was busy: looked up again later
+
+
+def test_splits_and_a_smoothed_profile_with_positions() -> None:
+    [walk] = service.from_auto_export({"data": {"workouts": [hae_workout("Hiking", 120, points=track(n=30))]}})
+    d = service.detail(walk["id"])
+    # 29 steps of ~111 m (3.2 km): three whole kilometres and a part
+    assert [s["km"] for s in d["splits"]] == [1, 2, 3, 4] and d["splits"][-1]["length_km"] == pytest.approx(0.22, abs=0.03)
+    assert d["splits"][0]["minutes"] == pytest.approx(4.5, abs=0.6)
+    assert d["splits"][0]["up_m"] > 0
+    assert [m[0] for m in d["km_marks"]] == [1, 2, 3] and len(d["profile"][0]) == 4
+    noisy = [p[1] for p in d["profile"]]
+    assert all(b >= a - 0.01 for a, b in zip(noisy, noisy[1:]))                     # the ±1 m wobble is smoothed out
