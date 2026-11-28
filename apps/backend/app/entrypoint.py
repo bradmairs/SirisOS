@@ -61,6 +61,7 @@ from app.health.api import router as health_router
 from app.life.api import router as life_router
 from app.budget.api import router as budget_router, tap_router as budget_tap_router
 from app.tax.api import router as tax_router
+from app.trails.api import router as trails_router
 from app.meals.api import router as meals_router
 from app.travel.api import router as travel_router
 from app.recap.api import router as recap_router
@@ -118,6 +119,7 @@ for router in (
     budget_router,
     budget_tap_router,
     tax_router,
+    trails_router,
     meals_router,
     travel_router,
     recap_router,

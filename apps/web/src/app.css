@@ -1566,3 +1566,9 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .undo-banner__btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px;
   background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
 @media (min-width: 960px) { .undo-banner { bottom: 24px; } }
+
+/* SirisTrails (11.22) */
+.trail-map { height: min(60vh, 520px); width: 100%; background: #1e293b; }
+.trail-map--small { height: 300px; border-radius: 12px; overflow: hidden; }
+.trail-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex: none; }
+.leaflet-container { font: inherit; }
