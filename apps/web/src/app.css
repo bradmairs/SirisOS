@@ -1583,13 +1583,22 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .trail-stat__value { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trail-stat__label { font-size: 12px; opacity: 0.7; margin-top: 2px; }
 .trail-section-title { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; margin: 4px 0 6px; }
-.trail-profile svg { display: block; overflow: visible; cursor: crosshair; }
+.trail-profile svg { display: block; cursor: crosshair; }
+.trail-profile__head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 6px; }
+.trail-profile__chart { position: relative; padding-left: 46px; }
+.trail-profile__y { position: absolute; left: 0; font-size: 12px; opacity: 0.65; font-variant-numeric: tabular-nums; }
+.trail-profile__y--top { top: 0; }
+.trail-profile__y--bottom { bottom: 0; }
+.trail-profile__plot { position: relative; }
+.trail-profile__dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #f97316; border: 2px solid #fff; pointer-events: none; }
+.trail-profile__x { display: flex; justify-content: space-between; font-size: 12px; padding-left: 46px; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .trail-profile__readout { font-size: 12px; text-align: center; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .trail-splits { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 .trail-splits th { text-align: left; font-weight: 500; font-size: 12px; opacity: 0.6; padding: 4px 6px; }
 .trail-splits td { padding: 6px; border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
 .trail-splits__best { color: #22c55e; font-weight: 600; }
-.trail-km { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0f172a; color: #fff; font-size: 11px; font-weight: 600; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.trail-km { box-sizing: border-box; display: flex !important; align-items: center; justify-content: center; border-radius: 50%; background: #0f172a; color: #fff; font-size: 11px; font-weight: 700; line-height: 1; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.trail-km span { display: block; transform: translateY(0.5px); }
 
 /* SirisTrails 12.2 */
 .trail-years { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }

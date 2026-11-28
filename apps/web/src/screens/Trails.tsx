@@ -13,7 +13,11 @@ import { undoable } from "../components/Undo";
 
 const HIKE = "#f97316", WALK = "#38bdf8";
 const hm = (min: number | null) => (min == null ? "–" : `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, "0")}m`);
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+/** 12.2.3: a walk's date and times where it happened (the offset Apple Health recorded), not in this phone's time zone. */
+const wallClock = (iso: string) => new Date(`${iso.slice(0, 19)}Z`);
+/** In the walk's time zone (worked out from where it was); without one, as the time was recorded. */
+const day = (iso: string, tz?: string | null) => (tz ? new Date(iso) : wallClock(iso)).toLocaleDateString(undefined,
+  { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: tz || "UTC" });
 const n = (v: number | null | undefined, unit: string, digits = 0) => (v == null ? "–" : `${v.toLocaleString(undefined, { maximumFractionDigits: digits })} ${unit}`);
 
 function baseLayers() {
@@ -57,7 +61,11 @@ export function TrailsScreen() {
   const res = useResource(`trails:${year ?? "all"}`, () => trails.list(year), { staleMs: 60_000 });
   const [open, setOpen] = useState<string | null>(null);
   const [gone, setGone] = useState<Set<string>>(new Set());
-  const [focus, setFocus] = useState<{ label: string; walks: Walk[] } | null>(null);
+  const [focus, setFocusState] = useState<{ label: string; walks: Walk[] } | null>(null);
+  const setFocus = (f: { label: string; walks: Walk[] } | null) => {  // 12.2.3: and show the map, which is above the list
+    setFocusState(f);
+    if (f) document.querySelector('[aria-label="Map of walks"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const d = res.data;
   const walks = useMemo(() => (d?.walks ?? []).filter((w) => !gone.has(w.id)), [d, gone]);
   const reload = () => void res.reload(true);
@@ -103,7 +111,7 @@ export function TrailsScreen() {
                     <span className="trail-dot" style={{ background: w.kind === "hike" ? HIKE : WALK }} aria-hidden="true" />
                     <span className="item__text">
                       <span className="item__title">{w.name}</span>
-                      <span className="item__subtitle">{w.place ? `${w.place.split(",")[0]} · ` : ""}{day(w.start)} · {n(w.km, "km", 1)} · {hm(w.minutes)}{w.ascent_m ? ` · ↑${w.ascent_m} m` : ""}{w.kind === "hike" ? " · hike" : ""}</span>
+                      <span className="item__subtitle">{w.place ? `${w.place.split(",")[0]} · ` : ""}{day(w.start, w.tz)} · {n(w.km, "km", 1)} · {hm(w.minutes)}{w.ascent_m ? ` · ↑${w.ascent_m} m` : ""}{w.kind === "hike" ? " · hike" : ""}</span>
                     </span>
                   </button>
                 </li>
@@ -198,7 +206,7 @@ function RecordsCard({ d, onPick }: { d: Trails; onPick: (id: string) => void })
         {rows.filter(([, r]) => r).map(([label, r, fmt]) => (
           <li key={label}>
             <button type="button" className="item item--button" onClick={() => onPick(r!.id)}>
-              <span className="item__text"><span className="item__title">{label}: {fmt(r!.value)}</span><span className="item__subtitle">{r!.name} · {day(r!.start)}</span></span>
+              <span className="item__text"><span className="item__title">{label}: {fmt(r!.value)}</span><span className="item__subtitle">{r!.name} · {day(r!.start, r!.tz)}</span></span>
             </button>
           </li>
         ))}
@@ -233,16 +241,16 @@ type Point = [number, number, number, number]; // km, metres, lat, lon
 function Profile({ profile, onHover }: { profile: Point[]; onHover: (p: Point | null) => void }) {
   const [at, setAt] = useState<number | null>(null);
   if (profile.length < 2) return null;
-  const W = 600, H = 150, L = 44, B = 22, maxX = profile[profile.length - 1][0] || 1;
+  const W = 600, H = 220, maxX = profile[profile.length - 1][0] || 1;
   const eles = profile.map((p) => p[1]);
   const lo = Math.min(...eles), hi = Math.max(...eles);
   const span = Math.max(hi - lo, 40);                  // a flat walk stays flat on the chart
   const base = lo - (span - (hi - lo)) / 2;
-  const x = (km: number) => L + (km / maxX) * (W - L);
-  const y = (m: number) => (H - B) - ((m - base) / span) * (H - B - 8);
+  const x = (km: number) => (km / maxX) * W;
+  const y = (m: number) => H - ((m - base) / span) * (H - 16) - 8;
   const pts = profile.map((p) => `${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(" ");
   const pick = (clientX: number, rect: DOMRect) => {
-    const km = ((clientX - rect.left) / rect.width * W - L) / (W - L) * maxX;
+    const km = ((clientX - rect.left) / rect.width) * maxX;
     let best = 0;
     for (let i = 1; i < profile.length; i++) if (Math.abs(profile[i][0] - km) < Math.abs(profile[best][0] - km)) best = i;
     setAt(best); onHover(profile[best]);
@@ -250,29 +258,29 @@ function Profile({ profile, onHover }: { profile: Point[]; onHover: (p: Point | 
   const p = at != null ? profile[at] : null;
   return (
     <figure className="trail-profile" style={{ margin: 0 }} aria-label="Elevation profile">
-      <figcaption className="trail-section-title">Elevation</figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Elevation from ${Math.round(lo)} m to ${Math.round(hi)} m over ${maxX.toFixed(1)} km`}
-        onPointerMove={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
-        onPointerDown={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
-        onPointerLeave={() => { setAt(null); onHover(null); }} style={{ touchAction: "pan-y" }}>
-        {[hi, lo].map((m) => (
-          <g key={m}>
-            <line x1={L} x2={W} y1={y(m)} y2={y(m)} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 4" />
-            <text x={L - 6} y={y(m) + 4} textAnchor="end" fontSize="12" fill="currentColor" opacity="0.6">{Math.round(m)} m</text>
-          </g>
-        ))}
-        <polygon points={`${x(0)},${H - B} ${pts} ${x(maxX)},${H - B}`} fill="color-mix(in srgb, #f97316 22%, transparent)" />
-        <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinejoin="round" />
-        {[0, maxX / 2, maxX].map((km, i) => (
-          <text key={i} x={x(km)} y={H - 4} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} fontSize="12" fill="currentColor" opacity="0.6">{km.toFixed(km < 10 ? 1 : 0)} km</text>
-        ))}
-        {p && (
-          <g>
-            <line x1={x(p[0])} x2={x(p[0])} y1={0} y2={H - B} stroke="currentColor" strokeOpacity="0.5" />
-            <circle cx={x(p[0])} cy={y(p[1])} r="5" fill="#f97316" stroke="#fff" strokeWidth="2" />
-          </g>
-        )}
-      </svg>
+      <figcaption className="trail-profile__head">
+        <span className="trail-section-title" style={{ margin: 0 }}>Elevation</span>
+        <span className="muted">{Math.round(lo)} m to {Math.round(hi)} m</span>
+      </figcaption>
+      <div className="trail-profile__chart">
+        <span className="trail-profile__y trail-profile__y--top">{Math.round(hi)} m</span>
+        <span className="trail-profile__y trail-profile__y--bottom">{Math.round(lo)} m</span>
+        <div className="trail-profile__plot">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" width="100%" height="140" role="img"
+          aria-label={`Elevation from ${Math.round(lo)} m to ${Math.round(hi)} m over ${maxX.toFixed(1)} km`}
+          onPointerMove={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
+          onPointerDown={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
+          onPointerLeave={() => { setAt(null); onHover(null); }} style={{ touchAction: "pan-y" }}>
+          <line x1={0} x2={W} y1={y(hi)} y2={y(hi)} stroke="currentColor" strokeOpacity="0.18" strokeDasharray="4 5" vectorEffect="non-scaling-stroke" />
+          <line x1={0} x2={W} y1={y(lo)} y2={y(lo)} stroke="currentColor" strokeOpacity="0.18" strokeDasharray="4 5" vectorEffect="non-scaling-stroke" />
+          <polygon points={`0,${H} ${pts} ${W},${H}`} fill="color-mix(in srgb, #f97316 22%, transparent)" />
+          <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          {p && <line x1={x(p[0])} x2={x(p[0])} y1={0} y2={H} stroke="currentColor" strokeOpacity="0.6" vectorEffect="non-scaling-stroke" />}
+        </svg>
+        {p && <span className="trail-profile__dot" style={{ left: `${(p[0] / maxX) * 100}%`, top: `${(y(p[1]) / H) * 100}%` }} />}
+        </div>
+      </div>
+      <div className="trail-profile__x muted"><span>0 km</span><span>{(maxX / 2).toFixed(1)} km</span><span>{maxX.toFixed(1)} km</span></div>
       <div className="muted trail-profile__readout" aria-live="polite">{p ? `${p[0].toFixed(2)} km · ${Math.round(p[1])} m` : "Touch the chart to see where that is on the map"}</div>
     </figure>
   );
@@ -282,8 +290,14 @@ function Stat({ value, label }: { value: string; label: string }) {
   return <div className="trail-stat"><div className="trail-stat__value">{value}</div><div className="trail-stat__label">{label}</div></div>;
 }
 
+/** 12.2.3: a split's time as m:ss (h:mm:ss over an hour) */
+const mss = (minutes: number) => {
+  const s = Math.round(minutes * 60), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+};
 const pace = (v: number | null) => (v ? `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, "0")} /km` : "–");
-const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+const time = (iso: string, tz?: string | null) => (tz ? new Date(iso) : wallClock(iso)).toLocaleTimeString(undefined,
+  { hour: "numeric", minute: "2-digit", timeZone: tz || "UTC" });
 
 function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: () => void; onChanged: () => void; onDelete: (w: Walk) => void }) {
   const [w, setW] = useState<WalkDetail | null>(null);
@@ -300,7 +314,7 @@ function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: 
     L.polyline(w.route, { color: "#0f172a", weight: 8, opacity: 0.35 }).addTo(layer);   // a dark edge: readable on satellite
     const line = L.polyline(w.route, { color: colour, weight: 5 }).addTo(layer);
     for (const [km, lat, lon] of w.km_marks ?? []) {
-      L.marker([lat, lon], { icon: L.divIcon({ className: "trail-km", html: String(km), iconSize: [20, 20] }), interactive: false }).addTo(layer);
+      L.marker([lat, lon], { icon: L.divIcon({ className: "trail-km", html: `<span>${km}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false }).addTo(layer);
     }
     const first = w.route[0], last = w.route[w.route.length - 1];
     if (w.loop) {
@@ -338,7 +352,7 @@ function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: 
             <div className="trail-head__meta">
               <span className="chip" style={{ background: `color-mix(in srgb, ${w.kind === "hike" ? HIKE : WALK} 25%, transparent)` }}>{w.kind === "hike" ? "Hike" : "Walk"}{w.loop ? " · loop" : ""}</span>
               {w.place && <span><MapPin size={13} aria-hidden="true" /> {w.place}</span>}
-              <span>{day(w.start)}, {time(w.start)}{w.end ? `–${time(w.end)}` : ""}</span>
+              <span>{day(w.start, w.tz)}, {time(w.start, w.tz)}{w.end ? `–${time(w.end, w.tz)}` : ""}</span>
             </div>
           )}
         </header>
@@ -359,15 +373,15 @@ function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: 
               <section aria-label="Splits">
                 <div className="trail-section-title">Splits</div>
                 <table className="trail-splits">
-                  <thead><tr><th>km</th><th>Time</th><th>Pace</th><th>Climb</th></tr></thead>
+                  <thead><tr><th>km</th><th>Pace</th><th>Climb</th></tr></thead>
                   <tbody>
                     {w.splits.map((s) => {
-                      const fastest = Math.min(...w.splits.filter((x) => x.pace_min_per_km).map((x) => x.pace_min_per_km!));
+                      // whole kilometres only: a short last bit isn't a fair "fastest"
+                      const fastest = Math.min(...w.splits.filter((x) => x.pace_min_per_km && x.length_km >= 1).map((x) => x.pace_min_per_km!));
                       return (
                         <tr key={s.km}>
-                          <td>{s.length_km < 1 ? s.length_km.toFixed(2) : s.km}</td>
-                          <td>{s.minutes != null ? hm(s.minutes).replace(/^0h /, "") : "–"}</td>
-                          <td className={s.pace_min_per_km === fastest ? "trail-splits__best" : undefined}>{pace(s.pace_min_per_km)}</td>
+                          <td>{s.length_km < 1 ? `${s.length_km.toFixed(2)} (${s.minutes != null ? mss(s.minutes) : "–"})` : s.km}</td>
+                          <td className={s.length_km >= 1 && s.pace_min_per_km === fastest ? "trail-splits__best" : undefined}>{pace(s.pace_min_per_km)}</td>
                           <td>{s.up_m || s.down_m ? `↑${s.up_m} ↓${s.down_m}` : "–"}</td>
                         </tr>
                       );

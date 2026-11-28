@@ -271,3 +271,20 @@ def test_japans_prefectures_and_hikes_first(monkeypatch) -> None:
     order.clear()
     places.name_pending(overpass_limit=0)
     assert order == []                                                              # placed with a region: not looked up again
+
+
+
+def test_each_walk_has_its_own_time_zone(tmp_path, monkeypatch) -> None:
+    tab = tmp_path / "zone1970.tab"
+    tab.write_text("AU\t-3352+15113\tAustralia/Sydney\tNSW\nAU\t-3749+14458\tAustralia/Melbourne\tVictoria\n"
+                   "AU\t-2728+15302\tAustralia/Brisbane\tQueensland\nCN\t+3114+12128\tAsia/Shanghai\tBeijing Time\n"
+                   "NZ\t-3652+17446\tPacific/Auckland\tmost of NZ\nNZ\t-4357-17633\tPacific/Chatham\tChatham Islands\n")
+    monkeypatch.setenv("SIRISOS_TRAILS_ZONE_TAB", str(tab))
+    service._zones.cache_clear(); service.tz_for.cache_clear()
+    assert service.tz_for("AU", -37.8, 145.0) == "Australia/Melbourne"
+    assert service.tz_for("AU", -27.5, 153.0) == "Australia/Brisbane"
+    assert service.tz_for("AU", -28.6, 153.6, "New South Wales") == "Australia/Sydney"   # Byron Bay: nearer Brisbane, on Sydney time
+    assert service.tz_for("NZ", -43.38, 172.65) == "Pacific/Auckland"
+    assert service.tz_for("CN", 22.35, 114.18) == "Asia/Shanghai"                # Hong Kong: Nominatim says China; the same UTC+8
+    assert service.tz_for(None, 0, 0) is None
+    service._zones.cache_clear(); service.tz_for.cache_clear()

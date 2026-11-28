@@ -67,7 +67,7 @@ describe("SirisTrails 11.22", () => {
     expect(screen.getByText(/Harrietville, Victoria, Australia/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Elevation from 1400 m to 1922 m over 9.4 km" })).toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveTextContent("14:00 /km");               // the fastest kilometre
-    expect(screen.getByText("0.40")).toBeInTheDocument();                           // the last part-kilometre
+    expect(screen.getByText("0.40 (7:00)")).toBeInTheDocument();                    // the last part-kilometre, with its time
     await user.click(screen.getByRole("button", { name: "Rename" }));
     const name = screen.getByRole("textbox", { name: "Name" });
     await user.clear(name);

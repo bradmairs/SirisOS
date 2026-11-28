@@ -21,6 +21,7 @@ file per route. Place names aren't looked up: nothing about where you walk leave
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 import os
@@ -318,8 +319,54 @@ def detail(walk_id: str) -> dict[str, Any]:
         if d >= next_km:
             km_marks.append([int(next_km // 1000), round(points[i][0], 6), round(points[i][1], 6)])
             next_km += 1000
-    return {**walk, "route": [[round(p[0], 6), round(p[1], 6)] for p in points[:: max(1, len(points) // 2000)]],
+    return {**with_tz(walk), "route": [[round(p[0], 6), round(p[1], 6)] for p in points[:: max(1, len(points) // 2000)]],
             "profile": profile, "splits": splits(points), "km_marks": km_marks}
+
+
+@functools.lru_cache(maxsize=1)
+def _zones() -> list[tuple[set[str], float, float, str]]:
+    """The time-zone database's cities (zone1970.tab): country codes, lat, lon, zone."""
+    out = []
+    try:
+        lines = Path(os.getenv("SIRISOS_TRAILS_ZONE_TAB", "/usr/share/zoneinfo/zone1970.tab")).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        m = re.fullmatch(r"([+-])(\d{2})(\d{2})(\d{2})?([+-])(\d{3})(\d{2})(\d{2})?", parts[1])
+        if not m:
+            continue
+        lat = (int(m[2]) + int(m[3]) / 60 + int(m[4] or 0) / 3600) * (1 if m[1] == "+" else -1)
+        lon = (int(m[6]) + int(m[7]) / 60 + int(m[8] or 0) / 3600) * (1 if m[5] == "+" else -1)
+        out.append((set(parts[0].split(",")), lat, lon, parts[2]))
+    return out
+
+
+# Where state borders, not distance, decide the clock (Byron Bay is nearer Brisbane but keeps Sydney time).
+REGION_TZ = {("AU", "Victoria"): "Australia/Melbourne", ("AU", "New South Wales"): "Australia/Sydney",
+             ("AU", "Australian Capital Territory"): "Australia/Sydney", ("AU", "Tasmania"): "Australia/Hobart",
+             ("AU", "Queensland"): "Australia/Brisbane", ("AU", "South Australia"): "Australia/Adelaide",
+             ("AU", "Western Australia"): "Australia/Perth", ("AU", "Northern Territory"): "Australia/Darwin",
+             ("US", "Hawaii"): "Pacific/Honolulu", ("US", "California"): "America/Los_Angeles", ("US", "New York"): "America/New_York"}
+
+
+@functools.lru_cache(maxsize=512)
+def tz_for(code: str | None, lat: float, lon: float, region: str | None = None) -> str | None:
+    """12.2.3: the walk's own time zone: the nearest time-zone city in its country. Apple Health's export writes
+    every time in the phone's zone when it was exported, so a Hong Kong hike showed in Melbourne time."""
+    if code and (code.upper(), region) in REGION_TZ:
+        return REGION_TZ[(code.upper(), region)]
+    zones = [z for z in _zones() if code and code.upper() in z[0]] or []
+    if not zones:
+        return None
+    return min(zones, key=lambda z: haversine((lat, lon), (z[1], z[2])))[3]
+
+
+def with_tz(walk: dict[str, Any]) -> dict[str, Any]:
+    p = walk.get("start_point") or [0, 0]
+    return {**walk, "tz": tz_for(walk.get("country_code"), round(p[0], 2), round(p[1], 2), walk.get("region"))}
 
 
 def _flag(code: str | None) -> str:
@@ -356,7 +403,7 @@ def summary(year: int | None = None) -> dict[str, Any]:
 
     def record(key: str) -> dict[str, Any] | None:
         best = max((w for w in walks if w.get(key)), key=lambda w: w[key], default=None)
-        return {"id": best["id"], "name": best["name"], "value": best[key], "start": best["start"]} if best else None
+        return {"id": best["id"], "name": best["name"], "value": best[key], "start": best["start"], "tz": with_tz(best)["tz"]} if best else None
 
     by_year: dict[str, dict[str, float]] = {}
     for w in everything:
@@ -365,7 +412,7 @@ def summary(year: int | None = None) -> dict[str, Any]:
         y["km"] += w.get("km") or 0
         y["hours"] += (w.get("minutes") or 0) / 60
     timed = [w for w in walks if w.get("minutes") and w.get("km")]
-    return {"walks": walks, "count": len(walks), "hikes": sum(w["kind"] == "hike" for w in walks),
+    return {"walks": [with_tz(w) for w in walks], "count": len(walks), "hikes": sum(w["kind"] == "hike" for w in walks),
             "km": round(total(walks, "km"), 1), "hours": round(total(walks, "minutes") / 60, 1), "ascent_m": round(total(walks, "ascent_m")),
             "highest_m": max((w["highest_m"] for w in walks if w.get("highest_m") is not None), default=None),
             "longest_km": max((w["km"] for w in walks if w.get("km")), default=None),
