@@ -317,6 +317,7 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `GET /api/v1/engineering/standards` |  |
 | `POST /api/v1/engineering/standards` |  |
 | `DELETE /api/v1/engineering/standards/{document_id}` |  |
+| `PATCH /api/v1/engineering/standards/{document_id}` |  |
 | `GET /api/v1/engineering/standards/{document_id}/file` |  |
 | `GET /api/v1/engineering/standards/{document_id}/pages/{page}` |  |
 | `POST /api/v1/engineering/standards/{document_id}/replace` |  |

@@ -64,3 +64,30 @@ def test_snippet_is_compact_and_query_centred() -> None:
 
 def test_safe_filename_removes_path_characters() -> None:
     assert _safe_filename("../AS:3600?.pdf") == "_AS_3600_.pdf"
+
+
+def test_a_standard_has_a_topic_and_its_details_can_be_corrected(tmp_path, monkeypatch) -> None:
+    """11.20: standards are filed under a topic, kept through a new revision, and changed without uploading again."""
+    from types import SimpleNamespace
+
+    from fastapi.testclient import TestClient
+
+    from app.api import engineering_standards as es
+    from app.entrypoint import app
+    from tests.test_hub import AUTH
+
+    monkeypatch.setattr(es, "LIBRARY_ROOT", tmp_path)
+    monkeypatch.setattr(es, "extract_standard_pages", lambda path: SimpleNamespace(
+        pages=[{"page": 1, "text": "Design rainfall"}], indexed=True, extraction_method="native", ocr_attempted=False, ocr_error=None))
+    c = TestClient(app, headers=AUTH)
+    pdf = ("arr.pdf", b"%PDF-1.4 test", "application/pdf")
+    made = c.post("/api/v1/engineering/standards", files={"file": pdf},
+                  data={"title": "ARR Book 2", "authority": "Geoscience Australia", "category": "Hydrology and flooding"}).json()
+    assert made["category"] == "Hydrology and flooding"
+    hits = c.get("/api/v1/engineering/standards", params={"query": "hydrology"}).json()["hits"]
+    assert hits and hits[0]["document"]["id"] == made["id"]                    # the topic is searchable
+    changed = c.patch(f"/api/v1/engineering/standards/{made['id']}", json={"category": "Flooding", "edition": "2019 v4.2"}).json()
+    assert changed["category"] == "Flooding" and changed["edition"] == "2019 v4.2" and changed["title"] == "ARR Book 2"
+    newer = c.post(f"/api/v1/engineering/standards/{made['id']}/replace", files={"file": pdf}).json()
+    assert newer["category"] == "Flooding" and newer["revision"] == 2         # a new revision keeps its topic
+    assert c.patch(f"/api/v1/engineering/standards/{made['id']}", json={"title": ""}).status_code == 422

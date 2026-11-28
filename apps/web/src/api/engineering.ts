@@ -38,6 +38,8 @@ export interface StandardDocument {
   authority: string;
   reference: string | null;
   edition: string | null;
+  /** 11.20: the topic it's filed under (Hydrology and flooding, Drinking water, ...). */
+  category?: string | null;
   filename: string;
   uploaded_at: string;
   pages: number;
@@ -120,14 +122,16 @@ export const hydro = {
 export const standards = {
   search: (opts: { query?: string; authority?: string; includeArchived?: boolean; limit?: number } = {}) =>
     api<{ query: string; hits: StandardHit[] }>(
-      `${E}/standards?${qs({ query: opts.query, authority: opts.authority, include_archived: opts.includeArchived, limit: opts.limit ?? 50 })}`,
+      `${E}/standards?${qs({ query: opts.query, authority: opts.authority, include_archived: opts.includeArchived, limit: opts.limit ?? 100 })}`,
     ).then((r) => r.hits),
-  upload: (file: File, meta: { title: string; authority: string; reference?: string; edition?: string }, replaceId?: string) => {
+  upload: (file: File, meta: { title: string; authority: string; reference?: string; edition?: string; category?: string }, replaceId?: string) => {
     const form = new FormData();
     form.append("file", file);
     for (const [k, v] of Object.entries(meta)) if (v) form.append(k, v);
     return api<StandardDocument>(replaceId ? `${E}/standards/${encodeURIComponent(replaceId)}/replace` : `${E}/standards`, { method: "POST", body: form });
   },
+  change: (id: string, c: Partial<Pick<StandardDocument, "title" | "authority" | "reference" | "edition" | "category">>) =>
+    api<StandardDocument>(`${E}/standards/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(c) }),
   archive: (id: string) => api<StandardDocument>(`${E}/standards/${encodeURIComponent(id)}`, { method: "DELETE" }),
   restore: (id: string) => api<StandardDocument>(`${E}/standards/${encodeURIComponent(id)}/restore`, { method: "POST" }),
   page: (id: string, page: number) => api<StandardPage>(`${E}/standards/${encodeURIComponent(id)}/pages/${page}`),
