@@ -119,6 +119,16 @@ async def health_in(request: Request, hub: Hub = Depends(get_hub)) -> dict[str, 
     except ValueError:
         raise fail(422, "That wasn't JSON: set Export Format to JSON.") from None
     exported = isinstance(body, dict) and isinstance(body.get("data"), dict)
+    if exported:  # 11.22: SirisTrails keeps the walks and hikes with their routes; SirisAI gets the rest without the points
+        from app.trails import service as trails
+
+        try:
+            kept = trails.from_auto_export(body)
+            if kept:
+                health_import.attempt(200, f"SirisTrails kept {len(kept)} walk{'s' if len(kept) != 1 else ''}", 0)
+        except Exception:  # noqa: BLE001 - never stops the import
+            pass
+        trails.strip_routes(body)
     try:
         result = await sirisai_api.post(hub, "/siris/health/metrics", json=body, timeout=180.0,
                                         headers={"X-Health-Source": "health_auto_export" if exported else "shortcut"}) or {}

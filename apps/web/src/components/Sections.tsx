@@ -23,7 +23,7 @@ export const SECTIONS: SectionGroup[] = [
     { id: "reviews", label: "Reviews", Icon: MoonStar, tabs: [{ to: "/wrapup", label: "Tonight" }, { to: "/review", label: "This week" }, { to: "/year", label: "This year" }] },
   ] },
   { heading: "You", sections: [
-    { id: "health", label: "Health", Icon: HeartPulse, tabs: [{ to: "/health", label: "Health" }, { to: "/fitness", label: "Fitness" }] },
+    { id: "health", label: "Health", Icon: HeartPulse, tabs: [{ to: "/health", label: "Health" }, { to: "/fitness", label: "Fitness" }, { to: "/trails", label: "SirisTrails" }] },
     { id: "budget", label: "Budget", Icon: Wallet, tabs: [{ to: "/budget", label: "Budget" }, { to: "/tax", label: "Tax" }] },
   ] },
   { heading: "Home & life", sections: [

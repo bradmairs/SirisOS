@@ -847,6 +847,17 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `POST /api/v1/terminal/run` | Run a shortcut on the host its ticket was unlocked for (the ticket works once). |
 | `POST /api/v1/terminal/unlock` |  |
 
+### `/api/v1/trails`
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/v1/trails` |  |
+| `POST /api/v1/trails/apple-export` |  |
+| `GET /api/v1/trails/import` |  |
+| `DELETE /api/v1/trails/{walk_id}` |  |
+| `GET /api/v1/trails/{walk_id}` |  |
+| `PATCH /api/v1/trails/{walk_id}` |  |
+
 ### `/api/v1/training`
 
 | Route | What it does |
