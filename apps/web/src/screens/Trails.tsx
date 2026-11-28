@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { CloudSun, Footprints, Luggage, MapPin, MapPinned, Mountain, Pencil, Repeat, Trash2, Trophy, Upload } from "lucide-react";
+import { Camera, CloudSun, Download, Footprints, Luggage, MapPin, MapPinned, Merge, Mountain, Pencil, Repeat, Scissors, Share2, Trash2, Trophy, Upload, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useResource } from "../api/resource";
-import { trails, type Landmark, type RepeatRoute, type TrailRecord, type TrailWeather, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
+import { trails, type Landmark, type RepeatRoute, type TrailRecord, type TrailPhoto, type TrailWeather, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
 import { Glass } from "../components/Glass";
 import { LatestThenGrouped } from "../components/Grouped";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 import { undoable } from "../components/Undo";
+import { preparePhoto } from "../lib/photoPrep";
+import { drawCard, gpxPoints, shareOrSave } from "../lib/shareCard";
 
 /** SirisTrails (11.22): every walk of an hour or more and every hike, from Apple Health, on a map. */
 
@@ -129,7 +131,7 @@ export function TrailsScreen() {
         <ImportCard onDone={reload} />
       </div>
       {open && (
-        <WalkSheet key={open} id={open} onClose={() => setOpen(null)} onChanged={reload} onOpen={setOpen}
+        <WalkSheet key={open} id={open} walks={walks} onClose={() => setOpen(null)} onChanged={reload} onOpen={setOpen}
           onDelete={(w) => { setOpen(null); undoable({ text: `Deleted ${w.name}`, run: async () => { await trails.remove(w.id); reload(); },
             hide: () => setGone((g) => new Set(g).add(w.id)), restore: () => setGone((g) => { const s = new Set(g); s.delete(w.id); return s; }) }); }} />
       )}
@@ -491,14 +493,16 @@ const pace = (v: number | null) => (v ? `${Math.floor(v)}:${String(Math.round((v
 const time = (iso: string, tz?: string | null) => (tz ? new Date(iso) : wallClock(iso)).toLocaleTimeString(undefined,
   { hour: "numeric", minute: "2-digit", timeZone: tz || "UTC" });
 
-function WalkSheet({ id, onClose, onChanged, onDelete, onOpen }: { id: string; onClose: () => void; onChanged: () => void; onDelete: (w: Walk) => void; onOpen: (id: string) => void }) {
+function WalkSheet({ id, walks, onClose, onChanged, onDelete, onOpen }: { id: string; walks: Walk[]; onClose: () => void; onChanged: () => void; onDelete: (w: Walk) => void; onOpen: (id: string) => void }) {
   const [w, setW] = useState<WalkDetail | null>(null);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [editing, setEditing] = useState(false);
   const [hover, setHover] = useState<Point | null>(null);
   const marker = useRef<L.CircleMarker | null>(null);
-  useEffect(() => { void trails.get(id).then((x) => { setW(x); setName(x.name); setNote(x.note); }); }, [id]);
+  const [viewing, setViewing] = useState<TrailPhoto | null>(null);
+  const load = () => trails.get(id).then((x) => { setW(x); setName(x.name); setNote(x.note); });
+  useEffect(() => { void load(); }, [id]);  // eslint-disable-line react-hooks/exhaustive-deps
   const el = useMap((_, layer) => {
     marker.current = null;
     if (!w || w.route.length < 2) return null;
@@ -514,6 +518,11 @@ function WalkSheet({ id, onClose, onChanged, onDelete, onOpen }: { id: string; o
     } else {
       L.circleMarker(first, { radius: 7, color: "#fff", weight: 2, fillColor: "#22c55e", fillOpacity: 1 }).bindTooltip("Start").addTo(layer);
       L.circleMarker(last, { radius: 7, color: "#fff", weight: 2, fillColor: "#ef4444", fillOpacity: 1 }).bindTooltip("Finish").addTo(layer);
+    }
+    for (const p of w.photos ?? []) {  // 12.5: where each photo was taken
+      if (!p.at) continue;
+      L.marker(p.at, { icon: L.divIcon({ className: "trail-photo-pin", html: "<span>📷</span>", iconSize: [26, 26], iconAnchor: [13, 13] }) })
+        .bindTooltip(p.km != null ? `Photo at ${p.km.toFixed(1)} km` : "Photo").on("click", () => setViewing(p)).addTo(layer);
     }
     marker.current = L.circleMarker(first, { radius: 7, color: "#fff", weight: 3, fillColor: "#f97316", fillOpacity: 0, opacity: 0 }).addTo(layer);
     return line.getBounds();
@@ -589,17 +598,159 @@ function WalkSheet({ id, onClose, onChanged, onDelete, onOpen }: { id: string; o
                 </table>
               </section>
             )}
+            <Photos w={w} onChanged={() => void load()} onView={setViewing} />
+            <WalkTools w={w} walks={walks} onChanged={() => { void load(); onChanged(); }} />
             <textarea className="field" rows={3} placeholder="Notes: the track, the weather, who came" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Notes" />
             <div className="row">
               <button type="button" className="button button--small button--primary" onClick={close}>Done</button>
               <span className="spacer" />
               <button type="button" className="button button--small" onClick={() => onDelete(w)}><Trash2 size={14} aria-hidden="true" /> Delete</button>
             </div>
+            {viewing && <PhotoViewer walk={w.id} photo={viewing} onClose={() => setViewing(null)}
+              onRemove={async () => { await trails.removePhoto(w.id, viewing.id); setViewing(null); void load(); }} />}
             <p className="muted" style={{ margin: 0, fontSize: 12 }}>From {w.source === "apple_health_export" ? "the Apple Health export" : "Health Auto Export"}.{w.name_auto !== false && w.place ? " Named from OpenStreetMap; rename it any time." : ""}</p>
           </>
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** 12.5: a photo's thumbnail (or the photo), fetched with the sign-in header. */
+function useBlobUrl(walk: string, photo: string, thumb: boolean) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let made: string | null = null, live = true;
+    void trails.photoUrl(walk, photo, thumb).then((u) => { made = u; if (live) setUrl(u); else URL.revokeObjectURL(u); }).catch(() => undefined);
+    return () => { live = false; if (made) URL.revokeObjectURL(made); };
+  }, [walk, photo, thumb]);
+  return url;
+}
+
+function Thumb({ walk, p, onView }: { walk: string; p: TrailPhoto; onView: (p: TrailPhoto) => void }) {
+  const url = useBlobUrl(walk, p.id, true);
+  return (
+    <button type="button" className="trail-photos__item" onClick={() => onView(p)} aria-label={p.km != null ? `Photo at ${p.km.toFixed(1)} km` : "Photo"}>
+      {url ? <img src={url} alt="" /> : <span className="trail-photos__blank" />}
+      {p.km != null && <span className="trail-photos__km">{p.km.toFixed(1)} km</span>}
+    </button>
+  );
+}
+
+/** 12.5: photos from the walk, in order along the route. */
+function Photos({ w, onChanged, onView }: { w: WalkDetail; onChanged: () => void; onView: (p: TrailPhoto) => void }) {
+  const picker = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function add(files: File[]) {
+    setError(null);
+    let placed = 0, done = 0;
+    for (const f of files) {
+      setBusy(`Adding ${done + 1} of ${files.length}…`);
+      try { const p = await trails.addPhoto(w.id, await preparePhoto(f)); done += 1; if (p.at) placed += 1; }
+      catch (e) { setError(e instanceof Error ? e.message : "That photo couldn't be added."); }
+    }
+    setBusy(null);
+    if (done && placed < done) setError(`${done - placed} of ${done} had no time or place from the walk, so ${done - placed === 1 ? "it isn't" : "they aren't"} on the map.`);
+    onChanged();
+  }
+  const photos = w.photos ?? [];
+  return (
+    <section aria-label="Photos">
+      <div className="trail-section-title">Photos{photos.length ? ` · ${photos.length}` : ""}</div>
+      {photos.length > 0 && <div className="trail-photos">{photos.map((p) => <Thumb key={p.id} walk={w.id} p={p} onView={onView} />)}</div>}
+      <input ref={picker} type="file" accept="image/*" multiple hidden aria-label="Photos to add"
+        onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ""; if (fs.length) void add(fs); }} />
+      <button type="button" className="button button--small" disabled={!!busy} onClick={() => picker.current?.click()}>
+        <Camera size={14} aria-hidden="true" /> {busy ?? "Add photos"}
+      </button>
+      {error && <p className="muted" role="status" style={{ margin: "6px 0 0", fontSize: 13 }}>{error}</p>}
+    </section>
+  );
+}
+
+function PhotoViewer({ walk, photo, onClose, onRemove }: { walk: string; photo: TrailPhoto; onClose: () => void; onRemove: () => void }) {
+  const url = useBlobUrl(walk, photo.id, false);
+  return (
+    <div className="trail-viewer" role="dialog" aria-label="Photo" onClick={onClose}>
+      {url && <img src={url} alt="" onClick={(e) => e.stopPropagation()} />}
+      <div className="trail-viewer__bar" onClick={(e) => e.stopPropagation()}>
+        <span>{photo.taken ? new Date(photo.taken).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : ""}{photo.km != null ? ` · ${photo.km.toFixed(1)} km` : ""}</span>
+        <span className="spacer" />
+        <button type="button" className="button button--small" onClick={onRemove}><Trash2 size={14} aria-hidden="true" /> Remove</button>
+        <button type="button" className="button button--small" onClick={onClose} aria-label="Close"><X size={14} aria-hidden="true" /></button>
+      </div>
+    </div>
+  );
+}
+
+/** 12.5: GPX, a picture to share, and tidying up: trim the ends, or join two recordings of one walk. */
+function WalkTools({ w, walks, onChanged }: { w: WalkDetail; walks: Walk[]; onChanged: () => void }) {
+  const total = w.profile.length ? w.profile[w.profile.length - 1][0] : w.km ?? 0;
+  const [mode, setMode] = useState<"trim" | "join" | null>(null);
+  const [from, setFrom] = useState(0);
+  const [to, setTo] = useState(total);
+  const [msg, setMsg] = useState<string | null>(null);
+  const sameDay = walks.filter((o) => o.id !== w.id && Math.abs(Date.parse(o.start) - Date.parse(w.start)) < 24 * 3600_000);
+  const run = async (fn: () => Promise<unknown>, done: string) => {
+    setMsg(null);
+    try { await fn(); setMode(null); setMsg(done); onChanged(); } catch (e) { setMsg(e instanceof Error ? e.message : "That didn't work."); }
+  };
+  const download = async (hideHome: boolean) => {
+    const text = await trails.gpx(w.id, hideHome);
+    const url = URL.createObjectURL(new Blob([text], { type: "application/gpx+xml" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${w.name.replace(/[^\w -]+/g, "").trim() || "walk"}.gpx` }).click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
+  const share = async () => {
+    setMsg(null);
+    try {
+      const route = gpxPoints(await trails.gpx(w.id, true));
+      const card = await drawCard({ name: w.name, kind: w.kind, place: w.place?.split(",").slice(-2).join(",").trim() ?? "", when: day(w.start, w.tz),
+        stats: [[n(w.km, "km", 1), "distance"], [hm(w.minutes), "time"], [n(w.ascent_m, "m"), "climbed"], [pace(w.pace_min_per_km), "pace"]],
+        heights: w.profile.map((p) => p[1]) }, route);
+      await shareOrSave(card, `${w.name.replace(/[^\w -]+/g, "").trim() || "walk"}.png`, w.name);
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Couldn't make the picture."); }
+  };
+  return (
+    <section aria-label="Share and tidy up">
+      <div className="trail-section-title">Share and tidy up</div>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="button button--small" onClick={() => void share()}><Share2 size={14} aria-hidden="true" /> Share a picture</button>
+        <button type="button" className="button button--small" onClick={() => void download(false)}><Download size={14} aria-hidden="true" /> GPX</button>
+        <button type="button" className="button button--small" onClick={() => void download(true)} title="Leaves off the start and end near home"><Download size={14} aria-hidden="true" /> GPX without home</button>
+        {w.trimmed
+          ? <button type="button" className="button button--small" onClick={() => void run(() => trails.untrim(w.id), "Back to the whole recording.")}><Scissors size={14} aria-hidden="true" /> Undo trim</button>
+          : <button type="button" className="button button--small" aria-expanded={mode === "trim"} onClick={() => setMode(mode === "trim" ? null : "trim")}><Scissors size={14} aria-hidden="true" /> Trim</button>}
+        {w.joined?.length
+          ? <button type="button" className="button button--small" onClick={() => void run(() => trails.split(w.id), "Split back into two walks.")}><Merge size={14} aria-hidden="true" /> Split again</button>
+          : sameDay.length > 0 && <button type="button" className="button button--small" aria-expanded={mode === "join"} onClick={() => setMode(mode === "join" ? null : "join")}><Merge size={14} aria-hidden="true" /> Join</button>}
+      </div>
+      {mode === "trim" && (
+        <div className="trail-trim">
+          <label>Start at <b>{from.toFixed(2)} km</b>
+            <input type="range" min={0} max={total} step={0.01} value={from} onChange={(e) => setFrom(Math.min(Number(e.target.value), to - 0.05))} /></label>
+          <label>Finish at <b>{to.toFixed(2)} km</b>
+            <input type="range" min={0} max={total} step={0.01} value={to} onChange={(e) => setTo(Math.max(Number(e.target.value), from + 0.05))} /></label>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>Keeps {(to - from).toFixed(2)} of {total.toFixed(2)} km. The whole recording is kept, so you can undo it.</p>
+          <button type="button" className="button button--small button--primary" style={{ alignSelf: "flex-start" }}
+            disabled={from <= 0.001 && to >= total - 0.001} onClick={() => void run(() => trails.trim(w.id, from, to), "Trimmed.")}>Trim</button>
+        </div>
+      )}
+      {mode === "join" && (
+        <ul className="items">
+          {sameDay.map((o) => (
+            <li key={o.id}>
+              <button type="button" className="item item--button" onClick={() => void run(() => trails.join(w.id, o.id), `Joined with ${o.name}.`)}>
+                <span className="item__text"><span className="item__title">Join with {o.name}</span>
+                  <span className="item__subtitle">{time(o.start, o.tz)} · {n(o.km, "km", 1)} · {hm(o.minutes)}. It can be split out again.</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {msg && <p className="muted" role="status" style={{ margin: "6px 0 0", fontSize: 13 }}>{msg}</p>}
+    </section>
   );
 }
 

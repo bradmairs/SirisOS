@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, request } from "./client";
 
 /** SirisTrails (11.22): walks of an hour or more and every hike, with their GPS routes, from Apple Health. */
 export interface Walk {
@@ -11,8 +11,12 @@ export interface Walk {
   tz?: string | null;
   /** 12.4: the weather it was walked in (Open-Meteo), and how many times you've walked this route */
   weather?: TrailWeather; repeats?: number | null;
+  /** 12.5 */
+  photos?: TrailPhoto[]; trimmed?: [number, number]; joined?: string[];
   place?: string | null; loop?: boolean; name_auto?: boolean; region?: string | null; country?: string | null; country_code?: string | null; landmarks?: { peak?: string; trail?: string; park?: string; locality?: string };
 }
+/** 12.5: where on the route it was taken (null when it couldn't be placed) */
+export interface TrailPhoto { id: string; taken: string | null; at: [number, number] | null; km: number | null; w: number | null; h: number | null }
 export interface TrailWeather { temp_c: number; temp_min_c: number; temp_max_c: number; feels_c: number | null; rain_mm: number | null;
   wind_kmh: number | null; gust_kmh: number | null; humidity: number | null; code: number | null; sky: string; icon: string }
 /** 12.4: walks along the same route */
@@ -52,6 +56,24 @@ export const trails = {
   get: (id: string) => api<WalkDetail>(`${T}/${id}`),
   change: (id: string, c: { name?: string; note?: string }) => api<Walk>(`${T}/${id}`, { method: "PATCH", body: JSON.stringify(c) }),
   remove: (id: string) => api<{ ok: boolean }>(`${T}/${id}`, { method: "DELETE" }),
+  // 12.5
+  gpx: async (id: string, hideHome: boolean) => (await request(`${T}/${id}/gpx${hideHome ? "?hide_home=true" : ""}`)).text(),
+  trim: (id: string, from_km: number, to_km: number) => api<Walk>(`${T}/${id}/trim`, { method: "POST", body: JSON.stringify({ from_km, to_km }) }),
+  untrim: (id: string) => api<Walk>(`${T}/${id}/trim`, { method: "DELETE" }),
+  join: (id: string, other: string) => api<Walk>(`${T}/${id}/join`, { method: "POST", body: JSON.stringify({ other }) }),
+  split: (id: string) => api<Walk>(`${T}/${id}/join`, { method: "DELETE" }),
+  addPhoto: (id: string, p: { full: Blob; thumb: Blob; w: number; h: number; info: { taken: string | null; lat: number | null; lon: number | null } }) => {
+    const form = new FormData();
+    form.append("photo", p.full, "photo.jpg");
+    form.append("thumb", p.thumb, "thumb.jpg");
+    form.append("w", String(p.w)); form.append("h", String(p.h));
+    if (p.info.taken) form.append("taken", p.info.taken);
+    if (p.info.lat != null && p.info.lon != null) { form.append("lat", String(p.info.lat)); form.append("lon", String(p.info.lon)); }
+    return api<TrailPhoto>(`${T}/${id}/photos`, { method: "POST", body: form });
+  },
+  /** A blob: URL (images need the sign-in header, which an <img> can't send). */
+  photoUrl: async (id: string, photo: string, thumb: boolean) => URL.createObjectURL(await (await request(`${T}/${id}/photos/${photo}${thumb ? "?thumb=true" : ""}`)).blob()),
+  removePhoto: (id: string, photo: string) => api<{ ok: boolean }>(`${T}/${id}/photos/${photo}`, { method: "DELETE" }),
   importStatus: () => api<TrailsImport>(`${T}/import`),
   uploadExport: (file: File) => {
     const form = new FormData();

@@ -298,6 +298,11 @@ def delete(walk_id: str) -> None:
         doc["deleted"].append(walk["start"])
         _save(doc)
         _route_path(walk_id).unlink(missing_ok=True)
+        from app.trails import tools  # 12.5: and its photos
+
+        import shutil
+
+        shutil.rmtree(tools._photo_dir(walk_id), ignore_errors=True)
 
 
 def _smooth(values: list[float], window: int = 9) -> list[float]:
