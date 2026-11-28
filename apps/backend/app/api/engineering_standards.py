@@ -91,7 +91,11 @@ def _paths(document_id: str) -> tuple[Path, Path, Path]:
     # 11.20: an id is the uuid4().hex it was stored under, nothing that could step outside the library.
     if not _DOCUMENT_ID.fullmatch(document_id or ""):
         raise HTTPException(status_code=404, detail="Standard document not found.")
-    directory = LIBRARY_ROOT / document_id
+    root = os.path.normpath(str(LIBRARY_ROOT))
+    candidate = os.path.normpath(os.path.join(root, document_id))
+    if not candidate.startswith(root + os.sep):
+        raise HTTPException(status_code=404, detail="Standard document not found.")
+    directory = Path(candidate)
     return directory, directory / "metadata.json", directory / "index.json"
 
 
