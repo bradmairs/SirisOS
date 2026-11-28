@@ -120,6 +120,17 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def fingerprint(response: httpx.Response) -> str | None:
+    """11.21.1: what the server says about the file (ETag, else Last-Modified and size), so an unchanged file isn't
+    downloaded again every week. Every publisher in the library sends one of these."""
+    h = response.headers
+    if h.get("etag"):
+        return f"etag:{h['etag']}"
+    if h.get("last-modified") and h.get("content-length"):
+        return f"lm:{h['last-modified']}|{h['content-length']}"
+    return None
+
+
 # -- the check ---------------------------------------------------------------------------------------------------
 
 def check_one(client: httpx.Client, metadata: dict[str, Any]) -> dict[str, Any]:
@@ -139,9 +150,18 @@ def check_one(client: httpx.Client, metadata: dict[str, Any]) -> dict[str, Any]:
         if newer and newer != url:
             out["new_url"] = newer
             url = newer
+    if not out.get("new_url") and source.get("fingerprint"):
+        try:
+            head = client.head(url)
+            if head.status_code < 400 and fingerprint(head) == source["fingerprint"]:
+                es._write_metadata({**metadata, "source": {**source, "checked_at": _now()}})
+                return out  # the server says it's the same file: nothing to download
+        except httpx.HTTPError:
+            pass  # some servers don't answer HEAD: download and compare instead
     response = client.get(url)
     response.raise_for_status()
     data = response.content
+    seen = fingerprint(response)
     if not data.startswith(b"%PDF"):
         return {**out, "status": "error", "why": f"{url} isn't a PDF any more"}
     if len(data) > es.MAX_UPLOAD_BYTES:
@@ -150,7 +170,7 @@ def check_one(client: httpx.Client, metadata: dict[str, Any]) -> dict[str, Any]:
     directory, _, index_path = es._paths(metadata["id"])
     if digest == source.get("sha256") or (not source.get("sha256") and (directory / metadata["filename"]).exists()
                                            and _sha((directory / metadata["filename"]).read_bytes()) == digest):
-        es._write_metadata({**metadata, "source": {**source, "sha256": digest, "checked_at": _now()}})
+        es._write_metadata({**metadata, "source": {**source, "sha256": digest, "fingerprint": seen, "checked_at": _now()}})
         return out
     # A different file: is it a different document, or the same one regenerated?
     probe = directory / ".update-probe.pdf"
@@ -161,13 +181,13 @@ def check_one(client: httpx.Client, metadata: dict[str, Any]) -> dict[str, Any]:
         probe.unlink(missing_ok=True)
     old_pages = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else []
     if not out.get("new_url") and _same_text(new_pages, old_pages):
-        es._write_metadata({**metadata, "source": {**source, "sha256": digest, "checked_at": _now()}})
+        es._write_metadata({**metadata, "source": {**source, "sha256": digest, "fingerprint": seen, "checked_at": _now()}})
         return {**out, "status": "current", "note": "same text, file regenerated"}
     name = re.sub(r"[?#].*$", "", url.rsplit("/", 1)[-1]) if out.get("new_url") else metadata["filename"]
     if not name.lower().endswith(".pdf"):
         name = metadata["filename"]
     new = es.replace_document(metadata["id"], filename=es._safe_filename(name), data=data,
-                              source={**source, "url": url, "sha256": digest, "checked_at": _now()})
+                              source={**source, "url": url, "sha256": digest, "fingerprint": seen, "checked_at": _now()})
     return {**out, "status": "updated", "new_id": new["id"], "revision": new["revision"], "from": metadata.get("edition"), "url": url}
 
 

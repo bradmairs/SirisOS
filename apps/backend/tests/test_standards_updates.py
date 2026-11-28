@@ -10,6 +10,8 @@ from app.api import engineering_standards as es
 from app.engineering import standards_updates as su
 
 RealClient = httpx.Client
+seen_heads: list[str] = []
+downloads: list[str] = []
 
 
 @pytest.fixture
@@ -29,7 +31,14 @@ def _client(files: dict[str, bytes], page: str = "") -> httpx.Client:
         url = str(request.url)
         if url == "https://pub.example/downloads":
             return httpx.Response(200, text=page, headers={"content-type": "text/html"})
-        return httpx.Response(200, content=files[url]) if url in files else httpx.Response(404)
+        if url not in files:
+            return httpx.Response(404)
+        headers = {"etag": f'"{hash(files[url])}"'}
+        if request.method == "HEAD":
+            seen_heads.append(url)
+            return httpx.Response(200, headers=headers)
+        downloads.append(url)
+        return httpx.Response(200, content=files[url], headers=headers)
     return RealClient(transport=httpx.MockTransport(handler))
 
 
@@ -106,3 +115,16 @@ def test_source_can_be_set_and_a_bad_pattern_is_refused(lib) -> None:
     assert c.patch(f"/api/v1/engineering/standards/{doc['id']}", json={"source_url": ""}).json()["source"] is None
     status = c.get("/api/v1/engineering/standards/updates").json()
     assert status["weekly_hour"] == 4 and status["events"] == []
+
+
+def test_an_unchanged_file_isnt_downloaded_again(lib) -> None:
+    data = b"%PDF-1.4 MRWA survey manual"
+    doc = _store(data, {"url": "https://pub.example/survey"})
+    with _client({"https://pub.example/survey": data}) as c:
+        su.check_one(c, es._normalise_metadata(doc))                 # first time: downloaded, its fingerprint kept
+    downloads.clear()
+    with _client({"https://pub.example/survey": data}) as c:
+        assert su.check_one(c, es._normalise_metadata(es._load_metadata(doc["id"])))["status"] == "current"
+    assert downloads == [] and seen_heads[-1] == "https://pub.example/survey"   # asked, not downloaded
+    with _client({"https://pub.example/survey": b"%PDF-1.4 MRWA survey manual v2"}) as c:   # a new file: new ETag
+        assert su.check_one(c, es._normalise_metadata(es._load_metadata(doc["id"])))["status"] == "updated"
