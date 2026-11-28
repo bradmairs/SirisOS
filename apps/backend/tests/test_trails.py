@@ -302,3 +302,91 @@ def test_a_missing_state_is_asked_for_at_state_level(monkeypatch) -> None:
     monkeypatch.setattr(places, "_polite", lambda *a, **k: next(answers))
     got = places.where(None, 35.69, 139.70)
     assert (got["region"], got["place"]) == ("Tokyo", "Shinjuku, Tokyo, Japan")
+
+
+# -- 12.4 ----------------------------------------------------------------------------------------------------------
+
+def loop_track(lat=-37.56, lon=143.85, n=60, start=START, reverse=False, shift=0):
+    """A walk round a 1 km square, starting `shift` points in, either way round."""
+    import math as m
+
+    ring = []
+    for i in range(n):
+        a = 2 * m.pi * i / n
+        ring.append((lat + 0.0045 * m.sin(a), lon + 0.0057 * m.cos(a)))
+    ring = ring[shift:] + ring[:shift]
+    if reverse:
+        ring.reverse()
+    ring.append(ring[0])
+    return [[p[0], p[1], 50.0, (start + timedelta(seconds=60 * i)).isoformat()] for i, p in enumerate(ring)]
+
+
+def test_the_same_route_is_found_either_way_round_and_wherever_you_started() -> None:
+    from app.trails import insights
+
+    days = [START + timedelta(days=d) for d in range(4)]
+    body = {"data": {"workouts": [
+        hae_workout("Outdoor Walk", 70, days[0], loop_track(start=days[0])),
+        hae_workout("Outdoor Walk", 64, days[1], loop_track(start=days[1], reverse=True)),
+        hae_workout("Outdoor Walk", 75, days[2], loop_track(start=days[2], shift=20)),
+        hae_workout("Outdoor Walk", 70, days[3], loop_track(lat=-37.48, start=days[3])),  # the same shape 9 km away
+    ]}}
+    a, b, c, other = service.from_auto_export(body)
+    groups = insights.repeats(service.load()["walks"])
+    assert len(groups) == 1 and groups[0]["count"] == 3 and other["id"] not in [t["id"] for t in groups[0]["times"]]
+    assert groups[0]["fastest"]["id"] == b["id"] and groups[0]["latest"] == c["id"]
+    s = service.summary()
+    assert {w["id"]: w["repeats"] for w in s["walks"]}[a["id"]] == 3 and s["repeats"][0]["count"] == 3
+    d = service.detail(c["id"])
+    assert d["repeat"]["count"] == 3 and service.detail(other["id"])["repeat"] is None
+
+
+def test_trips_away_from_home_with_peaks_and_parks(monkeypatch) -> None:
+    from app.trails import insights
+
+    def walk(i, day, lat, lon, cc, country, region, town, **marks):
+        return {"id": f"w_{i:012x}", "kind": "hike" if marks.get("peak") else "walk", "start": (START + timedelta(days=day)).isoformat(),
+                "start_point": [lat, lon], "km": 5.0, "minutes": 80, "ascent_m": 100, "highest_m": 500 if marks.get("peak") else 40, "name": town,
+                "country_code": cc, "country": country, "region": region, "place": f"{town}, {region}, {country}",
+                "landmarks": {"locality": town, **marks}, "line": [[lat, lon], [lat + 0.01, lon]]}
+
+    walks = [walk(i, i * 7, -37.56, 143.85, "AU", "Australia", "Victoria", "Ballarat", park="Lake Wendouree") for i in range(6)]
+    walks += [walk(10, 60, 35.69, 139.70, "JP", "Japan", "Tokyo", "Shinjuku"), walk(11, 62, 35.66, 139.70, "JP", "Japan", "Tokyo", "Shibuya"),
+              walk(12, 90, -38.55, 143.97, "AU", "Australia", "Victoria", "Lorne", peak="Teddys Lookout")]
+    trips = insights.trips(walks, [{"id": "abcdef1234", "destination": "Tokyo", "start": (START + timedelta(days=59)).date().isoformat(),
+                                    "end": (START + timedelta(days=63)).date().isoformat()}], walks)
+    assert [t["name"] for t in trips] == ["Lorne, May 2024", "Tokyo, Japan, May 2024"]
+    assert trips[1]["count"] == 2 and trips[1]["travel"]["id"] == "abcdef1234" and "travel" not in trips[0]
+    marks = insights.landmarks(walks)
+    assert marks["parks"][0] == {**marks["parks"][0], "name": "Lake Wendouree", "count": 6}
+    assert marks["peaks"][0]["name"] == "Teddys Lookout" and marks["peaks"][0]["highest_m"] == 500
+
+
+def test_the_weather_on_each_walk(monkeypatch) -> None:
+    from app.trails import weather
+
+    monkeypatch.setenv("SIRISOS_TRAILS_WEATHER", "on")
+    (walk,) = service.from_auto_export({"data": {"workouts": [hae_workout("Outdoor Walk", 90)]}})
+    hours = [(START.astimezone(timezone.utc).replace(minute=0) + timedelta(hours=h)) for h in range(-2, 4)]
+    answer = {"hourly": {"time": [h.strftime("%Y-%m-%dT%H:%M") for h in hours], "temperature_2m": [9, 10, 12, 14, 15, 30],
+                         "apparent_temperature": [7, 8, 9, 11, 12, 30], "precipitation": [5, 0, 0.4, 0.8, 0, 9], "weather_code": [65, 3, 61, 3, 2, 95],
+                         "wind_speed_10m": [5, 5, 10, 20, 30, 50], "wind_gusts_10m": [9, 9, 20, 41, 50, 90], "relative_humidity_2m": [90, 90, 80, 70, 60, 50]}}
+    asked = []
+
+    class Client:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, url, params=None):
+            asked.append((url, params))
+            return type("R", (), {"raise_for_status": lambda s: None, "json": lambda s: answer})()
+
+    monkeypatch.setattr(weather.httpx, "Client", Client)
+    assert weather.fill_pending(now=START + timedelta(days=400)) == 1
+    w = service.load()["walks"][0]["weather"]
+    # 8:00 to 9:30: the hours from 8 to 9, so 12 and 14 degrees, not the storm after
+    assert (w["temp_min_c"], w["temp_max_c"], w["rain_mm"], w["gust_kmh"], w["sky"]) == (12, 14, 1.2, 41, "Rain")
+    assert asked[0][0] == weather.ARCHIVE and asked[0][1]["latitude"] == -37.8
+    assert weather.fill_pending(now=START + timedelta(days=400)) == 0          # looked up once
+    rec = service.summary()["weather_records"]
+    assert rec["hottest"]["value"] == 14 and rec["wettest"]["value"] == 1.2 and walk["id"] == rec["coldest"]["id"]

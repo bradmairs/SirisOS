@@ -259,6 +259,35 @@ def set_place(walk_id: str, info: dict[str, Any]) -> dict[str, Any] | None:
         return walk
 
 
+def set_fields(walk_id: str, **fields: Any) -> dict[str, Any] | None:
+    """12.4: background lookups (weather) write their answers here."""
+    with _lock:
+        doc = load()
+        walk = next((w for w in doc["walks"] if w["id"] == walk_id), None)
+        if walk is None:
+            return None
+        walk.update(fields)
+        _save(doc)
+        return walk
+
+
+def _stamp() -> Any:
+    try:
+        st = _index_path().stat()
+        return (str(_index_path()), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _travel() -> list[dict[str, Any]]:
+    try:
+        from app.travel import service as travel
+
+        return travel.load()
+    except Exception:  # noqa: BLE001 - Travel is optional here
+        return []
+
+
 def delete(walk_id: str) -> None:
     with _lock:
         doc = load()
@@ -319,7 +348,11 @@ def detail(walk_id: str) -> dict[str, Any]:
         if d >= next_km:
             km_marks.append([int(next_km // 1000), round(points[i][0], 6), round(points[i][1], 6)])
             next_km += 1000
-    return {**with_tz(walk), "route": [[round(p[0], 6), round(p[1], 6)] for p in points[:: max(1, len(points) // 2000)]],
+    from app.trails import insights
+
+    everything = load()["walks"]
+    group = next((g for g in insights.repeats_cached(everything, _stamp()) if any(t["id"] == walk_id for t in g["times"])), None)
+    return {**with_tz(walk), "repeat": group, "route": [[round(p[0], 6), round(p[1], 6)] for p in points[:: max(1, len(points) // 2000)]],
             "profile": profile, "splits": splits(points), "km_marks": km_marks}
 
 
@@ -412,7 +445,14 @@ def summary(year: int | None = None) -> dict[str, Any]:
         y["km"] += w.get("km") or 0
         y["hours"] += (w.get("minutes") or 0) / 60
     timed = [w for w in walks if w.get("minutes") and w.get("km")]
-    return {"walks": [with_tz(w) for w in walks], "count": len(walks), "hikes": sum(w["kind"] == "hike" for w in walks),
+    from app.trails import insights  # 12.4
+
+    shown = {w["id"] for w in walks}
+    groups = [g for g in insights.repeats_cached(everything, _stamp()) if any(t["id"] in shown for t in g["times"])]
+    count_of = {t["id"]: g["count"] for g in groups for t in g["times"]}
+    return {"walks": [{**with_tz(w), "repeats": count_of.get(w["id"])} for w in walks],
+            "repeats": groups, "landmarks": insights.landmarks(walks), "trips": insights.trips(walks, _travel(), everything),
+            "weather_records": insights.weather_records(walks), "count": len(walks), "hikes": sum(w["kind"] == "hike" for w in walks),
             "km": round(total(walks, "km"), 1), "hours": round(total(walks, "minutes") / 60, 1), "ascent_m": round(total(walks, "ascent_m")),
             "highest_m": max((w["highest_m"] for w in walks if w.get("highest_m") is not None), default=None),
             "longest_km": max((w["km"] for w in walks if w.get("km")), default=None),
