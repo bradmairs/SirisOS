@@ -19,6 +19,7 @@ START = datetime(2024, 3, 2, 8, 0, tzinfo=timezone(timedelta(hours=11)))
 @pytest.fixture(autouse=True)
 def folder(tmp_path, monkeypatch):
     monkeypatch.setenv("SIRISOS_TRAILS_PATH", str(tmp_path / "trails"))
+    monkeypatch.setenv("SIRISOS_TRAILS_PLACES", "off")  # no background naming runs (or network) unless a test turns it on
     service._status.update(running=False)
     return tmp_path
 
@@ -205,6 +206,7 @@ def test_where_you_walked_by_country_and_state_with_records() -> None:
 def test_the_fast_pass_names_everything_then_overpass_a_few_at_a_time(monkeypatch) -> None:
     from app.trails import places
 
+    monkeypatch.setenv("SIRISOS_TRAILS_PLACES", "on")
     walks = service.from_auto_export({"data": {"workouts": [hae_workout("Outdoor Walk", 80, START + timedelta(days=i)) for i in range(3)]}})
     calls = []
 
@@ -218,3 +220,31 @@ def test_the_fast_pass_names_everything_then_overpass_a_few_at_a_time(monkeypatc
     assert calls == [False, False, False, True]
     got = {w["id"]: w for w in service.load()["walks"]}
     assert sum(1 for w in got.values() if w.get("overpass_done")) == 1 and all(w["country"] == "New Zealand" for w in got.values())
+
+
+
+def test_a_new_walk_is_named_straight_away_and_runs_never_overlap(monkeypatch) -> None:
+    from app.hub import sirisai_api
+    from app.trails import places
+    from app.training import health_import
+
+    started = []
+    monkeypatch.setattr(places, "kick", lambda: started.append(True))
+
+    async def post(hub, path, json=None, timeout=None, headers=None):
+        return {"days": {}, "format": "health_auto_export"}
+
+    monkeypatch.setattr(sirisai_api, "post", post)
+    monkeypatch.setattr(health_import, "check", lambda key: True)
+    TestClient(app).post("/api/v1/health/import", headers={"Authorization": "Bearer k"},
+                         content=json.dumps({"data": {"workouts": [hae_workout("Hiking", 90)]}}))
+    assert started == [True]                                                        # a walk arrived: naming kicked off
+    TestClient(app).post("/api/v1/health/import", headers={"Authorization": "Bearer k"},
+                         content=json.dumps({"data": {"workouts": [hae_workout("Outdoor Run", 90)]}}))
+    assert started == [True]                                                        # nothing kept: nothing to name
+    monkeypatch.setenv("SIRISOS_TRAILS_PLACES", "on")
+    assert places._naming.acquire(blocking=False)
+    try:
+        assert places.name_pending() == 0                                           # a run already going: this one steps aside
+    finally:
+        places._naming.release()

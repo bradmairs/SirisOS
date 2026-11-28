@@ -21,6 +21,7 @@ import logging
 import math
 import os
 import re
+import threading
 import time
 from typing import Any
 
@@ -42,6 +43,7 @@ SAMPLES = 40
 # A road isn't a walk's name ("Calwell Road" through Sugarloaf Reservoir Park); "Track", "Walk", "Trail" are.
 ROADISH = re.compile(r"\b(road|rd|street|st|lane|ln|avenue|ave|drive|dr|highway|hwy|court|crescent|parade)\.?$", re.I)
 _last_call = 0.0
+_naming = threading.Lock()  # one naming run at a time (the 10-minute loop, or a kick when a walk arrives)
 
 
 def enabled() -> bool:
@@ -215,8 +217,23 @@ def name_pending(limit: int = 200, overpass_limit: int = 6) -> int:
     parks (slow). Returns how many were looked up."""
     from app.trails import service
 
-    if not enabled():
+    if not enabled() or not _naming.acquire(blocking=False):
         return 0
+    try:
+        return _name_pending(limit, overpass_limit)
+    finally:
+        _naming.release()
+
+
+def kick() -> None:
+    """12.2.1: name new walks now, in the background, instead of at the next 10-minute run."""
+    if enabled() and not _naming.locked():
+        threading.Thread(target=name_pending, daemon=True, name="trails-naming").start()
+
+
+def _name_pending(limit: int, overpass_limit: int) -> int:
+    from app.trails import service
+
     done = 0
 
     def fast() -> list[tuple[dict[str, Any], bool]]:

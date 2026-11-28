@@ -534,6 +534,10 @@ def start_apple_import(zip_path: Path) -> bool:
                 doc = load()
                 doc["last_import"] = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **result}
                 _save(doc)
+            if result.get("added"):
+                from app.trails import places
+
+                places.kick()  # 12.2.1: the new walks are named straight away
         except Exception as exc:  # noqa: BLE001 - say why on the screen
             _status["error"] = str(exc)[:300]
         finally:
