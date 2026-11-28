@@ -10,17 +10,19 @@ const drawn: { lines: number } = { lines: 0 };
 vi.mock("leaflet", () => {
   const chain = (): Record<string, unknown> => ({ addTo: () => chain(), bindTooltip: () => chain(), on: () => chain(), getBounds: () => ({ isValid: () => true }),
     setLatLng: () => chain(), setStyle: () => chain() });
+  const group = () => ({ addTo: () => group(), clearLayers: vi.fn(), addLayer: vi.fn(), removeLayer: vi.fn() });
   const L = {
-    map: () => ({ fitBounds: vi.fn(), setView: vi.fn(), invalidateSize: vi.fn(), remove: vi.fn() }),
-    tileLayer: () => chain(), control: { layers: () => chain() }, layerGroup: () => ({ addTo: () => ({ clearLayers: vi.fn() }), clearLayers: vi.fn() }),
+    map: () => ({ fitBounds: vi.fn(), setView: vi.fn(), invalidateSize: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn(), getZoom: () => 5,
+      latLngToLayerPoint: ([lat, lon]: [number, number]) => ({ x: lon * 10, y: lat * 10 }), layerPointToLatLng: () => [0, 0] }),
+    tileLayer: () => chain(), control: { layers: () => chain() }, layerGroup: group,
     polyline: () => { drawn.lines += 1; return chain(); }, circleMarker: () => chain(), marker: () => chain(), divIcon: () => ({}),
-    latLngBounds: () => ({ extend: vi.fn(), isValid: () => true }),
+    point: (x: number, y: number) => ({ x, y }), latLngBounds: () => ({ extend: vi.fn(), isValid: () => true }),
   };
   return { default: L, ...L };
 });
 vi.mock("leaflet/dist/leaflet.css", () => ({}));
 
-import { TrailsScreen } from "./Trails";
+import { TrailsScreen, cluster } from "./Trails";
 
 const walk = (id: string, kind: "walk" | "hike", name: string) => ({
   id, kind, name, note: "", start: "2024-03-02T08:00:00+11:00", end: null, minutes: 135, km: 9.4, kcal: 600, avg_hr: 118, max_hr: 150,
@@ -53,7 +55,7 @@ describe("SirisTrails 11.22", () => {
     render(<MemoryRouter><TrailsScreen /></MemoryRouter>);
     expect(await screen.findByText("18.8 km")).toBeInTheDocument();
     expect(screen.getByText("1,922 m")).toBeInTheDocument();
-    expect(drawn.lines).toBe(2);
+    expect(drawn.lines).toBeGreaterThanOrEqual(4);                                  // each route, and a wide one to tap
     expect(screen.getByText(/2 added, 0 already here, 1 with no route recorded/)).toBeInTheDocument();
     // 12.2: states per country, records, years
     expect(screen.getByText("countries")).toBeInTheDocument();
@@ -73,5 +75,30 @@ describe("SirisTrails 11.22", () => {
     await user.clear(name);
     await user.type(name, "Feathertop via the Razorback{Enter}");
     await waitFor(() => expect(calls.some((c) => c.init.method === "PATCH" && String(c.init.body).includes("Razorback"))).toBe(true));
+  });
+});
+
+
+describe("SirisTrails 12.3", () => {
+  it("groups walks that are close on screen into one marker", () => {
+    const groups = cluster([{ id: "a", x: 0, y: 0 }, { id: "b", x: 10, y: 10 }, { id: "c", x: 200, y: 200 }]);
+    expect(groups.map((g) => g.ids)).toEqual([["a", "b"], ["c"]]);
+  });
+
+  it("lists the latest 5, then all of them by year", async () => {
+    signIn();
+    const many = Array.from({ length: 7 }, (_, i) => ({ ...walk(`w_00000000001${i}`, "walk", `Walk ${i}`), start: `${i < 4 ? 2025 : 2024}-0${i + 1}-02T08:00:00+11:00` }));
+    mockFetch({
+      "/api/v1/trails/import": () => jsonResponse({}),
+      "/api/v1/trails": () => jsonResponse({ walks: many, count: 7, hikes: 0, km: 60, hours: 15, ascent_m: 0, highest_m: null, longest_km: 9.4, years: [2025, 2024],
+        avg_km: 9, avg_minutes: 135, avg_pace: 14, countries: 0, regions: 0, places: 0, where: [], by_year: [],
+        records: { longest: null, longest_time: null, most_climbing: null, highest: null } }),
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><TrailsScreen /></MemoryRouter>);
+    const latest = await screen.findByRole("list", { name: "Latest walks and hikes" });
+    expect(latest.querySelectorAll("li")).toHaveLength(5);
+    await user.click(screen.getByRole("button", { name: "Show all 7, by year" }));
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["2025 4", "2024 3"]);   // newest year first
   });
 });

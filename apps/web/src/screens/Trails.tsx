@@ -5,6 +5,7 @@ import { Footprints, MapPin, MapPinned, Mountain, Pencil, Trash2, Trophy, Upload
 import { useResource } from "../api/resource";
 import { trails, type TrailRecord, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
 import { Glass } from "../components/Glass";
+import { LatestThenGrouped } from "../components/Grouped";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
 import { undoable } from "../components/Undo";
@@ -105,8 +106,10 @@ export function TrailsScreen() {
         {walks.length > 0 && (
           <Glass as="section" className="widget" aria-label="Walks">
             <header className="widget__head"><Footprints aria-hidden="true" /><span>Walks and hikes</span></header>
-            <ul className="items">
-              {walks.map((w) => (
+            {/* 12.3: the latest 5, then all of them by year, like the other lists */}
+            <LatestThenGrouped items={walks} label="walks and hikes" latest={5} by="year" newest={(a, b) => b.start.localeCompare(a.start)}
+              category={(w) => w.start.slice(0, 4)} groupOrder={(a, b) => b.localeCompare(a)}
+              render={(w) => (
                 <li key={w.id}>
                   <button type="button" className="item item--button" onClick={() => setOpen(w.id)}>
                     <span className="trail-dot" style={{ background: w.kind === "hike" ? HIKE : WALK }} aria-hidden="true" />
@@ -116,8 +119,7 @@ export function TrailsScreen() {
                     </span>
                   </button>
                 </li>
-              ))}
-            </ul>
+              )} />
           </Glass>
         )}
         <ImportCard onDone={reload} />
@@ -131,19 +133,74 @@ export function TrailsScreen() {
   );
 }
 
+/** From this zoom (a city across a phone), the walks are drawn as the routes they took. */
+export const ROUTE_ZOOM = 11;
+
+/** Walks near each other on screen become one marker with a count (12.3). */
+export function cluster(points: { id: string; x: number; y: number }[], px = 44): { ids: string[]; x: number; y: number }[] {
+  const out: { ids: string[]; x: number; y: number }[] = [];
+  for (const p of points) {
+    const near = out.find((c) => Math.hypot(c.x - p.x, c.y - p.y) < px);
+    if (near) { near.ids.push(p.id); near.x += (p.x - near.x) / near.ids.length; near.y += (p.y - near.y) / near.ids.length; }
+    else out.push({ ids: [p.id], x: p.x, y: p.y });
+  }
+  return out;
+}
+
 function OverviewMap({ walks, onPick, focus }: { walks: Walk[]; onPick: (id: string) => void; focus: { label: string; walks: Walk[] } | null }) {
-  const el = useMap((_, layer) => {
+  const onZoom = useRef<(() => void) | null>(null);
+  const el = useMap((map, layer) => {
+    if (onZoom.current) map.off("zoomend", onZoom.current);
     const all = L.latLngBounds([]), shown = L.latLngBounds([]);
     const ids = new Set((focus?.walks ?? []).map((w) => w.id));
-    for (const w of walks) {
+    // 12.3: walks either side of the Pacific (Hawaii and Australia) are measured across it, not around the world the
+    // other way, so the map centres on them rather than on the Atlantic.
+    const lons = walks.map((w) => w.start_point[1]);
+    const wrap = lons.length > 1 && Math.max(...lons) - Math.min(...lons) > 180;
+    const fix = (p: [number, number]): [number, number] => (wrap && p[1] < 0 ? [p[0], p[1] + 360] : p);
+    const shifted = walks.map((w) => ({ ...w, line: w.line.map(fix), start_point: fix(w.start_point) }));
+    const byId = new Map(shifted.map((w) => [w.id, w]));
+    const routes = L.layerGroup(), markers = L.layerGroup();
+    for (const w of shifted) {
       if (w.line.length < 2) continue;
-      const line = L.polyline(w.line, { color: w.kind === "hike" ? HIKE : WALK, weight: 4, opacity: 0.9 })
-        .bindTooltip(`${w.name} · ${n(w.km, "km", 1)}`).on("click", () => onPick(w.id));
-      line.addTo(layer);
-      L.circleMarker(w.start_point, { radius: 4, color: "#fff", weight: 1, fillColor: w.kind === "hike" ? HIKE : WALK, fillOpacity: 1 }).addTo(layer);
+      const colour = w.kind === "hike" ? HIKE : WALK;
+      const edge = L.polyline(w.line, { color: "#0f172a", weight: 7, opacity: 0.55, interactive: false });  // readable on water and satellite
+      const line = L.polyline(w.line, { color: colour, weight: 4, opacity: 0.95, interactive: false });
+      // a wide, invisible line over it: easy to tap with a finger
+      const hit = L.polyline(w.line, { color: colour, weight: 22, opacity: 0 })
+        .bindTooltip(`${w.name} · ${n(w.km, "km", 1)}`, { sticky: true })
+        .on("click", () => onPick(w.id))
+        .on("mouseover", () => { line.setStyle({ weight: 7 }); edge.setStyle({ weight: 10 }); })
+        .on("mouseout", () => { line.setStyle({ weight: 4 }); edge.setStyle({ weight: 7 }); });
+      routes.addLayer(edge); routes.addLayer(line); routes.addLayer(hit);
       all.extend(line.getBounds());
       if (ids.has(w.id)) shown.extend(line.getBounds());
     }
+    const redraw = () => {
+      if (map.getZoom() >= ROUTE_ZOOM) {
+        layer.removeLayer(markers); layer.addLayer(routes);
+        return;
+      }
+      layer.removeLayer(routes);
+      markers.clearLayers();
+      const pts = shifted.filter((w) => w.line.length >= 2).map((w) => ({ id: w.id, ...map.latLngToLayerPoint(w.start_point) }));
+      for (const c of cluster(pts)) {
+        const members = c.ids.map((id) => byId.get(id)!);
+        const bounds = L.latLngBounds([]);
+        members.forEach((m) => bounds.extend(L.polyline(m.line).getBounds()));
+        const hike = members.every((m) => m.kind === "hike");
+        const icon = L.divIcon({ className: `trail-pin ${hike ? "trail-pin--hike" : ""}`, html: c.ids.length > 1 ? `<span>${c.ids.length}</span>` : "",
+          iconSize: c.ids.length > 1 ? [30, 30] : [16, 16] });
+        L.marker(map.layerPointToLatLng(L.point(c.x, c.y)), { icon, keyboard: false })
+          .bindTooltip(c.ids.length > 1 ? `${c.ids.length} walks: zoom in` : `${members[0].name}: zoom in to see the route`)
+          .on("click", () => map.fitBounds(bounds, { padding: [30, 30], maxZoom: Math.max(ROUTE_ZOOM + 2, map.getZoom() + 2) }))
+          .addTo(markers);
+      }
+      layer.addLayer(markers);
+    };
+    onZoom.current = redraw;
+    map.on("zoomend", redraw);
+    setTimeout(redraw, 80);
     return focus && shown.isValid() ? shown : all;
   }, [walks, focus]);
   return (
@@ -151,6 +208,7 @@ function OverviewMap({ walks, onPick, focus }: { walks: Walk[]; onPick: (id: str
       <div ref={el} className="trail-map" role="application" aria-label="Map" />
       <div className="row muted" style={{ gap: 14, fontSize: 12, padding: "8px 14px", flexWrap: "wrap" }}>
         <span><span className="trail-dot" style={{ background: HIKE }} /> Hikes</span><span><span className="trail-dot" style={{ background: WALK }} /> Walks of an hour or more</span>
+        <span>Zoom in to see each route; tap one for its details.</span>
         {focus && <span style={{ marginLeft: "auto" }}>Showing {focus.label}</span>}
       </div>
     </Glass>
@@ -312,7 +370,7 @@ function WalkSheet({ id, onClose, onChanged, onDelete }: { id: string; onClose: 
     marker.current = null;
     if (!w || w.route.length < 2) return null;
     const colour = w.kind === "hike" ? HIKE : WALK;
-    L.polyline(w.route, { color: "#0f172a", weight: 8, opacity: 0.35 }).addTo(layer);   // a dark edge: readable on satellite
+    L.polyline(w.route, { color: "#0f172a", weight: 9, opacity: 0.6 }).addTo(layer);   // a dark edge: readable on water and satellite
     const line = L.polyline(w.route, { color: colour, weight: 5 }).addTo(layer);
     for (const [km, lat, lon] of w.km_marks ?? []) {
       L.marker([lat, lon], { icon: L.divIcon({ className: "trail-km", html: `<span>${km}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false }).addTo(layer);
