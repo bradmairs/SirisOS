@@ -158,6 +158,12 @@ async def collect(hub: Hub, now: datetime) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001 - one source never stops the others
         logger.info("Push: inbox unavailable: %s", exc)
     out += brief_message(now)
+    try:  # 11.21: a standard in the library has a new version
+        from app.engineering import standards_updates
+
+        out += standards_updates.push_messages(now)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("Push: standards updates unavailable: %s", exc)
     try:
         from app.wrapup import service as wrapup
 
