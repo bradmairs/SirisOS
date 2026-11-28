@@ -857,6 +857,14 @@ Every route, generated from the app by `apps/backend/scripts/api_docs.py` (don't
 | `DELETE /api/v1/trails/{walk_id}` |  |
 | `GET /api/v1/trails/{walk_id}` |  |
 | `PATCH /api/v1/trails/{walk_id}` |  |
+| `GET /api/v1/trails/{walk_id}/gpx` |  |
+| `DELETE /api/v1/trails/{walk_id}/join` |  |
+| `POST /api/v1/trails/{walk_id}/join` |  |
+| `POST /api/v1/trails/{walk_id}/photos` |  |
+| `DELETE /api/v1/trails/{walk_id}/photos/{photo_id}` |  |
+| `GET /api/v1/trails/{walk_id}/photos/{photo_id}` |  |
+| `DELETE /api/v1/trails/{walk_id}/trim` |  |
+| `POST /api/v1/trails/{walk_id}/trim` |  |
 
 ### `/api/v1/training`
 
