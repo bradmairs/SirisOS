@@ -127,3 +127,21 @@ def test_broken_characters_in_a_pdfs_text_dont_fail_the_upload(tmp_path, monkeyp
     except RuntimeError:
         pass
     assert [p.name for p in tmp_path.iterdir()] == [stored["id"]]   # the failed one left nothing behind
+
+
+def test_search_ranks_across_the_whole_library_not_whichever_came_first(tmp_path, monkeypatch) -> None:
+    """11.20.2: the best match wins even when other standards are read first."""
+    import json as _json
+
+    from app.api import engineering_standards as es
+
+    monkeypatch.setattr(es, "LIBRARY_ROOT", tmp_path)
+    for n, text in enumerate(["storm", "storm", "storm", "critical storm duration critical storm duration"]):
+        doc_id = f"{n:032x}"
+        (tmp_path / doc_id).mkdir()
+        (tmp_path / doc_id / "metadata.json").write_text(_json.dumps({"id": doc_id, "title": f"Doc {n}", "authority": "A", "filename": "x.pdf",
+                                                                      "uploaded_at": "2026-11-28", "pages": 1, "indexed": True}))
+        (tmp_path / doc_id / "index.json").write_text(_json.dumps([{"page": 1, "text": text}]))
+    hits = es._search("critical storm duration", None, False, 2).hits
+    assert hits[0].document.title == "Doc 3"
+    assert len(es._search("", None, False, 2).hits) == 2

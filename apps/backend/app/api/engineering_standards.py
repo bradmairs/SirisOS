@@ -280,12 +280,11 @@ def _search(query: str, authority: str | None, include_archived: bool, limit: in
                     pages = load_json(index_path)
                 except (OSError, json.JSONDecodeError):
                     pages = []
-                remaining = max(0, min(5, limit - len(hits)))
-                for ranked in rank_pages(pages, query_value, limit=remaining):
+                # 11.20.2: every standard is scored before the best are picked; stopping at `limit` hits ranked whichever
+                # folders came first, so with 28 standards ARR could lose to a wetland manual on "critical storm duration".
+                for ranked in rank_pages(pages, query_value, limit=min(5, limit)):
                     hits.append(StandardSearchHit(document=document, page=ranked.page or None, snippet=_snippet(ranked.text, query_value), score=ranked.score, citation=_citation(metadata, ranked.page)))
-                    if len(hits) >= limit:
-                        break
-        if len(hits) >= limit:
+        if not query_value and len(hits) >= limit:  # a plain listing can stop; a search looks at everything
             break
     hits.sort(key=lambda hit: -(hit.score or 0))
     return StandardSearchResponse(query=query_value, hits=hits[:limit])
