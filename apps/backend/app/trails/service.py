@@ -245,6 +245,9 @@ def set_place(walk_id: str, info: dict[str, Any]) -> dict[str, Any] | None:
         walk["landmarks"] = {k: info.get(k) for k in ("peak", "trail", "park", "locality") if info.get(k)}
         for k in ("region", "country", "country_code"):  # 12.2: for states per country
             walk[k] = info.get(k)
+        from app.trails.places import PLACE_VERSION
+
+        walk["place_v"] = PLACE_VERSION
         if info.get("overpass_done"):
             walk["overpass_done"] = True
         # Overpass couldn't be reached: the place-name fallback stands, and it's looked up again on a later run.

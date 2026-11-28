@@ -248,3 +248,26 @@ def test_a_new_walk_is_named_straight_away_and_runs_never_overlap(monkeypatch) -
         assert places.name_pending() == 0                                           # a run already going: this one steps aside
     finally:
         places._naming.release()
+
+
+
+def test_japans_prefectures_and_hikes_first(monkeypatch) -> None:
+    from app.trails import places
+
+    assert places._place_line({"city": "Hakone", "province": "Kanagawa Prefecture", "country": "Japan"})[1] == "Hakone, Kanagawa Prefecture, Japan"
+    monkeypatch.setenv("SIRISOS_TRAILS_PLACES", "on")
+    walk, hike = service.from_auto_export({"data": {"workouts": [hae_workout("Outdoor Walk", 80), hae_workout("Hiking", 80, START + timedelta(days=1))]}})
+    order = []
+
+    def fake(points, kind, overpass=True):
+        order.append((kind, overpass))
+        return {"name": "x", "place": "x", "region": "Kanagawa Prefecture", "country": "Japan", "country_code": "JP", "loop": False,
+                **({"overpass_done": True} if overpass else {})}
+
+    monkeypatch.setattr(places, "describe", fake)
+    places.name_pending(overpass_limit=1)
+    assert order[-1] == ("hike", True)                                              # the slow pass takes hikes first
+    assert all(w["place_v"] == places.PLACE_VERSION for w in service.load()["walks"])
+    order.clear()
+    places.name_pending(overpass_limit=0)
+    assert order == []                                                              # placed with a region: not looked up again

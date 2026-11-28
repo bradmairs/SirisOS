@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 # The main public Overpass server, then a mirror: they're often busy, so each is tried with a pause between.
 OVERPASS = [u for u in os.getenv("SIRISOS_TRAILS_OVERPASS", "https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter").split(",") if u]
-MAX_TRIES = 4  # runs that couldn't reach Overpass before a walk is left with its place-name fallback
+MAX_TRIES = 4
+PLACE_VERSION = 2  # 12.2.2: Japan's prefectures (address "province")  # runs that couldn't reach Overpass before a walk is left with its place-name fallback
 NOMINATIM = os.getenv("SIRISOS_TRAILS_NOMINATIM", "https://nominatim.openstreetmap.org/reverse")
 UA = "SirisOS-SirisTrails/12 (self-hosted personal walk log)"
 PEAK_M = 250
@@ -137,7 +138,7 @@ def choose(elements: list[dict[str, Any]], pts: list[tuple[float, float]], highe
 
 def _place_line(addr: dict[str, Any]) -> tuple[str | None, str]:
     local = next((addr.get(k) for k in ("suburb", "village", "town", "hamlet", "city_district", "city", "municipality", "county") if addr.get(k)), None)
-    region = addr.get("state") or addr.get("region") or addr.get("state_district")
+    region = addr.get("state") or addr.get("province") or addr.get("region") or addr.get("state_district")
     parts = [p for p in (local, region, addr.get("country")) if p]
     out: list[str] = []
     for p in parts:
@@ -151,7 +152,8 @@ def where(client: httpx.Client, lat: float, lon: float) -> dict[str, Any]:
     r = _polite(client, "GET", NOMINATIM, params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 14, "addressdetails": 1})
     addr = (r.json() or {}).get("address") or {}
     local, place = _place_line(addr)
-    return {"locality": local, "place": place or None, "region": addr.get("state") or addr.get("region") or addr.get("state_district"),
+    return {"locality": local, "place": place or None,
+            "region": addr.get("state") or addr.get("province") or addr.get("region") or addr.get("state_district"),  # Japan: province
             "country": addr.get("country"), "country_code": (addr.get("country_code") or "").upper() or None}
 
 
@@ -237,11 +239,13 @@ def _name_pending(limit: int, overpass_limit: int) -> int:
     done = 0
 
     def fast() -> list[tuple[dict[str, Any], bool]]:
-        return [(w, False) for w in service.load()["walks"] if not w.get("country")][:limit]
+        # PLACE_VERSION: walks placed by an older lookup (before Japan's prefectures were read) are placed again
+        return [(w, False) for w in service.load()["walks"] if not w.get("country") or (not w.get("region") and (w.get("place_v") or 1) < PLACE_VERSION)][:limit]
 
     def slow() -> list[tuple[dict[str, Any], bool]]:  # chosen after the fast pass, so it sees the walks just placed
-        return [(w, True) for w in service.load()["walks"]
-                if w.get("country") and not w.get("overpass_done") and (w.get("names_retry") or 0) < MAX_TRIES][:overpass_limit]
+        todo = [w for w in service.load()["walks"] if w.get("country") and not w.get("overpass_done") and (w.get("names_retry") or 0) < MAX_TRIES]
+        todo.sort(key=lambda w: w["kind"] != "hike")  # hikes first: tracks, parks and peaks matter most there
+        return [(w, True) for w in todo][:overpass_limit]
 
     for walk, use_overpass in _chain(fast, slow):
         try:
