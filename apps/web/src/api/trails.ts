@@ -7,6 +7,8 @@ export interface Walk {
   moving_minutes: number | null; ascent_m: number | null; descent_m: number | null; highest_m: number | null; lowest_m: number | null;
   pace_min_per_km: number | null; start_point: [number, number]; line: [number, number][]; source: string;
   /** 12.1: from OpenStreetMap (places.py); name_auto is false once you've renamed it. */
+  /** 12.2.3: the walk's own time zone, from where it was */
+  tz?: string | null;
   place?: string | null; loop?: boolean; name_auto?: boolean; region?: string | null; country?: string | null; country_code?: string | null; landmarks?: { peak?: string; trail?: string; park?: string; locality?: string };
 }
 export interface Split { km: number; length_km: number; minutes: number | null; pace_min_per_km: number | null; up_m: number; down_m: number }
@@ -17,7 +19,7 @@ export interface WalkDetail extends Walk {
   splits: Split[];
   km_marks: [number, number, number][];
 }
-export interface TrailRecord { id: string; name: string; value: number; start: string }
+export interface TrailRecord { id: string; name: string; value: number; start: string; tz?: string | null }
 export interface Trails {
   walks: Walk[]; count: number; hikes: number; km: number; hours: number; ascent_m: number;
   highest_m: number | null; longest_km: number | null; years: number[];
