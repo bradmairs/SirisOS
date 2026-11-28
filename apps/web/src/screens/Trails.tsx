@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Footprints, MapPin, MapPinned, Mountain, Pencil, Trash2, Upload } from "lucide-react";
+import { Footprints, MapPin, MapPinned, Mountain, Pencil, Trash2, Trophy, Upload } from "lucide-react";
 import { useResource } from "../api/resource";
-import { trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
+import { trails, type TrailRecord, type Trails, type TrailsImport, type Walk, type WalkDetail } from "../api/trails";
 import { Glass } from "../components/Glass";
 import { PageHead } from "../components/PageHead";
 import { Sheet } from "../components/Sheet";
@@ -31,7 +31,10 @@ function useMap(draw: (map: L.Map, layer: L.LayerGroup) => L.LatLngBounds | null
   useEffect(() => {
     if (!el.current || map.current) return;
     const layers = baseLayers();
-    map.current = L.map(el.current, { worldCopyJump: true, layers: [layers.Topographic] });
+    // 12.2: the world always fills the map: no grey above and below it when zoomed out.
+    const fill = Math.max(1, Math.ceil(Math.log2(Math.max(el.current.clientHeight, el.current.clientWidth) / 256)));
+    map.current = L.map(el.current, { worldCopyJump: true, layers: [layers.Topographic], minZoom: fill,
+      maxBounds: [[-85, -10000], [85, 10000]], maxBoundsViscosity: 1 });
     L.control.layers(layers).addTo(map.current);
     layer.current = L.layerGroup().addTo(map.current);
     return () => { map.current?.remove(); map.current = null; };
@@ -54,6 +57,7 @@ export function TrailsScreen() {
   const res = useResource(`trails:${year ?? "all"}`, () => trails.list(year), { staleMs: 60_000 });
   const [open, setOpen] = useState<string | null>(null);
   const [gone, setGone] = useState<Set<string>>(new Set());
+  const [focus, setFocus] = useState<{ label: string; walks: Walk[] } | null>(null);
   const d = res.data;
   const walks = useMemo(() => (d?.walks ?? []).filter((w) => !gone.has(w.id)), [d, gone]);
   const reload = () => void res.reload(true);
@@ -64,24 +68,30 @@ export function TrailsScreen() {
       {res.error && !d && <div className="error-banner" role="alert">{res.error}</div>}
       <div className="stack" style={{ marginTop: 16 }}>
         {d && d.years.length > 1 && (
-          <div className="row career-views" role="tablist" aria-label="Year" style={{ flexWrap: "wrap" }}>
-            <button type="button" role="tab" aria-selected={!year} className={`chip chip--button ${!year ? "chip--active" : ""}`} onClick={() => setYear(undefined)}>All</button>
+          <div className="trail-years" role="tablist" aria-label="Year">
+            <button type="button" role="tab" aria-selected={!year} className={`chip chip--button ${!year ? "chip--active" : ""}`} onClick={() => setYear(undefined)}>All years</button>
             {d.years.map((y) => <button key={y} type="button" role="tab" aria-selected={year === y} className={`chip chip--button ${year === y ? "chip--active" : ""}`} onClick={() => setYear(y)}>{y}</button>)}
           </div>
         )}
         {d && (
-          <Glass as="section" className="widget" aria-label="Totals">
-            <div className="metrics">
-              <div><div className="metric__value">{d.count}</div><div className="metric__label">walks and hikes</div></div>
-              <div><div className="metric__value">{n(d.km, "km", 1)}</div><div className="metric__label">walked</div></div>
-              <div><div className="metric__value">{n(d.hours, "h")}</div><div className="metric__label">on foot</div></div>
-              <div><div className="metric__value">{n(d.ascent_m, "m")}</div><div className="metric__label">climbed</div></div>
-              <div><div className="metric__value">{n(d.highest_m, "m")}</div><div className="metric__label">highest point</div></div>
-              <div><div className="metric__value">{n(d.longest_km, "km", 1)}</div><div className="metric__label">longest</div></div>
-            </div>
-          </Glass>
+          <section className="trail-stats" aria-label="Totals">
+            <Stat value={String(d.count)} label={`walks and hikes${d.hikes ? ` · ${d.hikes} hikes` : ""}`} />
+            <Stat value={n(d.km, "km", 1)} label="walked" />
+            <Stat value={n(d.hours, "h", 1)} label="on foot" />
+            <Stat value={n(d.ascent_m, "m")} label="climbed" />
+            <Stat value={n(d.highest_m, "m")} label="highest point" />
+            <Stat value={n(d.longest_km, "km", 1)} label="longest walk" />
+            <Stat value={n(d.avg_km, "km", 1)} label={`average walk${d.avg_minutes ? ` · ${hm(d.avg_minutes)}` : ""}`} />
+            <Stat value={pace(d.avg_pace)} label="average pace" />
+            <Stat value={String(d.countries)} label={d.countries === 1 ? "country" : "countries"} />
+            <Stat value={String(d.regions)} label="states and regions" />
+            <Stat value={String(d.places)} label="towns and suburbs" />
+          </section>
         )}
-        <OverviewMap walks={walks} onPick={setOpen} />
+        <OverviewMap walks={walks} onPick={setOpen} focus={focus} />
+        {d && d.where.length > 0 && <WhereCard d={d} walks={walks} onFocus={setFocus} />}
+        {d && <RecordsCard d={d} onPick={setOpen} />}
+        {d && !year && d.by_year.length > 1 && <YearsCard d={d} onPick={setYear} />}
         {d && walks.length === 0 && <GettingStarted />}
         {walks.length > 0 && (
           <Glass as="section" className="widget" aria-label="Walks">
@@ -112,25 +122,107 @@ export function TrailsScreen() {
   );
 }
 
-function OverviewMap({ walks, onPick }: { walks: Walk[]; onPick: (id: string) => void }) {
+function OverviewMap({ walks, onPick, focus }: { walks: Walk[]; onPick: (id: string) => void; focus: { label: string; walks: Walk[] } | null }) {
   const el = useMap((_, layer) => {
-    const bounds = L.latLngBounds([]);
+    const all = L.latLngBounds([]), shown = L.latLngBounds([]);
+    const ids = new Set((focus?.walks ?? []).map((w) => w.id));
     for (const w of walks) {
       if (w.line.length < 2) continue;
       const line = L.polyline(w.line, { color: w.kind === "hike" ? HIKE : WALK, weight: 4, opacity: 0.9 })
         .bindTooltip(`${w.name} · ${n(w.km, "km", 1)}`).on("click", () => onPick(w.id));
       line.addTo(layer);
       L.circleMarker(w.start_point, { radius: 4, color: "#fff", weight: 1, fillColor: w.kind === "hike" ? HIKE : WALK, fillOpacity: 1 }).addTo(layer);
-      bounds.extend(line.getBounds());
+      all.extend(line.getBounds());
+      if (ids.has(w.id)) shown.extend(line.getBounds());
     }
-    return bounds;
-  }, [walks]);
+    return focus && shown.isValid() ? shown : all;
+  }, [walks, focus]);
   return (
     <Glass as="section" className="widget" style={{ padding: 0, overflow: "hidden" }} aria-label="Map of walks">
       <div ref={el} className="trail-map" role="application" aria-label="Map" />
-      <div className="row muted" style={{ gap: 14, fontSize: 12, padding: "8px 14px" }}>
+      <div className="row muted" style={{ gap: 14, fontSize: 12, padding: "8px 14px", flexWrap: "wrap" }}>
         <span><span className="trail-dot" style={{ background: HIKE }} /> Hikes</span><span><span className="trail-dot" style={{ background: WALK }} /> Walks of an hour or more</span>
+        {focus && <span style={{ marginLeft: "auto" }}>Showing {focus.label}</span>}
       </div>
+    </Glass>
+  );
+}
+
+/** 12.2: countries and their states, each tap zooming the map there. */
+function WhereCard({ d, walks, onFocus }: { d: Trails; walks: Walk[]; onFocus: (f: { label: string; walks: Walk[] } | null) => void }) {
+  const [open, setOpen] = useState<string | null>(d.where.length === 1 ? d.where[0].country : null);
+  return (
+    <Glass as="section" className="widget" aria-label="Where you've walked">
+      <header className="widget__head"><MapPin aria-hidden="true" /><span>Where you've walked</span>
+        <button type="button" className="widget__source icon-link" onClick={() => { setOpen(null); onFocus(null); }}>Whole map</button></header>
+      <ul className="trail-where">
+        {d.where.map((c) => (
+          <li key={c.country}>
+            <button type="button" className="trail-where__country" aria-expanded={open === c.country}
+              onClick={() => { setOpen(open === c.country ? null : c.country); onFocus({ label: c.country, walks: walks.filter((w) => w.country === c.country) }); }}>
+              <span className="trail-where__flag" aria-hidden="true">{c.flag || "🌏"}</span>
+              <span className="trail-where__name">{c.country}</span>
+              <span className="trail-where__nums">{c.walks} · {n(c.km, "km")} · {n(c.hours, "h")}</span>
+            </button>
+            {open === c.country && (
+              <ul className="trail-where__regions">
+                {c.regions.map((r) => (
+                  <li key={r.region}>
+                    <button type="button" onClick={() => onFocus({ label: `${r.region}, ${c.country}`, walks: walks.filter((w) => w.country === c.country && (w.region || "Elsewhere") === r.region) })}>
+                      <span>{r.region}</span>
+                      <span className="muted">{r.walks} walk{r.walks === 1 ? "" : "s"} · {n(r.km, "km", 1)}{r.places ? ` · ${r.places} place${r.places === 1 ? "" : "s"}` : ""}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Glass>
+  );
+}
+
+function RecordsCard({ d, onPick }: { d: Trails; onPick: (id: string) => void }) {
+  const rows: [string, TrailRecord | null, (v: number) => string][] = [
+    ["Longest walk", d.records.longest, (v) => n(v, "km", 1)],
+    ["Longest time", d.records.longest_time, (v) => hm(v)],
+    ["Most climbing", d.records.most_climbing, (v) => n(v, "m")],
+    ["Highest walk", d.records.highest, (v) => n(v, "m")],
+  ];
+  if (!rows.some(([, r]) => r)) return null;
+  return (
+    <Glass as="section" className="widget" aria-label="Records">
+      <header className="widget__head"><Trophy aria-hidden="true" /><span>Records</span></header>
+      <ul className="items">
+        {rows.filter(([, r]) => r).map(([label, r, fmt]) => (
+          <li key={label}>
+            <button type="button" className="item item--button" onClick={() => onPick(r!.id)}>
+              <span className="item__text"><span className="item__title">{label}: {fmt(r!.value)}</span><span className="item__subtitle">{r!.name} · {day(r!.start)}</span></span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Glass>
+  );
+}
+
+function YearsCard({ d, onPick }: { d: Trails; onPick: (y: number) => void }) {
+  const max = Math.max(...d.by_year.map((y) => y.km), 1);
+  return (
+    <Glass as="section" className="widget" aria-label="By year">
+      <header className="widget__head"><Footprints aria-hidden="true" /><span>By year</span></header>
+      <ul className="trail-years-chart">
+        {[...d.by_year].reverse().map((y) => (
+          <li key={y.year}>
+            <button type="button" onClick={() => onPick(y.year)} aria-label={`${y.year}: ${y.walks} walks, ${y.km} km`}>
+              <span className="trail-years-chart__year">{y.year}</span>
+              <span className="trail-years-chart__bar"><span style={{ width: `${(y.km / max) * 100}%` }} /></span>
+              <span className="trail-years-chart__nums">{n(y.km, "km")} · {y.walks}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </Glass>
   );
 }

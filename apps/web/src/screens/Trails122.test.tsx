@@ -41,7 +41,13 @@ describe("SirisTrails 11.22", () => {
           splits: [{ km: 1, length_km: 1, minutes: 14, pace_min_per_km: 14, up_m: 60, down_m: 0 }, { km: 2, length_km: 0.4, minutes: 7, pace_min_per_km: 17.5, up_m: 20, down_m: 0 }],
           km_marks: [[1, -36.89, 147.21]] }),
       "/api/v1/trails": () => jsonResponse({ walks: [walk("w_000000000001", "hike", "Hike, Sat 2 Mar 2024"), walk("w_000000000002", "walk", "Walk, Sun 3 Mar 2024")],
-        count: 2, hikes: 1, km: 18.8, hours: 4.5, ascent_m: 1080, highest_m: 1922, longest_km: 9.4, years: [2024] }),
+        count: 2, hikes: 1, km: 18.8, hours: 4.5, ascent_m: 1080, highest_m: 1922, longest_km: 9.4, years: [2024, 2023],
+        avg_km: 9.4, avg_minutes: 135, avg_pace: 14.4, countries: 2, regions: 3, places: 4,
+        where: [{ country: "Australia", code: "AU", flag: "🇦🇺", walks: 2, km: 18.8, hours: 4.5,
+          regions: [{ region: "Victoria", walks: 1, km: 9.4, places: 1 }, { region: "New South Wales", walks: 1, km: 9.4, places: 1 }] },
+          { country: "New Zealand", code: "NZ", flag: "🇳🇿", walks: 1, km: 5, hours: 1.2, regions: [{ region: "Canterbury", walks: 1, km: 5, places: 1 }] }],
+        records: { longest: { id: "w_000000000001", name: "Mount Feathertop", value: 9.4, start: "2024-03-02T08:00:00+11:00" }, longest_time: null, most_climbing: null, highest: null },
+        by_year: [{ year: 2023, walks: 4, km: 20, hours: 5 }, { year: 2024, walks: 2, km: 18.8, hours: 4.5 }] }),
     });
     const user = userEvent.setup();
     render(<MemoryRouter><TrailsScreen /></MemoryRouter>);
@@ -49,6 +55,13 @@ describe("SirisTrails 11.22", () => {
     expect(screen.getByText("1,922 m")).toBeInTheDocument();
     expect(drawn.lines).toBe(2);
     expect(screen.getByText(/2 added, 0 already here, 1 with no route recorded/)).toBeInTheDocument();
+    // 12.2: states per country, records, years
+    expect(screen.getByText("countries")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Australia/ }));
+    expect(screen.getByRole("button", { name: /New South Wales/ })).toBeInTheDocument();
+    expect(screen.getByText(/Showing Australia/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Longest walk: 9.4 km/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2023: 4 walks, 20 km" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Hike, Sat 2 Mar 2024/ }));
     expect(await screen.findByRole("heading", { name: /Mount Feathertop/ })).toBeInTheDocument();
     expect(screen.getByText(/Harrietville, Victoria, Australia/)).toBeInTheDocument();

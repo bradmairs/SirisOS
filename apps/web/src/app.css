@@ -1568,7 +1568,7 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 @media (min-width: 960px) { .undo-banner { bottom: 24px; } }
 
 /* SirisTrails (11.22) */
-.trail-map { height: min(60vh, 520px); width: 100%; background: #1e293b; }
+.trail-map { height: clamp(260px, 45vh, 520px); width: 100%; background: #aad3df; }
 .trail-map--small { height: 300px; border-radius: 12px; overflow: hidden; }
 .trail-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex: none; }
 .leaflet-container { font: inherit; }
@@ -1590,3 +1590,23 @@ code.handbook-cmd { padding: 6px 8px; border-radius: 8px; background: color-mix(
 .trail-splits td { padding: 6px; border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
 .trail-splits__best { color: #22c55e; font-weight: 600; }
 .trail-km { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0f172a; color: #fff; font-size: 11px; font-weight: 600; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+/* SirisTrails 12.2 */
+.trail-years { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.trail-years::-webkit-scrollbar { display: none; }
+.trail-years .chip { flex: none; }
+.trail-where { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.trail-where button { width: 100%; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.trail-where__country { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 10px 4px; border-radius: 10px; }
+.trail-where__country:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+.trail-where__flag { font-size: 22px; line-height: 1; }
+.trail-where__name { font-weight: 600; }
+.trail-where__nums { font-size: 13px; opacity: 0.75; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trail-where__regions { list-style: none; margin: 0 0 6px 36px; padding: 0; display: grid; gap: 2px; }
+.trail-where__regions button { display: flex; justify-content: space-between; gap: 10px; padding: 6px 4px; font-size: 14px; border-radius: 8px; flex-wrap: wrap; }
+.trail-where__regions button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+.trail-years-chart { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.trail-years-chart button { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; width: 100%; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 2px 0; }
+.trail-years-chart__bar { height: 10px; border-radius: 99px; background: color-mix(in srgb, currentColor 10%, transparent); overflow: hidden; }
+.trail-years-chart__bar span { display: block; height: 100%; background: #38bdf8; border-radius: 99px; }
+.trail-years-chart__nums { font-size: 13px; opacity: 0.75; font-variant-numeric: tabular-nums; white-space: nowrap; }
